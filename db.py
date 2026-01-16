@@ -5,38 +5,64 @@ from contextlib import contextmanager
 # ---------------------------
 # CONFIGURATION SQL SERVER
 # ---------------------------
+# IMPORTANT: Toutes les opérations pointent vers le serveur réseau 192.168.10.225
+# Aucune donnée ne doit être stockée sur la base locale du PC
+# 
+# NOTE CRITIQUE: Pour utiliser l'IP 192.168.10.225, il peut être nécessaire de:
+# 1. Utiliser l'authentification SQL Server (UID/PWD) au lieu de Trusted_Connection
+# 2. Ou configurer le serveur pour accepter les connexions depuis cette IP
+#
+# Si l'authentification Windows ne fonctionne pas avec l'IP, décommenter et remplir:
+# "UID": "username_sql",
+# "PWD": "password_sql",
+# Et commenter "Trusted_Connection": "yes"
 DB_CONFIG = {
     "DRIVER": "{SQL Server}",
-    "SERVER": "LAPTOP-LATIFA",
+    "SERVER": "192.168.10.225",  # Serveur reseau - IP directe - TOUTES les operations CRUD pointent ici
     "DATABASE": "novaprint_restored",
     "Trusted_Connection": "yes",
     "TrustServerCertificate": "yes"
+    # Alternative si Trusted_Connection ne fonctionne pas:
+    # "UID": "username_sql_server",
+    # "PWD": "password_sql_server",
 }
 def init_projet6_tables():
-    conn, cur = get_db_cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS VOYAGES (
-            ID INTEGER PRIMARY KEY AUTOINCREMENT,
-            DateVoyage DATE NOT NULL,
-            Destination TEXT,
-            Camion TEXT,
-            Chauffeur TEXT
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS VOYAGE_LIGNES (
-            ID INTEGER PRIMARY KEY AUTOINCREMENT,
-            ID_VOYAGE INTEGER,
-            Client TEXT,
-            NumDossier TEXT,
-            Quantite INTEGER,
-            NbCarton INTEGER,
-            NbPalette INTEGER,
-            Termine BOOLEAN,
-            FOREIGN KEY (ID_VOYAGE) REFERENCES VOYAGES(ID)
-        )
-    """)
-    conn.commit()
+    """
+    Initialise les tables du Projet 6 sur le serveur reseau
+    IMPORTANT: Toutes les tables sont creees sur le serveur reseau 192.168.10.225
+    Aucune table ne doit etre creee localement
+    """
+    with get_db_cursor() as cursor:
+        # Verifier que la table n'existe pas avant de la creer (syntaxe SQL Server)
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'VOYAGES')
+            BEGIN
+                CREATE TABLE VOYAGES (
+                    ID INT IDENTITY(1,1) PRIMARY KEY,
+                    DateVoyage DATE NOT NULL,
+                    Destination NVARCHAR(255),
+                    Camion NVARCHAR(255),
+                    Chauffeur NVARCHAR(255)
+                )
+            END
+        """)
+        cursor.execute("""
+            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'VOYAGE_LIGNES')
+            BEGIN
+                CREATE TABLE VOYAGE_LIGNES (
+                    ID INT IDENTITY(1,1) PRIMARY KEY,
+                    ID_VOYAGE INT,
+                    Client NVARCHAR(255),
+                    NumDossier NVARCHAR(255),
+                    Quantite INT,
+                    NbCarton INT,
+                    NbPalette INT,
+                    Termine BIT,
+                    FOREIGN KEY (ID_VOYAGE) REFERENCES VOYAGES(ID)
+                )
+            END
+        """)
+        cursor.connection.commit()
 
 def get_connection_string():
     return ";".join(f"{k}={v}" for k, v in DB_CONFIG.items())
@@ -1362,6 +1388,819 @@ def creer_prospect(raison_sociale, ville=None, pays=None, telephone=None, email=
 
         cursor.connection.commit()
         return id_societe
+
+# ---------------------------
+# PROJET WEB - WEB_S_DOS_ENCOURS
+# ---------------------------
+def get_web_s_dos_encours(search_numero=None):
+    """
+    Récupère les dossiers en cours depuis WEB_S_DOS_ENCOURS
+    Si search_numero est fourni, recherche les dossiers dont le numéro contient cette valeur
+    """
+    with get_db_cursor() as cursor:
+        # Vérifier quelles colonnes existent
+        try:
+            cursor.execute("""
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+            """)
+            existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
+            avancement_exists = 'Nom_GP_SERVICES' in existing_cols
+            prix_exists = 'PrixVenteUnitaire' in existing_cols
+            quantite_exists = 'QteComm_COMMANDES' in existing_cols
+            prix_total_exists = 'PrixVenteTotal' in existing_cols
+            ct_estime_exists = 'CTEstimé' in existing_cols
+            cout_total_exists = 'CoutTotal' in existing_cols
+            ct_rel_exists = 'CtRel' in existing_cols
+        except Exception as e:
+            print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
+            avancement_exists = False
+            prix_exists = False
+            quantite_exists = False
+            prix_total_exists = False
+            ct_estime_exists = False
+            cout_total_exists = False
+            ct_rel_exists = False
+        
+        # Construire la liste des colonnes dynamiquement
+        columns_list = ['ID', 'Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
+        if avancement_exists:
+            columns_list.append('Nom_GP_SERVICES')
+        if prix_exists:
+            columns_list.append('PrixVenteUnitaire')
+        if quantite_exists:
+            columns_list.append('QteComm_COMMANDES')
+        if prix_total_exists:
+            columns_list.append('PrixVenteTotal')
+        if ct_estime_exists:
+            columns_list.append('CTEstimé')
+        if cout_total_exists:
+            columns_list.append('CoutTotal')
+        if ct_rel_exists:
+            columns_list.append('CtRel')
+        columns_list.extend(['DateCreation', 'DateModification'])
+        
+        select_cols = ', '.join(columns_list)
+        print(f"[DEBUG] Colonnes SELECT: {select_cols}")
+        
+        if search_numero:
+            cursor.execute(f"""
+                SELECT {select_cols}
+                FROM WEB_S_DOS_ENCOURS
+                WHERE Numero_COMMANDES LIKE ?
+                ORDER BY Numero_COMMANDES
+            """, (f'%{search_numero}%',))
+        else:
+            cursor.execute(f"""
+                SELECT {select_cols}
+                FROM WEB_S_DOS_ENCOURS
+                ORDER BY Numero_COMMANDES
+            """)
+        
+        result = []
+        for row in cursor.fetchall():
+            # Convertir Decimal en float pour la sérialisation JSON
+            marge_value = None
+            if row.Coef_COMMANDES is not None:
+                try:
+                    marge_value = float(row.Coef_COMMANDES)
+                except (ValueError, TypeError):
+                    marge_value = None
+            
+            dossier = {
+                "id": row.ID,
+                "numero": row.Numero_COMMANDES,
+                "client": row.RaiSocTri_SOCIETES,
+                "reference": row.Reference_COMMANDES,
+                "marge": marge_value,
+                "date_creation": row.DateCreation.isoformat() if row.DateCreation else None,
+                "date_modification": row.DateModification.isoformat() if row.DateModification else None
+            }
+            
+            # Ajouter avancement seulement si la colonne existe
+            if avancement_exists:
+                dossier["avancement"] = row.Nom_GP_SERVICES if hasattr(row, 'Nom_GP_SERVICES') else None
+            else:
+                dossier["avancement"] = None
+            
+            # Ajouter prix_vente_unitaire seulement si la colonne existe
+            if prix_exists:
+                prix_value = row.PrixVenteUnitaire if hasattr(row, 'PrixVenteUnitaire') else None
+                if prix_value is not None:
+                    dossier["prix_vente_unitaire"] = float(round(prix_value, 3))
+                else:
+                    dossier["prix_vente_unitaire"] = None
+            else:
+                dossier["prix_vente_unitaire"] = None
+            
+            # Ajouter quantite seulement si la colonne existe
+            if quantite_exists:
+                quantite_value = row.QteComm_COMMANDES if hasattr(row, 'QteComm_COMMANDES') else None
+                dossier["quantite"] = int(quantite_value) if quantite_value is not None else None
+            else:
+                dossier["quantite"] = None
+            
+            # Ajouter prix_vente_total seulement si la colonne existe
+            if prix_total_exists:
+                prix_total_value = row.PrixVenteTotal if hasattr(row, 'PrixVenteTotal') else None
+                if prix_total_value is not None:
+                    dossier["prix_vente_total"] = float(round(prix_total_value, 3))
+                else:
+                    dossier["prix_vente_total"] = None
+            else:
+                dossier["prix_vente_total"] = None
+            
+            # Ajouter ct_estime seulement si la colonne existe
+            if ct_estime_exists:
+                ct_estime_value = row.CTEstimé if hasattr(row, 'CTEstimé') else None
+                if ct_estime_value is not None:
+                    dossier["ct_estime"] = float(round(ct_estime_value, 3))
+                else:
+                    dossier["ct_estime"] = None
+            else:
+                dossier["ct_estime"] = None
+            
+            # Ajouter cout_total seulement si la colonne existe
+            if cout_total_exists:
+                cout_total_value = row.CoutTotal if hasattr(row, 'CoutTotal') else None
+                if cout_total_value is not None:
+                    dossier["cout_total"] = float(round(cout_total_value, 3))
+                else:
+                    dossier["cout_total"] = None
+            else:
+                dossier["cout_total"] = None
+            
+            # Ajouter ct_rel seulement si la colonne existe
+            if ct_rel_exists:
+                ct_rel_value = row.CtRel if hasattr(row, 'CtRel') else None
+                if ct_rel_value is not None:
+                    dossier["ct_rel"] = float(round(ct_rel_value, 3))
+                    print(f"[DEBUG get_web_s_dos_encours] Dossier {dossier.get('numero', 'N/A')}: ct_rel récupéré = {dossier['ct_rel']}")
+                else:
+                    dossier["ct_rel"] = None
+                    print(f"[DEBUG get_web_s_dos_encours] Dossier {dossier.get('numero', 'N/A')}: ct_rel est NULL dans la base")
+            else:
+                dossier["ct_rel"] = None
+                print(f"[DEBUG get_web_s_dos_encours] Dossier {dossier.get('numero', 'N/A')}: Colonne CtRel n'existe pas")
+            
+            result.append(dossier)
+        return result
+
+def get_web_s_dos_encours_by_numero(numero):
+    """
+    Récupère un dossier en cours par son numéro
+    """
+    with get_db_cursor() as cursor:
+        # Vérifier si la colonne Nom_GP_SERVICES existe
+        try:
+            cursor.execute("""
+                SELECT COUNT(*) as col_exists
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' AND COLUMN_NAME = 'Nom_GP_SERVICES'
+            """)
+            avancement_exists = cursor.fetchone().col_exists > 0
+        except Exception as e:
+            print(f"[WARNING] Erreur lors de la vérification de la colonne Nom_GP_SERVICES: {e}")
+            avancement_exists = False
+        
+        # Vérifier quelles colonnes existent
+        try:
+            cursor.execute("""
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+            """)
+            existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
+            avancement_exists = 'Nom_GP_SERVICES' in existing_cols
+            prix_exists = 'PrixVenteUnitaire' in existing_cols
+            quantite_exists = 'QteComm_COMMANDES' in existing_cols
+            prix_total_exists = 'PrixVenteTotal' in existing_cols
+            ct_estime_exists = 'CTEstimé' in existing_cols
+            cout_total_exists = 'CoutTotal' in existing_cols
+            ct_rel_exists = 'CtRel' in existing_cols
+        except Exception as e:
+            print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
+            avancement_exists = False
+            prix_exists = False
+            quantite_exists = False
+            prix_total_exists = False
+            ct_estime_exists = False
+            cout_total_exists = False
+            ct_rel_exists = False
+        
+        # Construire la liste des colonnes dynamiquement
+        columns_list = ['ID', 'Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
+        if avancement_exists:
+            columns_list.append('Nom_GP_SERVICES')
+        if prix_exists:
+            columns_list.append('PrixVenteUnitaire')
+        if quantite_exists:
+            columns_list.append('QteComm_COMMANDES')
+        if prix_total_exists:
+            columns_list.append('PrixVenteTotal')
+        if ct_estime_exists:
+            columns_list.append('CTEstimé')
+        if cout_total_exists:
+            columns_list.append('CoutTotal')
+        if ct_rel_exists:
+            columns_list.append('CtRel')
+        columns_list.extend(['DateCreation', 'DateModification'])
+        
+        select_cols = ', '.join(columns_list)
+        
+        cursor.execute(f"""
+            SELECT {select_cols}
+            FROM WEB_S_DOS_ENCOURS
+            WHERE LTRIM(RTRIM(Numero_COMMANDES)) = ?
+        """, (numero.strip(),))
+        
+        row = cursor.fetchone()
+        if row:
+            # Convertir Decimal en float pour la sérialisation JSON
+            marge_value = None
+            if row.Coef_COMMANDES is not None:
+                try:
+                    marge_value = float(row.Coef_COMMANDES)
+                except (ValueError, TypeError):
+                    marge_value = None
+            
+            dossier = {
+                "id": row.ID,
+                "numero": row.Numero_COMMANDES,
+                "client": row.RaiSocTri_SOCIETES,
+                "reference": row.Reference_COMMANDES,
+                "marge": marge_value,
+                "date_creation": row.DateCreation.isoformat() if row.DateCreation else None,
+                "date_modification": row.DateModification.isoformat() if row.DateModification else None
+            }
+            # Ajouter avancement seulement si la colonne existe
+            if avancement_exists:
+                dossier["avancement"] = row.Nom_GP_SERVICES if hasattr(row, 'Nom_GP_SERVICES') else None
+            else:
+                dossier["avancement"] = None
+            
+            # Ajouter prix_vente_unitaire seulement si la colonne existe
+            if prix_exists:
+                prix_value = row.PrixVenteUnitaire if hasattr(row, 'PrixVenteUnitaire') else None
+                if prix_value is not None:
+                    dossier["prix_vente_unitaire"] = float(round(prix_value, 3))
+                else:
+                    dossier["prix_vente_unitaire"] = None
+            else:
+                dossier["prix_vente_unitaire"] = None
+            
+            # Ajouter quantite seulement si la colonne existe
+            if quantite_exists:
+                quantite_value = row.QteComm_COMMANDES if hasattr(row, 'QteComm_COMMANDES') else None
+                dossier["quantite"] = int(quantite_value) if quantite_value is not None else None
+            else:
+                dossier["quantite"] = None
+            
+            # Ajouter prix_vente_total seulement si la colonne existe
+            if prix_total_exists:
+                prix_total_value = row.PrixVenteTotal if hasattr(row, 'PrixVenteTotal') else None
+                if prix_total_value is not None:
+                    dossier["prix_vente_total"] = float(round(prix_total_value, 3))
+                else:
+                    dossier["prix_vente_total"] = None
+            else:
+                dossier["prix_vente_total"] = None
+            
+            # Ajouter ct_estime seulement si la colonne existe
+            if ct_estime_exists:
+                ct_estime_value = row.CTEstimé if hasattr(row, 'CTEstimé') else None
+                if ct_estime_value is not None:
+                    dossier["ct_estime"] = float(round(ct_estime_value, 3))
+                else:
+                    dossier["ct_estime"] = None
+            else:
+                dossier["ct_estime"] = None
+            
+            # Ajouter cout_total seulement si la colonne existe
+            if cout_total_exists:
+                cout_total_value = row.CoutTotal if hasattr(row, 'CoutTotal') else None
+                if cout_total_value is not None:
+                    dossier["cout_total"] = float(round(cout_total_value, 3))
+                else:
+                    dossier["cout_total"] = None
+            else:
+                dossier["cout_total"] = None
+            
+            # Ajouter ct_rel seulement si la colonne existe
+            if ct_rel_exists:
+                ct_rel_value = row.CtRel if hasattr(row, 'CtRel') else None
+                if ct_rel_value is not None:
+                    dossier["ct_rel"] = float(round(ct_rel_value, 3))
+                else:
+                    dossier["ct_rel"] = None
+            else:
+                dossier["ct_rel"] = None
+            
+            return dossier
+        return None
+
+def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, avancement=None, quantite=None, prix_vente_total=None, ct_estime=None, cout_total=None, ct_rel=None):
+    """
+    Crée un nouveau dossier dans WEB_S_DOS_ENCOURS
+    Les données peuvent être copiées depuis COMMANDES et SOCIETES si nécessaire
+    quantite: QteComm_COMMANDES (INT) - valeur saisie par l'utilisateur
+    prix_vente_total: PrixVenteTotal (DECIMAL) - valeur calculée dans l'application
+    ct_estime: CTEstimé (DECIMAL) - valeur calculée dans l'application (Prix de Vente Total / (1 + Marge))
+    cout_total: CoutTotal (DECIMAL) - valeur calculée dans l'application
+    """
+    with get_db_cursor() as cursor:
+        # Récupérer les données depuis COMMANDES et SOCIETES (lecture seule)
+        cursor.execute("""
+            SELECT 
+                C.Numero,
+                S.RaiSocTri,
+                C.Reference,
+                C.QteComm,
+                C.PrxVteReel,
+                C.ID_DEVIS,
+                DC.CoefInt AS MargeCoefInt
+            FROM COMMANDES C
+            LEFT JOIN SOCIETES S ON C.ID_SOCIETE = S.ID
+            LEFT JOIN DEV_COUTS DC ON DC.ID_DEVIS = C.ID_DEVIS
+            WHERE LTRIM(RTRIM(C.Numero)) = ?
+        """, (numero.strip(),))
+        
+        row = cursor.fetchone()
+        if row:
+            # Utiliser les valeurs fournies en paramètre, ou celles de COMMANDES/DEV_COUTS si None
+            client = client if client is not None else row.RaiSocTri
+            reference = reference if reference is not None else row.Reference
+            
+            # Utiliser CoefInt depuis DEV_COUTS comme valeur par défaut pour la marge
+            if marge is None:
+                if hasattr(row, 'MargeCoefInt') and row.MargeCoefInt is not None:
+                    try:
+                        marge = round(float(row.MargeCoefInt), 3)
+                    except (ValueError, TypeError):
+                        marge = None
+                else:
+                    marge = None
+            
+            # Calculer PrixVenteUnitaire = PrxVteReel / QteComm (utiliser QteComm de COMMANDES pour le calcul du prix unitaire)
+            prix_vente_unitaire = None
+            if row.PrxVteReel is not None and row.QteComm is not None and row.QteComm > 0:
+                prix_vente_unitaire = float(row.PrxVteReel) / float(row.QteComm)
+                print(f"[DEBUG create_web_s_dos_encours] Prix unitaire calculé: {row.PrxVteReel} / {row.QteComm} = {prix_vente_unitaire}")
+        
+        # Vérifier quelles colonnes existent
+        try:
+            cursor.execute("""
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+            """)
+            existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
+            avancement_exists = 'Nom_GP_SERVICES' in existing_cols
+            prix_exists = 'PrixVenteUnitaire' in existing_cols
+            quantite_exists = 'QteComm_COMMANDES' in existing_cols
+            prix_total_exists = 'PrixVenteTotal' in existing_cols
+            ct_estime_exists = 'CTEstimé' in existing_cols
+            cout_total_exists = 'CoutTotal' in existing_cols
+            ct_rel_exists = 'CtRel' in existing_cols
+        except Exception as e:
+            print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
+            avancement_exists = False
+            prix_exists = False
+            quantite_exists = False
+            prix_total_exists = False
+            ct_estime_exists = False
+            cout_total_exists = False
+            ct_rel_exists = False
+        
+        # Construire la requête INSERT dynamiquement selon les colonnes disponibles
+        columns = ['Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
+        values = [numero.strip(), client, reference, marge]
+        placeholders = ['?'] * len(values)
+        
+        if avancement_exists:
+            columns.append('Nom_GP_SERVICES')
+            values.append(avancement)
+            placeholders.append('?')
+        
+        if prix_exists:
+            columns.append('PrixVenteUnitaire')
+            values.append(prix_vente_unitaire)
+            placeholders.append('?')
+        
+        if quantite_exists:
+            columns.append('QteComm_COMMANDES')
+            values.append(quantite)  # Valeur saisie par l'utilisateur
+            placeholders.append('?')
+        
+        if prix_total_exists:
+            columns.append('PrixVenteTotal')
+            values.append(prix_vente_total)  # Valeur calculée dans l'application
+            placeholders.append('?')
+        
+        if ct_estime_exists:
+            columns.append('CTEstimé')
+            values.append(ct_estime)  # Valeur calculée dans l'application
+            placeholders.append('?')
+        
+        if cout_total_exists:
+            columns.append('CoutTotal')
+            values.append(cout_total)  # Valeur calculée dans l'application
+            placeholders.append('?')
+        
+        if ct_rel_exists:
+            columns.append('CtRel')
+            # Enregistrer ct_rel même s'il est 0 (utiliser 0.0 au lieu de None)
+            ct_rel_value = ct_rel if ct_rel is not None else 0.0
+            values.append(ct_rel_value)  # Valeur calculée dans l'application: (CoutTotal / QteComm_COMMANDES) * Quantité
+            placeholders.append('?')
+            print("="*80)
+            print(f"[CTREL DB DEBUG] Ajout de CtRel dans INSERT")
+            print(f"[CTREL DB DEBUG] ct_rel_value = {ct_rel_value}")
+            print(f"[CTREL DB DEBUG] ct_rel original = {ct_rel}")
+            print(f"[CTREL DB DEBUG] Type ct_rel_value = {type(ct_rel_value)}")
+            print("="*80)
+            import sys
+            sys.stdout.flush()
+        else:
+            print(f"[DEBUG create_web_s_dos_encours] [ATTENTION] Colonne CtRel n'existe pas, ne sera pas enregistre")
+        
+        print(f"[DEBUG create_web_s_dos_encours] Colonnes: {columns}")
+        print(f"[DEBUG create_web_s_dos_encours] Valeurs: {values}")
+        print(f"[DEBUG create_web_s_dos_encours] Types des valeurs: {[type(v).__name__ for v in values]}")
+        
+        try:
+            cursor.execute(f"""
+                INSERT INTO WEB_S_DOS_ENCOURS ({', '.join(columns)})
+                OUTPUT INSERTED.ID
+                VALUES ({', '.join(placeholders)})
+            """, tuple(values))
+            result = cursor.fetchone()
+            dossier_id = result[0] if result else None
+            
+            # Vérifier que la valeur a bien été enregistrée
+            if dossier_id and ct_rel_exists:
+                cursor.execute("""
+                    SELECT CtRel FROM WEB_S_DOS_ENCOURS WHERE ID = ?
+                """, (dossier_id,))
+                verification_row = cursor.fetchone()
+                if verification_row:
+                    ct_rel_saved = verification_row.CtRel if hasattr(verification_row, 'CtRel') else None
+                    print("="*80)
+                    print(f"[CTREL DB DEBUG] VERIFICATION APRES INSERT")
+                    print(f"[CTREL DB DEBUG] CtRel enregistre dans la base = {ct_rel_saved}")
+                    print("="*80)
+                    import sys
+                    sys.stdout.flush()
+                else:
+                    print(f"[DEBUG create_web_s_dos_encours] [ATTENTION] Impossible de verifier CtRel apres INSERT")
+            
+            cursor.connection.commit()
+            return dossier_id
+        except Exception as e:
+            print(f"[DEBUG create_web_s_dos_encours] [ERREUR] ERREUR lors de l'INSERT: {e}")
+            import traceback
+            traceback.print_exc()
+            cursor.connection.rollback()
+            raise
+
+def update_web_s_dos_encours_avancement(id_dossier, avancement):
+    """
+    Met à jour uniquement l'avancement (Nom_GP_SERVICES) d'un dossier dans WEB_S_DOS_ENCOURS
+    """
+    with get_db_cursor() as cursor:
+        # Vérifier si la colonne Nom_GP_SERVICES existe
+        try:
+            cursor.execute("""
+                SELECT COUNT(*) as col_exists
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' AND COLUMN_NAME = 'Nom_GP_SERVICES'
+            """)
+            avancement_exists = cursor.fetchone().col_exists > 0
+        except Exception as e:
+            print(f"[WARNING] Erreur lors de la vérification de la colonne Nom_GP_SERVICES: {e}")
+            return False
+        
+        if not avancement_exists:
+            print("[WARNING] La colonne Nom_GP_SERVICES n'existe pas encore dans WEB_S_DOS_ENCOURS")
+            return False
+        
+        cursor.execute("""
+            UPDATE WEB_S_DOS_ENCOURS
+            SET Nom_GP_SERVICES = ?,
+                DateModification = GETDATE()
+            WHERE ID = ?
+        """, (avancement, id_dossier))
+        cursor.connection.commit()
+        return cursor.rowcount > 0
+
+def update_web_s_dos_encours_quantite_prix_total(id_dossier, quantite, prix_vente_total, ct_estime=None, cout_total=None, ct_rel=None):
+    """
+    Met à jour la quantité (QteComm_COMMANDES), le prix de vente total (PrixVenteTotal), 
+    le coût total estimé (CTEstimé), le coût total (CoutTotal) et le coût total réel (CtRel) d'un dossier dans WEB_S_DOS_ENCOURS
+    quantite: QteComm_COMMANDES (INT) - valeur saisie par l'utilisateur
+    prix_vente_total: PrixVenteTotal (DECIMAL) - valeur calculée dans l'application
+    ct_estime: CTEstimé (DECIMAL) - valeur calculée dans l'application (Prix de Vente Total / (1 + Marge))
+    cout_total: CoutTotal (DECIMAL) - valeur calculée dans l'application
+    ct_rel: CtRel (DECIMAL) - valeur calculée dans l'application (CoutTotal / QteComm_COMMANDES) * Quantité
+    """
+    with get_db_cursor() as cursor:
+        # Vérifier si les colonnes existent
+        try:
+            cursor.execute("""
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
+                AND COLUMN_NAME IN ('QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+            """)
+            existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
+            quantite_exists = 'QteComm_COMMANDES' in existing_cols
+            prix_total_exists = 'PrixVenteTotal' in existing_cols
+            ct_estime_exists = 'CTEstimé' in existing_cols
+            cout_total_exists = 'CoutTotal' in existing_cols
+            ct_rel_exists = 'CtRel' in existing_cols
+        except Exception as e:
+            print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
+            return False
+        
+        if not quantite_exists or not prix_total_exists:
+            print("[WARNING] Les colonnes QteComm_COMMANDES ou PrixVenteTotal n'existent pas encore dans WEB_S_DOS_ENCOURS")
+            return False
+        
+        # Construire la requête UPDATE dynamiquement
+        update_parts = []
+        values = []
+        
+        if quantite_exists:
+            update_parts.append('QteComm_COMMANDES = ?')
+            values.append(quantite)
+        
+        if prix_total_exists:
+            update_parts.append('PrixVenteTotal = ?')
+            values.append(prix_vente_total)
+        
+        if ct_estime_exists and ct_estime is not None:
+            update_parts.append('CTEstimé = ?')
+            values.append(ct_estime)
+        
+        if cout_total_exists and cout_total is not None:
+            update_parts.append('CoutTotal = ?')
+            values.append(cout_total)
+        
+        if ct_rel_exists and ct_rel is not None:
+            update_parts.append('CtRel = ?')
+            values.append(ct_rel)
+        
+        update_parts.append('DateModification = GETDATE()')
+        values.append(id_dossier)
+        
+        cursor.execute(f"""
+            UPDATE WEB_S_DOS_ENCOURS
+            SET {', '.join(update_parts)}
+            WHERE ID = ?
+        """, tuple(values))
+        cursor.connection.commit()
+        return cursor.rowcount > 0
+
+def get_services_by_numero_commande(numero_commande):
+    """
+    Récupère chaque occurrence individuelle des services liés à un dossier depuis GP_FICHES_TRAVAIL, GP_POSTES et GP_SERVICES
+    avec leurs coûts CtPrevDev individuels (pas de regroupement)
+    LECTURE SEULE - Ne modifie pas GP_FICHES_TRAVAIL, GP_POSTES ni GP_SERVICES
+    Logique : COMMANDES → GP_FICHES_TRAVAIL → GP_POSTES → GP_SERVICES
+    Retourne chaque ligne individuelle pour permettre de choisir quelles occurrences sont réalisées
+    Ajoute également l'option "Matière première sortie" qui est toujours disponible
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                FT.ID AS ID_FICHE_TRAVAIL,
+                S.Nom AS Nom_GP_SERVICES,
+                FT.CtPrevDev AS CoutCtPrevDev,
+                P.Nom AS Nom_Poste
+            FROM GP_FICHES_TRAVAIL FT
+            INNER JOIN COMMANDES C ON C.ID = FT.ID_COMMANDE
+            INNER JOIN GP_POSTES P ON P.ID = FT.ID_POSTE
+            INNER JOIN GP_SERVICES S ON S.ID = P.ID_SERVICE
+            WHERE LTRIM(RTRIM(C.Numero)) = ?
+            AND S.Nom IS NOT NULL
+            ORDER BY S.Nom, FT.ID
+        """, (numero_commande.strip(),))
+        
+        rows = cursor.fetchall()
+        print(f"[DEBUG get_services_by_numero_commande] Nombre de lignes retournées: {len(rows)} pour numéro: {numero_commande}")
+        
+        result = []
+        for row in rows:
+            if row.Nom_GP_SERVICES:
+                # Debug: afficher les valeurs brutes
+                print(f"[DEBUG] Service: {row.Nom_GP_SERVICES}, ID_FICHE: {row.ID_FICHE_TRAVAIL}, CtPrevDev brut: {row.CoutCtPrevDev}, Type: {type(row.CoutCtPrevDev)}")
+                
+                # Gérer les valeurs NULL et les convertir correctement
+                if row.CoutCtPrevDev is None:
+                    cout_value = 0.0
+                else:
+                    try:
+                        cout_value = float(row.CoutCtPrevDev)
+                    except (ValueError, TypeError):
+                        print(f"[DEBUG] Erreur conversion pour {row.Nom_GP_SERVICES}: {row.CoutCtPrevDev}")
+                        cout_value = 0.0
+                
+                print(f"[DEBUG] Service: {row.Nom_GP_SERVICES}, Cout converti: {cout_value}")
+                
+                # Créer un identifiant unique pour chaque occurrence
+                service_id = f"{row.Nom_GP_SERVICES}_{row.ID_FICHE_TRAVAIL}"
+                # S'assurer que toutes les valeurs sont sérialisables en JSON
+                nom_poste_value = row.Nom_Poste if hasattr(row, 'Nom_Poste') and row.Nom_Poste is not None else None
+                result.append({
+                    "id": str(service_id),  # S'assurer que c'est une string
+                    "id_fiche_travail": int(row.ID_FICHE_TRAVAIL) if row.ID_FICHE_TRAVAIL is not None else None,
+                    "nom": str(row.Nom_GP_SERVICES),
+                    "nom_poste": str(nom_poste_value) if nom_poste_value is not None else None,
+                    "cout": float(round(cout_value, 3))  # S'assurer que c'est un float
+                })
+        
+        # Ajouter l'option "Matière première sortie" qui est toujours disponible
+        # Vérifier qu'elle n'existe pas déjà pour éviter les doublons
+        matiere_premiere_sortie = "Matière première sortie"
+        if not any(service["nom"] == matiere_premiere_sortie for service in result):
+            result.append({
+                "id": "matiere_premiere_sortie",
+                "id_fiche_travail": None,
+                "nom": str(matiere_premiere_sortie),
+                "nom_poste": None,
+                "cout": float(0.0)  # Sera rempli par AchatsMat dans le frontend
+            })
+        
+        # Trier par nom puis par ID pour un affichage cohérent
+        result.sort(key=lambda x: (x["nom"], x["id_fiche_travail"] or 0))
+        
+        return result
+
+def delete_web_s_dos_encours(id_dossier):
+    """
+    Supprime un dossier de WEB_S_DOS_ENCOURS
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("DELETE FROM WEB_S_DOS_ENCOURS WHERE ID = ?", (id_dossier,))
+        cursor.connection.commit()
+        return cursor.rowcount > 0
+
+def search_commandes_by_numero(search_numero):
+    """
+    Recherche dans COMMANDES par numéro (recherche de type "contient")
+    LECTURE SEULE - Ne modifie pas COMMANDES
+    Utilisé uniquement pour la sélection dans l'interface
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                C.Numero,
+                S.RaiSocTri AS Client,
+                C.Reference,
+                C.QteComm,
+                C.Coef
+            FROM COMMANDES C
+            LEFT JOIN SOCIETES S ON C.ID_SOCIETE = S.ID
+            WHERE C.Numero LIKE ?
+            ORDER BY C.Numero
+        """, (f'%{search_numero}%',))
+        
+        result = []
+        for row in cursor.fetchall():
+            result.append({
+                "numero": row.Numero,
+                "client": row.Client,
+                "reference": row.Reference,
+                "quantite": row.QteComm,
+                "marge": row.Coef
+            })
+        return result
+
+def get_commande_by_numero(numero):
+    """
+    Récupère une commande par son numéro exact depuis COMMANDES
+    La marge (CoefInt) est récupérée depuis DEV_COUTS au lieu de COMMANDES.Coef
+    LECTURE SEULE - Ne modifie pas COMMANDES ni DEV_COUTS
+    Liaison: DEV_COUTS.ID_DEVIS = COMMANDES.ID_DEVIS
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                C.Numero,
+                S.RaiSocTri AS Client,
+                C.Reference,
+                C.QteComm,
+                C.PrxVteReel,
+                C.ID_DEVIS,
+                DC.CoefInt AS MargeCoefInt
+            FROM COMMANDES C
+            LEFT JOIN SOCIETES S ON C.ID_SOCIETE = S.ID
+            LEFT JOIN DEV_COUTS DC ON DC.ID_DEVIS = C.ID_DEVIS
+            WHERE LTRIM(RTRIM(C.Numero)) = ?
+        """, (numero.strip(),))
+        
+        row = cursor.fetchone()
+        if row:
+            # Calculer PrixVenteUnitaire = PrxVteReel / QteComm
+            prix_vente_unitaire = None
+            if row.PrxVteReel is not None and row.QteComm is not None and row.QteComm > 0:
+                prix_vente_unitaire = round(float(row.PrxVteReel) / float(row.QteComm), 3)
+            
+            # Utiliser CoefInt depuis DEV_COUTS comme marge
+            marge_value = None
+            if hasattr(row, 'MargeCoefInt') and row.MargeCoefInt is not None:
+                try:
+                    marge_value = round(float(row.MargeCoefInt), 3)
+                except (ValueError, TypeError):
+                    marge_value = None
+            
+            return {
+                "numero": row.Numero,
+                "client": row.Client,
+                "reference": row.Reference,
+                "quantite": row.QteComm,
+                "marge": marge_value,  # CoefInt depuis DEV_COUTS
+                "prix_vente_unitaire": prix_vente_unitaire,
+                "id_devis": row.ID_DEVIS if hasattr(row, 'ID_DEVIS') else None
+            }
+        return None
+
+def get_achats_mat_by_numero_commande(numero_commande):
+    """
+    Récupère le coût matière première depuis GP_COUTS.CtPreDev pour un numéro de commande
+    Liaison: GP_COUTS.ID_COMMANDE = COMMANDES.ID
+    Condition: GP_COUTS.ID_CENTRE_COUT = 1
+    LECTURE SEULE - Ne modifie pas GP_COUTS ni COMMANDES
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                GC.CtPreDev
+            FROM COMMANDES C
+            INNER JOIN GP_COUTS GC ON GC.ID_COMMANDE = C.ID
+            WHERE LTRIM(RTRIM(C.Numero)) = ?
+            AND GC.ID_CENTRE_COUT = 1
+        """, (numero_commande.strip(),))
+        
+        row = cursor.fetchone()
+        if row and row.CtPreDev is not None:
+            # Convertir en float avec 3 décimales
+            return round(float(row.CtPreDev), 3)
+        return None
+
+def get_achats_sstr_by_numero_commande(numero_commande):
+    """
+    Récupère AchatsSstr depuis DEV_COUTS pour un numéro de commande
+    Liaison: DEV_COUTS.ID_DEVIS = COMMANDES.ID_DEVIS
+    Condition: DEV_COUTS.ID_CENTRE_COUT = 5
+    LECTURE SEULE - Ne modifie pas DEV_COUTS ni COMMANDES
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                DC.AchatsSstr
+            FROM COMMANDES C
+            INNER JOIN DEV_COUTS DC ON DC.ID_DEVIS = C.ID_DEVIS
+            WHERE LTRIM(RTRIM(C.Numero)) = ?
+            AND DC.ID_CENTRE_COUT = 5
+        """, (numero_commande.strip(),))
+        
+        row = cursor.fetchone()
+        if row and row.AchatsSstr is not None:
+            # Convertir en float avec 3 décimales
+            return round(float(row.AchatsSstr), 3)
+        return None
+
+def get_ct_prev_dev_sum_by_numero_commande(numero_commande):
+    """
+    Récupère la somme de CtPrevDev depuis GP_FICHES_TRAVAIL pour un numéro de commande
+    Condition: GP_POSTES.ID_SERVICE = 1 ou 5
+    Liaisons:
+    - GP_POSTES.ID = GP_FICHES_TRAVAIL.ID_POSTE
+    - GP_FICHES_TRAVAIL.ID_COMMANDE = COMMANDES.ID
+    LECTURE SEULE - Ne modifie pas GP_FICHES_TRAVAIL, GP_POSTES ni COMMANDES
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                SUM(FT.CtPrevDev) AS SommeCtPrevDev
+            FROM COMMANDES C
+            INNER JOIN GP_FICHES_TRAVAIL FT ON FT.ID_COMMANDE = C.ID
+            INNER JOIN GP_POSTES P ON P.ID = FT.ID_POSTE
+            WHERE LTRIM(RTRIM(C.Numero)) = ?
+            AND P.ID_SERVICE IN (1, 5)
+            AND FT.CtPrevDev IS NOT NULL
+        """, (numero_commande.strip(),))
+        
+        row = cursor.fetchone()
+        if row and row.SommeCtPrevDev is not None:
+            # Convertir en float avec 3 décimales
+            return round(float(row.SommeCtPrevDev), 3)
+        return None
 
 def ajouter_contact(id_societe, nom, prenom, telephone, email, id_fonction=None, langue=1):
     with get_db_cursor() as cursor:

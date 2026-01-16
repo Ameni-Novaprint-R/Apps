@@ -3,9 +3,150 @@
 {% block title %}Projet 16 - GMAO{% endblock %}
 
 {% block content %}
+<script>
+    // Fallback global pour éviter les ReferenceError si le script principal ne se charge pas
+    // La version complète est définie plus bas dans le fichier.
+    window.selectMaintenanceType = window.selectMaintenanceType || function(type) {
+        try {
+            if (typeof window._selectMaintenanceTypeImpl === 'function') {
+                return window._selectMaintenanceTypeImpl(type);
+            }
+        } catch (e) {
+            console.error('Erreur selectMaintenanceType (fallback):', e);
+        }
+    };
+</script>
 <style>
     .gmao-container {
         padding: 20px;
+    }
+    
+    /* Styles pour la section Maintenance Préventive */
+    .preventive-section {
+        margin-top: 20px;
+    }
+    
+    .preventive-subsections {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .preventive-card {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border: 1px solid #90caf9;
+        border-radius: 10px;
+        padding: 16px 18px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .preventive-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 14px rgba(0,0,0,0.12);
+    }
+
+    .preventive-card.secondary {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border-color: #a5d6a7;
+    }
+
+    .preventive-card-title {
+        font-weight: 700;
+        color: #0d47a1;
+    }
+
+    .preventive-card.secondary .preventive-card-title {
+        color: #1b5e20;
+    }
+
+    .preventive-card-desc {
+        color: #444;
+        font-size: 0.95rem;
+        margin-top: 4px;
+    }
+
+    .preventive-selection-info {
+        background: #f5f5f5;
+        border: 1px dashed #bbb;
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: #444;
+        margin-bottom: 12px;
+        display: none;
+    }
+
+    .preventive-task-row.selected {
+        background: #e8f5e9 !important;
+        border-left: 4px solid #2e7d32;
+    }
+
+    /* Thème du popup pour l'intervention préventive */
+    #reparationModal.preventive-mode .modal-header h3 {
+        color: #1b5e20;
+    }
+
+    #reparationModal.preventive-mode .status-btn.btn-enregistrer {
+        background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%) !important;
+    }
+
+    #reparationModal.preventive-mode .status-btn.btn-cloturer {
+        background: linear-gradient(135deg, #00695c 0%, #004d40 100%) !important;
+    }
+
+    #reparationModal.preventive-mode .status-btn.btn-en-attente {
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%) !important;
+    }
+
+    #reparationModal.preventive-mode .status-btn.btn-temporaire {
+        display: none !important;
+    }
+
+    #reparationModal.preventive-mode .btn-add-article {
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%) !important;
+    }
+
+    .preventive-table {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .preventive-table th.sortable {
+        position: relative;
+        transition: background-color 0.2s;
+    }
+    
+    .preventive-table th.sortable:hover {
+        background-color: rgba(255,255,255,0.2);
+    }
+    
+    .preventive-table .sort-indicator {
+        font-size: 0.8em;
+        margin-left: 5px;
+        opacity: 0.7;
+    }
+    
+    .preventive-table th.sortable:hover .sort-indicator {
+        opacity: 1;
+    }
+    
+    .preventive-task-row:hover {
+        background-color: #f5f5f5 !important;
+    }
+    
+    #search-input:focus {
+        outline: none;
+        border-color: #2196F3;
+        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+    }
+    
+    #reset-filters:hover {
+        background: #5a6268 !important;
     }
 
     .gmao-header {
@@ -97,6 +238,49 @@
         box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
 
+    /* Styles pour la section Maintenance Préventive */
+    .preventive-section {
+        margin-top: 20px;
+    }
+    
+    .preventive-table {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .preventive-table th.sortable {
+        position: relative;
+        transition: background-color 0.2s;
+    }
+    
+    .preventive-table th.sortable:hover {
+        background-color: rgba(255,255,255,0.2);
+    }
+    
+    .preventive-table .sort-indicator {
+        font-size: 0.8em;
+        margin-left: 5px;
+        opacity: 0.7;
+    }
+    
+    .preventive-table th.sortable:hover .sort-indicator {
+        opacity: 1;
+    }
+    
+    .preventive-task-row:hover {
+        background-color: #f5f5f5 !important;
+    }
+    
+    #search-input:focus {
+        outline: none;
+        border-color: #2196F3;
+        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+    }
+    
+    #reset-filters:hover {
+        background: #5a6268 !important;
+    }
+    
     .filter-section {
         display: none;
         background: transparent;
@@ -910,6 +1094,151 @@
             </table>
         </div>
     </div>
+
+    <!-- Section Maintenance Préventive -->
+    <div id="preventive-section" class="preventive-section" style="display: none;">
+    <div class="preventive-subsections">
+        <div class="preventive-card" id="preventive-card-tracking" onclick="showPreventiveTracking()">
+            <div>
+                <div class="preventive-card-title">📊 Tableau de suivi des préventifs</div>
+                <div class="preventive-card-desc">Reprendre le planning existant et suivre les tâches.</div>
+            </div>
+            <span style="font-weight:700; color:#0d47a1;">➜</span>
+        </div>
+        <div class="preventive-card secondary" id="preventive-card-intervention" onclick="openPreventiveInterventionModal()">
+            <div>
+                <div class="preventive-card-title">🛡️ Fiche d’intervention préventive</div>
+                <div class="preventive-card-desc">Ouvrir un popup identique à la réparation (couleurs dédiées).</div>
+            </div>
+            <span style="font-weight:700; color:#1b5e20;">➜</span>
+        </div>
+    </div>
+
+    <div id="preventive-selection-info" class="preventive-selection-info">
+        Sélectionnez une tâche dans le tableau pour pré-remplir la fiche d’intervention préventive.
+    </div>
+        
+    <div id="preventive-tracking" style="display: none;">
+        <!-- Barre de filtres et recherche -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                <!-- Filtre par machine -->
+                <div>
+                    <label for="machine-filter" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">Machine :</label>
+                    <select id="machine-filter" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #ddd; font-size: 0.95em;">
+                        <option value="">Toutes les machines</option>
+                        {% for machine in machines %}
+                        <option value="{{ machine.nom }}">{{ machine.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre par périodicité -->
+                <div>
+                    <label for="periodicite-filter" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">Périodicité :</label>
+                    <select id="periodicite-filter" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #ddd; font-size: 0.95em;">
+                        <option value="">Toutes les périodicités</option>
+                        <option value="Quotidienne">Quotidienne</option>
+                        <option value="Hebdomadaire">Hebdomadaire</option>
+                        <option value="Mensuelle">Mensuelle</option>
+                        <option value="Trimestrielle">Trimestrielle</option>
+                        <option value="Semestrielle">Semestrielle</option>
+                        <option value="Annuelle">Annuelle</option>
+                        <option value="Tous les 2 ans">Tous les 2 ans</option>
+                        <option value="Tous les 3 ans">Tous les 3 ans</option>
+                        <option value="Tous les 5 ans">Tous les 5 ans</option>
+                    </select>
+                </div>
+                
+                <!-- Filtre par rôle requis -->
+                <div>
+                    <label for="role-filter" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">Rôle Requis :</label>
+                    <select id="role-filter" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #ddd; font-size: 0.95em;">
+                        <option value="">Tous les rôles</option>
+                    </select>
+                </div>
+                
+                <!-- Tri -->
+                <div>
+                    <label for="sort-by" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">Trier par :</label>
+                    <select id="sort-by" style="width: 100%; padding: 8px 12px; border-radius: 5px; border: 1px solid #ddd; font-size: 0.95em;">
+                        <option value="periodicite">Périodicité</option>
+                        <option value="reference">Référence</option>
+                        <option value="machine">Machine</option>
+                        <option value="tache">Tâche</option>
+                        <option value="duree">Durée</option>
+                        <option value="duree_realisation">Durée de réalisation</option>
+                        <option value="role">Rôle Requis</option>
+                        <option value="dte_prev">Date Prévue</option>
+                        <option value="dte_real">Date Réalisée</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Barre de recherche -->
+            <div>
+                <label for="search-input" style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">🔍 Recherche :</label>
+                <input type="text" id="search-input" placeholder="Rechercher dans les tâches, références, spécifications..." 
+                       style="width: 100%; padding: 10px 15px; border-radius: 5px; border: 1px solid #ddd; font-size: 0.95em;">
+            </div>
+            
+            <!-- Bouton réinitialiser -->
+            <div style="margin-top: 15px; text-align: right;">
+                <button id="reset-filters" onclick="resetPreventiveFilters()" 
+                        style="padding: 8px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;">
+                    🔄 Réinitialiser les filtres
+                </button>
+                <span id="preventive-count" style="margin-left: 15px; color: #666; font-weight: 600;"></span>
+            </div>
+        </div>
+
+        <div id="preventive-loading" style="text-align: center; padding: 20px; color: #666;">
+            Chargement du planning...
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table class="preventive-table" id="preventive-table" style="display: none; width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white;">
+                        <th class="sortable" data-sort="reference" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Référence <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="machine" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Machine <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="tache" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Tâche <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="periodicite" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Périodicité <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="duree" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Durée <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="duree_realisation" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Durée de réalisation <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="role" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Rôle Requis <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="intervenant" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Nom de l'intervenant <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="dte_prev" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Date Prévue <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th class="sortable" data-sort="dte_real" style="padding: 12px; text-align: left; border: 1px solid #ddd; cursor: pointer; user-select: none;">
+                            Date Réalisée <span class="sort-indicator">⇅</span>
+                        </th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Spécifications / Observations</th>
+                    </tr>
+                </thead>
+                <tbody id="preventive-tbody">
+                </tbody>
+            </table>
+        </div>
+        </div>
+</div>
 </div>
 
 <!-- Modal Réclamation -->
@@ -1015,6 +1344,7 @@
         <div id="alert-reparation" class="alert"></div>
 
         <input type="hidden" id="demande_id_rep" value="">
+        <input type="hidden" id="type_in_reparation" value="R">
 
         <!-- Sélection de la demande (visible seulement pour Nouvelle fiche de Réparation) -->
         <div id="selection-demande" class="form-group" style="display: none;">
@@ -1037,6 +1367,26 @@
         </div>
 
         <form id="reparationForm">
+            <!-- 0. Sélection du préventif (visible uniquement pour les interventions préventives) -->
+            <div class="form-group" id="preventive-task-selection-group" style="display: none;">
+                <label for="preventive_task_select">Préventif associé *</label>
+                <div class="input-wrapper">
+                    <input type="text" 
+                           id="preventive_task_select" 
+                           name="preventive_task_select" 
+                           list="preventive_tasks_list"
+                           placeholder="-- Tapez pour rechercher un préventif --"
+                           autocomplete="off"
+                           data-preventive-id="">
+                    <span class="input-indicator" onclick="showInputList('preventive_task_select')">▼</span>
+                </div>
+                <datalist id="preventive_tasks_list">
+                    <!-- Sera rempli dynamiquement -->
+                </datalist>
+                <input type="hidden" id="id_web_gmao_preventive" name="id_web_gmao_preventive">
+                <small style="color: #666; font-size: 0.9em;">Sélectionnez le préventif associé à cette intervention</small>
+            </div>
+
             <!-- 1. Machine Concernée -->
             <div class="form-group" id="machine-reparation-group">
                 <label for="machine_reparation">Machine Concernée *</label>
@@ -1219,7 +1569,7 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/html2pdf.bundle.min.js') }}"></script>
 <script>
     // Fonction pour afficher la liste au clic sur le symbole ▼
     function showInputList(inputId) {
@@ -1244,6 +1594,9 @@
     
     // Sélection du type de maintenance
     function selectMaintenanceType(type) {
+        // Exposer la version principale pour le fallback défini en haut de page
+        window._selectMaintenanceTypeImpl = selectMaintenanceType;
+        window.selectMaintenanceType = selectMaintenanceType;
         if (type === 'corrective') {
             // Toggle: si déjà visible, on cache, sinon on affiche
             if ($('#corrective-options').is(':visible')) {
@@ -1254,10 +1607,18 @@
                 // Ne pas afficher automatiquement la liste des demandes
             }
         } else if (type === 'preventive') {
-            // Cacher les sections correctives si elles sont visibles
-            $('#corrective-options').slideUp(300);
-            $('.demandes-section').slideUp(300);
-            alert('Maintenance Préventive - Fonctionnalité en cours de développement');
+            // Toggle: si déjà visible, on cache, sinon on affiche
+            if ($('#preventive-section').is(':visible')) {
+                $('#preventive-section').slideUp(300);
+            } else {
+                // Cacher les sections correctives si elles sont visibles
+                $('#corrective-options').slideUp(300);
+                $('.demandes-section').slideUp(300);
+                $('#filter-section').slideUp(300);
+                // Afficher la section de maintenance préventive
+                $('#preventive-section').slideDown(300);
+                loadPreventiveTasks();
+            }
         }
     }
 
@@ -1355,6 +1716,11 @@
         // Réinitialiser le formulaire
         document.getElementById('reparationForm').reset();
         reparationEnCoursId = null;
+        currentInterventionMode = 'corrective';
+        $('#type_in_reparation').val('R');
+        $('#reparationModal').removeClass('preventive-mode');
+        $('#reparationModal .modal-header h3').text('🔧 Nouvelle fiche de Réparation');
+        $('#reparationModal .modal-header h3').text('🔧 Nouvelle fiche de Réparation');
         
         // Mode: Depuis la liste - Cacher la sélection de demande
         $('#selection-demande').hide();
@@ -1436,6 +1802,14 @@
         // Réinitialiser le formulaire
         document.getElementById('reparationForm').reset();
         reparationEnCoursId = null;
+        currentInterventionMode = 'corrective';
+        $('#type_in_reparation').val('R');
+        $('#reparationModal').removeClass('preventive-mode');
+        
+        // Masquer le champ de sélection du préventif pour les réparations correctives
+        $('#preventive-task-selection-group').hide();
+        $('#preventive_task_select').prop('required', false);
+        $('#id_web_gmao_preventive').val('');
         
         // Mode: Depuis "Nouvelle fiche" - Afficher la sélection de demande
         $('#selection-demande').show();
@@ -1497,7 +1871,107 @@
         document.getElementById('reparationModal').classList.add('active');
     }
 
+    function openPreventiveInterventionModal() {
+        // Réinitialiser le formulaire
+        document.getElementById('reparationForm').reset();
+        reparationEnCoursId = null;
+        currentInterventionMode = 'preventive';
+        $('#type_in_reparation').val('P');
+        $('#reparationModal').addClass('preventive-mode');
+        $('#reparationModal .modal-header h3').text('🛡️ Fiche d’intervention préventive');
+        
+        // Pas de sélection de demande pour le préventif
+        $('#selection-demande').hide();
+        document.getElementById('demande_id_rep').value = '';
+        
+        // Afficher le champ de sélection du préventif
+        $('#preventive-task-selection-group').show();
+        $('#preventive_task_select').prop('required', true);
+        
+        // Charger les préventifs disponibles
+        loadPreventiveTasksForSelection();
+        
+        // Pré-remplir le préventif si une tâche est sélectionnée
+        if (selectedPreventiveTask) {
+            const preventiveText = `${selectedPreventiveTask.reference || ''} - ${selectedPreventiveTask.tache || ''} (${selectedPreventiveTask.nom_gp_postes || ''})`.trim();
+            $('#preventive_task_select').val(preventiveText).attr('data-preventive-id', selectedPreventiveTask.id);
+            $('#id_web_gmao_preventive').val(selectedPreventiveTask.id);
+            
+            // Pré-remplir aussi la machine depuis la tâche sélectionnée
+            if (selectedPreventiveTask.nom_gp_postes) {
+                $('#machine_reparation').val(selectedPreventiveTask.nom_gp_postes);
+            }
+        } else {
+            $('#preventive_task_select').val('').attr('data-preventive-id', '');
+            $('#id_web_gmao_preventive').val('');
+        }
+        
+        // Rendre le champ machine modifiable et obligatoire
+        $('#machine_reparation').prop('readonly', false).prop('required', true).css('background-color', 'white');
+        $('#machine-reparation-group small').text('Machine concernée par l’intervention préventive');
+        
+        // Réinitialiser l’intervenant et la nature
+        $('#intervenant_input').val('').attr('data-matricule', '');
+        $('#mat_inter').val('');
+        $('.checkbox-nature input[type="checkbox"]').prop('checked', false);
+        $('#nat_rep_value').val('');
+        
+        // Dates par défaut
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        $('#dte_deb').val(`${year}-${month}-${day}T${hours}:${minutes}`);
+        $('#dte_fin').val('');
+        $('#tps_reel').val('');
+        
+        // Articles
+        $('#articles-container').empty();
+        $('#no-articles-message').show();
+        articleCounter = 0;
+        
+        // S’assurer que les champs sont éditables
+        $('#reparationForm input, #reparationForm textarea, #reparationForm select').prop('readonly', false).prop('disabled', false).css('background-color', '').css('cursor', '');
+        $('#reparationForm input[type="checkbox"]').prop('disabled', false);
+        $('.status-buttons-container').show();
+        $('.btn-add-article').show();
+        $('.close-button-container').hide();
+        
+        // Ouvrir le modal
+        document.getElementById('reparationModal').classList.add('active');
+    }
+    
+    function loadPreventiveTasksForSelection() {
+        // Charger tous les préventifs pour la sélection
+        $.ajax({
+            url: '/projet16/api/preventive/tasks',
+            method: 'GET',
+            success: function(tasks) {
+                const datalist = $('#preventive_tasks_list');
+                datalist.empty();
+                
+                tasks.forEach(function(task) {
+                    const reference = task.reference || '';
+                    const tache = task.tache || '';
+                    const machine = task.nom_gp_postes || '';
+                    const text = `${reference}${reference && tache ? ' - ' : ''}${tache}${machine ? ' (' + machine + ')' : ''}`.trim();
+                    
+                    // Stocker l'ID et la machine dans les attributs data
+                    datalist.append(`<option value="${text}" data-preventive-id="${task.id}" data-machine="${machine}"></option>`);
+                });
+            },
+            error: function() {
+                console.error('Erreur lors du chargement des préventifs');
+            }
+        });
+    }
+
     function openReparationDetailsModal(reparationId) {
+        currentInterventionMode = 'corrective';
+        $('#type_in_reparation').val('R');
+        $('#reparationModal').removeClass('preventive-mode');
         // Charger les données de la réparation
         $.ajax({
             url: '/projet16/api/demande/' + reparationId,
@@ -1583,6 +2057,9 @@
         document.getElementById('reparationModal').classList.remove('active');
         document.getElementById('reparationForm').reset();
         document.getElementById('demande_id_rep').value = '';
+        currentInterventionMode = 'corrective';
+        $('#type_in_reparation').val('R');
+        $('#reparationModal').removeClass('preventive-mode');
         
         // Réinitialiser les champs en mode édition
         $('#reparationForm input, #reparationForm textarea, #reparationForm select').prop('readonly', false).prop('disabled', false).css('background-color', '').css('cursor', '');
@@ -2228,6 +2705,8 @@
     // ========== VARIABLES GLOBALES ==========
     let reparationEnCoursId = null; // ID de la fiche "En cours" créée automatiquement
     let articleCounter = 0; // Compteur pour générer des IDs uniques pour les articles
+    let selectedPreventiveTask = null; // Tâche préventive sélectionnée pour pré-remplissage
+    let currentInterventionMode = 'corrective'; // corrective ou preventive
 
     // ========== FONCTIONS ARTICLES DYNAMIQUES ==========
     function ajouterLigneArticle(articleData = null) {
@@ -2614,7 +3093,9 @@
             postes_reel: $('#machine_reparation').val(),
             nat: $('#nat_rep_value').val() || 'Mec',
             id_stat_rep: 0, // En cours
-            tps_reel: tpsReelDecimal
+            tps_reel: tpsReelDecimal,
+            type_in: $('#type_in_reparation').val() || 'R',
+            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
         };
 
         // Si une demande est sélectionnée, mettre à jour cette demande
@@ -2627,6 +3108,9 @@
                 success: function() {
                     reparationEnCoursId = demandeId;
                     $('#demande_id_rep').val(reparationEnCoursId);
+                    // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
+                    const idPreventive = formData.id_web_gmao_preventive;
+                    refreshPreventiveTableIfNeeded(idPreventive);
                 },
                 error: function(xhr) {
                     console.error('Erreur lors de la création de la fiche en cours:', xhr);
@@ -2642,6 +3126,9 @@
                 success: function(response) {
                     reparationEnCoursId = response.id;
                     $('#demande_id_rep').val(reparationEnCoursId);
+                    // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
+                    const idPreventive = formData.id_web_gmao_preventive;
+                    refreshPreventiveTableIfNeeded(idPreventive);
                 },
                 error: function(xhr) {
                     console.error('Erreur lors de la création de la fiche en cours:', xhr);
@@ -2665,7 +3152,9 @@
             postes_reel: $('#machine_reparation').val(),
             nat: $('#nat_rep_value').val() || 'Mec',
             id_stat_rep: 0, // Rester en cours
-            tps_reel: tpsReelDecimal
+            tps_reel: tpsReelDecimal,
+            type_in: $('#type_in_reparation').val() || 'R',
+            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
         };
 
         $.ajax({
@@ -2675,6 +3164,9 @@
             data: JSON.stringify(formData),
             success: function() {
                 // Mise à jour silencieuse réussie
+                // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
+                const idPreventive = formData.id_web_gmao_preventive;
+                refreshPreventiveTableIfNeeded(idPreventive);
                 // Sauvegarder aussi les articles
                 sauvegarderArticles();
             },
@@ -2753,7 +3245,9 @@
                 postes_reel: $('#machine_reparation').val(),
                 nat: $('#nat_rep_value').val(),
                 id_stat_rep: 0, // En cours
-                tps_reel: tpsReelDecimal
+                tps_reel: tpsReelDecimal,
+                type_in: $('#type_in_reparation').val() || 'R',
+                id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
             };
 
             // Si pas de demandeId, créer une nouvelle fiche
@@ -2767,6 +3261,10 @@
                         demandeId = response.id;
                         reparationEnCoursId = demandeId;
                         $('#demande_id_rep').val(demandeId);
+                        
+                        // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
+                        const idPreventive = formData.id_web_gmao_preventive;
+                        refreshPreventiveTableIfNeeded(idPreventive);
                         
                         // Sauvegarder les articles
                         $.ajax({
@@ -2811,6 +3309,10 @@
                     success: function() {
                         reparationEnCoursId = demandeId;
                         $('#demande_id_rep').val(demandeId);
+                        
+                        // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
+                        const idPreventive = formData.id_web_gmao_preventive;
+                        refreshPreventiveTableIfNeeded(idPreventive);
                         
                         // Sauvegarder les articles
                         $.ajax({
@@ -2862,7 +3364,9 @@
             postes_reel: $('#machine_reparation').val(),
             nat: $('#nat_rep_value').val(),
             statut: statut, // 'cloturer', 'en_attente', 'temporaire'
-            tps_reel: tpsReelDecimal
+            tps_reel: tpsReelDecimal,
+            type_in: $('#type_in_reparation').val() || 'R',
+            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
         };
 
         // Sauvegarder les articles avant de finaliser
@@ -2884,6 +3388,10 @@
                     'en_attente': 'Fiche de réparation mise en attente avec succès !',
                     'temporaire': 'Fiche de réparation enregistrée temporairement avec succès !'
                 };
+                        // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
+                        const idPreventive = formData.id_web_gmao_preventive;
+                        refreshPreventiveTableIfNeeded(idPreventive);
+                        
                         showAlert('alert-reparation', messages[statut] || 'Fiche de réparation enregistrée avec succès !', 'success');
                         setTimeout(function() {
                             closeReparationModal();
@@ -2929,6 +3437,28 @@
             } else {
                 $(this).attr('data-matricule', '');
                 $('#matr_op_dem').val('');
+            }
+        });
+        
+        // Gestion du champ Préventif associé
+        $('#preventive_task_select').on('input change', function() {
+            const valeur = $(this).val();
+            // Trouver l'option correspondante dans le datalist
+            const option = $(`#preventive_tasks_list option[value="${valeur}"]`);
+            if (option.length > 0) {
+                const preventiveId = option.attr('data-preventive-id');
+                const machine = option.attr('data-machine');
+                
+                $(this).attr('data-preventive-id', preventiveId);
+                $('#id_web_gmao_preventive').val(preventiveId);
+                
+                // Pré-remplir automatiquement la machine concernée
+                if (machine && machine.trim() !== '') {
+                    $('#machine_reparation').val(machine);
+                }
+            } else {
+                $(this).attr('data-preventive-id', '');
+                $('#id_web_gmao_preventive').val('');
             }
         });
         
@@ -3223,5 +3753,467 @@
             }
         };
     });
+    
+    // ========== FONCTIONS POUR LA MAINTENANCE PRÉVENTIVE ==========
+    
+    // Variables globales pour les données et le tri
+    let allPreventiveTasks = [];
+    let currentSortColumn = 'periodicite';
+    let currentSortDirection = 'asc';
+    
+    // Fonction helper pour rafraîchir le tableau de suivi des préventifs si nécessaire
+    function refreshPreventiveTableIfNeeded(idPreventive) {
+        console.log('[DEBUG] refreshPreventiveTableIfNeeded appelée avec idPreventive:', idPreventive);
+        console.log('[DEBUG] preventive-section visible?', $('#preventive-section').is(':visible'));
+        if (idPreventive && $('#preventive-section').is(':visible')) {
+            // Si c'est une réparation préventive et que la section est visible, rafraîchir
+            console.log('[DEBUG] Rafraîchissement du tableau de suivi des préventifs...');
+            loadPreventiveTasks();
+        } else if (idPreventive) {
+            // Même si la section n'est pas visible, rafraîchir pour que les données soient à jour quand elle sera affichée
+            console.log('[DEBUG] Section non visible mais rafraîchissement quand même pour idPreventive:', idPreventive);
+            loadPreventiveTasks();
+        }
+    }
+    
+    function loadPreventiveTasks() {
+        const machineFilter = $('#machine-filter').val();
+        const url = machineFilter 
+            ? `/projet16/api/preventive/tasks?machine=${encodeURIComponent(machineFilter)}`
+            : '/projet16/api/preventive/tasks';
+        
+        $('#preventive-loading').show();
+        $('#preventive-table').hide();
+        
+        $.ajax({
+            url: url,
+            method: 'GET',
+            success: function(tasks) {
+                allPreventiveTasks = tasks;
+                populateRoleFilter(tasks);
+                applyFiltersAndSort();
+            },
+            error: function(xhr, status, error) {
+                $('#preventive-loading').hide();
+                console.error('Erreur lors du chargement des tâches:', error);
+                $('#preventive-tbody').html(`
+                    <tr>
+                        <td colspan="11" style="text-align: center; padding: 20px; color: #d32f2f;">
+                            Erreur lors du chargement des tâches de maintenance préventive
+                        </td>
+                    </tr>
+                `);
+                $('#preventive-table').show();
+            }
+        });
+    }
+    
+    function populateRoleFilter(tasks) {
+        const roles = new Set();
+        tasks.forEach(task => {
+            if (task.role_requis) {
+                roles.add(task.role_requis);
+            }
+        });
+        
+        const roleFilter = $('#role-filter');
+        roleFilter.empty();
+        roleFilter.append('<option value="">Tous les rôles</option>');
+        
+        Array.from(roles).sort().forEach(role => {
+            roleFilter.append(`<option value="${role}">${role}</option>`);
+        });
+    }
+    
+    function applyFiltersAndSort() {
+        $('#preventive-loading').hide();
+        
+        let filteredTasks = [...allPreventiveTasks];
+        
+        // Filtre par machine
+        const machineFilter = $('#machine-filter').val();
+        if (machineFilter) {
+            filteredTasks = filteredTasks.filter(task => task.nom_gp_postes === machineFilter);
+        }
+        
+        // Filtre par périodicité
+        const periodiciteFilter = $('#periodicite-filter').val();
+        if (periodiciteFilter) {
+            filteredTasks = filteredTasks.filter(task => task.periodicite === periodiciteFilter);
+        }
+        
+        // Filtre par rôle
+        const roleFilter = $('#role-filter').val();
+        if (roleFilter) {
+            filteredTasks = filteredTasks.filter(task => task.role_requis === roleFilter);
+        }
+        
+        // Recherche textuelle
+        const searchTerm = $('#search-input').val().toLowerCase().trim();
+        if (searchTerm) {
+            filteredTasks = filteredTasks.filter(task => {
+                const reference = (task.reference || '').toLowerCase();
+                const tache = (task.tache || '').toLowerCase();
+                const specifications = (task.specifications_observations || '').toLowerCase();
+                const intervenant = (task.intervenant || '').toLowerCase();
+                return reference.includes(searchTerm) || 
+                       tache.includes(searchTerm) || 
+                       specifications.includes(searchTerm) ||
+                       intervenant.includes(searchTerm);
+            });
+        }
+        
+        // Tri
+        const sortBy = $('#sort-by').val() || currentSortColumn;
+        filteredTasks.sort((a, b) => {
+            let aVal, bVal;
+            
+            switch(sortBy) {
+                case 'reference':
+                    aVal = (a.reference || '').toLowerCase();
+                    bVal = (b.reference || '').toLowerCase();
+                    break;
+                case 'machine':
+                    aVal = (a.nom_gp_postes || '').toLowerCase();
+                    bVal = (b.nom_gp_postes || '').toLowerCase();
+                    break;
+                case 'tache':
+                    aVal = (a.tache || '').toLowerCase();
+                    bVal = (b.tache || '').toLowerCase();
+                    break;
+                case 'periodicite':
+                    aVal = (a.periodicite || '').toLowerCase();
+                    bVal = (b.periodicite || '').toLowerCase();
+                    break;
+                case 'duree':
+                    aVal = (a.duree || '').toLowerCase();
+                    bVal = (b.duree || '').toLowerCase();
+                    break;
+                case 'duree_realisation':
+                    aVal = (a.tps_reel !== null && a.tps_reel !== undefined) ? parseFloat(a.tps_reel) : -1;
+                    bVal = (b.tps_reel !== null && b.tps_reel !== undefined) ? parseFloat(b.tps_reel) : -1;
+                    break;
+                case 'role':
+                    aVal = (a.role_requis || '').toLowerCase();
+                    bVal = (b.role_requis || '').toLowerCase();
+                    break;
+                case 'dte_prev':
+                    aVal = a.dte_prev || '';
+                    bVal = b.dte_prev || '';
+                    break;
+                case 'dte_real':
+                    aVal = a.dte_real || '';
+                    bVal = b.dte_real || '';
+                    break;
+                default:
+                    aVal = (a.periodicite || '').toLowerCase();
+                    bVal = (b.periodicite || '').toLowerCase();
+            }
+            
+            if (aVal < bVal) return currentSortDirection === 'asc' ? -1 : 1;
+            if (aVal > bVal) return currentSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        // Afficher les résultats
+        displayPreventiveTasks(filteredTasks);
+        
+        // Mettre à jour le compteur
+        $('#preventive-count').text(`${filteredTasks.length} tâche(s) affichée(s)`);
+    }
+    
+    function displayPreventiveTasks(tasks) {
+        const tbody = $('#preventive-tbody');
+        tbody.empty();
+        
+                if (tasks.length === 0) {
+                    tbody.append('<tr><td colspan="11" style="text-align: center; padding: 20px; color: #666;">Aucune tâche ne correspond aux critères de recherche</td></tr>');
+        } else {
+            // Grouper par périodicité si le tri est par périodicité
+            const sortBy = $('#sort-by').val() || 'periodicite';
+            if (sortBy === 'periodicite') {
+                const groupedTasks = {};
+                tasks.forEach(task => {
+                    const periodicite = task.periodicite || 'Non spécifiée';
+                    if (!groupedTasks[periodicite]) {
+                        groupedTasks[periodicite] = [];
+                    }
+                    groupedTasks[periodicite].push(task);
+                });
+                
+                Object.keys(groupedTasks).sort().forEach(periodicite => {
+                    tbody.append(`
+                        <tr style="background-color: #f0f0f0; font-weight: bold;">
+                            <td colspan="11" style="padding: 10px; border: 1px solid #ddd;">
+                                ${periodicite.toUpperCase()}
+                            </td>
+                        </tr>
+                    `);
+                    
+                    groupedTasks[periodicite].forEach(task => {
+                        appendTaskRow(tbody, task, periodicite);
+                    });
+                });
+            } else {
+                // Afficher sans groupement
+                tasks.forEach(task => {
+                    appendTaskRow(tbody, task, task.periodicite || 'Non spécifiée');
+                });
+            }
+        }
+        
+        $('#preventive-table').show();
+    }
+    
+    function appendTaskRow(tbody, task, periodicite) {
+        const reference = escapeHtml(task.reference || '');
+        const machine = escapeHtml(task.nom_gp_postes || '');
+        const tache = escapeHtml(task.tache || '');
+        const roleRequis = escapeHtml(task.role_requis || '');
+        const intervenant = escapeHtml(task.intervenant || '');
+        const specifications = escapeHtml(task.specifications_observations || '');
+        
+        // Formater la durée (Duree) au format HH:MM
+        let duree = '-';
+        if (task.duree !== null && task.duree !== undefined && task.duree !== '') {
+            const dureeValue = task.duree;
+            // Si c'est déjà au format HH:MM, l'utiliser tel quel
+            if (typeof dureeValue === 'string' && dureeValue.includes(':')) {
+                const parts = dureeValue.split(':');
+                if (parts.length === 2) {
+                    const heures = parseInt(parts[0], 10) || 0;
+                    const minutes = parseInt(parts[1], 10) || 0;
+                    duree = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                } else {
+                    duree = dureeValue;
+                }
+            } else if (typeof dureeValue === 'string') {
+                // Traiter les chaînes avec "min" ou "h"
+                const dureeStr = dureeValue.trim().toLowerCase();
+                if (dureeStr.includes('min')) {
+                    // Extraire le nombre de minutes
+                    const minutesMatch = dureeStr.match(/(\d+(?:\.\d+)?)/);
+                    if (minutesMatch) {
+                        const totalMinutes = parseFloat(minutesMatch[1]);
+                        const heures = Math.floor(totalMinutes / 60);
+                        const minutes = Math.round(totalMinutes % 60);
+                        duree = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    } else {
+                        duree = dureeValue;
+                    }
+                } else if (dureeStr.includes('h')) {
+                    // Extraire le nombre d'heures
+                    const heuresMatch = dureeStr.match(/(\d+(?:\.\d+)?)/);
+                    if (heuresMatch) {
+                        const heuresDecimales = parseFloat(heuresMatch[1]);
+                        const heures = Math.floor(heuresDecimales);
+                        const minutes = Math.round((heuresDecimales - heures) * 60);
+                        duree = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    } else {
+                        duree = dureeValue;
+                    }
+                } else {
+                    // Essayer de parser comme nombre
+                    const numValue = parseFloat(dureeValue);
+                    if (!isNaN(numValue)) {
+                        // Si c'est un nombre entier <= 1440 (24h * 60min), traiter comme minutes
+                        // Sinon, traiter comme heures décimales
+                        if (Number.isInteger(numValue) && numValue <= 1440 && numValue >= 0) {
+                            // Traiter comme minutes
+                            const heures = Math.floor(numValue / 60);
+                            const minutes = numValue % 60;
+                            duree = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                        } else {
+                            // Traiter comme heures décimales
+                            const heures = Math.floor(numValue);
+                            const minutes = Math.round((numValue - heures) * 60);
+                            duree = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                        }
+                    } else {
+                        duree = dureeValue;
+                    }
+                }
+            } else {
+                // C'est un nombre
+                const numValue = parseFloat(dureeValue);
+                if (!isNaN(numValue)) {
+                    // Si c'est un nombre entier <= 1440 (24h * 60min), traiter comme minutes
+                    // Sinon, traiter comme heures décimales
+                    if (Number.isInteger(numValue) && numValue <= 1440 && numValue >= 0) {
+                        // Traiter comme minutes
+                        const heures = Math.floor(numValue / 60);
+                        const minutes = numValue % 60;
+                        duree = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    } else {
+                        // Traiter comme heures décimales
+                        const heures = Math.floor(numValue);
+                        const minutes = Math.round((numValue - heures) * 60);
+                        duree = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    }
+                } else {
+                    duree = dureeValue.toString();
+                }
+            }
+        }
+        
+        // Formater la durée de réalisation (TpsReel au format HH:MM)
+        let dureeRealisation = '-';
+        if (task.tps_reel !== null && task.tps_reel !== undefined) {
+            const heures = Math.floor(task.tps_reel);
+            const minutes = Math.round((task.tps_reel - heures) * 60);
+            // Format HH:MM
+            dureeRealisation = `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+        
+        // Formater la date prévue (calculée automatiquement ou depuis dte_prev)
+        let dtePrev = '';
+        if (task.dte_prev_calculee) {
+            // Utiliser la date prévue calculée automatiquement
+            const datePrev = new Date(task.dte_prev_calculee);
+            if (!isNaN(datePrev.getTime())) {
+                const year = datePrev.getFullYear();
+                const month = String(datePrev.getMonth() + 1).padStart(2, '0');
+                const day = String(datePrev.getDate()).padStart(2, '0');
+                dtePrev = `${year}-${month}-${day}`;
+            }
+        } else if (task.dte_prev) {
+            // Fallback sur dte_prev si dte_prev_calculee n'est pas disponible
+            const datePrev = new Date(task.dte_prev);
+            if (!isNaN(datePrev.getTime())) {
+                const year = datePrev.getFullYear();
+                const month = String(datePrev.getMonth() + 1).padStart(2, '0');
+                const day = String(datePrev.getDate()).padStart(2, '0');
+                dtePrev = `${year}-${month}-${day}`;
+            }
+        }
+        
+        // Formater la date réalisée depuis DteDeb (format YYYY-MM-DD)
+        let dteReal = '';
+        if (task.dte_deb) {
+            // Utiliser DteDeb au lieu de dte_real pour la date réalisée
+            const dateReal = new Date(task.dte_deb);
+            if (!isNaN(dateReal.getTime())) {
+                // Format YYYY-MM-DD
+                const year = dateReal.getFullYear();
+                const month = String(dateReal.getMonth() + 1).padStart(2, '0');
+                const day = String(dateReal.getDate()).padStart(2, '0');
+                dteReal = `${year}-${month}-${day}`;
+            }
+        } else if (task.dte_real) {
+            // Fallback sur dte_real si dte_deb n'est pas disponible
+            const dateReal = new Date(task.dte_real);
+            if (!isNaN(dateReal.getTime())) {
+                const year = dateReal.getFullYear();
+                const month = String(dateReal.getMonth() + 1).padStart(2, '0');
+                const day = String(dateReal.getDate()).padStart(2, '0');
+                dteReal = `${year}-${month}-${day}`;
+            }
+        }
+        
+        tbody.append(`
+            <tr style="border-bottom: 1px solid #ddd;" class="preventive-task-row" data-task-id="${task.id}" onclick="selectPreventiveTask(${task.id})">
+                <td style="padding: 10px; border: 1px solid #ddd;">${reference}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${machine || '-'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${tache}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${periodicite}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${duree}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; color: ${dureeRealisation !== '-' ? '#4caf50' : '#999'};">${dureeRealisation}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${roleRequis}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${intervenant || '-'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; color: ${dtePrev ? '#2196F3' : '#999'};">${dtePrev || '-'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; color: ${dteReal ? '#4caf50' : '#999'};">${dteReal || '-'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; max-width: 300px; word-wrap: break-word;">${specifications}</td>
+            </tr>
+        `);
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function selectPreventiveTask(taskId) {
+        selectedPreventiveTask = allPreventiveTasks.find(t => parseInt(t.id, 10) === parseInt(taskId, 10));
+        $('.preventive-task-row').removeClass('selected');
+        $(`.preventive-task-row[data-task-id="${taskId}"]`).addClass('selected');
+        updatePreventiveSelectionInfo();
+    }
+
+    function updatePreventiveSelectionInfo() {
+        const info = $('#preventive-selection-info');
+        if (!info.length) return;
+        info.show();
+        if (selectedPreventiveTask) {
+            const titre = selectedPreventiveTask.reference ? `${selectedPreventiveTask.reference} - ${selectedPreventiveTask.tache || ''}` : (selectedPreventiveTask.tache || 'Tâche sélectionnée');
+            const machine = selectedPreventiveTask.nom_gp_postes || 'Machine non renseignée';
+            info.text(`Tâche sélectionnée : ${titre} | Machine : ${machine}`);
+        } else {
+            info.text('Sélectionnez une tâche dans le tableau pour pré-remplir la fiche d’intervention préventive.');
+        }
+    }
+
+    function showPreventiveTracking() {
+        const $section = $('#preventive-tracking');
+        if ($section.is(':visible')) {
+            $section.slideUp(200);
+        } else {
+            $section.slideDown(200);
+        }
+    }
+    
+    function resetPreventiveFilters() {
+        $('#machine-filter').val('');
+        $('#periodicite-filter').val('');
+        $('#role-filter').val('');
+        $('#search-input').val('');
+        $('#sort-by').val('periodicite');
+        currentSortColumn = 'periodicite';
+        currentSortDirection = 'asc';
+        updateSortIndicators();
+        loadPreventiveTasks();
+    }
+    
+    function updateSortIndicators() {
+        $('.sort-indicator').text('⇅');
+        const activeColumn = $(`.sortable[data-sort="${currentSortColumn}"]`);
+        if (activeColumn.length) {
+            activeColumn.find('.sort-indicator').text(currentSortDirection === 'asc' ? '↑' : '↓');
+        }
+    }
+    
+    // Gestionnaires d'événements
+    $('#machine-filter').on('change', function() {
+        // Quand le filtre de machine change, recharger depuis le serveur
+        loadPreventiveTasks();
+    });
+    
+    $('#periodicite-filter, #role-filter, #sort-by').on('change', function() {
+        if ($(this).attr('id') === 'sort-by') {
+            currentSortColumn = $(this).val();
+        }
+        applyFiltersAndSort();
+    });
+    
+    $('#search-input').on('input', function() {
+        applyFiltersAndSort();
+    });
+    
+    // Tri par clic sur les en-têtes
+    $('.sortable').on('click', function() {
+        const sortColumn = $(this).data('sort');
+        if (currentSortColumn === sortColumn) {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSortColumn = sortColumn;
+            currentSortDirection = 'asc';
+        }
+        $('#sort-by').val(sortColumn);
+        updateSortIndicators();
+        applyFiltersAndSort();
+    });
+    
+    // Initialiser les indicateurs de tri
+    updateSortIndicators();
 </script>
 {% endblock %}

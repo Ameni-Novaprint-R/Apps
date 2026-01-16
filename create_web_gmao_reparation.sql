@@ -34,6 +34,7 @@ CREATE TABLE dbo.WEB_GMAO_REPARATION (
     END) PERSISTED,  -- Colonne calculée persistée
     Nat VARCHAR(4) NULL CHECK (Nat IN ('Mec', 'Elec')),
     ID_StatRep TINYINT NULL,
+    TypeIN CHAR(1) NULL CHECK (TypeIN IN ('R','P')) DEFAULT 'R',
     MatInter INT NULL,
     Intervenant NVARCHAR(101) NULL,
     
@@ -55,7 +56,11 @@ CREATE TABLE dbo.WEB_GMAO_REPARATION (
         FOREIGN KEY (ID_StatRep) REFERENCES WEB_GMAO_StatRep(ID),
     
     CONSTRAINT FK_WEB_GMAO_REPARATION_Intervenant 
-        FOREIGN KEY (MatInter) REFERENCES personel(Matricule)
+        FOREIGN KEY (MatInter) REFERENCES personel(Matricule),
+    
+    -- Contrainte : Si ID_WEB_GMAO_Dem_In est NULL, alors ID_StatRep doit être NULL
+    CONSTRAINT CK_WEB_GMAO_REPARATION_StatRep_When_DemIn_Null
+        CHECK (ID_WEB_GMAO_Dem_In IS NOT NULL OR ID_StatRep IS NULL)
 );
 GO
 

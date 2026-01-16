@@ -411,7 +411,7 @@
 
 {% block extra_js %}
 <!-- Bibliothèque pour générer des PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/html2pdf.bundle.min.js') }}"></script>
 <script>
 // Modal de visualisation
 const VIEW_MODAL_HTML = `

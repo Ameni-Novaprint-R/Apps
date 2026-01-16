@@ -1,0 +1,43 @@
+═══════════════════════════════════════════════════════════════════════════════
+  INSTRUCTIONS RAPIDES - ANALYSE KBA105
+═══════════════════════════════════════════════════════════════════════════════
+
+📁 ÉTAPE 1 : PLACER LE FICHIER
+───────────────────────────────────────────────────────────────────────────────
+Placez le fichier kba105.zip dans ce dossier :
+  C:\Apps\kba105_analysis\kba105.zip
+
+🚀 ÉTAPE 2 : INSTALLER LES DÉPENDANCES (si nécessaire)
+───────────────────────────────────────────────────────────────────────────────
+Ouvrez PowerShell et exécutez :
+  cd C:\Apps\kba105_analysis
+  pip install openpyxl
+
+▶️ ÉTAPE 3 : EXÉCUTER LE SCRIPT
+───────────────────────────────────────────────────────────────────────────────
+Dans PowerShell :
+  cd C:\Apps\kba105_analysis
+  python analyze_kba105.py
+
+📊 RÉSULTAT
+───────────────────────────────────────────────────────────────────────────────
+Le script génère automatiquement :
+  → kba105_maintenance_preventive.xlsx
+
+Ce fichier contient :
+  ✓ Onglet 1 : Liste complète des tâches de maintenance préventive
+  ✓ Onglet 2 : Calendrier de prévision 2026 avec jours fériés tunisiens
+
+═══════════════════════════════════════════════════════════════════════════════
+  INFORMATIONS IMPORTANTES
+═══════════════════════════════════════════════════════════════════════════════
+
+✓ Le script analyse les NOMS DE FICHIERS uniquement (pas le contenu)
+✓ Traduction automatique allemand → français
+✓ Détection automatique de la périodicité
+✓ Identification automatique des composants
+✓ Calendrier avec jours fériés tunisiens (du projet18)
+✓ Calcul automatique des dates d'exécution selon la périodicité
+
+═══════════════════════════════════════════════════════════════════════════════
+

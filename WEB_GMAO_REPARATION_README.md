@@ -77,3 +77,20 @@ Après la création de la table et la migration :
 - ✅ `get_all_demandes()` - Joint avec `WEB_GMAO_REPARATION` pour afficher les réparations
 - ✅ `delete_reparation()` - Supprime depuis `WEB_GMAO_REPARATION`
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

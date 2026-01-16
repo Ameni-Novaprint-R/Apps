@@ -42,6 +42,7 @@ def setup_web_gmao_reparation():
                     END) PERSISTED,
                     Nat VARCHAR(4) NULL CHECK (Nat IN ('Mec', 'Elec')),
                     ID_StatRep TINYINT NULL,
+                    TypeIN CHAR(1) NULL CHECK (TypeIN IN ('R','P')) DEFAULT 'R',
                     MatInter INT NULL,
                     Intervenant NVARCHAR(101) NULL,
                     ID_WEB_GMAO_Dem_In INT NULL,
@@ -53,7 +54,9 @@ def setup_web_gmao_reparation():
                     CONSTRAINT FK_WEB_GMAO_REPARATION_StatRep 
                         FOREIGN KEY (ID_StatRep) REFERENCES WEB_GMAO_StatRep(ID),
                     CONSTRAINT FK_WEB_GMAO_REPARATION_Intervenant 
-                        FOREIGN KEY (MatInter) REFERENCES personel(Matricule)
+                        FOREIGN KEY (MatInter) REFERENCES personel(Matricule),
+                    CONSTRAINT CK_WEB_GMAO_REPARATION_StatRep_When_DemIn_Null
+                        CHECK (ID_WEB_GMAO_Dem_In IS NOT NULL OR ID_StatRep IS NULL)
                 )
             """)
             cursor.connection.commit()
@@ -80,11 +83,11 @@ def setup_web_gmao_reparation():
             print("📝 Migration des données depuis WEB_GMAO...")
             cursor.execute("""
                 INSERT INTO dbo.WEB_GMAO_REPARATION (
-                    DteDeb, DteFin, Nat, ID_StatRep, MatInter, Intervenant,
+                    DteDeb, DteFin, Nat, ID_StatRep, TypeIN, MatInter, Intervenant,
                     ID_WEB_GMAO_Dem_In, PostesReel, DateCreation, DateModification
                 )
                 SELECT 
-                    g.DteDeb, g.DteFin, g.Nat, g.ID_StatRep, g.MatInter, g.Internvenant,
+                    g.DteDeb, g.DteFin, g.Nat, g.ID_StatRep, 'R', g.MatInter, g.Internvenant,
                     g.ID as ID_WEB_GMAO_Dem_In, g.PostesReel, g.DateCreation, g.DateModification
                 FROM WEB_GMAO g
                 WHERE g.DteDeb IS NOT NULL 

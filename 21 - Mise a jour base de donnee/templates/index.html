@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synchronisation Novaprint</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+        }
+        h1 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #2a5298;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+        .info-box h3 { color: #1e3c72; margin-bottom: 8px; font-size: 14px; }
+        .info-box p { color: #555; font-size: 13px; margin: 3px 0; }
+        #syncBtn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+        }
+        #syncBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40,167,69,0.4);
+        }
+        #syncBtn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .progress-container {
+            margin-top: 25px;
+            display: none;
+        }
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, #28a745, #20c997);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .status-text {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        .log-container {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+            display: none;
+        }
+        .log-entry {
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .log-entry:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Projet 21 - Mise à jour Base de Données</h1>
+        <p class="subtitle">Synchronisation sécurisée Novaprint → novaprint_restored</p>
+        
+        <div class="info-box">
+            <h3>Source (Lecture seule)</h3>
+            <p>Serveur: SageSRV\Graphisoft</p>
+            <p>Base: Novaprint</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>Cible (Ajout uniquement)</h3>
+            <p>Serveur: SRV-KBA1</p>
+            <p>Base: novaprint_restored</p>
+        </div>
+        
+        <button id="syncBtn" onclick="startSync()">Synchroniser Novaprint</button>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p class="status-text" id="statusText">En attente...</p>
+        </div>
+        
+        <div class="log-container" id="logContainer"></div>
+    </div>
+
+    <script>
+        let polling = null;
+
+        function startSync() {
+            document.getElementById('syncBtn').disabled = true;
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('logContainer').style.display = 'block';
+            document.getElementById('logContainer').innerHTML = '';
+            
+            fetch('/sync', { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    polling = setInterval(checkStatus, 500);
+                });
+        }
+
+        function checkStatus() {
+            fetch('/status')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('progressFill').style.width = data.progress + '%';
+                    document.getElementById('statusText').textContent = data.message;
+                    
+                    const logContainer = document.getElementById('logContainer');
+                    logContainer.innerHTML = data.details.map(d => 
+                        `<div class="log-entry">${d}</div>`
+                    ).join('');
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                    
+                    if (!data.running) {
+                        clearInterval(polling);
+                        document.getElementById('syncBtn').disabled = false;
+                    }
+                });
+        }
+    </script>
+</body>
+</html>

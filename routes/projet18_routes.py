@@ -127,8 +127,9 @@ def export_pdf():
     
 
     log_path = Path(__file__).parent.parent / '.cursor' / 'debug.log'
-
     
+    # Créer le dossier .cursor s'il n'existe pas
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
 
@@ -2325,8 +2326,9 @@ def export_pdf_multilang():
     
 
     log_path = Path(__file__).parent.parent / '.cursor' / 'debug.log'
-
     
+    # Créer le dossier .cursor s'il n'existe pas
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
 
@@ -5604,11 +5606,33 @@ def export_pdf_multilang_style2():
 
     from pathlib import Path
 
-    
+    from datetime import datetime
 
-    log_path = Path(__file__).parent.parent / '.cursor' / 'debug.log'
+    from flask import make_response
 
+    # Utiliser un chemin absolu pour éviter les problèmes avec __file__
+    import os
+    log_dir = Path('C:/Apps/.cursor')
+    log_path = log_dir / 'debug.log'
     
+    # Créer le dossier .cursor s'il n'existe pas
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass  # Ignorer les erreurs de création de dossier
+
+    # Log très tôt pour vérifier que le code est exécuté
+    try:
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'timestamp': datetime.now().isoformat(),
+                'location': 'projet18_routes.py:export_pdf_multilang_style2:very_start',
+                'message': 'DEBUT FONCTION - Code nouveau charge',
+                'sessionId': 'debug-session',
+                'runId': 'run1'
+            }) + '\n')
+    except Exception:
+        pass  # Ignorer les erreurs de log
 
     try:
 
@@ -5616,23 +5640,26 @@ def export_pdf_multilang_style2():
 
         # #region agent log
 
-        with open(log_path, 'a', encoding='utf-8') as f:
+        try:
+            with open(log_path, 'a', encoding='utf-8') as f:
 
-            f.write(json.dumps({
+                f.write(json.dumps({
 
-                'timestamp': datetime.now().isoformat(),
+                    'timestamp': datetime.now().isoformat(),
 
-                'location': 'projet18_routes.py:export_pdf_multilang_style2:start',
+                    'location': 'projet18_routes.py:export_pdf_multilang_style2:start',
 
-                'message': 'Debut export PDF multilingue',
+                    'message': 'Debut export PDF multilingue',
 
-                'sessionId': 'debug-session',
+                    'sessionId': 'debug-session',
 
-                'runId': 'run1',
+                    'runId': 'run1',
 
-                'hypothesisId': 'A'
+                    'hypothesisId': 'A'
 
-            }) + '\n')
+                }) + '\n')
+        except:
+            pass  # Ignorer les erreurs d'écriture de log
 
         # #endregion
 
@@ -6384,9 +6411,34 @@ def export_pdf_multilang_style2():
 
             pass
 
-        
+        # Log avant get_semaines_2026
+        try:
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'timestamp': datetime.now().isoformat(),
+                    'location': 'projet18_routes.py:export_pdf_multilang_style2:before_get_semaines',
+                    'message': 'Avant get_semaines_2026',
+                    'sessionId': 'debug-session',
+                    'runId': 'run1'
+                }) + '\n')
+        except:
+            pass
 
         semaines = get_semaines_2026()
+
+        # Log après get_semaines_2026
+        try:
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'timestamp': datetime.now().isoformat(),
+                    'location': 'projet18_routes.py:export_pdf_multilang_style2:after_get_semaines',
+                    'message': 'Apres get_semaines_2026',
+                    'data': {'nb_semaines': len(semaines)},
+                    'sessionId': 'debug-session',
+                    'runId': 'run1'
+                }) + '\n')
+        except:
+            pass
 
         # Ajouter la semaine 53 (du lundi 28/12/2026 au dimanche 03/01/2027)
 
@@ -6416,25 +6468,39 @@ def export_pdf_multilang_style2():
 
         # Log nombre de semaines
 
-        with open(log_path, 'a', encoding='utf-8') as f:
+        try:
+            with open(log_path, 'a', encoding='utf-8') as f:
 
-            f.write(json.dumps({
+                f.write(json.dumps({
 
-                'timestamp': datetime.now().isoformat(),
+                    'timestamp': datetime.now().isoformat(),
 
-                'location': 'projet18_routes.py:export_pdf_multilang:semaines',
+                    'location': 'projet18_routes.py:export_pdf_multilang_style2:semaines',
 
-                'message': 'Nombre de semaines',
+                    'message': 'Nombre de semaines',
 
-                'data': {'nb_semaines': len(semaines)},
+                    'data': {'nb_semaines': len(semaines)},
 
-                'sessionId': 'debug-session',
+                    'sessionId': 'debug-session',
 
-                'runId': 'run1'
+                    'runId': 'run1'
 
-            }) + '\n')
+                }) + '\n')
+        except:
+            pass  # Ignorer les erreurs d'écriture de log
 
-        
+        # Log avant création buffer
+        try:
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'timestamp': datetime.now().isoformat(),
+                    'location': 'projet18_routes.py:export_pdf_multilang_style2:before_buffer',
+                    'message': 'Avant creation buffer',
+                    'sessionId': 'debug-session',
+                    'runId': 'run1'
+                }) + '\n')
+        except:
+            pass
 
         buffer = BytesIO()
 
@@ -6986,9 +7052,9 @@ def export_pdf_multilang_style2():
 
         
 
-        doc.onFirstPage = lambda canvas, doc: draw_rounded_rects(canvas, doc)
+        doc.onFirstPage = draw_rounded_rects
 
-        doc.onLaterPages = lambda canvas, doc: draw_rounded_rects(canvas, doc)
+        doc.onLaterPages = draw_rounded_rects
 
 
 
@@ -9448,21 +9514,73 @@ def export_pdf_multilang_style2():
 
         # Utiliser draw_rounded_rects pour que le mini-calendrier soit dessiné avec les mêmes paramètres sur toutes les pages impaires
 
-        doc.build(elements, onFirstPage=draw_rounded_rects, onLaterPages=draw_rounded_rects)
+        try:
+            # Log avant génération PDF
+            try:
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'timestamp': datetime.now().isoformat(),
+                        'location': 'projet18_routes.py:export_pdf_multilang_style2:before_build',
+                        'message': 'Avant doc.build',
+                        'data': {'nb_elements': len(elements)},
+                        'sessionId': 'debug-session',
+                        'runId': 'run1'
+                    }) + '\n')
+            except:
+                pass
+
+            # Utiliser les callbacks déjà définis sur doc au lieu de les passer en paramètre
+            # doc.onFirstPage et doc.onLaterPages sont déjà définis à la ligne 7055-7057
+            doc.build(elements)
+        except Exception as build_error:
+            # Si doc.build échoue, relancer l'erreur pour qu'elle soit capturée par le except principal
+            # Log l'erreur avant de la relancer
+            try:
+                log_dir.mkdir(parents=True, exist_ok=True)
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'timestamp': datetime.now().isoformat(),
+                        'location': 'projet18_routes.py:export_pdf_multilang_style2:build_error',
+                        'message': 'Erreur lors de doc.build',
+                        'data': {'error': str(build_error), 'traceback': traceback.format_exc()},
+                        'sessionId': 'debug-session',
+                        'runId': 'run1'
+                    }) + '\n')
+            except:
+                pass
+            raise build_error
 
         buffer.seek(0)
-
         
+        # Lire le contenu du buffer
+        pdf_content = buffer.read()
+        
+        # Vérifier que le contenu n'est pas vide
+        if not pdf_content:
+            raise ValueError("Le buffer PDF est vide après la génération")
 
-        response = make_response(buffer.read())
-
+        # Créer la réponse
+        response = make_response(pdf_content)
         response.headers['Content-Type'] = 'application/pdf'
-
-        # Nom de fichier différent pour indiquer que c'est la version multilingue style 2
-
-        response.headers['Content-Disposition'] = f'attachment; filename=agenda_semainier_2026_multilang_style2_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
-
         
+        # Nom de fichier différent pour indiquer que c'est la version multilingue style 2
+        filename = f'agenda_semainier_2026_multilang_style2_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+
+        # Log avant retour pour vérifier que tout fonctionne
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'timestamp': datetime.now().isoformat(),
+                    'location': 'projet18_routes.py:export_pdf_multilang_style2:before_return',
+                    'message': 'Avant retour response',
+                    'data': {'pdf_size': len(pdf_content), 'filename': filename},
+                    'sessionId': 'debug-session',
+                    'runId': 'run1'
+                }) + '\n')
+        except:
+            pass
 
         return response
 
@@ -9478,31 +9596,57 @@ def export_pdf_multilang_style2():
 
         # #region agent log
 
-        with open(log_path, 'a', encoding='utf-8') as f:
+        try:
+            # S'assurer que le dossier existe avant d'écrire
+            log_dir.mkdir(parents=True, exist_ok=True)
+            with open(log_path, 'a', encoding='utf-8') as f:
 
-            f.write(json.dumps({
+                f.write(json.dumps({
 
-                'timestamp': datetime.now().isoformat(),
+                    'timestamp': datetime.now().isoformat(),
 
-                'location': 'projet18_routes.py:export_pdf_multilang_style2:error',
+                    'location': 'projet18_routes.py:export_pdf_multilang_style2:error',
 
-                'message': 'Erreur generation PDF multilingue style 2',
+                    'message': 'Erreur generation PDF multilingue style 2',
 
-                'data': {'error': error_msg, 'traceback': error_trace},
+                    'data': {'error': error_msg, 'traceback': error_trace},
 
-                'sessionId': 'debug-session',
+                    'sessionId': 'debug-session',
 
-                'runId': 'run1',
+                    'runId': 'run1',
 
-                'hypothesisId': 'E'
+                    'hypothesisId': 'E'
 
-            }) + '\n')
+                }) + '\n')
+        except:
+            pass  # Ignorer les erreurs d'écriture de log
 
         # #endregion
 
         
-
-        raise
+        # Retourner une réponse HTTP avec l'erreur pour faciliter le diagnostic
+        from flask import Response
+        # Simplifier au maximum pour éviter toute erreur
+        try:
+            # Essayer d'abord avec JSON
+            error_json_str = json.dumps({
+                'error': 'Erreur lors de la génération du PDF',
+                'message': error_msg[:500],  # Limiter la taille
+                'traceback': error_trace[:2000]  # Limiter la taille
+            })
+            resp = Response(error_json_str, status=500)
+            resp.headers['Content-Type'] = 'application/json; charset=utf-8'
+            return resp
+        except Exception as json_err:
+            # Si JSON échoue, utiliser texte simple
+            try:
+                error_text = f'Erreur: {error_msg[:500]}\n\nTraceback:\n{error_trace[:1000]}'
+                resp = Response(error_text, status=500)
+                resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
+                return resp
+            except:
+                # Dernier recours : message minimal
+                return Response(f'Erreur: {str(e)[:200]}', status=500, mimetype='text/plain')
 
 
 

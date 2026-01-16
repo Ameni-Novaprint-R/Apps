@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 17 - Fusion de fichiers HTML{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+    }
+    
+    .container {
+        max-width: 100%;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .header h1 {
+        margin: 0;
+        font-size: 2.5em;
+    }
+    
+    .header .file-count {
+        margin-top: 10px;
+        font-size: 1.2em;
+        opacity: 0.9;
+    }
+    
+    .file-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        margin: 40px 0 20px 0;
+        border-radius: 8px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .file-title {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-size: 1.3em;
+    }
+    
+    .file-number {
+        background-color: rgba(255, 255, 255, 0.3);
+        padding: 5px 12px;
+        border-radius: 5px;
+        font-weight: bold;
+        min-width: 60px;
+        text-align: center;
+    }
+    
+    .file-name {
+        flex: 1;
+        word-break: break-all;
+    }
+    
+    .file-separator {
+        height: 2px;
+        background-color: rgba(255, 255, 255, 0.3);
+        margin-top: 10px;
+    }
+    
+    .file-content {
+        padding: 20px;
+        margin-bottom: 30px;
+        border: 1px solid #e0e0e0;
+        border-radius: 5px;
+        background-color: #fafafa;
+        min-height: 50px;
+    }
+    
+    .file-content img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    .file-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+    }
+    
+    .file-content table td,
+    .file-content table th {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+    
+    .navigation-toggle {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        z-index: 1001;
+        cursor: pointer;
+        font-weight: bold;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .navigation-toggle:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    .navigation {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        max-width: 300px;
+        max-height: 80vh;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .navigation.visible {
+        display: block;
+    }
+    
+    .navigation h3 {
+        margin: 0 0 10px 0;
+        font-size: 1.1em;
+        color: #667eea;
+    }
+    
+    .navigation ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .navigation li {
+        margin: 5px 0;
+    }
+    
+    .navigation a {
+        color: #667eea;
+        text-decoration: none;
+        font-size: 0.9em;
+        display: block;
+        padding: 5px;
+        border-radius: 3px;
+        transition: background-color 0.2s;
+    }
+    
+    .navigation a:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .stats {
+        background-color: #e8f5e9;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    
+    .stats strong {
+        color: #2e7d32;
+    }
+    
+    .btn-export-pdf {
+        display: inline-block;
+        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        color: white;
+        padding: 15px 30px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.1em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-export-pdf:hover {
+        background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transform: translateY(-2px);
+    }
+</style>
+
+<div class="container">
+    <div class="header">
+        <h1>📚 Projet 17 - Fusion de fichiers HTML</h1>
+        <div class="file-count">Total: <strong>{{ file_count }}</strong> fichiers HTML fusionnés</div>
+    </div>
+    
+    <div class="stats">
+        <strong>📊 Statistiques:</strong> 
+        {{ file_count }} fichier(s) HTML trouvé(s) et affiché(s) intégralement
+    </div>
+    
+    <div style="text-align: center; margin-bottom: 20px;">
+        <a href="{{ url_for('projet17.export_pdf') }}" class="btn-export-pdf" download>
+            💾 Enregistrer en PDF
+        </a>
+    </div>
+    
+    <button class="navigation-toggle" onclick="toggleNavigation()">
+        📑 Navigation rapide
+    </button>
+    
+    <div class="navigation" id="navigation-menu">
+        <h3>📑 Navigation rapide</h3>
+        <ul>
+            {% for html_file in html_files[:50] %}
+            <li>
+                <a href="#file-{{ loop.index }}" title="{{ html_file.name }}">
+                    {{ loop.index }}. {{ html_file.name[:40] }}{% if html_file.name|length > 40 %}...{% endif %}
+                </a>
+            </li>
+            {% endfor %}
+            {% if html_files|length > 50 %}
+            <li style="color: #999; font-size: 0.8em; margin-top: 10px;">
+                ... et {{ html_files|length - 50 }} autres fichiers
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    
+    <div class="merged-content">
+        {{ merged_content|safe }}
+    </div>
+</div>
+
+<script>
+    function toggleNavigation() {
+        const navMenu = document.getElementById('navigation-menu');
+        navMenu.classList.toggle('visible');
+    }
+    
+    // Smooth scroll vers les fichiers
+    document.querySelectorAll('.navigation a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Masquer le menu après le clic (optionnel)
+                // document.getElementById('navigation-menu').classList.remove('visible');
+            }
+        });
+    });
+    
+    // Fermer le menu si on clique en dehors
+    document.addEventListener('click', function(event) {
+        const navMenu = document.getElementById('navigation-menu');
+        const navToggle = document.querySelector('.navigation-toggle');
+        
+        if (navMenu.classList.contains('visible') && 
+            !navMenu.contains(event.target) && 
+            !navToggle.contains(event.target)) {
+            navMenu.classList.remove('visible');
+        }
+    });
+    
+    // Mettre en évidence le fichier actuel lors du scroll
+    const fileHeaders = document.querySelectorAll('.file-header');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+            } else {
+                entry.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            }
+        });
+    }, { threshold: 0.5 });
+    
+    fileHeaders.forEach(header => observer.observe(header));
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+

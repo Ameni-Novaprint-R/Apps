@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 20 – Analyse des Dossiers{% endblock %}
+
+{% block head %}
+<style>
+    .search-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .search-input-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 500px;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 12px 40px 12px 16px;
+        border: 2px solid #ced4da;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .autocomplete-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: none;
+    }
+    
+    .autocomplete-suggestions.active {
+        display: block;
+    }
+    
+    .autocomplete-suggestion {
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+    
+    .autocomplete-suggestion:hover,
+    .autocomplete-suggestion.selected {
+        background-color: #f8f9fa;
+    }
+    
+    .autocomplete-suggestion:last-child {
+        border-bottom: none;
+    }
+    
+    .data-table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow-x: auto;
+        margin-top: 20px;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+    }
+    
+    .data-table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .data-table th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .data-table th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 10;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .data-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e9ecef;
+        white-space: nowrap;
+    }
+    
+    .data-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .data-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .table-name-cell {
+        font-weight: 600;
+        background-color: #e7f3ff;
+        position: sticky;
+        left: 0;
+        z-index: 5;
+    }
+    
+    .column-name-cell {
+        font-style: italic;
+        color: #6c757d;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state h3 {
+        margin-bottom: 10px;
+        color: #495057;
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #667eea;
+    }
+    
+    .error-message {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="fade-in">Projet 20 – Analyse des Dossiers</h1>
+
+<div class="search-section">
+    <label for="numero-search" style="display: block; margin-bottom: 8px; font-weight: 600;">
+        Rechercher un numéro de dossier :
+    </label>
+    <div class="search-input-wrapper">
+        <input 
+            type="text" 
+            id="numero-search" 
+            class="search-input" 
+            placeholder="Tapez pour rechercher un numéro de dossier..."
+            autocomplete="off"
+        >
+        <div id="autocomplete-suggestions" class="autocomplete-suggestions"></div>
+    </div>
+</div>
+
+<div id="data-container">
+    <div class="empty-state">
+        <h3>🔍 Sélectionnez un numéro de dossier</h3>
+        <p>Utilisez le champ de recherche ci-dessus pour rechercher et sélectionner un dossier.</p>
+    </div>
+</div>
+
+<script>
+let currentSuggestions = [];
+let selectedSuggestionIndex = -1;
+let searchTimeout = null;
+
+// Gestion de la recherche autocomplete
+document.getElementById('numero-search').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    const suggestionsDiv = document.getElementById('autocomplete-suggestions');
+    
+    selectedSuggestionIndex = -1;
+    
+    // Annuler la recherche précédente
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    
+    if (query.length < 2) {
+        suggestionsDiv.classList.remove('active');
+        suggestionsDiv.innerHTML = '';
+        currentSuggestions = [];
+        return;
+    }
+    
+    // Délai pour éviter trop de requêtes
+    searchTimeout = setTimeout(() => {
+        fetch(`/projet20/api/search-numeros?q=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => {
+                currentSuggestions = data.results || [];
+                
+                if (currentSuggestions.length === 0) {
+                    suggestionsDiv.innerHTML = '<div class="autocomplete-suggestion">Aucun résultat</div>';
+                    suggestionsDiv.classList.add('active');
+                    return;
+                }
+                
+                suggestionsDiv.innerHTML = '';
+                currentSuggestions.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'autocomplete-suggestion';
+                    div.textContent = item.text || item.id;
+                    div.onclick = () => selectDossier(item.id || item.text);
+                    suggestionsDiv.appendChild(div);
+                });
+                
+                suggestionsDiv.classList.add('active');
+            })
+            .catch(error => {
+                console.error('Erreur lors de la recherche:', error);
+            });
+    }, 300);
+});
+
+// Gestion du clavier
+document.getElementById('numero-search').addEventListener('keydown', function(e) {
+    const suggestionsDiv = document.getElementById('autocomplete-suggestions');
+    
+    if (!suggestionsDiv.classList.contains('active')) {
+        return;
+    }
+    
+    const suggestions = suggestionsDiv.querySelectorAll('.autocomplete-suggestion');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, suggestions.length - 1);
+        updateSuggestionSelection(suggestions);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+        updateSuggestionSelection(suggestions);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0 && currentSuggestions[selectedSuggestionIndex]) {
+            selectDossier(currentSuggestions[selectedSuggestionIndex].id || currentSuggestions[selectedSuggestionIndex].text);
+        }
+    } else if (e.key === 'Escape') {
+        suggestionsDiv.classList.remove('active');
+        selectedSuggestionIndex = -1;
+    }
+});
+
+function updateSuggestionSelection(suggestions) {
+    suggestions.forEach((sug, index) => {
+        if (index === selectedSuggestionIndex) {
+            sug.classList.add('selected');
+            sug.scrollIntoView({ block: 'nearest' });
+        } else {
+            sug.classList.remove('selected');
+        }
+    });
+}
+
+// Sélection d'un dossier
+function selectDossier(numero) {
+    document.getElementById('numero-search').value = numero;
+    document.getElementById('autocomplete-suggestions').classList.remove('active');
+    loadDossierData(numero);
+}
+
+// Charger les données du dossier
+function loadDossierData(numero) {
+    const container = document.getElementById('data-container');
+    container.innerHTML = '<div class="loading">⏳ Chargement des données...</div>';
+    
+    fetch(`/projet20/api/dossier/${encodeURIComponent(numero)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.data) {
+                displayDossierData(data.data);
+            } else {
+                container.innerHTML = `
+                    <div class="error-message">
+                        ❌ Erreur: ${data.error || 'Aucune donnée trouvée pour ce dossier'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            container.innerHTML = `
+                <div class="error-message">
+                    ❌ Erreur lors du chargement: ${error.message}
+                </div>
+            `;
+        });
+}
+
+// Afficher les données dans un tableau horizontal
+function displayDossierData(data) {
+    const container = document.getElementById('data-container');
+    
+    if (!data || Object.keys(data).length === 0) {
+        container.innerHTML = '<div class="empty-state"><h3>⚠️ Aucune donnée trouvée</h3></div>';
+        return;
+    }
+    
+    // Créer le tableau
+    const tableDiv = document.createElement('div');
+    tableDiv.className = 'data-table-container';
+    
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    
+    // En-tête
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    
+    // Colonnes: Table | Colonne | Valeur1 | Valeur2 | ...
+    const headers = ['Table', 'Colonne'];
+    let maxValues = 0;
+    
+    // Calculer le nombre maximum de valeurs pour déterminer le nombre de colonnes
+    for (const tableName in data) {
+        for (const columnName in data[tableName]) {
+            const values = data[tableName][columnName];
+            if (Array.isArray(values) && values.length > maxValues) {
+                maxValues = values.length;
+            }
+        }
+    }
+    
+    // Ajouter les colonnes de valeurs
+    for (let i = 1; i <= maxValues; i++) {
+        headers.push(`Valeur ${i}`);
+    }
+    
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // Corps du tableau
+    const tbody = document.createElement('tbody');
+    
+    for (const tableName in data) {
+        const tableData = data[tableName];
+        let isFirstRow = true;
+        
+        for (const columnName in tableData) {
+            const values = tableData[columnName];
+            
+            if (!Array.isArray(values) || values.length === 0) {
+                continue;
+            }
+            
+            const row = document.createElement('tr');
+            
+            // Cellule Table (seulement sur la première ligne de chaque table)
+            const tableCell = document.createElement('td');
+            if (isFirstRow) {
+                tableCell.textContent = tableName;
+                tableCell.className = 'table-name-cell';
+                isFirstRow = false;
+            } else {
+                tableCell.textContent = '';
+                tableCell.className = 'table-name-cell';
+            }
+            row.appendChild(tableCell);
+            
+            // Cellule Colonne
+            const columnCell = document.createElement('td');
+            columnCell.textContent = columnName;
+            columnCell.className = 'column-name-cell';
+            row.appendChild(columnCell);
+            
+            // Cellules Valeurs
+            for (let i = 0; i < maxValues; i++) {
+                const valueCell = document.createElement('td');
+                if (i < values.length) {
+                    valueCell.textContent = values[i];
+                } else {
+                    valueCell.textContent = '';
+                }
+                row.appendChild(valueCell);
+            }
+            
+            tbody.appendChild(row);
+        }
+    }
+    
+    table.appendChild(tbody);
+    tableDiv.appendChild(table);
+    container.innerHTML = '';
+    container.appendChild(tableDiv);
+}
+
+// Fermer l'autocomplete si on clique en dehors
+document.addEventListener('click', function(e) {
+    const searchInput = document.getElementById('numero-search');
+    const suggestionsDiv = document.getElementById('autocomplete-suggestions');
+    
+    if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+        suggestionsDiv.classList.remove('active');
+    }
+});
+</script>
+{% endblock %}

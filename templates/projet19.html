@@ -1,0 +1,2966 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 19 – Gestion des Dossiers en Cours{% endblock %}
+
+{% block head %}
+<style>
+    .dossiers-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .dossiers-table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .dossiers-table th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .dossiers-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .dossiers-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .dossiers-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* Ligne de saisie en haut */
+    .input-row {
+        background-color: #e7f3ff;
+    }
+    
+    .input-row input,
+    .input-row select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    
+    .input-row input:focus,
+    .input-row select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+    }
+    
+    .input-row select {
+        background-color: white;
+        cursor: pointer;
+    }
+    
+    /* Cellules en lecture seule */
+    .readonly-cell {
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    /* Actions */
+    .action-icons {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .icon-btn:hover {
+        transform: scale(1.2);
+        background-color: rgba(0,0,0,0.05);
+    }
+    
+    .icon-save {
+        color: #28a745;
+    }
+    
+    .icon-print {
+        color: #17a2b8;
+    }
+    
+    .icon-pdf {
+        color: #dc3545;
+    }
+    
+    .icon-save:hover {
+        color: #218838;
+        background-color: rgba(40, 167, 69, 0.1);
+    }
+    
+    .icon-edit {
+        color: #007bff;
+    }
+    
+    .icon-edit:hover {
+        color: #0056b3;
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+    
+    .icon-delete {
+        color: #dc3545;
+    }
+    
+    .icon-delete:hover {
+        color: #c82333;
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+    
+    .icon-cancel {
+        color: #6c757d;
+    }
+    
+    .icon-cancel:hover {
+        color: #5a6268;
+        background-color: rgba(108, 117, 125, 0.1);
+    }
+    
+    /* Mode édition */
+    .edit-mode input {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    
+    .filter-section {
+        margin-bottom: 20px;
+    }
+    
+    .filter-section input {
+        max-width: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">📁 Projet 19 – Gestion des Dossiers en Cours</h1>
+    
+    <!-- Section de filtre -->
+    <div class="filter-section">
+        <input type="text" 
+               id="filter-dossiers" 
+               class="form-control" 
+               placeholder="🔍 Filtrer par numéro de dossier..."
+               autocomplete="off">
+    </div>
+    
+    <!-- Barre d'actions au-dessus du tableau -->
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <!-- Bouton Nouveau dossier -->
+        <button onclick="openNewDossierPopup()" 
+                style="padding: 12px 24px; font-size: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                       color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+            ➕ Nouveau dossier
+        </button>
+        
+        <!-- Boutons d'export et impression -->
+        <div style="display: flex; gap: 10px;">
+            <button onclick="exportTableToExcel()" 
+                    style="padding: 10px 16px; font-size: 14px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;"
+                    title="Exporter en Excel">
+                📊 Excel
+            </button>
+            <button onclick="exportTableToPDF()" 
+                    style="padding: 10px 16px; font-size: 14px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;"
+                    title="Exporter en PDF">
+                📄 PDF
+            </button>
+            <button onclick="printTable()" 
+                    style="padding: 10px 16px; font-size: 14px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer;"
+                    title="Imprimer le tableau">
+                🖨️ Imprimer
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tableau des dossiers -->
+    <div class="table-responsive">
+        <table class="dossiers-table">
+            <thead>
+                <tr>
+                    <th>N° de dossier</th>
+                    <th>Client</th>
+                    <th>Désignation</th>
+                    <th>Marge</th>
+                    <th>Prix de vente unitaire</th>
+                    <th>Quantité</th>
+                    <th>Prix de vente total</th>
+                    <th>Coût Total Estimé</th>
+                    <th>Cout Total</th>
+                    <th>Cout Total Réel</th>
+                    <th>Avancement</th>
+                    <th style="text-align: center; width: 120px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="dossiers-tbody">
+                <!-- Les lignes de données seront ajoutées ici -->
+            </tbody>
+        </table>
+    </div>
+    
+</div>
+
+<!-- Popup Modal pour créer un nouveau dossier -->
+<div id="new-dossier-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Nouveau Dossier</h2>
+            <button class="modal-close" onclick="closeNewDossierPopup()">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <!-- Section 1: Informations générales -->
+            <div class="modal-section">
+                <h3>Informations générales</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>N° de dossier:</label>
+                        <input type="text" 
+                               id="popup-input-numero" 
+                               placeholder="Rechercher un numéro..."
+                               autocomplete="off"
+                               list="popup-numero-suggestions"
+                               style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                        <datalist id="popup-numero-suggestions"></datalist>
+                    </div>
+                    <div class="info-item">
+                        <label>Client:</label>
+                        <div id="popup-client" class="readonly-field">-</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Désignation:</label>
+                        <div id="popup-reference" class="readonly-field">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section 2: Avancement & Services -->
+            <div class="modal-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0;">Avancement & Services</h3>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px;">
+                        <input type="checkbox" id="popup-check-all-services" onchange="toggleAllServices(this.checked)">
+                        <span>Tout cocher</span>
+                    </label>
+                </div>
+                <div id="popup-services-list" class="services-list">
+                    <p style="color: #6c757d; font-style: italic;">Sélectionnez un numéro de dossier pour charger les services...</p>
+                </div>
+            </div>
+            
+            <!-- Section 3: Coût total -->
+            <div class="modal-section">
+                <div class="cout-total-display">
+                    <label><strong>Coût Total:</strong></label>
+                    <div id="popup-cout-total" class="cout-total-value">0.000</div>
+                </div>
+                <div class="cout-total-display" style="margin-top: 10px;">
+                    <label><strong>Coût Total Réel:</strong></label>
+                    <div id="popup-ct-rel" class="cout-total-value">0.000</div>
+                </div>
+            </div>
+            
+            <!-- Section 4: Tableau récapitulatif -->
+            <div class="modal-section">
+                <h3>Récapitulatif</h3>
+                <table class="recap-table">
+                    <tr>
+                        <td><label>Marge:</label></td>
+                        <td><div id="popup-marge" class="readonly-field">-</div></td>
+                        <td><label>Prix de vente unitaire:</label></td>
+                        <td><div id="popup-prix-vente-unitaire" class="readonly-field">-</div></td>
+                    </tr>
+                    <tr>
+                        <td><label>Quantité:</label></td>
+                        <td>
+                            <input type="number" 
+                                   id="popup-quantite" 
+                                   min="0" 
+                                   step="1"
+                                   placeholder="Quantité"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;"
+                                   oninput="calculerRecapitulatifPopup()">
+                        </td>
+                        <td><label>Prix de vente total:</label></td>
+                        <td><div id="popup-prix-vente-total" class="readonly-field">-</div></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><label>Coût total estimé:</label></td>
+                        <td colspan="2"><div id="popup-ct-estime" class="readonly-field">-</div></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="printPopupContent()" class="btn-print" title="Imprimer">🖨️ Imprimer</button>
+                <button onclick="exportPopupToPDF()" class="btn-pdf" title="Enregistrer en PDF">📄 PDF</button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="closeNewDossierPopup()" class="btn-cancel">Annuler</button>
+                <button onclick="saveNewDossierFromPopup()" class="btn-save">💾 Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Styles du popup modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 32px;
+    color: white;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-section {
+    margin-bottom: 30px;
+}
+
+.modal-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.modal-section h3 {
+    margin: 0 0 16px 0;
+    color: #495057;
+    font-size: 18px;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 8px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.info-item label {
+    display: block;
+    margin-bottom: 6px;
+    color: #495057;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.readonly-field {
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    color: #495057;
+    min-height: 20px;
+}
+
+.services-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    background: #f8f9fa;
+}
+
+.service-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s;
+}
+
+.service-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
+}
+
+.service-item:last-child {
+    margin-bottom: 0;
+}
+
+.service-checkbox {
+    margin-right: 12px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.service-name {
+    flex: 1;
+    font-weight: 500;
+    color: #495057;
+}
+
+.service-cout {
+    margin-left: auto;
+    font-weight: 600;
+    color: #667eea;
+    min-width: 100px;
+    text-align: right;
+}
+
+.cout-total-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 8px;
+    color: white;
+}
+
+.cout-total-display label {
+    font-size: 18px;
+    margin: 0;
+}
+
+.cout-total-value {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.recap-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.recap-table td {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.recap-table td label {
+    font-weight: 600;
+    color: #495057;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.modal-footer {
+    padding: 20px 24px;
+    border-top: 2px solid #e9ecef;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: #f8f9fa;
+}
+
+.btn-cancel,
+.btn-save,
+.btn-print,
+.btn-pdf {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    transition: all 0.2s;
+}
+
+.btn-cancel {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-cancel:hover {
+    background: #5a6268;
+}
+
+.btn-save {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-print {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-print:hover {
+    background: #138496;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(23, 162, 184, 0.3);
+}
+
+.btn-pdf {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-pdf:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+</style>
+
+<script>
+let allDossiers = [];
+let editingId = null;
+let searchTimeout;
+// Variable globale pour stocker les données de la commande chargée
+let currentCommandeData = null;
+
+// Variable globale pour stocker le dernier numéro chargé
+let lastLoadedNumero = '';
+
+// Variables globales pour le popup (déclarées tôt pour éviter les erreurs de référence)
+let popupCommandeData = null;
+let popupServicesData = {};
+let popupSearchTimeout = null;
+
+// Recherche de numéro de dossier avec autocomplétion - SUPPRIMÉ (utilise maintenant le popup)
+// L'ancien code pour input-numero a été supprimé car on utilise maintenant le popup modal
+
+// Fonction pour recalculer le prix total en mode édition
+function recalculerPrixTotalEdit(dossierId) {
+    const row = document.querySelector(`tr[data-id="${dossierId}"]`);
+    if (!row) return;
+    
+    const inputQuantite = row.querySelector('.edit-quantite-input');
+    const prixTotalDisplay = row.querySelector('.edit-prix-total-display');
+    const prixUnitaireCell = row.querySelector('td[data-prix-unitaire]');
+    const margeCell = row.querySelector('td:nth-child(4)');
+    const ctEstimeDisplay = row.querySelector('.edit-ct-estime-display');
+    const coutTotalDisplay = row.querySelector('.edit-cout-total-display');
+    
+    if (!inputQuantite || !prixTotalDisplay || !prixUnitaireCell) return;
+    
+    const quantite = parseFloat(inputQuantite.value) || 0;
+    
+    // Validation : la quantité ne peut pas être négative
+    if (quantite < 0) {
+        inputQuantite.setCustomValidity('La quantité ne peut pas être négative');
+        prixTotalDisplay.textContent = '-';
+        prixTotalDisplay.setAttribute('data-prix-total', '');
+        if (ctEstimeDisplay) {
+            ctEstimeDisplay.textContent = '-';
+            ctEstimeDisplay.setAttribute('data-ct-estime', '');
+        }
+        if (coutTotalDisplay) {
+            coutTotalDisplay.textContent = '-';
+            coutTotalDisplay.setAttribute('data-cout-total', '');
+        }
+        return;
+    } else {
+        inputQuantite.setCustomValidity('');
+    }
+    
+    const prixUnitaire = parseFloat(prixUnitaireCell.getAttribute('data-prix-unitaire')) || null;
+    
+    if (prixUnitaire !== null && quantite > 0) {
+        const prixTotal = prixUnitaire * quantite;
+        prixTotalDisplay.textContent = prixTotal.toFixed(3).replace('.', ',');
+        prixTotalDisplay.setAttribute('data-prix-total', prixTotal);
+        console.log('[recalculerPrixTotalEdit] Calcul:', prixUnitaire, '*', quantite, '=', prixTotal);
+        
+        // Calculer le coût total estimé : Prix de Vente Total / (1 + Marge)
+        // La marge est stockée en pourcentage (ex: 45.9), donc on divise par 100 pour obtenir la valeur décimale
+        if (margeCell && ctEstimeDisplay) {
+            const margeText = margeCell.textContent.trim();
+            if (margeText && margeText !== '-') {
+                // Enlever le symbole % si présent et remplacer la virgule par un point
+                const margePourcentage = parseFloat(margeText.replace('%', '').replace(',', '.')) || 0;
+                // Convertir le pourcentage en décimal (45.9% -> 0.459)
+                const margeDecimal = margePourcentage / 100;
+                if (margeDecimal >= 0 && prixTotal > 0) {
+                    const ctEstime = prixTotal / (1 + margeDecimal);
+                    ctEstimeDisplay.textContent = ctEstime.toFixed(3).replace('.', ',');
+                    ctEstimeDisplay.setAttribute('data-ct-estime', ctEstime);
+                    console.log('[recalculerPrixTotalEdit] CT Estimé:', prixTotal, '/ (1 +', margeDecimal, ') =', ctEstime);
+                } else {
+                    ctEstimeDisplay.textContent = '-';
+                    ctEstimeDisplay.setAttribute('data-ct-estime', '');
+                }
+            } else {
+                ctEstimeDisplay.textContent = '-';
+                ctEstimeDisplay.setAttribute('data-ct-estime', '');
+            }
+        }
+        
+        // Calculer le coût total selon l'avancement (pour les lignes en édition)
+        const selectAvancementEdit = row.querySelector('.edit-avancement-select');
+        if (selectAvancementEdit && coutTotalDisplay) {
+            calculerCoutTotalSelonAvancementEdit(dossierId, selectAvancementEdit.value, coutTotalDisplay);
+        }
+        
+        // Calculer CtRel = (CoutTotal / QteComm_COMMANDES) * Quantité
+        calculerCtRelEdit(dossierId);
+    } else {
+        prixTotalDisplay.textContent = '-';
+        prixTotalDisplay.setAttribute('data-prix-total', '');
+        if (ctEstimeDisplay) {
+            ctEstimeDisplay.textContent = '-';
+            ctEstimeDisplay.setAttribute('data-ct-estime', '');
+        }
+        if (coutTotalDisplay) {
+            coutTotalDisplay.textContent = '-';
+            coutTotalDisplay.setAttribute('data-cout-total', '');
+        }
+        const ctRelDisplay = row.querySelector('.edit-ct-rel-display');
+        if (ctRelDisplay) {
+            ctRelDisplay.textContent = '-';
+            ctRelDisplay.setAttribute('data-ct-rel', '');
+        }
+    }
+}
+
+// Calculer le coût total réel dans le tableau (mode édition)
+function calculerCtRelEdit(dossierId) {
+    const row = document.querySelector(`tr[data-id="${dossierId}"]`);
+    if (!row) return;
+    
+    const coutTotalDisplay = row.querySelector('.edit-cout-total-display');
+    const ctRelDisplay = row.querySelector('.edit-ct-rel-display');
+    const inputQuantite = row.querySelector('.edit-quantite-input');
+    
+    if (!coutTotalDisplay || !ctRelDisplay || !inputQuantite) return;
+    
+    const coutTotalText = coutTotalDisplay.textContent.trim();
+    const coutTotal = parseFloat(coutTotalText.replace(',', '.')) || 0;
+    const quantite = parseFloat(inputQuantite.value) || 0;
+    
+    // Récupérer QteComm_COMMANDES depuis les données du dossier chargées initialement
+    // Chercher dans allDossiers pour trouver le dossier correspondant
+    const dossier = allDossiers.find(d => d.id === dossierId);
+    const qteComm = dossier && dossier.qte_comm ? dossier.qte_comm : null;
+    
+    // Si QteComm n'est pas disponible dans les données du dossier, essayer de le récupérer depuis la commande
+    if (!qteComm) {
+        const numeroCell = row.querySelector('td:first-child');
+        const numero = numeroCell ? numeroCell.textContent.trim() : '';
+        if (numero) {
+            // Récupérer QteComm depuis la commande (une seule fois et le stocker)
+            fetch(`/projet19/api/commande/${encodeURIComponent(numero)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.quantite) {
+                        const qteCommFromCommande = parseInt(data.quantite);
+                        row.setAttribute('data-qte-comm', qteCommFromCommande);
+                        calculerCtRelEditWithQteComm(dossierId, qteCommFromCommande);
+                    } else {
+                        calculerCtRelEditWithQteComm(dossierId, null);
+                    }
+                })
+                .catch(error => {
+                    console.error('[calculerCtRelEdit] Erreur récupération QteComm:', error);
+                    calculerCtRelEditWithQteComm(dossierId, null);
+                });
+            return; // Sortir de la fonction, le calcul sera fait dans le callback
+        }
+    }
+    
+    calculerCtRelEditWithQteComm(dossierId, qteComm);
+}
+
+// Calculer CtRel avec QteComm connu
+function calculerCtRelEditWithQteComm(dossierId, qteComm) {
+    const row = document.querySelector(`tr[data-id="${dossierId}"]`);
+    if (!row) return;
+    
+    const coutTotalDisplay = row.querySelector('.edit-cout-total-display');
+    const ctRelDisplay = row.querySelector('.edit-ct-rel-display');
+    const inputQuantite = row.querySelector('.edit-quantite-input');
+    
+    if (!coutTotalDisplay || !ctRelDisplay || !inputQuantite) return;
+    
+    const coutTotalText = coutTotalDisplay.textContent.trim();
+    const coutTotal = parseFloat(coutTotalText.replace(',', '.')) || 0;
+    const quantite = parseFloat(inputQuantite.value) || 0;
+    
+    let ctRel = 0;
+    // Si QteComm = 0 ou Quantité = 0, alors CtRel = 0
+    if (qteComm && qteComm > 0 && quantite > 0 && coutTotal > 0) {
+        ctRel = (coutTotal / qteComm) * quantite;
+    }
+    
+    ctRelDisplay.textContent = ctRel.toFixed(3).replace('.', ',');
+    ctRelDisplay.setAttribute('data-ct-rel', ctRel);
+}
+
+// Fonction pour calculer le prix de vente total = PrixVenteUnitaire * Quantité (ligne de saisie)
+function calculerPrixTotal() {
+    const inputQuantite = document.getElementById('input-quantite');
+    const inputPrixUnitaire = document.getElementById('input-prix-vente-unitaire');
+    const inputPrixTotal = document.getElementById('input-prix-vente-total');
+    const inputMarge = document.getElementById('input-marge');
+    const inputCtEstime = document.getElementById('input-ct-estime');
+    const inputCoutTotal = document.getElementById('input-cout-total');
+    
+    if (!inputQuantite || !inputPrixUnitaire || !inputPrixTotal) {
+        return;
+    }
+    
+    const quantite = parseFloat(inputQuantite.value) || 0;
+    
+    // Validation : la quantité ne peut pas être négative
+    if (quantite < 0) {
+        inputQuantite.setCustomValidity('La quantité ne peut pas être négative');
+        inputPrixTotal.textContent = '-';
+        if (inputCtEstime) {
+            inputCtEstime.textContent = '-';
+            inputCtEstime.setAttribute('data-ct-estime', '');
+        }
+        if (inputCoutTotal) {
+            inputCoutTotal.textContent = '-';
+            inputCoutTotal.setAttribute('data-cout-total', '');
+        }
+        return;
+    } else {
+        inputQuantite.setCustomValidity('');
+    }
+    
+    const prixUnitaire = parseFloat(inputPrixUnitaire.getAttribute('data-prix-unitaire')) || null;
+    
+    if (prixUnitaire !== null && quantite > 0) {
+        const prixTotal = prixUnitaire * quantite;
+        inputPrixTotal.textContent = prixTotal.toFixed(3).replace('.', ',');
+        // Stocker la valeur dans un attribut data pour la sauvegarde
+        inputPrixTotal.setAttribute('data-prix-total', prixTotal);
+        console.log('[calculerPrixTotal] Calcul:', prixUnitaire, '*', quantite, '=', prixTotal);
+        
+        // Calculer le coût total estimé : Prix de Vente Total / (1 + Marge)
+        // La marge est stockée en pourcentage (ex: 45.9), donc on divise par 100 pour obtenir la valeur décimale
+        if (inputMarge && inputCtEstime) {
+            const margeText = inputMarge.textContent.trim();
+            if (margeText && margeText !== '-') {
+                // Enlever le symbole % si présent et remplacer la virgule par un point
+                const margePourcentage = parseFloat(margeText.replace('%', '').replace(',', '.')) || 0;
+                // Convertir le pourcentage en décimal (45.9% -> 0.459)
+                const margeDecimal = margePourcentage / 100;
+                if (margeDecimal >= 0 && prixTotal > 0) {
+                    const ctEstime = prixTotal / (1 + margeDecimal);
+                    inputCtEstime.textContent = ctEstime.toFixed(3).replace('.', ',');
+                    inputCtEstime.setAttribute('data-ct-estime', ctEstime);
+                    console.log('[calculerPrixTotal] CT Estimé:', prixTotal, '/ (1 +', margeDecimal, ') =', ctEstime);
+                } else {
+                    inputCtEstime.textContent = '-';
+                    inputCtEstime.setAttribute('data-ct-estime', '');
+                }
+            } else {
+                inputCtEstime.textContent = '-';
+                inputCtEstime.setAttribute('data-ct-estime', '');
+            }
+        }
+        
+        // Calculer le coût total selon l'avancement
+        calculerCoutTotalSelonAvancement();
+    } else {
+        inputPrixTotal.textContent = '-';
+        inputPrixTotal.setAttribute('data-prix-total', '');
+        if (inputCtEstime) {
+            inputCtEstime.textContent = '-';
+            inputCtEstime.setAttribute('data-ct-estime', '');
+        }
+        if (inputCoutTotal) {
+            inputCoutTotal.textContent = '-';
+            inputCoutTotal.setAttribute('data-cout-total', '');
+        }
+    }
+}
+
+// Charger les détails d'une commande
+function loadCommandeDetails(numero) {
+    console.log('[loadCommandeDetails] ========== APPELÉ ==========');
+    console.log('[loadCommandeDetails] Numéro reçu:', numero);
+    console.log('[loadCommandeDetails] Type:', typeof numero);
+    
+    // CRITIQUE: Ne pas charger si on est en train d'enregistrer (pour éviter d'écraser la valeur)
+    if (isSavingDossier) {
+        console.log('[loadCommandeDetails] ⚠️ Enregistrement en cours, annulation du chargement pour éviter d\'écraser la quantité');
+        return;
+    }
+    
+    // Vérifier que le numéro n'est pas vide ou invalide
+    if (!numero || numero.trim() === '' || numero === '0') {
+        console.log('[loadCommandeDetails] Numéro invalide, annulation');
+        clearCommandeDetails();
+        return;
+    }
+    
+    console.log('[loadCommandeDetails] Début du chargement des détails pour le numéro:', numero);
+    
+    fetch(`{{ url_for('projet19.api_get_commande', numero='') }}${encodeURIComponent(numero)}`)
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log('[loadCommandeDetails] Commande non trouvée:', numero);
+                    clearCommandeDetails();
+                    return null;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data) return; // Si la réponse était 404
+            if (data.error) {
+                clearCommandeDetails();
+                return;
+            }
+            
+            document.getElementById('input-client').textContent = data.client || '-';
+            document.getElementById('input-reference').textContent = data.reference || '-';
+            document.getElementById('input-marge').textContent = data.marge !== null && data.marge !== undefined ? parseFloat(data.marge).toFixed(2).replace('.', ',') + '%' : '-';
+            
+            // Stocker les données de la commande dans une variable globale
+            currentCommandeData = {
+                numero: data.numero,
+                prix_vente_unitaire: data.prix_vente_unitaire || null,
+                quantite: data.quantite || null
+            };
+            console.log('[loadCommandeDetails] Données de la commande stockées:', currentCommandeData);
+            
+            // Stocker le prix unitaire dans un attribut data
+            const prixUnitaireInput = data.prix_vente_unitaire;
+            const prixUnitaireElement = document.getElementById('input-prix-vente-unitaire');
+            if (prixUnitaireElement) {
+                const prixUnitaireValue = prixUnitaireInput !== null && prixUnitaireInput !== undefined ? prixUnitaireInput : '';
+                prixUnitaireElement.setAttribute('data-prix-unitaire', prixUnitaireValue);
+                console.log('[loadCommandeDetails] Prix unitaire stocké dans data-prix-unitaire:', prixUnitaireValue);
+            }
+            
+            // Afficher le prix de vente unitaire (calculé automatiquement)
+            console.log('[loadCommandeDetails] prix_vente_unitaire:', data.prix_vente_unitaire);
+            if (data.prix_vente_unitaire !== null && data.prix_vente_unitaire !== undefined) {
+                const prix = parseFloat(data.prix_vente_unitaire);
+                prixUnitaireElement.textContent = isNaN(prix) ? '-' : prix.toFixed(3).replace('.', ',');
+                
+                // Stocker le prix unitaire dans un attribut data
+                prixUnitaireElement.setAttribute('data-prix-unitaire', prix);
+            } else {
+                document.getElementById('input-prix-vente-unitaire').textContent = '-';
+            }
+            
+            // Pré-remplir la quantité depuis COMMANDES.QteComm
+            const inputQuantite = document.getElementById('input-quantite');
+            if (inputQuantite && data.quantite !== null && data.quantite !== undefined) {
+                inputQuantite.value = data.quantite;
+                console.log('[loadCommandeDetails] Quantité pré-remplie:', data.quantite);
+                // Recalculer le prix total avec la quantité pré-remplie
+                calculerPrixTotal();
+            } else {
+                if (inputQuantite) {
+                    inputQuantite.value = '';
+                }
+            }
+            
+            // Charger les services pour ce dossier
+            loadPostes(numero);
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            clearCommandeDetails();
+        });
+}
+
+// Charger les postes disponibles pour un dossier (ligne de saisie)
+function loadPostes(numero) {
+    if (!numero || numero.trim() === '') {
+        console.log('[loadPostes] Numéro vide, annulation');
+        return;
+    }
+    
+    const selectAvancement = document.getElementById('input-avancement');
+    if (!selectAvancement) {
+        console.error('[loadPostes] Élément input-avancement introuvable');
+        return;
+    }
+    
+    console.log('[loadPostes] Chargement des postes pour:', numero);
+    
+    // Afficher un message de chargement
+    selectAvancement.innerHTML = '<option value="">Chargement...</option>';
+    selectAvancement.disabled = true;
+    
+    const url = `{{ url_for('projet19.api_get_postes', numero='') }}${encodeURIComponent(numero)}`;
+    console.log('[loadPostes] URL:', url);
+    
+    fetch(url)
+        .then(response => {
+            console.log('[loadPostes] Réponse reçue, status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            selectAvancement.disabled = false;
+            console.log('[loadPostes] Données reçues:', data);
+            
+            if (data.error) {
+                selectAvancement.innerHTML = '<option value="">-- Erreur: ' + data.error + ' --</option>';
+                console.error('[loadPostes] Erreur:', data.error);
+                return;
+            }
+            
+            // Réinitialiser la liste
+            selectAvancement.innerHTML = '<option value="">-- Sélectionner --</option>';
+            
+            // Ajouter les postes disponibles
+            if (data.postes && data.postes.length > 0) {
+                console.log('[loadPostes] Ajout de', data.postes.length, 'postes');
+                data.postes.forEach(poste => {
+                    const option = document.createElement('option');
+                    option.value = poste.nom;
+                    option.textContent = poste.nom;
+                    selectAvancement.appendChild(option);
+                });
+            } else {
+                console.log('[loadPostes] Aucun poste disponible');
+                selectAvancement.innerHTML = '<option value="">-- Aucun poste disponible --</option>';
+            }
+            
+            // Ajouter l'événement onChange pour calculer le coût total selon l'avancement
+            selectAvancement.addEventListener('change', function() {
+                calculerCoutTotalSelonAvancement();
+            });
+        })
+        .catch(error => {
+            selectAvancement.disabled = false;
+            console.error('[loadPostes] Erreur lors du fetch:', error);
+            selectAvancement.innerHTML = '<option value="">-- Erreur de chargement --</option>';
+        });
+}
+
+// Fonction pour calculer le prix total (utilisée en interne, sans affichage)
+// Cette fonction calcule le prix total à partir du prix unitaire et de la quantité
+// Fonction calculerPrixTotal supprimée - les colonnes quantité et prix total ont été supprimées
+
+// Effacer les détails de la commande
+function clearCommandeDetails() {
+    document.getElementById('input-client').textContent = '-';
+    document.getElementById('input-reference').textContent = '-';
+    document.getElementById('input-marge').textContent = '-';
+    const prixUnitaireElement = document.getElementById('input-prix-vente-unitaire');
+    if (prixUnitaireElement) {
+        prixUnitaireElement.textContent = '-';
+        prixUnitaireElement.removeAttribute('data-prix-unitaire');
+    }
+    const inputQuantite = document.getElementById('input-quantite');
+    if (inputQuantite) {
+        inputQuantite.value = '';
+    }
+    const inputPrixTotal = document.getElementById('input-prix-vente-total');
+    if (inputPrixTotal) {
+        inputPrixTotal.textContent = '-';
+        inputPrixTotal.removeAttribute('data-prix-total');
+    }
+    const inputCtEstime = document.getElementById('input-ct-estime');
+    if (inputCtEstime) {
+        inputCtEstime.textContent = '-';
+        inputCtEstime.removeAttribute('data-ct-estime');
+    }
+    const inputCoutTotal = document.getElementById('input-cout-total');
+    if (inputCoutTotal) {
+        inputCoutTotal.textContent = '-';
+        inputCoutTotal.removeAttribute('data-cout-total');
+    }
+    document.getElementById('input-avancement').innerHTML = '<option value="">-- Sélectionner --</option>';
+    // Réinitialiser les données de la commande
+    currentCommandeData = null;
+}
+
+// CRITIQUE: Flag pour empêcher toute modification pendant l'enregistrement
+let isSavingDossier = false;
+
+// Les event listeners pour input-numero sont maintenant attachés dans DOMContentLoaded
+
+// Fonction saveNewDossier obsolète - utilise maintenant saveNewDossierFromPopup()
+// Cette fonction est conservée pour compatibilité mais ne devrait plus être appelée
+async function saveNewDossier(event) {
+    console.warn('[saveNewDossier] ⚠️ Cette fonction est obsolète. Utilisez le popup pour créer un nouveau dossier.');
+    alert('Veuillez utiliser le bouton "➕ Nouveau dossier" pour créer un dossier.');
+    return;
+    
+    // Code ancien commenté pour référence
+    /*
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    isSavingDossier = true;
+    
+    const numero = document.getElementById('input-numero').value.trim();
+    const avancement = document.getElementById('input-avancement').value;
+    
+    console.log('[saveNewDossier] 🔍 Numéro:', numero);
+    console.log('[saveNewDossier] 🔍 Avancement:', avancement);
+    
+    if (!numero) {
+        isSavingDossier = false; // Réinitialiser le flag en cas d'erreur
+        alert('Veuillez saisir un numéro de dossier');
+        document.getElementById('input-numero').focus();
+        return;
+    }
+    
+    // Vérifier si le dossier existe déjà
+    const exists = allDossiers.find(d => d.numero === numero);
+    if (exists) {
+        if (!confirm(`Le dossier ${numero} est déjà en suivi. Souhaitez-vous continuer ?`)) {
+            isSavingDossier = false; // Réinitialiser le flag si l'utilisateur annule
+            return;
+        }
+        // Ne rien faire si le dossier existe déjà
+        isSavingDossier = false;
+        return;
+    }
+    
+    // Récupérer la quantité, le prix de vente total, le coût total estimé et le coût total depuis l'interface
+    const inputQuantite = document.getElementById('input-quantite');
+    const inputPrixTotal = document.getElementById('input-prix-vente-total');
+    const inputCtEstime = document.getElementById('input-ct-estime');
+    const inputCoutTotal = document.getElementById('input-cout-total');
+    
+    let quantite = null;
+    let prixVenteTotal = null;
+    let ctEstime = null;
+    let coutTotal = null;
+    
+    if (inputQuantite && inputQuantite.value !== '') {
+        quantite = parseInt(inputQuantite.value);
+        if (quantite < 0) {
+            alert('La quantité ne peut pas être négative');
+            isSavingDossier = false;
+            return;
+        }
+    }
+    
+    if (inputPrixTotal && inputPrixTotal.getAttribute('data-prix-total')) {
+        prixVenteTotal = parseFloat(inputPrixTotal.getAttribute('data-prix-total'));
+    }
+    
+    if (inputCtEstime && inputCtEstime.getAttribute('data-ct-estime')) {
+        ctEstime = parseFloat(inputCtEstime.getAttribute('data-ct-estime'));
+    }
+    
+    if (inputCoutTotal && inputCoutTotal.getAttribute('data-cout-total')) {
+        coutTotal = parseFloat(inputCoutTotal.getAttribute('data-cout-total'));
+    }
+    
+    const payload = {
+        numero: numero,
+        avancement: avancement || null,
+        quantite: quantite,
+        prix_vente_total: prixVenteTotal,
+        ct_estime: ctEstime,
+        cout_total: coutTotal
+    };
+    
+    fetch('{{ url_for("projet19.api_create_dossier") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        console.log('[saveNewDossier] Réponse HTTP reçue, status:', response.status);
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || `HTTP ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('[saveNewDossier] Données reçues:', data);
+        if (data.error) {
+            isSavingDossier = false; // Réinitialiser le flag en cas d'erreur
+            alert('Erreur: ' + data.error);
+            return;
+        }
+        
+        console.log('[saveNewDossier] ✅ Dossier créé avec succès');
+        
+        // Réinitialiser (ancienne ligne de saisie supprimée, utilise maintenant le popup)
+        // clearCommandeDetails(); // Fonction obsolète
+        
+        // Recharger les dossiers pour afficher le nouveau dossier avec les bonnes valeurs
+        loadDossiers();
+        
+        // CRITIQUE: Réinitialiser le flag APRÈS l'enregistrement réussi
+        isSavingDossier = false;
+        console.log('[saveNewDossier] 🔓 Flag isSavingDossier désactivé après enregistrement réussi');
+        console.log('[saveNewDossier] ========== FIN ==========');
+    })
+    .catch(error => {
+        console.error('[saveNewDossier] ❌ ERREUR:', error);
+        isSavingDossier = false; // Réinitialiser le flag en cas d'erreur
+        alert('Erreur lors de l\'ajout du dossier: ' + error.message);
+    });
+    */
+}
+
+// Charger les dossiers
+function loadDossiers() {
+    console.log('[loadDossiers] Début du chargement des dossiers');
+    
+    const tbody = document.getElementById('dossiers-tbody');
+    
+    if (!tbody) {
+        console.error('[loadDossiers] Élément tbody introuvable');
+        return;
+    }
+    
+    // Afficher un message de chargement
+    tbody.innerHTML = '';
+    const loadingRow = document.createElement('tr');
+    loadingRow.innerHTML = '<td colspan="11" class="empty-state"><p>Chargement des dossiers...</p></td>';
+    tbody.appendChild(loadingRow);
+    
+    fetch('{{ url_for("projet19.api_get_dossiers_suivi") }}')
+        .then(response => {
+            console.log('[loadDossiers] Réponse reçue, status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('[loadDossiers] Données reçues:', data);
+            
+            if (data.error) {
+                console.error('[loadDossiers] Erreur dans les données:', data.error);
+                tbody.innerHTML = '';
+                const errorRow = document.createElement('tr');
+                errorRow.innerHTML = `<td colspan="11" class="alert alert-danger">Erreur: ${data.error}</td>`;
+                tbody.appendChild(errorRow);
+                return;
+            }
+            
+            allDossiers = data.dossiers || [];
+            console.log('[loadDossiers]', allDossiers.length, 'dossiers chargés');
+            // Debug: afficher le premier dossier
+            if (allDossiers.length > 0) {
+                console.log('[loadDossiers] Premier dossier:', allDossiers[0]);
+                console.log('[loadDossiers] prix_vente_unitaire:', allDossiers[0].prix_vente_unitaire);
+            }
+            filterDossiers();
+        })
+        .catch(error => {
+            console.error('[loadDossiers] Erreur lors du fetch:', error);
+            tbody.innerHTML = '';
+            const errorRow = document.createElement('tr');
+            errorRow.innerHTML = `<td colspan="11" class="alert alert-danger">Erreur lors du chargement des dossiers: ${error.message}</td>`;
+            tbody.appendChild(errorRow);
+        });
+}
+
+// Filtrer les dossiers
+document.getElementById('filter-dossiers').addEventListener('input', function(e) {
+    filterDossiers();
+});
+
+function filterDossiers() {
+    const filterTerm = document.getElementById('filter-dossiers').value.toLowerCase();
+    const filtered = allDossiers.filter(d => 
+        !filterTerm || (d.numero && d.numero.toLowerCase().includes(filterTerm))
+    );
+    
+    displayDossiers(filtered);
+}
+
+// Afficher les dossiers dans le tableau
+function displayDossiers(dossiers) {
+    const tbody = document.getElementById('dossiers-tbody');
+    
+    // Réinitialiser le tableau
+    tbody.innerHTML = '';
+    
+    if (dossiers.length === 0) {
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `
+            <td colspan="11" class="empty-state">
+                <p>Aucun dossier en suivi</p>
+            </td>
+        `;
+        tbody.appendChild(emptyRow);
+        return;
+    }
+    
+    // Ajouter les lignes de données
+    dossiers.forEach(dossier => {
+        console.log('[filterDossiers] Création ligne pour dossier:', dossier.numero);
+        const row = createDossierRow(dossier);
+        tbody.appendChild(row);
+        
+        // Vérifier le nombre de colonnes
+        const cells = row.querySelectorAll('td');
+        console.log('[filterDossiers] Nombre de colonnes dans la ligne:', cells.length, 'pour dossier', dossier.numero);
+        
+        // Vérifier le nombre de colonnes (maintenant 7 au lieu de 9)
+    });
+    
+    // Vérifier le nombre de colonnes dans l'en-tête
+    const headerCells = document.querySelectorAll('.dossiers-table thead th');
+    console.log('[filterDossiers] Nombre de colonnes dans l\'en-tête:', headerCells.length);
+    headerCells.forEach((th, index) => {
+        console.log(`[filterDossiers] En-tête colonne ${index + 1}:`, th.textContent.trim());
+    });
+}
+
+// Créer une ligne de dossier
+function createDossierRow(dossier) {
+    const row = document.createElement('tr');
+    row.setAttribute('data-id', dossier.id);
+    
+    // CRITIQUE: Calculer le prix de vente unitaire avec stockage pour les calculs futurs
+    let prixUnitaireDisplay = 'N/A';
+    let prixUnitaireValue = null;
+    if (dossier.prix_vente_unitaire !== null && dossier.prix_vente_unitaire !== undefined) {
+        prixUnitaireValue = parseFloat(dossier.prix_vente_unitaire);
+        prixUnitaireDisplay = prixUnitaireValue.toFixed(3).replace('.', ',');
+        console.log('[createDossierRow] Prix unitaire du dossier:', prixUnitaireValue, 'Formaté:', prixUnitaireDisplay);
+    } else {
+        console.warn('[createDossierRow] ⚠️ Prix unitaire manquant pour dossier:', dossier.numero);
+    }
+    
+    // Formater la marge en pourcentage avec 2 décimales (ex: 45,90%)
+    let margeDisplay = 'N/A';
+    if (dossier.marge !== null && dossier.marge !== undefined) {
+        const margeValue = parseFloat(dossier.marge);
+        if (!isNaN(margeValue)) {
+            margeDisplay = margeValue.toFixed(2).replace('.', ',') + '%';
+        }
+    }
+    
+    // Formater quantité et prix total
+    let quantiteDisplay = '-';
+    let quantiteValue = null;
+    if (dossier.quantite !== null && dossier.quantite !== undefined) {
+        quantiteValue = parseInt(dossier.quantite);
+        quantiteDisplay = quantiteValue.toString();
+    }
+    
+    let prixTotalDisplay = '-';
+    let prixTotalValue = null;
+    if (dossier.prix_vente_total !== null && dossier.prix_vente_total !== undefined) {
+        prixTotalValue = parseFloat(dossier.prix_vente_total);
+        prixTotalDisplay = prixTotalValue.toFixed(3).replace('.', ',');
+    }
+    
+    let ctEstimeDisplay = '-';
+    let ctEstimeValue = null;
+    if (dossier.ct_estime !== null && dossier.ct_estime !== undefined) {
+        ctEstimeValue = parseFloat(dossier.ct_estime);
+        ctEstimeDisplay = ctEstimeValue.toFixed(3).replace('.', ',');
+    }
+    
+    let coutTotalDisplay = '-';
+    let coutTotalValue = null;
+    if (dossier.cout_total !== null && dossier.cout_total !== undefined) {
+        coutTotalValue = parseFloat(dossier.cout_total);
+        coutTotalDisplay = coutTotalValue.toFixed(3).replace('.', ',');
+    }
+    
+    let ctRelDisplay = '-';
+    let ctRelValue = null;
+    if (dossier.ct_rel !== null && dossier.ct_rel !== undefined) {
+        ctRelValue = parseFloat(dossier.ct_rel);
+        ctRelDisplay = ctRelValue.toFixed(3).replace('.', ',');
+        console.log(`[createDossierRow] Dossier ${dossier.numero}: ct_rel récupéré depuis API = ${ctRelValue}, affiché = ${ctRelDisplay}`);
+    } else {
+        console.log(`[createDossierRow] Dossier ${dossier.numero}: ct_rel est null ou undefined dans les données (valeur brute: ${dossier.ct_rel})`);
+    }
+    
+    console.log('[createDossierRow] Dossier:', dossier.numero, 'prixUnitaireDisplay:', prixUnitaireDisplay, 'quantite:', quantiteValue, 'prixTotal:', prixTotalValue, 'ctEstime:', ctEstimeValue, 'coutTotal:', coutTotalValue, 'ctRel:', ctRelValue);
+    
+    if (editingId === dossier.id) {
+        row.className = 'edit-mode';
+        // Créer la ligne avec les champs éditables (avec quantité et prix total)
+        row.innerHTML = `
+            <td class="readonly-cell">${dossier.numero || 'N/A'}</td>
+            <td class="readonly-cell">${dossier.client || 'N/A'}</td>
+            <td class="readonly-cell">${dossier.reference || 'N/A'}</td>
+            <td class="readonly-cell">${margeDisplay}</td>
+            <td class="readonly-cell" data-prix-unitaire="${prixUnitaireValue || ''}">${prixUnitaireDisplay}</td>
+            <td>
+                <input type="number" 
+                       class="edit-quantite-input form-control" 
+                       data-id="${dossier.id}"
+                       min="0" 
+                       step="1"
+                       value="${quantiteValue !== null ? quantiteValue : ''}"
+                       style="width: 100%; padding: 4px;"
+                       oninput="recalculerPrixTotalEdit(${dossier.id})">
+            </td>
+            <td class="readonly-cell edit-prix-total-display" data-id="${dossier.id}" data-prix-unitaire="${prixUnitaireValue || ''}">${prixTotalDisplay}</td>
+            <td class="readonly-cell edit-ct-estime-display" data-id="${dossier.id}">${ctEstimeDisplay}</td>
+            <td class="readonly-cell edit-cout-total-display" data-id="${dossier.id}">${coutTotalDisplay}</td>
+            <td class="readonly-cell edit-ct-rel-display" data-id="${dossier.id}">${ctRelDisplay}</td>
+            <td>
+                <select class="edit-avancement-select form-control" 
+                        data-id="${dossier.id}"
+                        style="width: 100%; padding: 4px;">
+                    <option value="">Chargement...</option>
+                </select>
+            </td>
+            <td>
+                <div class="action-icons">
+                    <button class="icon-btn icon-save" 
+                            onclick="saveEdit(${dossier.id})"
+                            title="Enregistrer">
+                        💾
+                    </button>
+                    <button class="icon-btn icon-cancel" 
+                            onclick="cancelEdit()"
+                            title="Annuler">
+                        ❌
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        // Charger les services disponibles pour ce dossier
+        const selectAvancement = row.querySelector('.edit-avancement-select');
+        const coutTotalDisplayEdit = row.querySelector('.edit-cout-total-display');
+        loadPostesForRow(dossier.numero).then(services => {
+            selectAvancement.innerHTML = '<option value="">-- Sélectionner --</option>';
+            
+            if (services && services.length > 0) {
+                services.forEach(service => {
+                    const option = document.createElement('option');
+                    option.value = service;
+                    option.textContent = service;
+                    if (service === dossier.avancement) {
+                        option.selected = true;
+                    }
+                    selectAvancement.appendChild(option);
+                });
+            } else {
+                selectAvancement.innerHTML = '<option value="">-- Aucun service disponible --</option>';
+            }
+            
+            // Ajouter l'événement onChange pour calculer le coût total selon l'avancement
+            selectAvancement.addEventListener('change', function() {
+                const newAvancement = this.value;
+                if (coutTotalDisplayEdit) {
+                    calculerCoutTotalSelonAvancementEdit(dossier.id, newAvancement, coutTotalDisplayEdit);
+                }
+            });
+            
+            // Calculer le coût total si l'avancement est déjà sélectionné
+            if (dossier.avancement && coutTotalDisplayEdit) {
+                calculerCoutTotalSelonAvancementEdit(dossier.id, dossier.avancement, coutTotalDisplayEdit);
+            }
+        });
+        
+        // Initialiser le calcul du prix total en mode édition
+        setTimeout(() => {
+            recalculerPrixTotalEdit(dossier.id);
+            const inputQuantite = row.querySelector('.edit-quantite-input');
+            if (inputQuantite) {
+                inputQuantite.focus();
+            } else {
+                selectAvancement.focus();
+            }
+        }, 10);
+    } else {
+        // Créer la ligne avec quantité et prix total
+        row.innerHTML = `
+            <td class="readonly-cell">${dossier.numero || 'N/A'}</td>
+            <td class="readonly-cell">${dossier.client || 'N/A'}</td>
+            <td class="readonly-cell">${dossier.reference || 'N/A'}</td>
+            <td class="readonly-cell">${margeDisplay}</td>
+            <td class="readonly-cell">${prixUnitaireDisplay}</td>
+            <td class="readonly-cell">${quantiteDisplay}</td>
+            <td class="readonly-cell">${prixTotalDisplay}</td>
+            <td class="readonly-cell">${ctEstimeDisplay}</td>
+            <td class="readonly-cell">${coutTotalDisplay}</td>
+            <td class="readonly-cell">${ctRelDisplay}</td>
+            <td class="avancement-cell" data-id="${dossier.id}" data-numero="${dossier.numero || ''}">
+                <select class="avancement-select form-control" style="width: 100%; padding: 4px;">
+                    <option value="">Chargement...</option>
+                </select>
+            </td>
+            <td>
+                <div class="action-icons">
+                    <button class="icon-btn icon-edit" 
+                            onclick="startEdit(${dossier.id})"
+                            title="Modifier">
+                        ✏️
+                    </button>
+                    <button class="icon-btn icon-print" 
+                            onclick="printDossierRow(${dossier.id})"
+                            title="Imprimer">
+                        🖨️
+                    </button>
+                    <button class="icon-btn icon-pdf" 
+                            onclick="printDossierRow(${dossier.id})"
+                            title="PDF">
+                        📄
+                    </button>
+                    <button class="icon-btn icon-delete" 
+                            onclick="deleteDossier(${dossier.id})"
+                            title="Supprimer">
+                        🗑️
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        // Charger les postes de manière asynchrone
+        const avancementCell = row.querySelector('.avancement-cell');
+        const select = row.querySelector('.avancement-select');
+        
+        loadPostesForRow(dossier.numero).then(postes => {
+            select.innerHTML = '<option value="">-- Sélectionner --</option>';
+            
+            if (postes && postes.length > 0) {
+                postes.forEach(poste => {
+                    const option = document.createElement('option');
+                    option.value = poste;
+                    option.textContent = poste;
+                    if (poste === dossier.avancement) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            } else {
+                select.innerHTML = '<option value="">-- Aucun poste disponible --</option>';
+            }
+            
+            // Ajouter l'événement onChange
+            select.addEventListener('change', function() {
+                const newAvancement = this.value;
+                updateAvancement(dossier.id, newAvancement).then(() => {
+                    // Après la mise à jour, recalculer le coût total si nécessaire
+                    const coutTotalCell = row.querySelector('td:nth-child(9)'); // Colonne Cout Total
+                    if (coutTotalCell && newAvancement) {
+                        calculerCoutTotalSelonAvancementEdit(dossier.id, newAvancement, coutTotalCell);
+                    }
+                });
+            });
+            
+            // Calculer le coût total si l'avancement est déjà "Matière première sortie"
+            if (dossier.avancement === 'Matière première sortie') {
+                const coutTotalCell = row.querySelector('td:nth-child(9)'); // Colonne Cout Total
+                if (coutTotalCell) {
+                    calculerCoutTotalSelonAvancementEdit(dossier.id, dossier.avancement, coutTotalCell);
+                }
+            }
+        });
+    }
+    
+    return row;
+}
+
+// Charger les postes pour une ligne de dossier
+function loadPostesForRow(numero) {
+    return fetch(`{{ url_for('projet19.api_get_postes', numero='') }}${encodeURIComponent(numero)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error || !data.postes) {
+                return [];
+            }
+            return data.postes.map(p => p.nom);
+        })
+        .catch(error => {
+            console.error('Erreur chargement postes:', error);
+            return [];
+        });
+}
+
+
+// Fonction pour calculer le coût total selon l'avancement (ligne de saisie)
+function calculerCoutTotalSelonAvancement() {
+    const inputAvancement = document.getElementById('input-avancement');
+    const inputCoutTotal = document.getElementById('input-cout-total');
+    const inputNumero = document.getElementById('input-numero');
+    
+    if (!inputAvancement || !inputCoutTotal || !inputNumero) {
+        return;
+    }
+    
+    const avancement = inputAvancement.value;
+    const numero = inputNumero.value.trim();
+    
+    if (!numero) {
+        inputCoutTotal.textContent = '-';
+        inputCoutTotal.setAttribute('data-cout-total', '');
+        return;
+    }
+    
+    // Si l'avancement est "Matière première sortie", récupérer AchatsMat
+    if (avancement === 'Matière première sortie') {
+        fetch(`/projet19/api/achats-mat/${encodeURIComponent(numero)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.achats_mat !== null && data.achats_mat !== undefined) {
+                    const achatsMat = parseFloat(data.achats_mat);
+                    inputCoutTotal.textContent = achatsMat.toFixed(3).replace('.', ',');
+                    inputCoutTotal.setAttribute('data-cout-total', achatsMat);
+                    console.log('[calculerCoutTotalSelonAvancement] AchatsMat récupéré:', achatsMat);
+                } else {
+                    inputCoutTotal.textContent = '-';
+                    inputCoutTotal.setAttribute('data-cout-total', '');
+                    console.log('[calculerCoutTotalSelonAvancement] AchatsMat non trouvé pour', numero);
+                }
+            })
+            .catch(error => {
+                console.error('[calculerCoutTotalSelonAvancement] Erreur:', error);
+                inputCoutTotal.textContent = '-';
+                inputCoutTotal.setAttribute('data-cout-total', '');
+            });
+    }
+    // Si l'avancement est "OFFSET FEUILLES", calculer le coût total (AchatsSstr + Somme CtPrevDev, SANS AchatsMat)
+    else if (avancement === 'OFFSET FEUILLES' || avancement === 'offset feuilles') {
+        fetch(`/projet19/api/cout-total-offset/${encodeURIComponent(numero)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Calculer: AchatsSstr + Somme CtPrevDev (SANS AchatsMat pour éviter le double calcul)
+                    const coutTotal = parseFloat(data.achats_sstr || 0) + parseFloat(data.ct_prev_dev_sum || 0);
+                    inputCoutTotal.textContent = coutTotal.toFixed(3).replace('.', ',');
+                    inputCoutTotal.setAttribute('data-cout-total', coutTotal);
+                    console.log('[calculerCoutTotalSelonAvancement] Coût total OFFSET FEUILLES calculé (AchatsSstr + CtPrevDev):', coutTotal);
+                    console.log('  - AchatsSstr:', data.achats_sstr);
+                    console.log('  - Somme CtPrevDev:', data.ct_prev_dev_sum);
+                } else {
+                    inputCoutTotal.textContent = '-';
+                    inputCoutTotal.setAttribute('data-cout-total', '');
+                    console.log('[calculerCoutTotalSelonAvancement] Erreur lors du calcul du coût total OFFSET FEUILLES pour', numero);
+                }
+            })
+            .catch(error => {
+                console.error('[calculerCoutTotalSelonAvancement] Erreur:', error);
+                inputCoutTotal.textContent = '-';
+                inputCoutTotal.setAttribute('data-cout-total', '');
+            });
+    } else {
+        // Pour les autres avancements, laisser vide
+        inputCoutTotal.textContent = '-';
+        inputCoutTotal.setAttribute('data-cout-total', '');
+    }
+}
+
+// Fonction pour calculer le coût total selon l'avancement (ligne en édition)
+function calculerCoutTotalSelonAvancementEdit(dossierId, avancement, coutTotalDisplay) {
+    const row = document.querySelector(`tr[data-id="${dossierId}"]`);
+    if (!row || !coutTotalDisplay) {
+        return;
+    }
+    
+    const numeroCell = row.querySelector('td:first-child');
+    const numero = numeroCell ? numeroCell.textContent.trim() : '';
+    
+    if (!numero) {
+        coutTotalDisplay.textContent = '-';
+        coutTotalDisplay.setAttribute('data-cout-total', '');
+        return;
+    }
+    
+    // Si l'avancement est "Matière première sortie", récupérer AchatsMat
+    if (avancement === 'Matière première sortie') {
+        fetch(`/projet19/api/achats-mat/${encodeURIComponent(numero)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.achats_mat !== null && data.achats_mat !== undefined) {
+                    const achatsMat = parseFloat(data.achats_mat);
+                    coutTotalDisplay.textContent = achatsMat.toFixed(3).replace('.', ',');
+                    coutTotalDisplay.setAttribute('data-cout-total', achatsMat);
+                    console.log('[calculerCoutTotalSelonAvancementEdit] AchatsMat récupéré:', achatsMat);
+                    
+                    // Recalculer CtRel après le calcul du coût total
+                    calculerCtRelEdit(dossierId);
+                } else {
+                    coutTotalDisplay.textContent = '-';
+                    coutTotalDisplay.setAttribute('data-cout-total', '');
+                    console.log('[calculerCoutTotalSelonAvancementEdit] AchatsMat non trouvé pour', numero);
+                    
+                    // Recalculer CtRel même en cas d'erreur
+                    calculerCtRelEdit(dossierId);
+                }
+            })
+            .catch(error => {
+                console.error('[calculerCoutTotalSelonAvancementEdit] Erreur:', error);
+                coutTotalDisplay.textContent = '-';
+                coutTotalDisplay.setAttribute('data-cout-total', '');
+                
+                // Recalculer CtRel même en cas d'erreur
+                calculerCtRelEdit(dossierId);
+            });
+    }
+    // Si l'avancement est "OFFSET FEUILLES", calculer le coût total (AchatsSstr + Somme CtPrevDev, SANS AchatsMat)
+    else if (avancement === 'OFFSET FEUILLES' || avancement === 'offset feuilles') {
+        fetch(`/projet19/api/cout-total-offset/${encodeURIComponent(numero)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Calculer: AchatsSstr + Somme CtPrevDev (SANS AchatsMat pour éviter le double calcul)
+                    const coutTotal = parseFloat(data.achats_sstr || 0) + parseFloat(data.ct_prev_dev_sum || 0);
+                    coutTotalDisplay.textContent = coutTotal.toFixed(3).replace('.', ',');
+                    coutTotalDisplay.setAttribute('data-cout-total', coutTotal);
+                    console.log('[calculerCoutTotalSelonAvancementEdit] Coût total OFFSET FEUILLES calculé (AchatsSstr + CtPrevDev):', coutTotal);
+                    console.log('  - AchatsSstr:', data.achats_sstr);
+                    console.log('  - Somme CtPrevDev:', data.ct_prev_dev_sum);
+                } else {
+                    coutTotalDisplay.textContent = '-';
+                    coutTotalDisplay.setAttribute('data-cout-total', '');
+                    console.log('[calculerCoutTotalSelonAvancementEdit] Erreur lors du calcul du coût total OFFSET FEUILLES pour', numero);
+                }
+            })
+            .catch(error => {
+                console.error('[calculerCoutTotalSelonAvancementEdit] Erreur:', error);
+                coutTotalDisplay.textContent = '-';
+                coutTotalDisplay.setAttribute('data-cout-total', '');
+            });
+    } else {
+        // Pour les autres avancements, laisser vide
+        coutTotalDisplay.textContent = '-';
+        coutTotalDisplay.setAttribute('data-cout-total', '');
+    }
+}
+
+// Mettre à jour l'avancement
+function updateAvancement(id, avancement) {
+    // Mettre à jour l'avancement dans la base de données
+    return fetch('{{ url_for("projet19.api_update_avancement") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            id: id,
+            avancement: avancement || null
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Après la mise à jour de l'avancement, recalculer le coût total
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            const coutTotalDisplay = row.querySelector('.edit-cout-total-display') || row.querySelector('td:nth-child(9)');
+            if (coutTotalDisplay && avancement) {
+                calculerCoutTotalSelonAvancementEdit(id, avancement, coutTotalDisplay);
+            }
+        }
+        
+        return data;
+    });
+}
+
+// Démarrer l'édition
+function startEdit(id) {
+    // Ouvrir le popup en mode édition avec les données du dossier
+    openEditDossierPopup(id);
+}
+
+// Annuler l'édition
+function cancelEdit() {
+    editingId = null;
+    loadDossiers();
+}
+
+// Enregistrer l'édition
+function saveEdit(id) {
+    console.log('[saveEdit] Début - ID:', id);
+    
+    // Trouver la ligne en cours d'édition
+    let row = document.querySelector(`tr[data-id="${id}"]`);
+    if (!row) {
+        console.error('[saveEdit] Aucune ligne trouvée pour ID:', id);
+        alert('Erreur: ligne d\'édition introuvable. Veuillez réessayer.');
+        return;
+    }
+    
+    // Récupérer le select avancement
+    const selectAvancement = row.querySelector(`.edit-avancement-select`);
+    const avancement = selectAvancement ? (selectAvancement.value || null) : null;
+    
+    console.log('[saveEdit] Envoi de la mise à jour - ID:', id, 'Avancement:', avancement);
+    
+    // Désactiver le bouton pour éviter les doubles clics
+    const saveButton = row.querySelector('.icon-save');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.style.opacity = '0.5';
+    }
+    
+    // Récupérer la quantité et le prix total depuis l'interface
+    const inputQuantite = row.querySelector('.edit-quantite-input');
+    const prixTotalDisplay = row.querySelector('.edit-prix-total-display');
+    
+    let quantite = null;
+    let prixVenteTotal = null;
+    
+    if (inputQuantite && inputQuantite.value !== '') {
+        quantite = parseInt(inputQuantite.value);
+        if (quantite < 0) {
+            alert('La quantité ne peut pas être négative');
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.style.opacity = '1';
+            }
+            return;
+        }
+    }
+    
+    if (prixTotalDisplay && prixTotalDisplay.getAttribute('data-prix-total')) {
+        prixVenteTotal = parseFloat(prixTotalDisplay.getAttribute('data-prix-total'));
+    }
+    
+    // Récupérer le coût total estimé et le coût total
+    const ctEstimeDisplay = row.querySelector('.edit-ct-estime-display');
+    let ctEstime = null;
+    if (ctEstimeDisplay && ctEstimeDisplay.getAttribute('data-ct-estime')) {
+        ctEstime = parseFloat(ctEstimeDisplay.getAttribute('data-ct-estime'));
+    }
+    
+    const coutTotalDisplay = row.querySelector('.edit-cout-total-display');
+    let coutTotal = null;
+    if (coutTotalDisplay && coutTotalDisplay.getAttribute('data-cout-total')) {
+        coutTotal = parseFloat(coutTotalDisplay.getAttribute('data-cout-total'));
+    }
+    
+    const ctRelDisplay = row.querySelector('.edit-ct-rel-display');
+    let ctRel = null;
+    if (ctRelDisplay && ctRelDisplay.getAttribute('data-ct-rel')) {
+        ctRel = parseFloat(ctRelDisplay.getAttribute('data-ct-rel'));
+    }
+    
+    // Mettre à jour l'avancement, la quantité, le prix total, le coût total estimé, le coût total et le coût total réel
+    Promise.all([
+        selectAvancement ? updateAvancement(id, avancement) : Promise.resolve(),
+        updateQuantitePrixTotal(id, quantite, prixVenteTotal, ctEstime, coutTotal, ctRel)
+    ])
+    .then(() => {
+        console.log('[saveEdit] Mise à jour réussie, rechargement des dossiers');
+        editingId = null;
+        // Attendre un peu pour s'assurer que la base de données est à jour
+        setTimeout(() => {
+            loadDossiers();
+        }, 100);
+    })
+    .catch(error => {
+        console.error('Erreur lors de la mise à jour:', error);
+        alert('Erreur lors de la mise à jour: ' + error.message);
+        // Réactiver le bouton en cas d'erreur
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.style.opacity = '1';
+        }
+        editingId = null;
+        loadDossiers(); // Recharger en cas d'erreur
+    });
+}
+
+// Fonction pour mettre à jour la quantité, le prix de vente total, le coût total estimé, le coût total et le coût total réel
+function updateQuantitePrixTotal(id, quantite, prixVenteTotal, ctEstime, coutTotal, ctRel) {
+    return fetch('{{ url_for("projet19.api_update_quantite_prix_total") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            id: id,
+            quantite: quantite,
+            prix_vente_total: prixVenteTotal,
+            ct_estime: ctEstime,
+            cout_total: coutTotal,
+            ct_rel: ctRel
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        return data;
+    });
+}
+
+// Supprimer un dossier
+function deleteDossier(id) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce dossier du suivi ?')) {
+        return;
+    }
+    
+    fetch(`{{ url_for('projet19.api_delete_dossier', dossier_id=0) }}`.replace('0', id), {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Erreur: ' + data.error);
+            return;
+        }
+        
+        loadDossiers();
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la suppression');
+    });
+}
+
+// Charger les dossiers au chargement de la page
+// ========================================
+// FONCTIONS POUR LE POPUP DE CRÉATION DE DOSSIER
+// ========================================
+
+// Ouvrir le popup
+function openNewDossierPopup() {
+    const modal = document.getElementById('new-dossier-modal');
+    if (!modal) {
+        console.error('Modal non trouvé');
+        return;
+    }
+    
+    // Réinitialiser le mode édition
+    popupEditMode = false;
+    popupEditDossierId = null;
+    window.popupSelectedAvancement = null;
+    
+    // Restaurer le titre du popup
+    const modalTitle = modal.querySelector('.modal-header h2');
+    if (modalTitle) {
+        modalTitle.textContent = 'Nouveau Dossier';
+    }
+    
+    modal.style.display = 'flex';
+    
+    // Réinitialiser les champs
+    document.getElementById('popup-input-numero').value = '';
+    document.getElementById('popup-input-numero').disabled = false; // Permettre la saisie du numéro
+    document.getElementById('popup-client').textContent = '-';
+    document.getElementById('popup-reference').textContent = '-';
+    document.getElementById('popup-marge').textContent = '-';
+    document.getElementById('popup-prix-vente-unitaire').textContent = '-';
+    document.getElementById('popup-quantite').value = '';
+    document.getElementById('popup-prix-vente-total').textContent = '-';
+    document.getElementById('popup-ct-estime').textContent = '-';
+    document.getElementById('popup-cout-total').textContent = '0,000';
+    document.getElementById('popup-ct-rel').textContent = '0,000';
+    document.getElementById('popup-services-list').innerHTML = '<p style="color: #6c757d; font-style: italic;">Sélectionnez un numéro de dossier pour charger les services...</p>';
+    
+    // Réinitialiser les données
+    popupCommandeData = null;
+    popupServicesData = {};
+    
+    // Focus sur le champ numéro
+    setTimeout(() => {
+        document.getElementById('popup-input-numero').focus();
+    }, 100);
+    
+    // Attacher les listeners pour la recherche
+    setupPopupSearchListeners();
+}
+
+// Fermer le popup
+function closeNewDossierPopup() {
+    const modal = document.getElementById('new-dossier-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    // Réinitialiser le mode d'édition
+    popupEditMode = false;
+    popupEditDossierId = null;
+}
+
+// Variable pour le mode édition du popup
+let popupEditMode = false;
+let popupEditDossierId = null;
+
+// Ouvrir le popup en mode édition avec les données d'un dossier existant
+function openEditDossierPopup(dossierId) {
+    console.log('[openEditDossierPopup] Ouverture pour dossier ID:', dossierId);
+    
+    // Trouver le dossier dans allDossiers
+    const dossier = allDossiers.find(d => d.id === dossierId);
+    if (!dossier) {
+        alert('Dossier non trouvé');
+        return;
+    }
+    
+    console.log('[openEditDossierPopup] Dossier trouvé:', dossier);
+    
+    const modal = document.getElementById('new-dossier-modal');
+    if (!modal) {
+        console.error('Modal non trouvé');
+        return;
+    }
+    
+    // Activer le mode édition
+    popupEditMode = true;
+    popupEditDossierId = dossierId;
+    
+    // Changer le titre du popup
+    const modalTitle = modal.querySelector('.modal-header h2');
+    if (modalTitle) {
+        modalTitle.textContent = 'Modifier Dossier - ' + (dossier.numero || 'N/A');
+    }
+    
+    modal.style.display = 'flex';
+    
+    // Remplir les champs avec les données du dossier
+    document.getElementById('popup-input-numero').value = dossier.numero || '';
+    document.getElementById('popup-input-numero').disabled = true; // Ne pas permettre de changer le numéro
+    document.getElementById('popup-client').textContent = dossier.client || '-';
+    document.getElementById('popup-reference').textContent = dossier.reference || '-';
+    
+    // Formater la marge
+    const margeDisplay = dossier.marge !== null && dossier.marge !== undefined 
+        ? parseFloat(dossier.marge).toFixed(2).replace('.', ',') + '%' 
+        : '-';
+    document.getElementById('popup-marge').textContent = margeDisplay;
+    
+    // Formater le prix unitaire
+    const prixUnitaireDisplay = dossier.prix_vente_unitaire !== null && dossier.prix_vente_unitaire !== undefined 
+        ? parseFloat(dossier.prix_vente_unitaire).toFixed(3).replace('.', ',') 
+        : '-';
+    document.getElementById('popup-prix-vente-unitaire').textContent = prixUnitaireDisplay;
+    
+    // Quantité
+    document.getElementById('popup-quantite').value = dossier.quantite || '';
+    
+    // Prix de vente total
+    const prixTotalDisplay = dossier.prix_vente_total !== null && dossier.prix_vente_total !== undefined 
+        ? parseFloat(dossier.prix_vente_total).toFixed(3).replace('.', ',') 
+        : '-';
+    document.getElementById('popup-prix-vente-total').textContent = prixTotalDisplay;
+    
+    // Coût total estimé
+    const ctEstimeDisplay = dossier.ct_estime !== null && dossier.ct_estime !== undefined 
+        ? parseFloat(dossier.ct_estime).toFixed(3).replace('.', ',') 
+        : '-';
+    document.getElementById('popup-ct-estime').textContent = ctEstimeDisplay;
+    
+    // Coût total
+    const coutTotalDisplay = dossier.cout_total !== null && dossier.cout_total !== undefined 
+        ? parseFloat(dossier.cout_total).toFixed(3).replace('.', ',') 
+        : '0,000';
+    document.getElementById('popup-cout-total').textContent = coutTotalDisplay;
+    
+    // Coût total réel
+    const ctRelDisplay = dossier.ct_rel !== null && dossier.ct_rel !== undefined 
+        ? parseFloat(dossier.ct_rel).toFixed(3).replace('.', ',') 
+        : '0,000';
+    document.getElementById('popup-ct-rel').textContent = ctRelDisplay;
+    
+    // Stocker les données de la commande pour les calculs
+    popupCommandeData = {
+        numero: dossier.numero,
+        client: dossier.client,
+        reference: dossier.reference,
+        marge: dossier.marge,
+        prix_vente_unitaire: dossier.prix_vente_unitaire,
+        quantite: dossier.quantite
+    };
+    
+    // Charger les services pour ce dossier
+    loadServicesInPopup(dossier.numero, dossier.avancement);
+}
+
+// Configurer les listeners de recherche pour le popup
+function setupPopupSearchListeners() {
+    const inputNumero = document.getElementById('popup-input-numero');
+    const datalist = document.getElementById('popup-numero-suggestions');
+    
+    if (!inputNumero) return;
+    
+    // Recherche avec autocomplétion
+    inputNumero.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.trim();
+        
+        clearTimeout(popupSearchTimeout);
+        
+        if (searchTerm.length < 2) {
+            datalist.innerHTML = '';
+            return;
+        }
+        
+        popupSearchTimeout = setTimeout(() => {
+            fetch(`{{ url_for('projet19.api_search_commandes') }}?q=${encodeURIComponent(searchTerm)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        datalist.innerHTML = data.results.map(item => 
+                            `<option value="${item.numero}">${item.numero} - ${item.client || ''}</option>`
+                        ).join('');
+                    } else {
+                        datalist.innerHTML = '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur recherche:', error);
+                });
+        }, 300);
+    });
+    
+    // Charger les données quand un numéro est sélectionné
+    inputNumero.addEventListener('change', function(e) {
+        const numero = e.target.value.trim();
+        if (numero) {
+            loadCommandeDataInPopup(numero);
+        }
+    });
+}
+
+// Charger les données de la commande dans le popup
+function loadCommandeDataInPopup(numero) {
+    console.log('[Popup] Chargement données pour:', numero);
+    
+    // Charger les données de la commande
+    fetch(`{{ url_for('projet19.api_get_commande', numero='') }}${encodeURIComponent(numero)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.numero) {
+                popupCommandeData = data;
+                
+                // Afficher les informations générales
+                document.getElementById('popup-client').textContent = data.client || '-';
+                document.getElementById('popup-reference').textContent = data.reference || '-';
+                document.getElementById('popup-marge').textContent = data.marge !== null && data.marge !== undefined ? parseFloat(data.marge).toFixed(2).replace('.', ',') + '%' : '-';
+                document.getElementById('popup-prix-vente-unitaire').textContent = data.prix_vente_unitaire !== null && data.prix_vente_unitaire !== undefined ? parseFloat(data.prix_vente_unitaire).toFixed(3) : '-';
+                
+                // Pré-remplir la quantité depuis COMMANDES.QteComm (comme dans l'ancienne ligne de saisie)
+                const inputQuantite = document.getElementById('popup-quantite');
+                if (inputQuantite && data.quantite !== null && data.quantite !== undefined) {
+                    inputQuantite.value = data.quantite;
+                    console.log('[Popup] Quantité pré-remplie:', data.quantite);
+                    // Recalculer le récapitulatif avec la quantité pré-remplie
+                    calculerRecapitulatifPopup();
+                } else {
+                    if (inputQuantite) {
+                        inputQuantite.value = '';
+                    }
+                }
+                
+                // Charger les services
+                loadServicesInPopup(numero);
+            } else {
+                alert('Commande non trouvée');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur chargement commande:', error);
+            alert('Erreur lors du chargement de la commande');
+        });
+}
+
+// Charger et afficher les services dans le popup
+function loadServicesInPopup(numero, selectedAvancement = null) {
+    const servicesList = document.getElementById('popup-services-list');
+    servicesList.innerHTML = '<p style="color: #6c757d; font-style: italic;">Chargement des services...</p>';
+    
+    // Stocker l'avancement sélectionné pour le pré-cocher
+    window.popupSelectedAvancement = selectedAvancement;
+    
+    // Charger la liste des services avec leurs coûts CtPrevDev
+    fetch(`{{ url_for('projet19.api_get_postes', numero='') }}${encodeURIComponent(numero)}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('[loadServicesInPopup] Données complètes reçues:', JSON.stringify(data, null, 2));
+            console.log('[loadServicesInPopup] Nombre de postes:', data.postes ? data.postes.length : 0);
+            console.log('[loadServicesInPopup] Avancement sélectionné:', selectedAvancement);
+            if (data.postes && data.postes.length > 0) {
+                console.log('[loadServicesInPopup] Premier service complet:', JSON.stringify(data.postes[0], null, 2));
+                // Charger les coûts spécifiques pour certains services
+                loadServiceCosts(numero, data.postes);
+            } else {
+                servicesList.innerHTML = '<p style="color: #dc3545;">Aucun service disponible pour ce dossier</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur chargement services:', error);
+            servicesList.innerHTML = '<p style="color: #dc3545;">Erreur lors du chargement des services</p>';
+        });
+}
+
+// Charger les coûts pour chaque occurrence de service et afficher la liste
+function loadServiceCosts(numero, services) {
+    const servicesList = document.getElementById('popup-services-list');
+    
+    popupServicesData = {};
+    
+    // Initialiser les données avec chaque occurrence individuelle (utiliser l'ID unique)
+    console.log('[loadServiceCosts] Services reçus:', JSON.stringify(services, null, 2));
+    services.forEach((service, index) => {
+        const serviceId = service.id || `${service.nom}_${service.id_fiche_travail || '0'}`;
+        const serviceName = service.nom;
+        
+        // Utiliser le coût CtPrevDev retourné par l'API (ou 0 si non défini)
+        let cout = 0.0;
+        if (service.cout !== undefined && service.cout !== null) {
+            cout = parseFloat(service.cout);
+            if (isNaN(cout)) {
+                console.warn(`[loadServiceCosts] ⚠️ Cout invalide pour ${serviceName}: ${service.cout}, utilisation de 0.0`);
+                cout = 0.0;
+            }
+        } else {
+            console.warn(`[loadServiceCosts] ⚠️ Cout manquant pour ${serviceName}, utilisation de 0.0`);
+        }
+        
+        console.log(`[loadServiceCosts] Service #${index+1}: nom='${serviceName}', id='${serviceId}', cout_brut=${service.cout}, cout_parsé=${cout}, id_fiche=${service.id_fiche_travail}`);
+        
+        popupServicesData[serviceId] = {
+            id: serviceId,
+            nom: serviceName,
+            nom_poste: service.nom_poste || null,
+            id_fiche_travail: service.id_fiche_travail || null,
+            checked: false,
+            cout: cout
+        };
+    });
+    
+    console.log('[loadServiceCosts] popupServicesData initialisé:', JSON.stringify(popupServicesData, null, 2));
+    
+    // Traitements spéciaux pour certains services
+    let servicesToLoad = 0;
+    let servicesLoaded = 0;
+    
+    // 1. "Matière première sortie" : remplacer le coût par AchatsMat
+    const matierePremiereId = Object.keys(popupServicesData).find(id => 
+        popupServicesData[id].nom === 'Matière première sortie'
+    );
+    if (matierePremiereId) {
+        servicesToLoad++;
+        fetch(`/projet19/api/achats-mat/${encodeURIComponent(numero)}`)
+            .then(response => response.json())
+            .then(data => {
+                const cout = (data.success && data.achats_mat !== null && data.achats_mat !== undefined) ? parseFloat(data.achats_mat) : 0;
+                popupServicesData[matierePremiereId].cout = cout;
+                servicesLoaded++;
+                if (servicesLoaded === servicesToLoad) {
+                    renderServicesList();
+                }
+            })
+            .catch(error => {
+                console.error('Erreur chargement coût matière première:', error);
+                servicesLoaded++;
+                if (servicesLoaded === servicesToLoad) {
+                    renderServicesList();
+                }
+            });
+    }
+    
+    // 2. "OFFSET FEUILLES" : utiliser AchatsSstr + Somme CtPrevDev (SANS AchatsMat pour éviter le double calcul)
+    const offsetFeuillesServices = Object.keys(popupServicesData).filter(id => 
+        popupServicesData[id].nom === 'OFFSET FEUILLES' || popupServicesData[id].nom === 'offset feuilles'
+    );
+    if (offsetFeuillesServices.length > 0) {
+        servicesToLoad++;
+        fetch(`/projet19/api/cout-total-offset/${encodeURIComponent(numero)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Calculer: AchatsSstr + Somme CtPrevDev (SANS AchatsMat)
+                    const coutOffset = (data.achats_sstr || 0) + (data.ct_prev_dev_sum || 0);
+                    // Mettre à jour tous les services "OFFSET FEUILLES"
+                    offsetFeuillesServices.forEach(serviceId => {
+                        if (popupServicesData[serviceId]) {
+                            popupServicesData[serviceId].cout = coutOffset;
+                            console.log(`[loadServiceCosts] OFFSET FEUILLES mis à jour: ${coutOffset} (AchatsSstr: ${data.achats_sstr}, CtPrevDev: ${data.ct_prev_dev_sum})`);
+                        }
+                    });
+                }
+                servicesLoaded++;
+                if (servicesLoaded === servicesToLoad) {
+                    renderServicesList();
+                }
+            })
+            .catch(error => {
+                console.error('Erreur chargement coût offset:', error);
+                servicesLoaded++;
+                if (servicesLoaded === servicesToLoad) {
+                    renderServicesList();
+                }
+            });
+    }
+    
+    // Si aucun service spécial à charger, afficher directement
+    if (servicesToLoad === 0) {
+        renderServicesList();
+    }
+    
+    // Fonction pour rendre la liste des services (chaque occurrence individuellement)
+    function renderServicesList() {
+        let html = '';
+        // Trier par nom puis par ID pour un affichage cohérent
+        const sortedServices = Object.values(popupServicesData).sort((a, b) => {
+            if (a.nom !== b.nom) {
+                return a.nom.localeCompare(b.nom);
+            }
+            return (a.id_fiche_travail || 0) - (b.id_fiche_travail || 0);
+        });
+        
+        // Récupérer l'avancement sélectionné pour pré-cocher les services correspondants
+        const selectedAvancement = window.popupSelectedAvancement;
+        console.log('[renderServicesList] Avancement à pré-cocher:', selectedAvancement);
+        
+        sortedServices.forEach(serviceData => {
+            // Afficher le nom du service avec le nom du poste si disponible pour différencier les occurrences
+            let displayName = serviceData.nom;
+            if (serviceData.nom_poste) {
+                displayName += ` (${serviceData.nom_poste})`;
+            }
+            // Si plusieurs occurrences du même service, ajouter un numéro
+            const occurrencesCount = sortedServices.filter(s => s.nom === serviceData.nom).length;
+            if (occurrencesCount > 1) {
+                const occurrenceIndex = sortedServices.filter(s => s.nom === serviceData.nom).indexOf(serviceData) + 1;
+                displayName += ` #${occurrenceIndex}`;
+            }
+            
+            // Pré-cocher si c'est l'avancement sélectionné
+            const isChecked = serviceData.checked || (selectedAvancement && serviceData.nom === selectedAvancement);
+            
+            html += `
+                <div class="service-item">
+                    <input type="checkbox" 
+                           class="service-checkbox" 
+                           data-service-id="${serviceData.id}"
+                           data-service-name="${serviceData.nom}"
+                           ${isChecked ? 'checked' : ''}
+                           onchange="updateCoutTotalPopup()">
+                    <span class="service-name">${displayName}</span>
+                    <span class="service-cost">${serviceData.cout.toFixed(3)}</span>
+                </div>
+            `;
+        });
+        
+        servicesList.innerHTML = html;
+        
+        // Calculer le coût total initial (cela appellera aussi calculerCtRelPopup())
+        updateCoutTotalPopup();
+        
+        // S'assurer que CtRel est recalculé après le rendu des services
+        // (même si la quantité est déjà pré-remplie et le coût total vient d'être calculé)
+        // Utiliser un petit délai pour s'assurer que le DOM est à jour
+        setTimeout(() => {
+            if (popupCommandeData) {
+                calculerCtRelPopup();
+            }
+        }, 100);
+    }
+}
+
+// Mettre à jour le coût total selon les occurrences de services cochées
+function updateCoutTotalPopup() {
+    let coutTotal = 0;
+    
+    document.querySelectorAll('.service-checkbox').forEach(checkbox => {
+        if (checkbox.checked) {
+            const serviceId = checkbox.getAttribute('data-service-id');
+            if (popupServicesData[serviceId]) {
+                coutTotal += popupServicesData[serviceId].cout;
+            }
+        }
+    });
+    
+    document.getElementById('popup-cout-total').textContent = coutTotal.toFixed(3).replace('.', ',');
+    
+    // Mettre à jour l'état du checkbox "Tout cocher"
+    updateCheckAllState();
+    
+    // Calculer CtRel = (CoutTotal / QteComm_COMMANDES) * Quantité
+    calculerCtRelPopup();
+}
+
+// Calculer le récapitulatif dans le popup
+function calculerRecapitulatifPopup() {
+    if (!popupCommandeData) return;
+    
+    const quantite = parseFloat(document.getElementById('popup-quantite').value) || 0;
+    const prixUnitaire = popupCommandeData.prix_vente_unitaire ? parseFloat(popupCommandeData.prix_vente_unitaire) : 0;
+    const marge = popupCommandeData.marge ? parseFloat(popupCommandeData.marge) : 0;
+    
+    // Prix de vente total
+    const prixVenteTotal = quantite * prixUnitaire;
+    document.getElementById('popup-prix-vente-total').textContent = prixVenteTotal.toFixed(3);
+    
+    // Coût total estimé = Prix de vente total / (1 + Marge)
+    // La marge est stockée en pourcentage (ex: 45.9), donc on divise par 100 pour obtenir la valeur décimale
+    let ctEstime = 0;
+    if (marge > 0) {
+        // Convertir le pourcentage en décimal (45.9 -> 0.459)
+        const margeDecimal = marge / 100;
+        ctEstime = prixVenteTotal / (1 + margeDecimal);
+    }
+    document.getElementById('popup-ct-estime').textContent = ctEstime.toFixed(3);
+    
+    // Calculer CtRel = (CoutTotal / QteComm_COMMANDES) * Quantité
+    calculerCtRelPopup();
+}
+
+// Calculer le coût total réel dans le popup
+function calculerCtRelPopup() {
+    if (!popupCommandeData) {
+        console.log('[calculerCtRelPopup] popupCommandeData non défini');
+        return;
+    }
+    
+    const coutTotalText = document.getElementById('popup-cout-total').textContent.trim();
+    const coutTotal = parseFloat(coutTotalText.replace(',', '.')) || 0;
+    const quantite = parseFloat(document.getElementById('popup-quantite').value) || 0;
+    
+    // Récupérer QteComm_COMMANDES depuis popupCommandeData.quantite (qui contient COMMANDES.QteComm)
+    const qteComm = popupCommandeData.quantite || null;
+    
+    console.log('[calculerCtRelPopup] Données:', {
+        coutTotalText,
+        coutTotal,
+        quantite,
+        qteComm
+    });
+    
+    let ctRel = 0;
+    // Si QteComm = 0 ou Quantité = 0, alors CtRel = 0
+    if (qteComm && qteComm > 0 && quantite > 0 && coutTotal > 0) {
+        ctRel = (coutTotal / qteComm) * quantite;
+        console.log('[calculerCtRelPopup] Calcul:', coutTotal, '/', qteComm, '*', quantite, '=', ctRel);
+    } else {
+        console.log('[calculerCtRelPopup] Conditions non remplies pour le calcul');
+    }
+    
+    document.getElementById('popup-ct-rel').textContent = ctRel.toFixed(3).replace('.', ',');
+}
+
+// Sauvegarder le dossier depuis le popup
+function saveNewDossierFromPopup() {
+    const numero = document.getElementById('popup-input-numero').value.trim();
+    
+    if (!numero) {
+        alert('Veuillez saisir un numéro de dossier');
+        return;
+    }
+    
+    if (!popupCommandeData) {
+        alert('Veuillez charger les données de la commande');
+        return;
+    }
+    
+    // S'assurer que CtRel est calculé avant la sauvegarde
+    calculerCtRelPopup();
+    
+    // Récupérer les services cochés (utiliser les noms des services, pas les IDs)
+    const selectedServices = [];
+    document.querySelectorAll('.service-checkbox:checked').forEach(checkbox => {
+        const serviceName = checkbox.getAttribute('data-service-name');
+        if (serviceName) {
+            selectedServices.push(serviceName);
+        }
+    });
+    
+    // Si aucun service n'est sélectionné, utiliser le premier service comme avancement (compatibilité)
+    // Pour plusieurs occurrences du même service, utiliser le nom du service
+    const avancement = selectedServices.length > 0 ? selectedServices[0] : null;
+    
+    // Calculer le coût total
+    const coutTotal = parseFloat(document.getElementById('popup-cout-total').textContent.replace(',', '.')) || 0;
+    
+    // Récupérer les autres valeurs
+    const quantite = parseInt(document.getElementById('popup-quantite').value) || null;
+    const prixVenteTotal = parseFloat(document.getElementById('popup-prix-vente-total').textContent.replace(',', '.')) || null;
+    const ctEstime = parseFloat(document.getElementById('popup-ct-estime').textContent.replace(',', '.')) || null;
+    
+    // Récupérer ctRel depuis le DOM (doit être calculé avant)
+    const ctRelElement = document.getElementById('popup-ct-rel');
+    const ctRelText = ctRelElement ? ctRelElement.textContent.trim() : '';
+    console.log('[saveNewDossierFromPopup] ctRelText depuis DOM:', ctRelText);
+    
+    let ctRel = 0.0; // Par défaut 0.0 au lieu de null pour toujours enregistrer une valeur
+    if (ctRelText && ctRelText !== '-' && ctRelText !== '0.000') {
+        const parsed = parseFloat(ctRelText.replace(',', '.'));
+        console.log('[saveNewDossierFromPopup] ctRelText parsé:', parsed);
+        if (!isNaN(parsed)) {
+            ctRel = parsed;
+        } else {
+            console.warn('[saveNewDossierFromPopup] ⚠️ ctRelText ne peut pas être parsé:', ctRelText);
+        }
+    } else {
+        console.log('[saveNewDossierFromPopup] ctRelText est vide ou "-", utilisation de 0.0');
+    }
+    
+    console.log('[saveNewDossierFromPopup] Valeurs à sauvegarder:', {
+        numero,
+        avancement,
+        quantite,
+        prixVenteTotal,
+        ctEstime,
+        coutTotal,
+        ctRel,
+        ctRelText,
+        popupEditMode,
+        popupEditDossierId
+    });
+    
+    // Mode édition ou création ?
+    if (popupEditMode && popupEditDossierId) {
+        // Mode édition : mettre à jour le dossier existant
+        updateDossierFromPopup(popupEditDossierId, {
+            avancement,
+            quantite,
+            prixVenteTotal,
+            ctEstime,
+            coutTotal,
+            ctRel
+        });
+        return;
+    }
+    
+    // Mode création : vérifier si le dossier existe déjà
+    const exists = allDossiers.find(d => d.numero === numero);
+    if (exists && !confirm(`Le dossier ${numero} est déjà en suivi. Souhaitez-vous continuer ?`)) {
+        return;
+    }
+    
+    // Préparer les données à envoyer
+    const payload = {
+        numero: numero,
+        avancement: avancement,
+        quantite: quantite,
+        prix_vente_total: prixVenteTotal,
+        ct_estime: ctEstime,
+        cout_total: coutTotal,
+        ct_rel: ctRel
+    };
+    
+    console.log('[saveNewDossierFromPopup] Payload JSON à envoyer:', JSON.stringify(payload, null, 2));
+    console.log('[saveNewDossierFromPopup] ct_rel dans payload:', payload.ct_rel, 'type:', typeof payload.ct_rel);
+    
+    // Enregistrer le dossier
+    fetch('{{ url_for("projet19.api_create_dossier") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success || data.id) {
+            alert('Dossier ajouté au suivi avec succès');
+            closeNewDossierPopup();
+            loadDossiers(); // Recharger la liste
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur lors de l\'enregistrement'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur enregistrement:', error);
+        alert('Erreur lors de l\'enregistrement du dossier');
+    });
+}
+
+// Cocher/décocher tous les services
+function toggleAllServices(checked) {
+    const checkboxes = document.querySelectorAll('.service-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+    });
+    // Recalculer le coût total
+    updateCoutTotalPopup();
+}
+
+// Mettre à jour l'état du checkbox "Tout cocher" selon les services cochés
+function updateCheckAllState() {
+    const checkboxes = document.querySelectorAll('.service-checkbox');
+    const checkAll = document.getElementById('popup-check-all-services');
+    if (checkAll && checkboxes.length > 0) {
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+        checkAll.checked = allChecked;
+        checkAll.indeterminate = someChecked && !allChecked;
+    }
+}
+
+// Mettre à jour un dossier existant depuis le popup
+function updateDossierFromPopup(dossierId, data) {
+    console.log('[updateDossierFromPopup] Mise à jour du dossier ID:', dossierId, 'avec:', data);
+    
+    const payload = {
+        id: dossierId,
+        avancement: data.avancement,
+        quantite: data.quantite,
+        prix_vente_total: data.prixVenteTotal,
+        ct_estime: data.ctEstime,
+        cout_total: data.coutTotal,
+        ct_rel: data.ctRel
+    };
+    
+    console.log('[updateDossierFromPopup] Payload:', JSON.stringify(payload, null, 2));
+    
+    fetch('{{ url_for("projet19.api_update_quantite_prix_total") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Dossier mis à jour avec succès');
+            closeNewDossierPopup();
+            loadDossiers(); // Recharger la liste
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur lors de la mise à jour'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur mise à jour:', error);
+        alert('Erreur lors de la mise à jour du dossier');
+    });
+}
+
+// Note: Le popup ne se ferme pas en cliquant en dehors (désactivé par demande utilisateur)
+// Pour fermer le popup, utiliser uniquement le bouton "Annuler" ou "X"
+
+// ==================== FONCTIONS D'EXPORT ET IMPRESSION ====================
+
+// Exporter le tableau en Excel
+function exportTableToExcel() {
+    const table = document.querySelector('.dossiers-table');
+    if (!table) {
+        alert('Tableau non trouvé');
+        return;
+    }
+    
+    // Créer une copie du tableau sans les colonnes d'actions
+    const clonedTable = table.cloneNode(true);
+    
+    // Supprimer la colonne Actions (dernière colonne)
+    const rows = clonedTable.querySelectorAll('tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('th, td');
+        if (cells.length > 0) {
+            cells[cells.length - 1].remove(); // Supprimer la dernière cellule (Actions)
+        }
+    });
+    
+    // Convertir en format CSV/Excel
+    let csv = [];
+    const rowsData = clonedTable.querySelectorAll('tr');
+    
+    rowsData.forEach(row => {
+        const cols = row.querySelectorAll('th, td');
+        const rowData = [];
+        cols.forEach(col => {
+            // Nettoyer le texte et échapper les guillemets
+            let text = col.innerText.trim().replace(/"/g, '""');
+            rowData.push('"' + text + '"');
+        });
+        csv.push(rowData.join(';'));
+    });
+    
+    const csvContent = csv.join('\n');
+    const BOM = '\uFEFF'; // Pour l'encodage UTF-8 dans Excel
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'dossiers_projet19_' + new Date().toISOString().slice(0,10) + '.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Exporter le tableau en PDF
+function exportTableToPDF() {
+    // Ouvrir une nouvelle fenêtre pour l'impression/PDF
+    const printWindow = window.open('', '_blank');
+    const table = document.querySelector('.dossiers-table');
+    
+    if (!table) {
+        alert('Tableau non trouvé');
+        return;
+    }
+    
+    // Créer une copie du tableau sans les colonnes d'actions
+    const clonedTable = table.cloneNode(true);
+    const rows = clonedTable.querySelectorAll('tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('th, td');
+        if (cells.length > 0) {
+            cells[cells.length - 1].remove();
+        }
+    });
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Dossiers Projet 19 - ${new Date().toLocaleDateString('fr-FR')}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                h1 { color: #667eea; text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #667eea; color: white; }
+                tr:nth-child(even) { background-color: #f2f2f2; }
+                .date { text-align: center; color: #666; margin-bottom: 20px; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Projet 19 - Gestion des Dossiers en Cours</h1>
+            <p class="date">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+            ${clonedTable.outerHTML}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    
+    // Attendre le chargement puis imprimer (l'utilisateur peut choisir "Enregistrer en PDF")
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+}
+
+// Imprimer le tableau
+function printTable() {
+    exportTableToPDF(); // Utilise la même fonction, l'utilisateur choisit imprimante ou PDF
+}
+
+// Imprimer le contenu du popup
+function printPopupContent() {
+    const modal = document.getElementById('new-dossier-modal');
+    if (!modal) {
+        alert('Popup non trouvé');
+        return;
+    }
+    
+    // Récupérer les valeurs du popup avec vérification
+    const numeroEl = document.getElementById('popup-input-numero');
+    const clientEl = document.getElementById('popup-client');
+    const referenceEl = document.getElementById('popup-reference');
+    const margeEl = document.getElementById('popup-marge');
+    const prixUnitaireEl = document.getElementById('popup-prix-vente-unitaire');
+    const quantiteEl = document.getElementById('popup-quantite');
+    const prixTotalEl = document.getElementById('popup-prix-vente-total');
+    const ctEstimeEl = document.getElementById('popup-ct-estime');
+    const coutTotalEl = document.getElementById('popup-cout-total');
+    const ctRelEl = document.getElementById('popup-ct-rel');
+    
+    const numero = numeroEl ? (numeroEl.value || '-') : '-';
+    const client = clientEl ? (clientEl.textContent.trim() || '-') : '-';
+    const reference = referenceEl ? (referenceEl.textContent.trim() || '-') : '-';
+    const marge = margeEl ? (margeEl.textContent.trim() || '-') : '-';
+    const prixUnitaire = prixUnitaireEl ? (prixUnitaireEl.textContent.trim() || '-') : '-';
+    const quantite = quantiteEl ? (quantiteEl.value || '-') : '-';
+    const prixTotal = prixTotalEl ? (prixTotalEl.textContent.trim() || '-') : '-';
+    const ctEstime = ctEstimeEl ? (ctEstimeEl.textContent.trim() || '-') : '-';
+    const coutTotal = coutTotalEl ? (coutTotalEl.textContent.trim() || '-') : '-';
+    const ctRel = ctRelEl ? (ctRelEl.textContent.trim() || '-') : '-';
+    
+    console.log('[printPopupContent] Valeurs récupérées:', { numero, client, reference, marge, prixUnitaire, quantite, prixTotal, ctEstime, coutTotal, ctRel });
+    
+    // Récupérer les services cochés avec vérification améliorée
+    const servicesHtml = [];
+    const servicesList = document.getElementById('popup-services-list');
+    if (servicesList) {
+        const checkboxes = servicesList.querySelectorAll('.service-checkbox:checked');
+        console.log('[printPopupContent] Nombre de services cochés:', checkboxes.length);
+        
+        checkboxes.forEach(checkbox => {
+            const serviceItem = checkbox.closest('.service-item');
+            if (serviceItem) {
+                const nameEl = serviceItem.querySelector('.service-name');
+                const costEl = serviceItem.querySelector('.service-cost');
+                const label = nameEl ? nameEl.textContent.trim() : 'Service inconnu';
+                const cost = costEl ? costEl.textContent.trim() : '0,000';
+                servicesHtml.push('<tr><td>' + label + '</td><td style="text-align:right">' + cost + '</td></tr>');
+            }
+        });
+    }
+    
+    console.log('[printPopupContent] Services HTML:', servicesHtml.length, 'éléments');
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloqués.');
+        return;
+    }
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Dossier ${numero} - ${new Date().toLocaleDateString('fr-FR')}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+                h1 { color: #667eea; text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+                h2 { color: #495057; margin-top: 20px; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+                .info-item { padding: 10px; background: #f8f9fa; border-radius: 4px; }
+                .info-item label { font-weight: bold; display: block; margin-bottom: 5px; color: #667eea; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { border: 1px solid #ddd; padding: 8px; }
+                th { background-color: #667eea; color: white; }
+                .total { font-size: 18px; font-weight: bold; text-align: center; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; margin-top: 20px; }
+                .date { text-align: center; color: #666; font-size: 12px; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Dossier N° ${numero}</h1>
+            <p class="date">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+            
+            <h2>Informations générales</h2>
+            <div class="info-grid">
+                <div class="info-item"><label>N° de dossier</label>${numero}</div>
+                <div class="info-item"><label>Client</label>${client}</div>
+                <div class="info-item"><label>Désignation</label>${reference}</div>
+                <div class="info-item"><label>Marge</label>${marge}</div>
+            </div>
+            
+            <h2>Services sélectionnés</h2>
+            <table>
+                <thead><tr><th>Service</th><th style="text-align:right">Coût</th></tr></thead>
+                <tbody>${servicesHtml.length > 0 ? servicesHtml.join('') : '<tr><td colspan="2" style="text-align:center">Aucun service sélectionné</td></tr>'}</tbody>
+            </table>
+            
+            <h2>Récapitulatif</h2>
+            <div class="info-grid">
+                <div class="info-item"><label>Prix de vente unitaire</label>${prixUnitaire}</div>
+                <div class="info-item"><label>Quantité</label>${quantite}</div>
+                <div class="info-item"><label>Prix de vente total</label>${prixTotal}</div>
+                <div class="info-item"><label>Coût total estimé</label>${ctEstime}</div>
+            </div>
+            
+            <div class="total">
+                Coût Total : ${coutTotal}<br>
+                <small>Coût Total Réel : ${ctRel}</small>
+            </div>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+}
+
+// Exporter le popup en PDF (même fonction que imprimer, l'utilisateur choisit PDF)
+function exportPopupToPDF() {
+    printPopupContent();
+}
+
+// Imprimer un dossier spécifique depuis le tableau
+function printDossierRow(dossierId) {
+    // Trouver le dossier dans allDossiers
+    const dossier = allDossiers.find(d => d.id === dossierId);
+    if (!dossier) {
+        alert('Dossier non trouvé');
+        return;
+    }
+    
+    const printWindow = window.open('', '_blank');
+    
+    // Formater les valeurs
+    const margeDisplay = dossier.marge !== null && dossier.marge !== undefined 
+        ? parseFloat(dossier.marge).toFixed(2).replace('.', ',') + '%' 
+        : '-';
+    const prixUnitaireDisplay = dossier.prix_vente_unitaire !== null && dossier.prix_vente_unitaire !== undefined 
+        ? parseFloat(dossier.prix_vente_unitaire).toFixed(3).replace('.', ',') 
+        : '-';
+    const quantiteDisplay = dossier.quantite !== null && dossier.quantite !== undefined 
+        ? dossier.quantite 
+        : '-';
+    const prixTotalDisplay = dossier.prix_vente_total !== null && dossier.prix_vente_total !== undefined 
+        ? parseFloat(dossier.prix_vente_total).toFixed(3).replace('.', ',') 
+        : '-';
+    const ctEstimeDisplay = dossier.ct_estime !== null && dossier.ct_estime !== undefined 
+        ? parseFloat(dossier.ct_estime).toFixed(3).replace('.', ',') 
+        : '-';
+    const coutTotalDisplay = dossier.cout_total !== null && dossier.cout_total !== undefined 
+        ? parseFloat(dossier.cout_total).toFixed(3).replace('.', ',') 
+        : '-';
+    const ctRelDisplay = dossier.ct_rel !== null && dossier.ct_rel !== undefined 
+        ? parseFloat(dossier.ct_rel).toFixed(3).replace('.', ',') 
+        : '-';
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Dossier ${dossier.numero} - ${new Date().toLocaleDateString('fr-FR')}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+                h1 { color: #667eea; text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+                h2 { color: #495057; margin-top: 20px; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+                .info-item { padding: 10px; background: #f8f9fa; border-radius: 4px; }
+                .info-item label { font-weight: bold; display: block; margin-bottom: 5px; color: #667eea; }
+                .total { font-size: 18px; font-weight: bold; text-align: center; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; margin-top: 20px; }
+                .date { text-align: center; color: #666; font-size: 12px; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Dossier N° ${dossier.numero || 'N/A'}</h1>
+            <p class="date">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+            
+            <h2>Informations générales</h2>
+            <div class="info-grid">
+                <div class="info-item"><label>N° de dossier</label>${dossier.numero || 'N/A'}</div>
+                <div class="info-item"><label>Client</label>${dossier.client || 'N/A'}</div>
+                <div class="info-item"><label>Désignation</label>${dossier.reference || 'N/A'}</div>
+                <div class="info-item"><label>Marge</label>${margeDisplay}</div>
+            </div>
+            
+            <h2>Récapitulatif</h2>
+            <div class="info-grid">
+                <div class="info-item"><label>Prix de vente unitaire</label>${prixUnitaireDisplay}</div>
+                <div class="info-item"><label>Quantité</label>${quantiteDisplay}</div>
+                <div class="info-item"><label>Prix de vente total</label>${prixTotalDisplay}</div>
+                <div class="info-item"><label>Coût total estimé</label>${ctEstimeDisplay}</div>
+                <div class="info-item"><label>Avancement</label>${dossier.avancement || '-'}</div>
+            </div>
+            
+            <div class="total">
+                Coût Total : ${coutTotalDisplay}<br>
+                <small>Coût Total Réel : ${ctRelDisplay}</small>
+            </div>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[DOMContentLoaded] ========================================');
+    console.log('[DOMContentLoaded] 🕐 Page chargée, initialisation...');
+    console.log('[DOMContentLoaded] Timestamp:', new Date().toISOString());
+    
+    try {
+        // Ancien code pour input-numero supprimé - utilise maintenant le popup modal
+        // Les listeners sont maintenant gérés dans setupPopupSearchListeners()
+        console.log('[DOMContentLoaded] ✅ Initialisation terminée (popup modal utilisé)');
+        
+        // Charger les dossiers
+        console.log('[DOMContentLoaded] 🔧 Appel de loadDossiers()...');
+        loadDossiers();
+    } catch (error) {
+        console.error('[DOMContentLoaded] ❌❌❌ ERREUR CRITIQUE lors de l\'initialisation:', error);
+        console.error('[DOMContentLoaded] Stack trace:', error.stack);
+    }
+    
+    console.log('[DOMContentLoaded] ========================================');
+});
+</script>
+{% endblock %}

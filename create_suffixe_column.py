@@ -52,3 +52,20 @@ if __name__ == "__main__":
     create_suffixe_column_if_not_exists()
     print("=" * 60)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

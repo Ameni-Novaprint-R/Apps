@@ -21,3 +21,13 @@ for year, month, day in test_dates:
     nom = get_nom_jour_ferie(date) if ferie else ""
     print(f"{date.strftime('%d/%m/%Y')}: {'FERIÉ - ' + nom if ferie else 'Jour normal'}")
 
+
+
+
+
+
+
+
+
+
+

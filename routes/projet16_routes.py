@@ -26,7 +26,12 @@ from logic.projet16 import (
     update_article_quantite,
     delete_article_from_reparation,
     get_articles_by_fiche,
-    save_articles_for_fiche
+    save_articles_for_fiche,
+    get_all_preventive_tasks,
+    get_preventive_task_by_id,
+    create_preventive_task,
+    update_preventive_task,
+    delete_preventive_task
 )
 
 projet16_bp = Blueprint('projet16', __name__, url_prefix='/projet16')
@@ -214,6 +219,18 @@ def api_create_reparation_direct():
     """API pour créer une réparation directe (sans demande d'intervention préalable)"""
     try:
         data = request.get_json()
+        # #region agent log
+        try:
+            from logic.projet16 import _agent_log as _agent_log_api  # reuse helper
+            _agent_log_api(
+                "H22",
+                "routes/projet16_routes.py:api_create_reparation_direct",
+                "input api_create_reparation_direct",
+                {"data": data},
+            )
+        except Exception:
+            pass
+        # #endregion agent log
         
         # Validation des champs obligatoires
         required_fields = ['dte_deb', 'mat_inter', 'postes_reel', 'nat']
@@ -237,6 +254,15 @@ def api_create_reparation_direct():
         print(f"[ERREUR API] Erreur dans api_create_reparation_direct: {e}")
         import traceback
         traceback.print_exc()
+        try:
+            _agent_log_api(
+                "H23",
+                "routes/projet16_routes.py:api_create_reparation_direct",
+                "exception api_create_reparation_direct",
+                {"error": str(e)},
+            )
+        except Exception:
+            pass
         return jsonify({"error": str(e)}), 500
 
 @projet16_bp.route('/api/update_reparation_status/<int:demande_id>', methods=['POST'])
@@ -1015,6 +1041,87 @@ def api_delete_article(article_id):
             
     except Exception as e:
         print(f"[ERREUR API] Erreur dans api_delete_article: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+# ========== ROUTES API POUR LA MAINTENANCE PRÉVENTIVE ==========
+
+@projet16_bp.route('/api/preventive/tasks')
+def api_preventive_tasks():
+    """API pour récupérer toutes les tâches de maintenance préventive"""
+    try:
+        machine_name = request.args.get('machine', None)
+        tasks = get_all_preventive_tasks(machine_name=machine_name)
+        return jsonify(tasks)
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_preventive_tasks: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@projet16_bp.route('/api/preventive/task/<int:task_id>')
+def api_preventive_task_detail(task_id):
+    """API pour récupérer le détail d'une tâche de maintenance préventive"""
+    try:
+        task = get_preventive_task_by_id(task_id)
+        if task:
+            return jsonify(task)
+        return jsonify({"error": "Tâche non trouvée"}), 404
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_preventive_task_detail: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@projet16_bp.route('/api/preventive/task', methods=['POST'])
+def api_create_preventive_task():
+    """API pour créer une nouvelle tâche de maintenance préventive"""
+    try:
+        data = request.get_json()
+        task_id = create_preventive_task(data)
+        return jsonify({
+            "success": True,
+            "message": "Tâche créée avec succès",
+            "task_id": task_id
+        })
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_create_preventive_task: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@projet16_bp.route('/api/preventive/task/<int:task_id>', methods=['PUT'])
+def api_update_preventive_task(task_id):
+    """API pour mettre à jour une tâche de maintenance préventive"""
+    try:
+        data = request.get_json()
+        success = update_preventive_task(task_id, data)
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Tâche mise à jour avec succès"
+            })
+        return jsonify({"error": "Erreur lors de la mise à jour"}), 500
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_update_preventive_task: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@projet16_bp.route('/api/preventive/task/<int:task_id>', methods=['DELETE'])
+def api_delete_preventive_task(task_id):
+    """API pour supprimer une tâche de maintenance préventive"""
+    try:
+        success = delete_preventive_task(task_id)
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Tâche supprimée avec succès"
+            })
+        return jsonify({"error": "Erreur lors de la suppression"}), 500
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_delete_preventive_task: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500

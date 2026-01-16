@@ -59,3 +59,20 @@ PRINT '   - À chaque modification d''une fiche, Suffixe s''incrémente de 1'
 PRINT '   - La création d''une nouvelle fiche commence avec Suffixe = 0'
 GO
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
