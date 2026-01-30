@@ -1,9 +1,8 @@
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, session, redirect, url_for
 from datetime import datetime, timezone
 from logic import projet1, projet2, projet3, projet4, projet5, projet6, projet8, projet9, projet10
 from logic.projet7 import projet7_bp
 from routes.crystal_reports_routes import crystal_reports
-from routes.projet11_routes import projet11_bp
 from routes.projet12_routes import projet12_bp
 from routes.projet14_routes import projet14_bp
 from routes.projet15_routes import projet15_bp
@@ -12,6 +11,11 @@ from routes.projet17_routes import projet17_bp
 from routes.projet19_routes import projet19_bp
 from routes.projet20_routes import projet20_bp
 from routes.projet21_routes import projet21_bp
+from routes.projet22_routes import projet22_bp
+from routes.admin_routes import admin_bp
+from routes.renommer_table_route import renommer_bp
+from routes.auth_routes import auth_bp
+from logic.auth import get_user_projects, is_authenticated, is_super_user, has_project_access
 import os
 import json
 import traceback
@@ -19,10 +23,19 @@ import traceback
 # Forcer le rechargement des modules - 20 Oct 2025 16:10
 import importlib
 import sys
-if 'logic.projet11' in sys.modules:
-    importlib.reload(sys.modules['logic.projet11'])
+
+# Supprimer le module du cache avant import pour forcer le rechargement
 if 'routes.projet11_routes' in sys.modules:
-    importlib.reload(sys.modules['routes.projet11_routes'])
+    del sys.modules['routes.projet11_routes']
+if 'logic.projet11' in sys.modules:
+    del sys.modules['logic.projet11']
+# Forcer le rechargement - 29 Jan 2026 - Force reload
+import importlib
+try:
+    if 'routes.projet11_routes' in sys.modules:
+        importlib.reload(sys.modules['routes.projet11_routes'])
+except:
+    pass
 
 
 
@@ -30,10 +43,16 @@ if 'routes.projet11_routes' in sys.modules:
 
 app = Flask(__name__)
 
+# Configuration de la clé secrète pour les sessions
+# IMPORTANT: Doit être défini immédiatement après la création de l'app
+app.secret_key = 'vraiment-secret-et-unique'
+app.config['SECRET_KEY'] = 'vraiment-secret-et-unique'  # Double définition pour compatibilité
+
 # Injection automatique de la variable "now" dans tous les templates
 @app.context_processor
 def inject_now():
     return {"now": datetime.now(timezone.utc)}
+
 
 # Configuration pour Crystal Reports
 app.config['CRYSTAL_REPORTS_DIR'] = os.path.join(app.root_path, 'crystalreport')
@@ -49,7 +68,10 @@ app.register_blueprint(projet7_bp)
 app.register_blueprint(projet8.bp)
 app.register_blueprint(projet9.bp)
 app.register_blueprint(projet10.bp)
+# Réimporter le blueprint après nettoyage du cache
+from routes.projet11_routes import projet11_bp
 app.register_blueprint(projet11_bp)
+print("Projet11 blueprint rechargé avec toutes les routes")
 app.register_blueprint(projet12_bp)
 app.register_blueprint(projet14_bp)
 app.register_blueprint(projet15_bp)
@@ -83,21 +105,114 @@ print(f"Projet20 blueprint enregistre - {len(routes_projet20)} routes")
 app.register_blueprint(projet21_bp)
 print("Projet21 blueprint enregistre")
 
+# Enregistrement du projet 22
+app.register_blueprint(projet22_bp)
+print("Projet22 blueprint enregistre")
+
+# Admin : init. tables WEB (WEB_PROJETS, WEB_SECTIONS)
+app.register_blueprint(admin_bp)
+print("Admin blueprint enregistre ( /admin/init-web-tables )")
+app.register_blueprint(renommer_bp)
+print("Renommer blueprint enregistre ( /admin/renommer-web-droits-acces-en-web-actions )")
+
+# Authentification - doit être après la création de l'app
+from routes.auth_routes import auth_bp
+from logic.auth import get_user_projects, is_authenticated, is_super_user, has_project_access, get_user_sections, has_section_access, has_action_access
+from logic.project_routes import get_project_url, get_project_name, get_project_icon
+app.register_blueprint(auth_bp)
+print("Auth blueprint enregistre ( /auth/login, /auth/logout )")
+
+# Injection des fonctions d'authentification et de droits dans tous les templates
+# Doit être après l'import des fonctions d'auth
+@app.context_processor
+def inject_auth():
+    try:
+        from logic.auth import get_current_user
+        
+        def get_current_user_name():
+            """Helper pour obtenir le nom de l'utilisateur depuis la session"""
+            try:
+                user = get_current_user()
+                if user:
+                    return user.get('nom', 'Utilisateur')
+                return None
+            except:
+                return None
+        
+        return {
+            "is_authenticated": is_authenticated,
+            "is_super_user": is_super_user,
+            "get_user_projects": get_user_projects,
+            "has_project_access": has_project_access,
+            "get_user_sections": get_user_sections,
+            "has_section_access": has_section_access,
+            "has_action_access": has_action_access,
+            "get_current_user": get_current_user_name,
+            "get_project_url": get_project_url,
+            "get_project_name": get_project_name,
+            "get_project_icon": get_project_icon
+        }
+    except Exception as e:
+        # En cas d'erreur, retourner des valeurs par défaut pour éviter de casser les templates
+        print(f"Erreur dans inject_auth: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "is_authenticated": lambda: False,
+            "is_super_user": lambda: False,
+            "get_user_projects": lambda: [],
+            "has_project_access": lambda x: False,
+            "get_user_sections": lambda x: [],
+            "has_section_access": lambda x: False,
+            "has_action_access": lambda x: False,
+            "get_current_user": lambda: None,
+            "get_project_url": lambda x: None,
+            "get_project_name": lambda x: None,
+            "get_project_icon": lambda x: '📌'
+        }
+
 
 @app.route("/")
 def index():
-    return render_template("index.html")  # plus besoin d'ajouter now ici
+    """
+    Page d'accueil - affiche les projets selon les droits de l'utilisateur
+    """
+    try:
+        # Si non authentifié, rediriger vers la page de login
+        if not is_authenticated():
+            return redirect(url_for('auth.login'))
+        
+        # Passer les projets directement au template pour éviter les appels dans le template
+        try:
+            user_projects = get_user_projects()
+            is_super = is_super_user()
+        except Exception as e:
+            print(f"Erreur lors de la récupération des projets: {e}")
+            import traceback
+            traceback.print_exc()
+            user_projects = []
+            is_super = False
+        
+        return render_template("index.html", user_projects=user_projects, is_super=is_super)
+    except Exception as e:
+        # En cas d'erreur, afficher une page d'erreur ou rediriger vers login
+        print(f"Erreur dans la route index: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            return redirect(url_for('auth.login'))
+        except:
+            return f"<h1>Erreur</h1><p>{str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/favicon.ico')
 def favicon():
     """Gestion du favicon - retourne 204 No Content pour éviter les erreurs 404"""
     return '', 204
 
-app.secret_key = 'vraiment-secret-et-unique'
-
 # Gestionnaire d'erreur global pour capturer toutes les erreurs
 @app.errorhandler(Exception)
 def handle_exception(e):
+    from flask import request
     try:
         error_msg = str(e) if e else "Erreur interne du serveur"
         error_trace = traceback.format_exc()
@@ -109,13 +224,46 @@ def handle_exception(e):
                 f.write(f"{datetime.now().isoformat()}\n{error_msg}\n{error_trace}\n\n")
         except:
             pass
-        # Retourner une réponse JSON
-        error_json = json.dumps({
-            'error': 'Erreur interne du serveur',
-            'message': error_msg,
-            'traceback': error_trace
-        }, indent=2)
-        return Response(error_json, status=500, mimetype='application/json')
+        
+        # Détecter si la requête attend du JSON ou du HTML
+        # Vérifier l'en-tête Accept ou si le chemin contient /api/
+        accepts_json = request.headers.get('Accept', '').find('application/json') >= 0
+        is_api_route = '/api/' in request.path
+        
+        if accepts_json or is_api_route:
+            # Retourner une réponse JSON pour les routes API
+            error_json = json.dumps({
+                'error': 'Erreur interne du serveur',
+                'message': error_msg,
+                'traceback': error_trace
+            }, indent=2)
+            return Response(error_json, status=500, mimetype='application/json')
+        else:
+            # Retourner une page HTML d'erreur pour les routes normales
+            error_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Erreur 500 - Erreur interne du serveur</title>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                    h1 {{ color: #d32f2f; }}
+                    pre {{ background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }}
+                </style>
+            </head>
+            <body>
+                <h1>Erreur 500 - Erreur interne du serveur</h1>
+                <p><strong>Message:</strong> {error_msg}</p>
+                <details>
+                    <summary>Détails techniques</summary>
+                    <pre>{error_trace}</pre>
+                </details>
+                <p><a href="/">Retour à l'accueil</a></p>
+            </body>
+            </html>
+            """
+            return Response(error_html, status=500, mimetype='text/html')
     except Exception as handler_error:
         # Si le gestionnaire d'erreur lui-même échoue, retourner un message texte
         return Response(f'Erreur critique: {str(handler_error)}', status=500, mimetype='text/plain')
@@ -124,6 +272,12 @@ if __name__ == "__main__":
     # Désactiver le cache des templates en mode debug
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config['TEMPLATES_AUTO_RELOAD'] = True
+    # Désactiver complètement le cache des templates Jinja2
+    app.jinja_env.auto_reload = True
+    app.jinja_env.cache_size = 0
+    # Forcer le rechargement du cache des templates
+    if hasattr(app, 'jinja_env'):
+        app.jinja_env.cache.clear()
     
     # Si lancé via watchdog, désactiver le rechargement intégré de Flask
     # pour éviter les conflits (watchdog gère le rechargement)

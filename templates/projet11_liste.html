@@ -14,6 +14,21 @@
 <!-- Font Awesome pour les icônes -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
+    /* Styles pour le modal de modification avec iframe */
+    .modal-iframe-container {
+        min-height: 70vh;
+        height: 75vh;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-iframe-container iframe {
+        border: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        flex: 1;
+    }
 .table-responsive {
     overflow-x: auto;
     position: relative;
@@ -116,8 +131,51 @@ th.col-statut, td.col-statut {
     text-align: center;
 }
 th.col-actions, td.col-actions {
-    width: 150px;
-    max-width: 160px;
+    width: 120px;
+    min-width: 120px;
+    max-width: 130px;
+}
+/* Boutons d'action modernes avec icônes SVG (style projet22) */
+.btn-action-modern {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    padding: 0;
+    margin: 0 1px;
+    flex-shrink: 0;
+}
+.btn-action-modern svg {
+    width: 16px;
+    height: 16px;
+    transition: all 0.3s ease;
+}
+.btn-action-modern:hover {
+    transform: scale(1.15);
+    background: #f8f9fa;
+}
+.btn-action-modern:hover svg {
+    transform: scale(1.1);
+}
+.btn-action-modern:active {
+    transform: scale(1.05);
+}
+/* Couleurs pour les différents types d'actions */
+.btn-action-view svg {
+    fill: #4A90E2;
+}
+.btn-action-edit svg {
+    fill: #FFB347;
+}
+.btn-action-delete svg {
+    fill: #E74C3C;
 }
 .dataTables_wrapper .dataTables_scroll {
     overflow: visible;
@@ -193,6 +251,21 @@ th.col-actions, td.col-actions {
 
             <div class="card">
                 <div class="card-body">
+                    <!-- Boutons d'export du tableau -->
+                    <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
+                        <a href="{{ url_for('projet11.export_traitements_excel') }}" class="btn btn-sm btn-success" title="Exporter le tableau en Excel">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; fill: white; vertical-align: middle; margin-right: 4px;">
+                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                            </svg>
+                            Excel
+                        </a>
+                        <a href="{{ url_for('projet11.export_traitements_pdf') }}" class="btn btn-sm btn-danger" title="Exporter le tableau en PDF">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; fill: white; vertical-align: middle; margin-right: 4px;">
+                                <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
+                            </svg>
+                            PDF
+                        </a>
+                    </div>
                     <div class="column-toggle-panel">
                         <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
                         <div class="d-flex flex-wrap gap-2" id="columnToggleContainer"></div>
@@ -278,7 +351,7 @@ th.col-actions, td.col-actions {
                                         {% if t.tps_reel %}
                                             <strong class="text-primary">{{ format_hhmm(t.tps_reel) }}</strong>
                                         {% else %}
-                                            <span class="text-muted">⏳ En cours</span>
+                                            <span class="text-muted">En cours</span>
                                         {% endif %}
                                     </td>
                                     <td class="col-ecart">
@@ -295,16 +368,24 @@ th.col-actions, td.col-actions {
                                             <span class="badge badge-statut-encours">En cours</span>
                                         {% endif %}
                                     </td>
-                                    <td class="col-actions">
-                                        <button class="btn btn-sm btn-info btn-view-traitement" data-id="{{ t.id }}">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-edit btn-edit-traitement" data-id="{{ t.id }}">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-delete btn-delete-traitement" data-id="{{ t.id }}">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                    <td class="col-actions" style="white-space: nowrap;">
+                                        <div style="display: inline-flex; align-items: center; gap: 2px; flex-wrap: nowrap;">
+                                            <button class="btn-action-modern btn-action-view btn-view-traitement" data-id="{{ t.id }}" title="Voir les détails" data-bs-toggle="tooltip">
+                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                                </svg>
+                                            </button>
+                                            <button class="btn-action-modern btn-action-edit btn-edit-traitement" data-id="{{ t.id }}" title="Modifier" data-bs-toggle="tooltip">
+                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                                </svg>
+                                            </button>
+                                            <button class="btn-action-modern btn-action-delete btn-delete-traitement" data-id="{{ t.id }}" title="Supprimer" data-bs-toggle="tooltip">
+                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% else %}
@@ -341,64 +422,32 @@ th.col-actions, td.col-actions {
     </div>
 </div>
 
-<!-- Modal Modification -->
-<div class="modal fade" id="modalModifier" tabindex="-1">
-    <div class="modal-dialog modal-dialog-scrollable">
+<!-- Modal Modification - Utilise le même popup que "Nouvelle fiche de production" -->
+<div class="modal fade" id="modalModifierTraitement" tabindex="-1" aria-labelledby="modalModifierTraitementLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Modifier le Traitement</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="modalModifierTraitementLabel">
+                    <i class="fas fa-edit me-2"></i>
+                    Modifier le Traitement
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button"
+                            class="btn btn-outline-success btn-sm"
+                            id="btnOuvrirPleinEcranModif">
+                        <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
+                    </button>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                </div>
             </div>
-            <div class="modal-body">
-                <form id="formModifier">
-                    <input type="hidden" id="edit_id">
-                    
-                    <div class="mb-3">
-                        <label for="edit_dte_deb" class="form-label">Date de Début</label>
-                        <input type="datetime-local" class="form-control" id="edit_dte_deb">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_dte_fin" class="form-label">Date de Fin</label>
-                        <input type="datetime-local" class="form-control" id="edit_dte_fin">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_pdt_c" class="form-label">Quantité conforme (PdtC)</label>
-                        <input type="number" class="form-control" id="edit_pdt_c" min="0" value="0">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="edit_pdt_nnc" class="form-label">Non conformes (bonnes feuilles) - PdtNNC</label>
-                        <input type="number" class="form-control" id="edit_pdt_nnc" min="0" value="0">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="edit_pdt_anc" class="form-label">Non conformes (macules) - PdtANC</label>
-                        <input type="number" class="form-control" id="edit_pdt_anc" min="0" value="0">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="edit_nb_op" class="form-label">Total (calculé)</label>
-                        <input type="number" class="form-control" id="edit_nb_op" min="0" value="0" readonly>
-                        <small class="text-muted">Somme automatique des quantités conformes et non conformes</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_nb_pers" class="form-label">Nombre de Personnes</label>
-                        <input type="number" class="form-control" id="edit_nb_pers" min="0">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="edit_postes_reel" class="form-label">Machine/Poste Réel</label>
-                        <input type="text" class="form-control" id="edit_postes_reel" placeholder="Ex: OFFSET - XL75">
-                        <small class="text-muted">Machine réellement utilisée (si différente de celle prévue)</small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="sauvegarderModifications()">Sauvegarder</button>
+            <div class="modal-body modal-iframe-container p-0">
+                <iframe id="iframeModifierTraitement"
+                        src=""
+                        data-base-src="{{ url_for('projet11.nouveau_traitement', embed=1) }}"
+                        title="Modifier le Traitement"></iframe>
             </div>
         </div>
     </div>
@@ -425,7 +474,7 @@ $(document).ready(function() {
         { titre: 'Tps Réel', filtre: true, toggle: true, className: 'col-temps col-temps-reel', width: '120px' },
         { titre: 'Écart', filtre: true, toggle: true, className: 'col-ecart', width: '120px' },
         { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '130px' },
-        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '150px', orderable: false }
+        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '120px', orderable: false }
     ];
 
     // Ajouter une ligne de filtres
@@ -461,11 +510,15 @@ $(document).ready(function() {
         autoWidth: false,
         columnDefs: columnDefsConfig,
         initComplete: function() {
-            initialiserFiltres(this.api());
-            initialiserToggles(this.api());
-            updateTopScrollWidth();
-            evaluerScrollHorizontal();
-            activerTooltips();
+            const api = this.api();
+            initialiserFiltres(api);
+            initialiserToggles(api);
+            api.columns.adjust();
+            setTimeout(function() {
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
+                activerTooltips();
+            }, 0);
         }
     });
 
@@ -519,9 +572,12 @@ $(document).ready(function() {
             evaluerScrollHorizontal();
         });
         dataTable.on('draw', function() {
-            updateTopScrollWidth();
-            evaluerScrollHorizontal();
-            activerTooltips();
+            dataTable.columns.adjust();
+            setTimeout(function() {
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
+                activerTooltips();
+            }, 0);
         });
     }
 
@@ -549,7 +605,7 @@ $(document).ready(function() {
     }
 
     function activerTooltips() {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"], [title]'));
         tooltipTriggerList.forEach(triggerEl => {
             if (bootstrap.Tooltip.getInstance(triggerEl)) {
                 bootstrap.Tooltip.getInstance(triggerEl).dispose();
@@ -600,7 +656,7 @@ $(document).ready(function() {
     $(document).on('click', '.btn-edit-traitement', function() {
         const id = $(this).data('id');
         if (id) {
-            modifierTraitement(id);
+            ouvrirModalModification(id);
         }
     });
 
@@ -619,17 +675,17 @@ function voirDetails(id) {
             let html = `
                 <table class="table">
                     <tr><th>ID:</th><td>${data.id}</td></tr>
-                    <tr><th>Date Début:</th><td>${data.dte_deb || '-'}</td></tr>
+                    <tr><th>Date DÃ©but:</th><td>${data.dte_deb || '-'}</td></tr>
                     <tr><th>Date Fin:</th><td>${data.dte_fin || '-'}</td></tr>
-                    <tr><th>N° Commande:</th><td>${data.numero_commandes || '-'}</td></tr>
-                    <tr><th>Référence:</th><td>${data.reference_commandes || '-'}</td></tr>
+                    <tr><th>NÂ° Commande:</th><td>${data.numero_commandes || '-'}</td></tr>
+                    <tr><th>RÃ©fÃ©rence:</th><td>${data.reference_commandes || '-'}</td></tr>
                     <tr><th>Client:</th><td>${data.raisoctri_societes || '-'}</td></tr>
                     <tr><th>Service:</th><td>${data.nom_gp_services || '-'}</td></tr>
                     <tr><th>Poste:</th><td>${data.nom_gp_postes || '-'}</td></tr>
-                    <tr><th>Opérateur:</th><td>${data.nom_personel || ''} ${data.prenom_personel || ''}</td></tr>
-                    <tr><th>Machine Réelle:</th><td>${data.postes_reel || '-'}</td></tr>
-                    <tr><th>Nb Opérations:</th><td>${data.nb_op || 0}</td></tr>
-                    <tr><th>Qté Conforme (PdtC):</th><td>${data.pdt_c || 0}</td></tr>
+                    <tr><th>OpÃ©rateur:</th><td>${data.nom_personel || ''} ${data.prenom_personel || ''}</td></tr>
+                    <tr><th>Machine RÃ©elle:</th><td>${data.postes_reel || '-'}</td></tr>
+                    <tr><th>Nb OpÃ©rations:</th><td>${data.nb_op || 0}</td></tr>
+                    <tr><th>QtÃ© Conforme (PdtC):</th><td>${data.pdt_c || 0}</td></tr>
                     <tr><th>Nouvelles NC (PdtNNC):</th><td>${data.pdt_nnc || 0}</td></tr>
                     <tr><th>Anciennes NC (PdtANC):</th><td>${data.pdt_anc || 0}</td></tr>
                     <tr><th>Nb Personnes:</th><td>${data.nb_pers || 0}</td></tr>
@@ -653,39 +709,43 @@ function voirDetails(id) {
         });
 }
 
-function modifierTraitement(id) {
-    fetch(`/projet11/api/traitements/${id}`)
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('edit_id').value = data.id;
-            
-            // Formater les dates pour datetime-local
-            if (data.dte_deb) {
-                const dteDeb = new Date(data.dte_deb);
-                document.getElementById('edit_dte_deb').value = 
-                    dteDeb.toISOString().slice(0, 16);
-            }
-            
-            if (data.dte_fin) {
-                const dteFin = new Date(data.dte_fin);
-                document.getElementById('edit_dte_fin').value = 
-                    dteFin.toISOString().slice(0, 16);
-            }
-            
-            document.getElementById('edit_nb_op').value = data.nb_op || 0;
-            document.getElementById('edit_pdt_c').value = data.pdt_c || 0;
-            document.getElementById('edit_pdt_nnc').value = data.pdt_nnc || 0;
-            document.getElementById('edit_pdt_anc').value = data.pdt_anc || 0;
-            recalculerTotalEdition();
-            document.getElementById('edit_nb_pers').value = data.nb_pers || 0;
-            document.getElementById('edit_postes_reel').value = data.postes_reel || '';
-            
-            new bootstrap.Modal(document.getElementById('modalModifier')).show();
-        })
-        .catch(error => {
-            alert('Erreur lors du chargement du traitement');
-            console.error(error);
-        });
+function ouvrirModalModification(id) {
+    // Ouvrir le même modal que "Nouvelle fiche de production" avec l'ID du traitement
+    const modalModifier = document.getElementById('modalModifierTraitement');
+    if (!modalModifier) {
+        alert('Erreur: Modal de modification non trouvé');
+        return;
+    }
+    
+    const iframe = document.getElementById('iframeModifierTraitement');
+    if (!iframe) {
+        alert('Erreur: Iframe de modification non trouvé');
+        return;
+    }
+    
+    // Construire l'URL avec l'ID du traitement
+    const baseUrl = iframe.getAttribute('data-base-src') || '{{ url_for("projet11.nouveau_traitement", embed=1) }}';
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    const newUrl = `${baseUrl}${separator}id=${id}&ts=${Date.now()}`;
+    iframe.src = newUrl;
+    
+    // Afficher le modal
+    const bsModal = new bootstrap.Modal(modalModifier);
+    bsModal.show();
+    
+    // Gérer le bouton "Ouvrir plein écran"
+    const btnPleinEcran = document.getElementById('btnOuvrirPleinEcranModif');
+    if (btnPleinEcran) {
+        btnPleinEcran.onclick = function() {
+            const urlPleinEcran = newUrl.replace('embed=1&', '').replace('&embed=1', '').replace('?embed=1', '');
+            window.open(urlPleinEcran, '_blank');
+        };
+    }
+    
+    // Réinitialiser l'iframe lorsque le modal est fermé
+    modalModifier.addEventListener('hidden.bs.modal', function() {
+        iframe.src = 'about:blank';
+    }, { once: true });
 }
 
 function sauvegarderModifications() {
@@ -696,7 +756,7 @@ function sauvegarderModifications() {
     const total = pdtC + pdtNNC + pdtANC;
 
     if (total <= 0) {
-        alert('Veuillez saisir au moins une quantité produite');
+        alert('Veuillez saisir au moins une quantitÃ© produite');
         return;
     }
     document.getElementById('edit_nb_op').value = total;
@@ -722,14 +782,14 @@ function sauvegarderModifications() {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            alert('Traitement mis à jour avec succès');
+            alert('Traitement mis Ã  jour avec succÃ¨s');
             location.reload();
         } else {
             alert('Erreur: ' + result.error);
         }
     })
     .catch(error => {
-        alert('Erreur lors de la mise à jour');
+        alert('Erreur lors de la mise Ã  jour');
         console.error(error);
     });
 }
@@ -749,7 +809,7 @@ function recalculerTotalEdition() {
 });
 
 function supprimerTraitement(id) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce traitement ?')) {
+    if (!confirm('ÃŠtes-vous sÃ»r de vouloir supprimer ce traitement ?')) {
         return;
     }
     
@@ -759,7 +819,7 @@ function supprimerTraitement(id) {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            alert('Traitement supprimé avec succès');
+            alert('Traitement supprimÃ© avec succÃ¨s');
             location.reload();
         } else {
             alert('Erreur: ' + result.error);

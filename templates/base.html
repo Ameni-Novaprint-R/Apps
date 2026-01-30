@@ -17,26 +17,45 @@
             <img src="{{ url_for('static', filename='logo-novaprint.png') }}" alt="Novaprint" class="navbar-logo">
             <ul class="navbar-links">
                 <li><a href="/">🏠 Accueil</a></li>
-                <li><a href="{{ url_for('projet1.index') }}">📋 Planning</a></li>
-                <li><a href="{{ url_for('projet2.commandes') }}">📦 Commandes</a></li>
-                <li><a href="{{ url_for('projet3.page_projet3') }}">🖨️ Suivi BAT</a></li>
-                <li><a href="{{ url_for('projet4.rapport_visite') }}">📝 Rapport Visite</a></li>
-                <li><a href="{{ url_for('projet5.index') }}">📝 Planning Production</a></li>
-                <li><a href="{{ url_for('projet6.programme_voyage') }}">🚚 Voyages</a></li>
-                <li><a href="{{ url_for('projet7_bp.import_facture') }}">💡 Factures STEG</a></li>
-                <li><a href="{{ url_for('projet8.stats_devis_commandes') }}">📊 Stats</a></li>
-                <li><a href="{{ url_for('projet9.index') }}">📈 Performance</a></li>
-                <li><a href="{{ url_for('projet10.index') }}">🔍 Qualité</a></li>
-                <li><a href="{{ url_for('projet11.index') }}">🔧 Traitements</a></li>
-                <li><a href="{{ url_for('projet12.projet12') }}">📋 NC & Réclamations</a></li>
-                <li><a href="{{ url_for('projet14.index') }}">♻️ Déchets</a></li>
-                <li><a href="{{ url_for('projet15.index') }}">📊 Corrélation</a></li>
-                <li><a href="{{ url_for('projet16.index') }}">🔧 GMAO</a></li>
-                <li><a href="{{ url_for('projet17.index') }}">📚 Fusion HTML</a></li>
-                <li><a href="{{ url_for('projet18.index') }}">📅 Agenda 2026</a></li>
-                <li><a href="{{ url_for('projet19.index') }}">📁 Dossiers en Cours</a></li>
-                <li><a href="/projet20/">🔍 Analyse Dossiers</a></li>
-                <li><a href="/projet21/">🔄 Sync BDD</a></li>
+                {% if is_authenticated() %}
+                    {% set user_projects = get_user_projects() %}
+                    {% if is_super_user() %}
+                        {# Super-utilisateur : afficher tous les projets #}
+                        <li><a href="{{ url_for('projet1.index') }}">📋 Planning</a></li>
+                        <li><a href="{{ url_for('projet2.commandes') }}">📦 Commandes</a></li>
+                        <li><a href="{{ url_for('projet3.page_projet3') }}">🖨️ Suivi BAT</a></li>
+                        <li><a href="{{ url_for('projet4.rapport_visite') }}">📝 Rapport Visite</a></li>
+                        <li><a href="{{ url_for('projet5.index') }}">📝 Planning Production</a></li>
+                        <li><a href="{{ url_for('projet6.programme_voyage') }}">🚚 Voyages</a></li>
+                        <li><a href="{{ url_for('projet7_bp.import_facture') }}">💡 Factures STEG</a></li>
+                        <li><a href="{{ url_for('projet8.stats_devis_commandes') }}">📊 Stats</a></li>
+                        <li><a href="{{ url_for('projet9.index') }}">📈 Performance</a></li>
+                        <li><a href="{{ url_for('projet10.index') }}">🔍 Qualité</a></li>
+                        <li><a href="{{ url_for('projet11.index') }}">🔧 Traitements</a></li>
+                        <li><a href="{{ url_for('projet12.projet12') }}">📋 NC & Réclamations</a></li>
+                        <li><a href="{{ url_for('projet14.index') }}">♻️ Déchets</a></li>
+                        <li><a href="{{ url_for('projet15.index') }}">📊 Corrélation</a></li>
+                        <li><a href="{{ url_for('projet16.index') }}">🔧 GMAO</a></li>
+                        <li><a href="{{ url_for('projet17.index') }}">📚 Fusion HTML</a></li>
+                        <li><a href="{{ url_for('projet18.index') }}">📅 Agenda 2026</a></li>
+                        <li><a href="{{ url_for('projet19.index') }}">📁 Dossiers en Cours</a></li>
+                        <li><a href="/projet20/">🔍 Analyse Dossiers</a></li>
+                        <li><a href="/projet21/">🔄 Sync BDD</a></li>
+                        <li><a href="{{ url_for('projet22.index') }}">👥 Employés</a></li>
+                    {% else %}
+                        {# Utilisateur normal : afficher uniquement les projets auxquels il a accès #}
+                        {% for project in user_projects %}
+                            {% set project_url = get_project_url(project.num) %}
+                            {% set project_icon = get_project_icon(project.num) %}
+                            {% if project_url %}
+                                <li><a href="{{ project_url }}">{{ project_icon }} {{ project.nom }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    <li><a href="{{ url_for('auth.logout') }}">🚪 Déconnexion ({{ get_current_user() }})</a></li>
+                {% else %}
+                    <li><a href="{{ url_for('auth.login') }}">🔐 Connexion</a></li>
+                {% endif %}
             </ul>
         </div>
     </nav>

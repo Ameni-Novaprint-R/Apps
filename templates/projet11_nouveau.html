@@ -41,18 +41,66 @@
         padding: 10px;
         margin: 5px 0;
     }
+    /* Styles pour le mode embed - centrer le contenu */
+    {% if request.args.get('embed') == '1' %}
+    html, body {
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow-x: hidden;
+        height: 100%;
+    }
+    body {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .container, .container-fluid {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    .container.mt-4, .container-fluid.mt-4 {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    .row {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .col-md-12 {
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+    {% endif %}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container{% if request.args.get('embed') == '1' %} container-fluid{% endif %} mt-4">
     <div class="row">
         <div class="col-md-12">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h1>
-                        <i class="fas fa-plus-circle"></i> Nouveau Traitement de Production
-                    </h1>
-                </div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 id="titrePageTraitement">
+                    <i class="fas fa-plus-circle"></i> Nouveau Traitement de Production
+                </h1>
+            </div>
 
             <div class="card">
                 <div class="card-body">
@@ -87,15 +135,11 @@
                         <!-- Info commande sélectionnée -->
                         <div id="infoCommandeSelectionnee" style="display: none;">
                             <div class="alert alert-info">
-                                <h5>📋 Commande Sélectionnée</h5>
                                 <div class="row">
-                                    <div class="col-md-4">
-                                        <strong>N° Commande:</strong> <span id="info_numero_cmd"></span>
-                                    </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <strong>Client:</strong> <span id="info_client_cmd"></span>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <strong>Référence:</strong> <span id="info_reference_cmd"></span>
                                     </div>
                                 </div>
@@ -125,7 +169,7 @@
                         <!-- ÉTAPE 3: Informations PRÉVUES (automatiques) -->
                         <div id="infoPrevues" style="display: none;">
                             <div class="info-prevue">
-                                <h5><i class="fas fa-info-circle"></i> Informations Prévues (Automatiques)</h5>
+                                <h5><i class="fas fa-info-circle"></i> Informations Prévues</h5>
                                 <div class="row">
                                     <div class="col-md-3">
                                         <strong>Machine prévue:</strong><br>
@@ -161,11 +205,35 @@
 
                         <!-- ÉTAPE 5: Chronomètre et données de saisie -->
                         <div id="sectionSaisie" style="display: none;">
-                            <!-- Chronomètre -->
+                            <!-- Chronomètre : mode "en cours" (compteur qui tourne) -->
                             <div class="chrono-box" id="chronoBox" style="display: none;">
-                                <h5><i class="fas fa-stopwatch"></i> Chronomètre de Production</h5>
-                                <div class="chrono-display" id="chronoDisplay">00:00:00</div>
-                                <small>Démarré à: <span id="chronoStart"></span></small>
+                                <div id="chronoBoxEnCours">
+                                    <h5><i class="fas fa-stopwatch"></i> Chronomètre de Production</h5>
+                                    <div class="chrono-display" id="chronoDisplay">00:00:00</div>
+                                    <small>Démarré à: <span id="chronoStart"></span></small>
+                                </div>
+                                <!-- Mode "terminé" : affichage du temps réel enregistré (TpsReel) -->
+                                <div id="chronoBoxTermine" style="display: none;">
+                                    <h5><i class="fas fa-clock"></i> Temps réel enregistré</h5>
+                                    <div class="chrono-display" id="chronoValeurTermine">00:00:00</div>
+                                    <small class="text-muted d-block mt-2">Modifier les dates ci-dessous pour recalculer le temps réel à l'enregistrement.</small>
+                                </div>
+                            </div>
+
+                            <!-- Section Dates (visible en mode modification pour modifier début/fin et recalculer TpsReel) -->
+                            <div id="sectionDatesModification" class="mb-4" style="display: none;">
+                                <h5 class="mb-3"><i class="fas fa-calendar-alt"></i> Dates du traitement</h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="dte_deb_visible" class="form-label"><strong>Date de début</strong></label>
+                                        <input type="datetime-local" class="form-control" id="dte_deb_visible">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="dte_fin_visible" class="form-label"><strong>Date de fin</strong></label>
+                                        <input type="datetime-local" class="form-control" id="dte_fin_visible">
+                                    </div>
+                                </div>
+                                <small class="text-muted">La modification des dates recalculera automatiquement le temps réel (TpsReel) à l'enregistrement.</small>
                             </div>
 
                             <h5 class="mb-3">3️⃣ Informations du Traitement Actuel</h5>
@@ -240,7 +308,7 @@
                                     <i class="fas fa-times"></i> Annuler
                                 </button>
                                 <button type="submit" class="btn btn-success btn-lg" id="btnEnregistrer">
-                                    <i class="fas fa-stop-circle"></i> Arrêter et Enregistrer
+                                    <i class="fas fa-stop-circle"></i> <span id="btnEnregistrerTexte">Arrêter et Enregistrer</span>
                                 </button>
                             </div>
                         </div>
@@ -267,6 +335,34 @@ let servicesDisponibles = [];
 let storedFormValues = null;
 let restaurationEtatPlanifiee = false;
 
+// Récupérer l'ID du traitement à modifier depuis l'URL
+const urlParams = new URLSearchParams(window.location.search);
+const traitementIdFromUrl = urlParams.get('id') || urlParams.get('traitement_id');
+
+// Récupérer les données du traitement depuis le serveur (passées via Jinja2)
+let traitementDataFromServer = null;
+try {
+    {% if traitement_data %}
+    traitementDataFromServer = {{ traitement_data | tojson | safe }};
+    {% endif %}
+} catch (e) {
+    console.error('[DEBUG] Erreur lors de la récupération des données depuis le template:', e);
+}
+
+// Debug: afficher les données reçues
+console.log('[DEBUG] traitementIdFromUrl:', traitementIdFromUrl);
+console.log('[DEBUG] traitementDataFromServer:', traitementDataFromServer);
+console.log('[DEBUG] Type de traitementDataFromServer:', typeof traitementDataFromServer);
+
+// Vérifier si une erreur s'est produite lors du chargement des données
+{% if error_message %}
+console.error('Erreur lors du chargement des données:', '{{ error_message }}');
+alert('Erreur lors du chargement des données:\n\n{{ error_message }}\n\nVeuillez recharger la page ou contacter l\'administrateur si le problème persiste.');
+{% endif %}
+
+// Message si le traitement demandé est introuvable (serveur n'a pas trouvé l'ID)
+const traitementIntrouvableMessage = {% if traitement_introuvable_message %}"{{ traitement_introuvable_message | e }}"{% else %}null{% endif %};
+
 function setCurrentTraitementId(id) {
     currentTraitementId = id;
     const hidden = document.getElementById('traitement_id');
@@ -290,10 +386,19 @@ function synchroniserMatriculesOperateurs() {
 
 function restaurerChronoDepuisFormulaire() {
     const dteDebInput = document.getElementById('dte_deb');
+    const dteFinInput = document.getElementById('dte_fin');
     const traitementInput = document.getElementById('traitement_id');
     if (!dteDebInput || !traitementInput) return false;
     const valeurDebut = dteDebInput.value;
+    const valeurFin = dteFinInput ? dteFinInput.value : null;
     const valeurTraitement = traitementInput.value;
+    
+    // Ne pas restaurer le chronomètre si le traitement est terminé
+    if (valeurFin && valeurFin.trim() !== '') {
+        console.log('[DEBUG] Traitement terminé - chronomètre non restauré');
+        return false;
+    }
+    
     if (!valeurDebut || !valeurTraitement) return false;
     const parsed = new Date(valeurDebut);
     if (Number.isNaN(parsed.getTime())) return false;
@@ -348,7 +453,47 @@ function planifierRestaurationEtatSauvegarde() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (!estModeEmbed) {
+    console.log('[DEBUG] DOMContentLoaded - traitementIdFromUrl:', traitementIdFromUrl);
+    console.log('[DEBUG] DOMContentLoaded - traitementDataFromServer:', traitementDataFromServer);
+    console.log('[DEBUG] DOMContentLoaded - estModeEmbed:', estModeEmbed);
+    
+    // Si on est en mode modification, charger les données du traitement
+    if (traitementIdFromUrl && traitementDataFromServer) {
+        console.log('[DEBUG] Mode modification détecté, ID:', traitementIdFromUrl);
+        console.log('[DEBUG] Données du traitement:', JSON.stringify(traitementDataFromServer, null, 2));
+        chargerDonneesTraitement(traitementDataFromServer);
+    } else if (traitementIdFromUrl && !traitementDataFromServer) {
+        // Message déjà fourni par le serveur (traitement introuvable)
+        if (traitementIntrouvableMessage) {
+            console.warn('[DEBUG]', traitementIntrouvableMessage);
+            alert(traitementIntrouvableMessage + '\n\nFermez cette fenêtre et rechargez la liste des traitements.');
+        } else {
+            // Sinon essayer de récupérer via API
+            console.log('[DEBUG] ID trouvé mais pas de données côté serveur, récupération via API...');
+            fetch(`/projet11/api/traitements/${traitementIdFromUrl}`)
+                .then(response => {
+                    if (response.status === 404) {
+                        return response.json().then(data => ({ notFound: true, data }));
+                    }
+                    return response.json().then(data => ({ notFound: false, data }));
+                })
+                .then(({ notFound, data }) => {
+                    console.log('[DEBUG] Données récupérées via API:', data);
+                    if (notFound || !data || !data.id) {
+                        const msg = data && data.error ? data.error : 'Traitement introuvable.';
+                        console.error('[DEBUG] Aucune donnée trouvée pour l\'ID:', traitementIdFromUrl);
+                        alert('Traitement (ID: ' + traitementIdFromUrl + ') introuvable. Il a peut-être été supprimé.\n\nFermez cette fenêtre et rechargez la liste des traitements.');
+                    } else {
+                        chargerDonneesTraitement(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('[DEBUG] Erreur lors de la récupération des données:', error);
+                    alert('Impossible de charger le traitement (ID: ' + traitementIdFromUrl + ').\n\nVérifiez votre connexion ou rechargez la liste.');
+                });
+        }
+    } else if (!estModeEmbed) {
+        // Mode création normale - restaurer depuis sessionStorage si disponible
         const params = sessionStorage.getItem('projet11_form_data');
         if (params) {
             const form = document.getElementById('formNouveauTraitement');
@@ -381,6 +526,281 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
+// Fonction pour charger les données d'un traitement existant
+function chargerDonneesTraitement(data) {
+    console.log('[DEBUG] Chargement des données du traitement:', data);
+    
+    // Changer le titre de la page en mode modification
+    const titrePage = document.getElementById('titrePageTraitement');
+    if (titrePage) {
+        titrePage.innerHTML = '<i class="fas fa-edit"></i> Modifier le Traitement';
+    }
+    
+    // Changer le texte du bouton selon l'état du traitement
+    const btnTexte = document.getElementById('btnEnregistrerTexte');
+    const btnEnregistrer = document.getElementById('btnEnregistrer');
+    if (btnTexte && btnEnregistrer) {
+        if (data.dte_fin) {
+            // Traitement terminé
+            btnTexte.textContent = 'Enregistrer les modifications';
+            btnEnregistrer.querySelector('i').className = 'fas fa-save';
+        } else {
+            // Traitement en cours
+            btnTexte.textContent = 'Arrêter et Enregistrer';
+            btnEnregistrer.querySelector('i').className = 'fas fa-stop-circle';
+        }
+    }
+    
+    // Définir l'ID du traitement actuel
+    if (data.id) {
+        setCurrentTraitementId(data.id);
+        document.getElementById('traitement_id').value = data.id;
+    }
+    
+    // Charger le numéro de commande et déclencher le chargement des services
+    if (data.numero_commandes) {
+        const champCommande = document.getElementById('numero_commande');
+        if (champCommande) {
+            champCommande.value = data.numero_commandes;
+            currentNumeroCommande = data.numero_commandes;
+            
+            // Afficher les infos de la commande
+            const selectedOption = $('#commandes_list option[value="' + data.numero_commandes + '"]');
+            if (selectedOption.length > 0) {
+                $('#info_client_cmd').text(selectedOption.data('client') || data.raisoctri_societes || '-');
+                $('#info_reference_cmd').text(selectedOption.data('reference') || data.reference_commandes || '-');
+                $('#infoCommandeSelectionnee').show();
+            } else {
+                // Si pas dans le datalist, utiliser les données du traitement
+                $('#info_client_cmd').text(data.raisoctri_societes || '-');
+                $('#info_reference_cmd').text(data.reference_commandes || '-');
+                $('#infoCommandeSelectionnee').show();
+            }
+            
+            // Déclencher l'événement change pour charger les services
+            setTimeout(() => {
+                champCommande.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // Attendre que les services soient chargés, puis charger le service
+                setTimeout(() => {
+                    if (data.nom_gp_services) {
+                        const champService = document.getElementById('service_prevu');
+                        if (champService) {
+                            console.log('[DEBUG] Définition du service:', data.nom_gp_services);
+                            champService.value = data.nom_gp_services;
+                            currentService = data.nom_gp_services;
+                            
+                            // Déclencher le chargement du service
+                            setTimeout(() => {
+                                console.log('[DEBUG] Déclenchement du changement de service');
+                                champService.dispatchEvent(new Event('change', { bubbles: true }));
+                                
+                                // Attendre que le formulaire soit chargé, puis remplir les autres champs
+                                setTimeout(() => {
+                                    console.log('[DEBUG] Appel de remplirChampsTraitement');
+                                    remplirChampsTraitement(data);
+                                }, 800);
+                            }, 400);
+                        } else {
+                            console.error('[DEBUG] Champ service_prevu non trouvé');
+                            // Essayer quand même de remplir les autres champs
+                            setTimeout(() => {
+                                remplirChampsTraitement(data);
+                            }, 200);
+                        }
+                    } else {
+                        console.log('[DEBUG] Aucun service dans les données, remplissage direct des champs');
+                        // Pas de service, remplir directement les autres champs
+                        setTimeout(() => {
+                            remplirChampsTraitement(data);
+                        }, 200);
+                    }
+                }, 500);
+            }, 200);
+        }
+    }
+}
+
+// Fonction pour remplir les champs du formulaire avec les données du traitement
+function remplirChampsTraitement(data) {
+    console.log('[DEBUG] Remplissage des champs avec les données:', data);
+    
+    // Nombre de personnes
+    if (data.nb_pers !== undefined && data.nb_pers !== null) {
+        const champNbPers = document.getElementById('nb_pers');
+        if (champNbPers) {
+            champNbPers.value = data.nb_pers;
+        }
+    }
+    
+    // Machine réelle
+    if (data.postes_reel) {
+        const champMachine = document.getElementById('machine_reelle');
+        if (champMachine) {
+            // Attendre que le select soit rempli
+            setTimeout(() => {
+                champMachine.value = data.postes_reel;
+                if (champMachine.value !== data.postes_reel) {
+                    // Si la valeur n'existe pas dans le select, créer une option
+                    const option = document.createElement('option');
+                    option.value = data.postes_reel;
+                    option.text = data.postes_reel;
+                    champMachine.appendChild(option);
+                    champMachine.value = data.postes_reel;
+                }
+                champMachine.dispatchEvent(new Event('change', { bubbles: true }));
+            }, 300);
+        }
+    }
+    
+    // Opérateur
+    if (data.matricule_personel && data.nom_personel && data.prenom_personel) {
+        const champOperateur = document.getElementById('operateur_1');
+        if (champOperateur) {
+            const nomComplet = `${data.nom_personel} ${data.prenom_personel} (Matricule: ${data.matricule_personel})`;
+            champOperateur.value = nomComplet;
+            champOperateur.setAttribute('data-matricule', data.matricule_personel);
+            champOperateur.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+    
+    // Quantités produites
+    if (data.pdt_c !== undefined && data.pdt_c !== null) {
+        const champPdtC = document.getElementById('pdt_c');
+        if (champPdtC) {
+            champPdtC.value = data.pdt_c || 0;
+        }
+    }
+    
+    if (data.pdt_nnc !== undefined && data.pdt_nnc !== null) {
+        const champPdtNNC = document.getElementById('pdt_nnc');
+        if (champPdtNNC) {
+            champPdtNNC.value = data.pdt_nnc || 0;
+        }
+    }
+    
+    if (data.pdt_anc !== undefined && data.pdt_anc !== null) {
+        const champPdtANC = document.getElementById('pdt_anc');
+        if (champPdtANC) {
+            champPdtANC.value = data.pdt_anc || 0;
+        }
+    }
+    
+    // Dates de début et fin
+    if (data.dte_deb) {
+        try {
+            // Gérer différents formats de date (ISO string, datetime Python, etc.)
+            let dteDeb = null;
+            if (typeof data.dte_deb === 'string') {
+                // Si c'est une chaîne, essayer de la parser
+                dteDeb = new Date(data.dte_deb.replace(' ', 'T')); // Remplacer l'espace par T pour ISO
+            } else {
+                dteDeb = new Date(data.dte_deb);
+            }
+            
+            if (!isNaN(dteDeb.getTime())) {
+                const dteDebInput = document.getElementById('dte_deb');
+                if (dteDebInput) {
+                    dteDebInput.value = formatDateTimeLocal(dteDeb);
+                    
+                    // IMPORTANT: Ne démarrer le chronomètre QUE si le traitement est EN COURS (pas de date de fin)
+                    if (!data.dte_fin) {
+                        // Traitement en cours - démarrer le chronomètre
+                        chronoStart = dteDeb;
+                        $('#chronoBox').css('display', 'block');
+                        $('#chronoStart').text(dteDeb.toLocaleString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        }));
+                        
+                        // Démarrer le chronomètre
+                        if (chronoInterval) {
+                            clearInterval(chronoInterval);
+                        }
+                        chronoInterval = setInterval(() => {
+                            const now = new Date();
+                            const diff = now - chronoStart;
+                            const heures = Math.floor(diff / 3600000);
+                            const minutes = Math.floor((diff % 3600000) / 60000);
+                            const secondes = Math.floor((diff % 60000) / 1000);
+                            $('#chronoDisplay').text(
+                                `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secondes.toString().padStart(2, '0')}`
+                            );
+                        }, 1000);
+                    } else {
+                        // Traitement terminé : afficher le chronomètre avec TpsReel (temps réel enregistré)
+                        console.log('[DEBUG] Traitement terminé - affichage du temps réel enregistré');
+                        chronoStart = null;
+                        if (chronoInterval) {
+                            clearInterval(chronoInterval);
+                            chronoInterval = null;
+                        }
+                        $('#chronoBox').css('display', 'block');
+                        $('#chronoBoxEnCours').hide();
+                        $('#chronoBoxTermine').show();
+                        // Afficher TpsReel (heures décimales -> HH:MM:SS)
+                        if (data.tps_reel != null && data.tps_reel !== undefined) {
+                            $('#chronoValeurTermine').text(heuresDecimalesVersHhMmSs(data.tps_reel));
+                        }
+                        // Remplir dte_fin (caché) dès maintenant pour que la section Dates ait les deux valeurs
+                        if (data.dte_fin) {
+                            try {
+                                let dteFin = typeof data.dte_fin === 'string' ? new Date(data.dte_fin.replace(' ', 'T')) : new Date(data.dte_fin);
+                                if (!isNaN(dteFin.getTime())) {
+                                    document.getElementById('dte_fin').value = formatDateTimeLocal(dteFin);
+                                }
+                            } catch (e) { /* ignore */ }
+                        }
+                        // Afficher la section Dates pour modification (les deux champs avec leurs valeurs)
+                        $('#sectionDatesModification').show();
+                        const dteDeb = document.getElementById('dte_deb');
+                        const dteFin = document.getElementById('dte_fin');
+                        const dteDebVis = document.getElementById('dte_deb_visible');
+                        const dteFinVis = document.getElementById('dte_fin_visible');
+                        if (dteDebVis && dteDeb && dteDeb.value) dteDebVis.value = dteDeb.value.slice(0, 16);
+                        if (dteFinVis && dteFin && dteFin.value) dteFinVis.value = dteFin.value.slice(0, 16);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[DEBUG] Erreur lors du formatage de dte_deb:', e, data.dte_deb);
+        }
+    }
+    
+    if (data.dte_fin) {
+        try {
+            // Gérer différents formats de date
+            let dteFin = null;
+            if (typeof data.dte_fin === 'string') {
+                dteFin = new Date(data.dte_fin.replace(' ', 'T'));
+            } else {
+                dteFin = new Date(data.dte_fin);
+            }
+            
+            if (!isNaN(dteFin.getTime())) {
+                const dteFinInput = document.getElementById('dte_fin');
+                if (dteFinInput) {
+                    dteFinInput.value = formatDateTimeLocal(dteFin);
+                }
+            }
+        } catch (e) {
+            console.error('[DEBUG] Erreur lors du formatage de dte_fin:', e, data.dte_fin);
+        }
+    }
+    
+    // ID fiche de travail
+    if (data.id_fiche_travail) {
+        const champIdFiche = document.getElementById('id_fiche_travail');
+        if (champIdFiche) {
+            champIdFiche.value = data.id_fiche_travail;
+            currentFicheId = data.id_fiche_travail;
+        }
+    }
+    
+    console.log('[DEBUG] Champs remplis avec succès');
+}
 function matcherContient(params, data) {
     if ($.trim(params.term) === '') {
         return data;
@@ -1046,6 +1466,39 @@ function formatDateTimeLocal(date) {
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
+/** Convertit des heures décimales (ex: 2.583) en chaîne HH:MM:SS */
+function heuresDecimalesVersHhMmSs(heures) {
+    if (heures == null || heures === undefined || isNaN(heures)) return '00:00:00';
+    const totalSecondes = Math.round(heures * 3600);
+    const h = Math.floor(totalSecondes / 3600);
+    const m = Math.floor((totalSecondes % 3600) / 60);
+    const s = totalSecondes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/** Synchronise les champs dates visibles vers les champs cachés et met à jour l'affichage du temps réel */
+function syncDatesModificationEtTpsReel() {
+    const dteDebVis = document.getElementById('dte_deb_visible');
+    const dteFinVis = document.getElementById('dte_fin_visible');
+    const dteDeb = document.getElementById('dte_deb');
+    const dteFin = document.getElementById('dte_fin');
+    if (!dteDebVis || !dteFinVis || !dteDeb || !dteFin) return;
+    // datetime-local donne YYYY-MM-DDTHH:MM, on ajoute :00 pour les secondes
+    const vDeb = dteDebVis.value ? (dteDebVis.value.length === 16 ? dteDebVis.value + ':00' : dteDebVis.value) : '';
+    const vFin = dteFinVis.value ? (dteFinVis.value.length === 16 ? dteFinVis.value + ':00' : dteFinVis.value) : '';
+    dteDeb.value = vDeb;
+    dteFin.value = vFin;
+    // Mettre à jour l'affichage du temps réel si les deux dates sont renseignées
+    if (vDeb && vFin && $('#chronoBoxTermine').is(':visible')) {
+        const deb = new Date(vDeb.replace(' ', 'T'));
+        const fin = new Date(vFin.replace(' ', 'T'));
+        if (!isNaN(deb.getTime()) && !isNaN(fin.getTime())) {
+            const heures = (fin - deb) / 3600000;
+            $('#chronoValeurTermine').text(heuresDecimalesVersHhMmSs(heures));
+        }
+    }
+}
+
 function demarrerChrono() {
     if (chronoStart || startTraitementEnCours || currentTraitementId) {
         return; // Déjà démarré ou en cours d'initialisation
@@ -1087,6 +1540,9 @@ function demarrerChrono() {
         );
     }, 1000);
 
+    const pdtC = parseInt($('#pdt_c').val(), 10);
+    const pdtNNC = parseInt($('#pdt_nnc').val(), 10);
+    const pdtANC = parseInt($('#pdt_anc').val(), 10);
     const payload = {
         id_fiche_travail: idFicheTravail,
         dte_deb: dateDebut,
@@ -1094,7 +1550,10 @@ function demarrerChrono() {
         matricule_personel: matriculeOperateur,
         postes_reel: $('#machine_reelle').val() || null,
         numero_commande: currentNumeroCommande || null,
-        nom_service: currentService || null
+        nom_service: currentService || null,
+        pdt_c: Number.isFinite(pdtC) && pdtC >= 0 ? pdtC : 0,
+        pdt_nnc: Number.isFinite(pdtNNC) && pdtNNC >= 0 ? pdtNNC : 0,
+        pdt_anc: Number.isFinite(pdtANC) && pdtANC >= 0 ? pdtANC : 0
     };
 
     startTraitementEnCours = true;
@@ -1138,13 +1597,14 @@ function stopChrono() {
 
 function resetForm() {
     stopChrono();
-    startTraitementEnCours = false;
-    if (currentTraitementId) {
+    // Ne supprimer le traitement que si on venait de démarrer un nouveau (création), pas en modification d'une fiche existante
+    if (currentTraitementId && startTraitementEnCours) {
         fetch(`/projet11/api/traitements/${currentTraitementId}`, {
             method: 'DELETE'
         }).catch(err => console.error('Erreur suppression traitement démarré:', err));
         setCurrentTraitementId(null);
     }
+    startTraitementEnCours = false;
     $('#sectionService').hide();
     $('#infoPrevues').hide();
     $('#traitementsExistants').hide();
@@ -1159,6 +1619,9 @@ function resetForm() {
 // ============================================================================
 $('#formNouveauTraitement').on('submit', function(e) {
     e.preventDefault();
+    
+    // Synchroniser les champs dates visibles vers cachés (fiche terminée en modification)
+    syncDatesModificationEtTpsReel();
     
     // Vérifications préliminaires - Toutes les sections doivent être visibles
     if (!currentNumeroCommande) {
@@ -1176,11 +1639,13 @@ $('#formNouveauTraitement').on('submit', function(e) {
         return;
     }
     
-    // Préparer l'arrêt du chrono et enregistrer la fin (sera appliqué après confirmation)
-    const now = new Date();
-    const dteFinValue = formatDateTimeLocal(now);
-    // CORRECTION: Utiliser l'heure locale du PC au lieu de l'UTC
-    $('#dte_fin').val(dteFinValue);
+    // Préparer l'arrêt du chrono et enregistrer la fin (uniquement pour création ou fiche en cours)
+    // Ne pas écraser dte_fin si on modifie une fiche déjà terminée (section dates visible)
+    const hasDatesModification = $('#sectionDatesModification').is(':visible');
+    if (!hasDatesModification) {
+        const now = new Date();
+        $('#dte_fin').val(formatDateTimeLocal(now));
+    }
     
     // Vérifier que le champ operateur_1 existe
     if ($('#operateur_1').length === 0) {
@@ -1200,9 +1665,19 @@ $('#formNouveauTraitement').on('submit', function(e) {
         return;
     }
     
-    const dteDebValue = $('#dte_deb').val();
+    let dteDebValue = $('#dte_deb').val();
+    // En modification d'une fiche "en cours", la date de début peut être portée par le chronomètre (chronoStart)
+    if (!dteDebValue && (currentTraitementId || traitementIdFromUrl) && operateurPrincipal && chronoStart) {
+        dteDebValue = formatDateTimeLocal(chronoStart);
+        $('#dte_deb').val(dteDebValue);
+    }
+    const dteFinValue = $('#dte_fin').val();
     if (!dteDebValue) {
-        alert('Veuillez sélectionner un opérateur pour démarrer le chronomètre');
+        alert('La date de début du traitement est manquante. Veuillez sélectionner un opérateur pour démarrer le chronomètre (nouvelle fiche) ou recharger la modification.');
+        return;
+    }
+    if (!dteFinValue) {
+        alert('Veuillez arrêter le chronomètre (bouton Arrêter et Enregistrer) ou renseigner la date de fin pour une fiche terminée');
         return;
     }
     const idFicheRaw = $('#id_fiche_travail').val();
@@ -1289,12 +1764,15 @@ $('#formNouveauTraitement').on('submit', function(e) {
     console.log('Données complètes:', JSON.stringify(data, null, 2));
     console.log('===================================');
     
-    // Envoyer
+    // Envoyer - utiliser PUT si on modifie un traitement existant (même ID, pas de nouvel enregistrement)
+    const idFromForm = document.getElementById('traitement_id') && document.getElementById('traitement_id').value;
+    const idToUse = currentTraitementId || traitementIdFromUrl || (idFromForm && idFromForm.trim()) || null;
     let url = '/projet11/api/traitements';
     let method = 'POST';
-    if (currentTraitementId) {
-        url = `/projet11/api/traitements/${currentTraitementId}`;
+    if (idToUse) {
+        url = `/projet11/api/traitements/${idToUse}`;
         method = 'PUT';
+        console.log('[DEBUG] Modification d\'un traitement existant - PUT ID:', idToUse);
     }
 
     fetch(url, {
@@ -1316,11 +1794,17 @@ $('#formNouveauTraitement').on('submit', function(e) {
     .then(result => {
         console.log('Résultat:', result);
         if (result.success) {
-            const traitementId = currentTraitementId || result.id || 'N/A';
+            const traitementId = idToUse || currentTraitementId || traitementIdFromUrl || result.id || 'N/A';
             setCurrentTraitementId(null);
-            alert(`✅ Traitement enregistré avec succès!\n\nID: ${traitementId}\nDurée: ${dureeHeures}h (${dureeMinutes} min)\nTotal produit: ${totalProduite.toLocaleString('fr-FR')}`);
+            const messageAction = idToUse ? 'modifié' : 'enregistré';
+            alert(`✅ Traitement ${messageAction} avec succès!\n\nID: ${traitementId}\nDurée: ${dureeHeures}h (${dureeMinutes} min)\nTotal produit: ${totalProduite.toLocaleString('fr-FR')}`);
             if (estModeEmbed) {
-                window.location.reload();
+                // En mode embed, fermer le modal et recharger la page parente
+                if (window.parent && window.parent !== window) {
+                    window.parent.location.reload();
+                } else {
+                    window.location.reload();
+                }
             } else {
                 window.location.href = '{{ url_for("projet11.liste_traitements") }}';
             }
@@ -1335,6 +1819,62 @@ $('#formNouveauTraitement').on('submit', function(e) {
 });
 
 // ============================================================================
+// Sauvegarde à la fermeture du popup (fiche en cours : mettre à jour PdtC, PdtNNC, PdtANC)
+// Fermeture par le X = fiche en cours (pas de date de fin), pas terminée.
+// ============================================================================
+function saveEnCoursOnClose() {
+    const idToUse = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
+    if (!idToUse) return;
+    const operateurPrincipal = $('#operateur_1').attr('data-matricule');
+    if (!operateurPrincipal) return;
+    let dteDebValue = $('#dte_deb').val();
+    if (!dteDebValue && chronoStart) {
+        dteDebValue = formatDateTimeLocal(chronoStart);
+    }
+    if (!dteDebValue) return;
+    const idFicheRaw = $('#id_fiche_travail').val();
+    const idFicheValue = parseInt(idFicheRaw, 10);
+    const nbPersValue = parseInt($('#nb_pers').val(), 10) || 1;
+    const matriculeValue = parseInt(operateurPrincipal, 10);
+    const posteReelValue = $('#machine_reelle').val() || null;
+    const pdtC = parseInt($('#pdt_c').val(), 10);
+    const pdtNNC = parseInt($('#pdt_nnc').val(), 10);
+    const pdtANC = parseInt($('#pdt_anc').val(), 10);
+    const safePdtC = Number.isFinite(pdtC) && pdtC >= 0 ? pdtC : 0;
+    const safePdtNNC = Number.isFinite(pdtNNC) && pdtNNC >= 0 ? pdtNNC : 0;
+    const safePdtANC = Number.isFinite(pdtANC) && pdtANC >= 0 ? pdtANC : 0;
+    const totalProduite = safePdtC + safePdtNNC + safePdtANC;
+    const data = {
+        id_fiche_travail: Number.isNaN(idFicheValue) ? 0 : idFicheValue,
+        dte_deb: dteDebValue,
+        dte_fin: null,
+        nb_pers: nbPersValue,
+        matricule_personel: matriculeValue,
+        postes_reel: posteReelValue,
+        pdt_c: safePdtC,
+        pdt_nnc: safePdtNNC,
+        pdt_anc: safePdtANC,
+        nb_op: totalProduite,
+        numero_commande: currentNumeroCommande || null,
+        nom_service: currentService || null
+    };
+    fetch(`/projet11/api/traitements/${idToUse}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        keepalive: true
+    }).catch(function(err) {
+        console.error('Save on close PUT failed:', err);
+    });
+}
+
+window.addEventListener('message', function(e) {
+    if (e.data && e.data.action === 'saveEnCours') {
+        saveEnCoursOnClose();
+    }
+});
+
+// ============================================================================
 // Initialisation Select2
 // ============================================================================
 $(document).ready(function() {
@@ -1346,6 +1886,11 @@ $(document).ready(function() {
     
     // Générer le champ opérateur initial (1 opérateur par défaut)
     genererChampsOperateurs(1);
+    
+    // Sync des champs dates visibles (modification fiche terminée) vers champs cachés et affichage TpsReel
+    $(document).on('change input', '#dte_deb_visible, #dte_fin_visible', function() {
+        syncDatesModificationEtTpsReel();
+    });
 });
 </script>
 {% endblock %}

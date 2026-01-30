@@ -1,0 +1,70 @@
+{
+  "date_verification": "2026-01-22T10:01:58.301605",
+  "table_verifiee": "PAPIERS_ARTICLES",
+  "verifications": {
+    "volume": {
+      "statut": "ERREUR",
+      "source": 1003,
+      "cible": 1083,
+      "difference": 80
+    },
+    "correspondance_ids": {
+      "statut": "OK",
+      "correspondances": 1003
+    },
+    "fk_entrantes": {
+      "statut": "OK",
+      "details": {
+        "PAPIERS_TARIF_FMT": {
+          "column": "ID_ARTICLE",
+          "total_references": 1442,
+          "valid_references": 1442,
+          "orphan_references": 0
+        }
+      }
+    },
+    "fk_sortantes": {
+      "statut": "OK",
+      "details": {
+        "PAPIERS": {
+          "parent_column": "ID_PAPIER",
+          "referenced_column": "ID",
+          "total_references": 1083,
+          "valid_references": 1083,
+          "orphan_references": 0
+        },
+        "PAPIERS_CERTIFICATIONS": {
+          "parent_column": "ID_CERTIFICATION",
+          "referenced_column": "ID",
+          "total_references": 46,
+          "valid_references": 46,
+          "orphan_references": 0
+        }
+      }
+    },
+    "duplication_ids": {
+      "statut": "OK"
+    },
+    "duplication_donnees": {
+      "statut": "OK"
+    },
+    "contraintes": {
+      "statut": "ATTENTION",
+      "issues": [
+        "FK FK__PAPIERS_A__ID_CE__03D23369 n'est pas trustee",
+        "FK FK__PAPIERS_A__ID_PA__41C478EA n'est pas trustee",
+        "FK FK__PAPIERS_T__ID_AR__48717679 n'est pas trustee"
+      ]
+    },
+    "index": {
+      "statut": "OK"
+    },
+    "coherence_tables": {
+      "statut": "OK"
+    }
+  },
+  "resultat_global": "NON_SUR",
+  "risques_detectes": [
+    "Difference de volume: 80 lignes"
+  ]
+}

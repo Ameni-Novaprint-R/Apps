@@ -1,6 +1,11 @@
 from flask import Blueprint, render_template, request
 import os
-import pdfplumber
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    pdfplumber = None
 import re
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -16,6 +21,8 @@ def convert_date_fr(date_str):
         return None
 
 def extract_facture_data(file_path):
+    if not PDFPLUMBER_AVAILABLE:
+        raise ImportError("pdfplumber n'est pas installe. Installez-le avec: pip install pdfplumber")
     donnees = {}
     with pdfplumber.open(file_path) as pdf:
         lignes = pdf.pages[0].extract_text().splitlines()

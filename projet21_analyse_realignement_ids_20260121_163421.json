@@ -1,0 +1,284 @@
+{
+  "analysis_date": "2026-01-21T16:34:21.486058",
+  "tables_analyzed": [
+    "PAPIERS_ARTICLES",
+    "PAPIERS_IMPRIMEURS"
+  ],
+  "reports": [
+    {
+      "table_name": "PAPIERS_ARTICLES",
+      "analysis_date": "2026-01-21T16:34:20.105841",
+      "primary_key": {
+        "column": "ID",
+        "is_identity": true,
+        "data_type": "int",
+        "seed_value": 0,
+        "increment_value": 1
+      },
+      "direct_relations": {
+        "outgoing": [
+          {
+            "fk_name": "FK__PAPIERS_A__ID_PA__41C478EA",
+            "referenced_table": "PAPIERS",
+            "parent_column": "ID_PAPIER",
+            "referenced_column": "ID",
+            "is_disabled": false,
+            "is_not_trusted": true,
+            "delete_action": 1,
+            "update_action": 0
+          },
+          {
+            "fk_name": "FK__PAPIERS_A__ID_CE__03D23369",
+            "referenced_table": "PAPIERS_CERTIFICATIONS",
+            "parent_column": "ID_CERTIFICATION",
+            "referenced_column": "ID",
+            "is_disabled": false,
+            "is_not_trusted": true,
+            "delete_action": 0,
+            "update_action": 0
+          }
+        ],
+        "incoming": [
+          {
+            "fk_name": "FK__PAPIERS_T__ID_AR__48717679",
+            "parent_table": "PAPIERS_TARIF_FMT",
+            "parent_column": "ID_ARTICLE",
+            "referenced_column": "ID",
+            "is_disabled": false,
+            "is_not_trusted": true,
+            "delete_action": 0,
+            "update_action": 0
+          }
+        ]
+      },
+      "data_analysis": {
+        "id_overlap": {
+          "source_count": 1003,
+          "target_count": 1003,
+          "overlap_count": 1003,
+          "source_only_count": 0,
+          "target_only_count": 0,
+          "overlap_percentage": 100.0
+        },
+        "fk_references": {
+          "PAPIERS_TARIF_FMT": {
+            "fk_name": "FK__PAPIERS_T__ID_AR__48717679",
+            "parent_column": "ID_ARTICLE",
+            "distinct_references": 1441,
+            "total_references": 1442,
+            "orphan_references": 358,
+            "update_action": 0,
+            "delete_action": 0
+          }
+        }
+      },
+      "risk_assessment": {
+        "risks": [
+          {
+            "level": "HIGH",
+            "category": "Action CASCADE",
+            "description": "Action UPDATE CASCADE détectée sur FK FK__PAPIERS_T__ID_AR__48717679",
+            "impact": "Modification des IDs propagera automatiquement aux tables enfants"
+          },
+          {
+            "level": "MEDIUM",
+            "category": "Colonne Identity",
+            "description": "La clé primaire est une colonne IDENTITY",
+            "impact": "Nécessite de désactiver IDENTITY pendant le réalignement"
+          }
+        ],
+        "warnings": [
+          {
+            "level": "MEDIUM",
+            "category": "Intégrité référentielle",
+            "description": "358 références orphelines dans PAPIERS_TARIF_FMT",
+            "impact": "Données incohérentes existantes"
+          }
+        ],
+        "safe_points": [
+          {
+            "category": "Complexité des relations",
+            "description": "Nombre de relations directes (3) <= 3",
+            "impact": "Complexité gérable pour le réalignement"
+          },
+          {
+            "category": "Chevauchement d'IDs",
+            "description": "Chevauchement élevé (100.00%)",
+            "impact": "La plupart des IDs correspondent déjà"
+          }
+        ]
+      },
+      "feasibility": {
+        "technically_possible": true,
+        "safety_level": "RISKY",
+        "recommendations": [
+          "[OK] Nombre de relations directes acceptable (<= 3)",
+          "[NON] Risques eleves identifies",
+          "-> Desactiver IDENTITY avant realignement",
+          "-> Reactiver IDENTITY apres realignement avec nouvelle seed",
+          "-> Mettre a jour 1,442 references dans PAPIERS_TARIF_FMT",
+          "-> Effectuer une sauvegarde complete avant toute operation",
+          "-> Tester sur un environnement de developpement d'abord",
+          "-> Utiliser des transactions avec rollback possible"
+        ]
+      }
+    },
+    {
+      "table_name": "PAPIERS_IMPRIMEURS",
+      "analysis_date": "2026-01-21T16:34:20.503912",
+      "primary_key": {
+        "column": "ID",
+        "is_identity": true,
+        "data_type": "int",
+        "seed_value": 0,
+        "increment_value": 1
+      },
+      "direct_relations": {
+        "outgoing": [
+          {
+            "fk_name": "FK__PAPIERS_I__ID_IM__46892E07",
+            "referenced_table": "IMPRIMEURS",
+            "parent_column": "ID_IMPRIMEUR",
+            "referenced_column": "ID_SOCIETE",
+            "is_disabled": false,
+            "is_not_trusted": true,
+            "delete_action": 1,
+            "update_action": 0
+          },
+          {
+            "fk_name": "FK__PAPIERS_I__ID_PA__459509CE",
+            "referenced_table": "PAPIERS",
+            "parent_column": "ID_PAPIER",
+            "referenced_column": "ID",
+            "is_disabled": false,
+            "is_not_trusted": true,
+            "delete_action": 1,
+            "update_action": 0
+          }
+        ],
+        "incoming": [
+          {
+            "fk_name": "FK__PAPIERS_T__ID_PA__49659AB2",
+            "parent_table": "PAPIERS_TARIF_FMT",
+            "parent_column": "ID_PAPIMPRIM",
+            "referenced_column": "ID",
+            "is_disabled": false,
+            "is_not_trusted": true,
+            "delete_action": 1,
+            "update_action": 0
+          },
+          {
+            "fk_name": "FK__PAPIERS_T__ID_PA__4A59BEEB",
+            "parent_table": "PAPIERS_TARIF_GRAM",
+            "parent_column": "ID_PAPIMPRIM",
+            "referenced_column": "ID",
+            "is_disabled": false,
+            "is_not_trusted": true,
+            "delete_action": 1,
+            "update_action": 0
+          }
+        ]
+      },
+      "data_analysis": {
+        "id_overlap": {
+          "source_count": 282,
+          "target_count": 282,
+          "overlap_count": 282,
+          "source_only_count": 0,
+          "target_only_count": 0,
+          "overlap_percentage": 100.0
+        },
+        "fk_references": {
+          "PAPIERS_TARIF_FMT": {
+            "fk_name": "FK__PAPIERS_T__ID_PA__49659AB2",
+            "parent_column": "ID_PAPIMPRIM",
+            "distinct_references": 301,
+            "total_references": 1442,
+            "orphan_references": 408,
+            "update_action": 0,
+            "delete_action": 1
+          },
+          "PAPIERS_TARIF_GRAM": {
+            "fk_name": "FK__PAPIERS_T__ID_PA__4A59BEEB",
+            "parent_column": "ID_PAPIMPRIM",
+            "distinct_references": 302,
+            "total_references": 679,
+            "orphan_references": 145,
+            "update_action": 0,
+            "delete_action": 1
+          }
+        }
+      },
+      "risk_assessment": {
+        "risks": [
+          {
+            "level": "HIGH",
+            "category": "Complexité des relations",
+            "description": "Nombre de relations directes (4) dépasse le seuil recommandé (3)",
+            "impact": "Augmente la complexité et les risques de rupture d'intégrité"
+          },
+          {
+            "level": "HIGH",
+            "category": "Action CASCADE",
+            "description": "Action UPDATE CASCADE détectée sur FK FK__PAPIERS_T__ID_PA__49659AB2",
+            "impact": "Modification des IDs propagera automatiquement aux tables enfants"
+          },
+          {
+            "level": "HIGH",
+            "category": "Action CASCADE",
+            "description": "Action UPDATE CASCADE détectée sur FK FK__PAPIERS_T__ID_PA__4A59BEEB",
+            "impact": "Modification des IDs propagera automatiquement aux tables enfants"
+          },
+          {
+            "level": "MEDIUM",
+            "category": "Colonne Identity",
+            "description": "La clé primaire est une colonne IDENTITY",
+            "impact": "Nécessite de désactiver IDENTITY pendant le réalignement"
+          }
+        ],
+        "warnings": [
+          {
+            "level": "MEDIUM",
+            "category": "Intégrité référentielle",
+            "description": "408 références orphelines dans PAPIERS_TARIF_FMT",
+            "impact": "Données incohérentes existantes"
+          },
+          {
+            "level": "MEDIUM",
+            "category": "Intégrité référentielle",
+            "description": "145 références orphelines dans PAPIERS_TARIF_GRAM",
+            "impact": "Données incohérentes existantes"
+          }
+        ],
+        "safe_points": [
+          {
+            "category": "Chevauchement d'IDs",
+            "description": "Chevauchement élevé (100.00%)",
+            "impact": "La plupart des IDs correspondent déjà"
+          }
+        ]
+      },
+      "feasibility": {
+        "technically_possible": false,
+        "safety_level": "RISKY",
+        "recommendations": [
+          "✗ Trop de relations directes (> 3)",
+          "[NON] Risques eleves identifies",
+          "-> Desactiver IDENTITY avant realignement",
+          "-> Reactiver IDENTITY apres realignement avec nouvelle seed",
+          "-> Mettre a jour 1,442 references dans PAPIERS_TARIF_FMT",
+          "-> Mettre a jour 679 references dans PAPIERS_TARIF_GRAM",
+          "-> Effectuer une sauvegarde complete avant toute operation",
+          "-> Tester sur un environnement de developpement d'abord",
+          "-> Utiliser des transactions avec rollback possible"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total_direct_relations": 7,
+    "high_risks_count": 4,
+    "medium_risks_count": 2,
+    "feasible": false
+  }
+}

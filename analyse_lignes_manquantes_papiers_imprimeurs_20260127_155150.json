@@ -1,0 +1,166 @@
+{
+  "total_missing": 13,
+  "missing_by_id": [
+    {
+      "ID": 8495,
+      "ID_PAPIER": 20,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8498,
+      "ID_PAPIER": 469,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8500,
+      "ID_PAPIER": 352,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8502,
+      "ID_PAPIER": 545,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8503,
+      "ID_PAPIER": 446,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8506,
+      "ID_PAPIER": 568,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8507,
+      "ID_PAPIER": 565,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8508,
+      "ID_PAPIER": 548,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8509,
+      "ID_PAPIER": 419,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8510,
+      "ID_PAPIER": 547,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8511,
+      "ID_PAPIER": 544,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8512,
+      "ID_PAPIER": 437,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    },
+    {
+      "ID": 8513,
+      "ID_PAPIER": 537,
+      "ID_IMPRIMEUR": 0,
+      "FK_PAPIER_OK": true,
+      "FK_IMPRIMEUR_OK": true
+    }
+  ],
+  "fk_papier_missing": [],
+  "fk_imprimeur_missing": [],
+  "both_fk_missing": [],
+  "fk_ok_but_missing": [
+    {
+      "ID": 8495,
+      "ID_PAPIER": 20,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8498,
+      "ID_PAPIER": 469,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8500,
+      "ID_PAPIER": 352,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8502,
+      "ID_PAPIER": 545,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8503,
+      "ID_PAPIER": 446,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8506,
+      "ID_PAPIER": 568,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8507,
+      "ID_PAPIER": 565,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8508,
+      "ID_PAPIER": 548,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8509,
+      "ID_PAPIER": 419,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8510,
+      "ID_PAPIER": 547,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8511,
+      "ID_PAPIER": 544,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8512,
+      "ID_PAPIER": 437,
+      "ID_IMPRIMEUR": 0
+    },
+    {
+      "ID": 8513,
+      "ID_PAPIER": 537,
+      "ID_IMPRIMEUR": 0
+    }
+  ]
+}

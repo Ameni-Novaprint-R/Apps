@@ -17,15 +17,86 @@ from contextlib import contextmanager
 # "PWD": "password_sql",
 # Et commenter "Trusted_Connection": "yes"
 DB_CONFIG = {
-    "DRIVER": "{SQL Server}",
-    "SERVER": "192.168.10.225",  # Serveur reseau - IP directe - TOUTES les operations CRUD pointent ici
+    "SERVER": "192.168.10.225",  # Serveur reseau - Nom du serveur (requis pour Trusted_Connection) - TOUTES les operations CRUD pointent ici
     "DATABASE": "novaprint_restored",
-    "Trusted_Connection": "yes",
-    "TrustServerCertificate": "yes"
+    "Trusted_Connection": False,  # Utiliser True pour la logique robuste
     # Alternative si Trusted_Connection ne fonctionne pas:
-    # "UID": "username_sql_server",
-    # "PWD": "password_sql_server",
+    "username": "sa",
+    "password": "bA8ALvct9QtX",
+
 }
+
+def get_db_connection():
+    """
+    Retourne une connexion à la base de données avec logique robuste.
+    Essaie plusieurs drivers ODBC dans l'ordre : Driver 18, puis 17, puis SQL Server.
+    """
+    if DB_CONFIG.get("Trusted_Connection"):
+        errors: list[tuple[str, Exception]] = []
+
+        # IMPORTANT:
+        # - Certaines configs SQL/SSL/SSPI échouent quand on se connecte via l'IP (certificat/SPN)
+        # - On tente donc aussi via localhost / 127.0.0.1 (si l'app tourne sur le même serveur que SQL)
+        servers_to_try = []
+        for s in [DB_CONFIG.get("SERVER")]:
+            if s and s not in servers_to_try:
+                servers_to_try.append(s)
+
+        for server in servers_to_try:
+            # Essayer Driver 18 (recommandé) avec Encrypt=no + TrustServerCertificate
+            try:
+                conn_str = (
+                    f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+                    f"SERVER={server};"
+                    f"DATABASE={DB_CONFIG['DATABASE']};"
+                    f"Trusted_Connection=yes;"
+                    f"Encrypt=no;"
+                    f"TrustServerCertificate=yes"
+                )
+                return pyodbc.connect(conn_str, timeout=5)
+            except Exception as e:
+                errors.append((f"SERVER={server} | ODBC Driver 18 (Encrypt=no, TrustServerCertificate=yes)", e))
+
+            # Essayer Driver 17 avec Encrypt=no (pour éviter les problèmes SSL)
+            try:
+                conn_str = (
+                    f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+                    f"SERVER={server};"
+                    f"DATABASE={DB_CONFIG['DATABASE']};"
+                    f"Trusted_Connection=yes;"
+                    f"Encrypt=no"
+                )
+                return pyodbc.connect(conn_str, timeout=5)
+            except Exception as e:
+                errors.append((f"SERVER={server} | ODBC Driver 17 (Encrypt=no)", e))
+
+            # Essayer Driver 17 avec TrustServerCertificate
+            try:
+                conn_str = (
+                    f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+                    f"SERVER={server};"
+                    f"DATABASE={DB_CONFIG['DATABASE']};"
+                    f"Trusted_Connection=yes;"
+                    f"TrustServerCertificate=yes"
+                )
+                return pyodbc.connect(conn_str, timeout=5)
+            except Exception as e:
+                errors.append((f"SERVER={server} | ODBC Driver 17 (TrustServerCertificate=yes)", e))
+
+        details = " | ".join([f"{name}: {err}" for name, err in errors]) or "Aucun détail"
+        raise Exception(f"Impossible de se connecter avec aucun driver ODBC. Détails: {details}")
+    else:
+        # Authentification SQL Server (si Trusted_Connection ne fonctionne pas)
+        conn_str = (
+            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"SERVER={DB_CONFIG['SERVER']};"
+            f"DATABASE={DB_CONFIG['DATABASE']};"
+            f"UID={DB_CONFIG['username']};"
+            f"PWD={DB_CONFIG['password']}"
+        )
+        conn = pyodbc.connect(conn_str)
+    return conn
+
 def init_projet6_tables():
     """
     Initialise les tables du Projet 6 sur le serveur reseau
@@ -64,16 +135,10 @@ def init_projet6_tables():
         """)
         cursor.connection.commit()
 
-def get_connection_string():
-    return ";".join(f"{k}={v}" for k, v in DB_CONFIG.items())
-
-def get_db_connection():
-    """Retourne une connexion à la base de données"""
-    return pyodbc.connect(get_connection_string())
 
 @contextmanager
 def get_db_cursor():
-    conn = pyodbc.connect(get_connection_string())
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         yield cursor

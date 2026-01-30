@@ -6,37 +6,11 @@ PROJET 11 - Gestion de la table WEB_TRAITEMENTS
 Module pour gérer les traitements avec données provenant de plusieurs tables
 """
 
-import pyodbc
 from datetime import datetime
 from contextlib import contextmanager
 from decimal import Decimal
-
-
-# Configuration de la base de données
-DB_CONFIG = {
-    "DRIVER": "{SQL Server}",
-    "SERVER": "LAPTOP-LATIFA",
-    "DATABASE": "novaprint_restored",
-    "Trusted_Connection": "yes",
-    "TrustServerCertificate": "yes"
-}
-
-
-def get_connection_string():
-    """Génère la chaîne de connexion à la base de données"""
-    return ";".join(f"{k}={v}" for k, v in DB_CONFIG.items())
-
-
-@contextmanager
-def get_db_cursor():
-    """Context manager pour gérer la connexion à la base de données"""
-    conn = pyodbc.connect(get_connection_string())
-    cursor = conn.cursor()
-    try:
-        yield cursor
-    finally:
-        cursor.close()
-        conn.close()
+# Utiliser la fonction de connexion de db.py qui fonctionne déjà
+from db import get_db_cursor
 
 
 def _to_int(value):
@@ -304,17 +278,17 @@ def get_postes_prevus_by_commande_service(numero_commande, nom_service):
                 C.QteComm as QteComm_COMMANDES,
                 S.RaiSocTri as RaiSocTri_SOCIETES,
                 FOP.OpPrevDev,
-                FOP.TpsPrevDev
+                FTI.TpsPrevDev
             FROM GP_FICHES_TRAVAIL FT
             INNER JOIN COMMANDES C ON C.ID = FT.ID_COMMANDE
             LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
             INNER JOIN GP_POSTES P ON P.ID = FT.ID_POSTE
             INNER JOIN GP_SERVICES SRV ON SRV.ID = P.ID_SERVICE
+            LEFT JOIN GP_FICHTRA_INT FTI ON FTI.ID_FICHTRA = FT.ID
             LEFT JOIN (
                 SELECT 
                     ID_FICHE_TRAVAIL,
-                    SUM(OpPrevDev) as OpPrevDev,
-                    SUM(TpsPrevDev) as TpsPrevDev
+                    SUM(OpPrevDev) as OpPrevDev
                 FROM GP_FICHES_OPERATIONS
                 GROUP BY ID_FICHE_TRAVAIL
             ) FOP ON FOP.ID_FICHE_TRAVAIL = FT.ID
@@ -560,7 +534,7 @@ def get_all_traitements():
                 PdtC,
                 PdtNNC,
                 PdtANC,
-                TpsPrevDev_GP_FICHES_OPERATIONS,
+                TpsPrevDev_GP_FICHTRA_INT,
                 TpsReel,
                 DateCreation,
                 DateModification
@@ -570,7 +544,7 @@ def get_all_traitements():
         
         traitements = []
         for row in cursor.fetchall():
-            tps_prev = float(row.TpsPrevDev_GP_FICHES_OPERATIONS) if row.TpsPrevDev_GP_FICHES_OPERATIONS else None
+            tps_prev = float(row.TpsPrevDev_GP_FICHTRA_INT) if row.TpsPrevDev_GP_FICHTRA_INT else None
             tps_reel = float(row.TpsReel) if row.TpsReel else None
             ecart = None
             if tps_prev is not None and tps_reel is not None:
@@ -606,56 +580,132 @@ def get_all_traitements():
 
 def get_traitement_by_id(traitement_id):
     """
-    Récupère un traitement spécifique par son ID
+    Récupère un traitement spécifique par son ID.
+    Gère les deux noms de colonne pour le temps prévu (TpsPrevDev_GP_FICHTRA_INT ou TpsPrevDev_GP_FICHES_OPERATIONS).
     """
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            SELECT 
-                ID,
-                ID_FICHE_TRAVAIL,
-                ID_GP_TRAITEMENTS,
-                DteDeb,
-                DteFin,
-                NbOp,
-                NbPers,
-                Numero_COMMANDES,
-                Reference_COMMANDES,
-                QteComm_COMMANDES,
-                RaiSocTri_SOCIETES,
-                Matricule_personel,
-                Nom_personel,
-                Prenom_personel,
-                Nom_GP_SERVICES,
-                Nom_GP_POSTES,
-                OpPrevDev_GP_FICHES_OPERATIONS,
-                TpsPrevDev_GP_FICHES_OPERATIONS,
-                PdtC,
-                PdtNNC,
-                PdtANC,
-                TpsReel,
-                PostesReel,
-                DateCreation,
-                DateModification
-            FROM WEB_TRAITEMENTS
-            WHERE ID = ?
-        """, (traitement_id,))
+        # Essayer d'abord avec la colonne renommée TpsPrevDev_GP_FICHTRA_INT
+        try:
+            cursor.execute("""
+                SELECT 
+                    ID,
+                    ID_FICHE_TRAVAIL,
+                    ID_GP_TRAITEMENTS,
+                    DteDeb,
+                    DteFin,
+                    NbOp,
+                    NbPers,
+                    Numero_COMMANDES,
+                    Reference_COMMANDES,
+                    QteComm_COMMANDES,
+                    RaiSocTri_SOCIETES,
+                    Matricule_personel,
+                    Nom_personel,
+                    Prenom_personel,
+                    Nom_GP_SERVICES,
+                    Nom_GP_POSTES,
+                    OpPrevDev_GP_FICHES_OPERATIONS,
+                    TpsPrevDev_GP_FICHTRA_INT,
+                    PdtC,
+                    PdtNNC,
+                    PdtANC,
+                    TpsReel,
+                    PostesReel,
+                    DateCreation,
+                    DateModification
+                FROM WEB_TRAITEMENTS
+                WHERE ID = ?
+            """, (traitement_id,))
+        except Exception as e_col:
+            err_msg = str(e_col).lower()
+            if 'tpsprevdev_gp_fichtra_int' in err_msg or 'invalid column' in err_msg or 'nom de colonne' in err_msg:
+                # Fallback: ancienne colonne TpsPrevDev_GP_FICHES_OPERATIONS
+                try:
+                    cursor.execute("""
+                        SELECT 
+                            ID,
+                            ID_FICHE_TRAVAIL,
+                            ID_GP_TRAITEMENTS,
+                            DteDeb,
+                            DteFin,
+                            NbOp,
+                            NbPers,
+                            Numero_COMMANDES,
+                            Reference_COMMANDES,
+                            QteComm_COMMANDES,
+                            RaiSocTri_SOCIETES,
+                            Matricule_personel,
+                            Nom_personel,
+                            Prenom_personel,
+                            Nom_GP_SERVICES,
+                            Nom_GP_POSTES,
+                            OpPrevDev_GP_FICHES_OPERATIONS,
+                            TpsPrevDev_GP_FICHES_OPERATIONS,
+                            PdtC,
+                            PdtNNC,
+                            PdtANC,
+                            TpsReel,
+                            PostesReel,
+                            DateCreation,
+                            DateModification
+                        FROM WEB_TRAITEMENTS
+                        WHERE ID = ?
+                    """, (traitement_id,))
+                except Exception:
+                    raise e_col
+            else:
+                raise
         
         row = cursor.fetchone()
         if not row:
             return None
         
-        tps_prev = float(row.TpsPrevDev_GP_FICHES_OPERATIONS) if row.TpsPrevDev_GP_FICHES_OPERATIONS else None
+        # Temps prévu: colonne renommée ou ancienne
+        tps_prev = None
+        if hasattr(row, 'TpsPrevDev_GP_FICHTRA_INT') and row.TpsPrevDev_GP_FICHTRA_INT is not None:
+            tps_prev = float(row.TpsPrevDev_GP_FICHTRA_INT)
+        elif hasattr(row, 'TpsPrevDev_GP_FICHES_OPERATIONS') and row.TpsPrevDev_GP_FICHES_OPERATIONS is not None:
+            tps_prev = float(row.TpsPrevDev_GP_FICHES_OPERATIONS)
         tps_reel = float(row.TpsReel) if row.TpsReel else None
         ecart = None
         if tps_prev is not None and tps_reel is not None:
             ecart = tps_reel - tps_prev
         
+        # Convertir les dates en chaînes pour JSON
+        dte_deb_str = None
+        if row.DteDeb:
+            if isinstance(row.DteDeb, str):
+                dte_deb_str = row.DteDeb
+            else:
+                dte_deb_str = row.DteDeb.isoformat() if hasattr(row.DteDeb, 'isoformat') else str(row.DteDeb)
+        
+        dte_fin_str = None
+        if row.DteFin:
+            if isinstance(row.DteFin, str):
+                dte_fin_str = row.DteFin
+            else:
+                dte_fin_str = row.DteFin.isoformat() if hasattr(row.DteFin, 'isoformat') else str(row.DteFin)
+        
+        date_creation_str = None
+        if row.DateCreation:
+            if isinstance(row.DateCreation, str):
+                date_creation_str = row.DateCreation
+            else:
+                date_creation_str = row.DateCreation.isoformat() if hasattr(row.DateCreation, 'isoformat') else str(row.DateCreation)
+        
+        date_modification_str = None
+        if row.DateModification:
+            if isinstance(row.DateModification, str):
+                date_modification_str = row.DateModification
+            else:
+                date_modification_str = row.DateModification.isoformat() if hasattr(row.DateModification, 'isoformat') else str(row.DateModification)
+        
         return {
             "id": row.ID,
             "id_fiche_travail": row.ID_FICHE_TRAVAIL,
             "id_gp_traitements": row.ID_GP_TRAITEMENTS,
-            "dte_deb": row.DteDeb,
-            "dte_fin": row.DteFin,
+            "dte_deb": dte_deb_str,
+            "dte_fin": dte_fin_str,
             "nb_op": _to_int(row.NbOp),
             "nb_pers": _to_int(row.NbPers),
             "numero_commandes": row.Numero_COMMANDES,
@@ -668,6 +718,7 @@ def get_traitement_by_id(traitement_id):
             "nom_gp_services": row.Nom_GP_SERVICES,
             "nom_gp_postes": row.Nom_GP_POSTES,
             "opprevdev_gp_fiches_operations": row.OpPrevDev_GP_FICHES_OPERATIONS,
+            "tpsprevdev_gp_fichtra_int": getattr(row, 'TpsPrevDev_GP_FICHTRA_INT', None) or getattr(row, 'TpsPrevDev_GP_FICHES_OPERATIONS', None),
             "tps_prev_dev": tps_prev,
             "tps_reel": tps_reel,
             "pdt_c": _to_int(row.PdtC),
@@ -675,8 +726,8 @@ def get_traitement_by_id(traitement_id):
             "pdt_anc": _to_int(row.PdtANC),
             "ecart_temps": ecart,
             "postes_reel": row.PostesReel,
-            "date_creation": row.DateCreation,
-            "date_modification": row.DateModification
+            "date_creation": date_creation_str,
+            "date_modification": date_modification_str
         }
 
 
@@ -776,6 +827,7 @@ def create_traitement(data):
                 
                 fiche_data = FicheDataVirtuelle(commande_data, nom_poste_reel, nom_service)
                 operation_data = None  # Pas d'opérations pour service non prévu
+                tps_prev_dev = None  # Pas de temps prévu pour service non prévu
                 traitement_data = None  # Pas de traitement pour service non prévu
                 
             else:
@@ -819,18 +871,27 @@ def create_traitement(data):
                     print(f"Erreur: Fiche de travail {id_fiche_travail} non trouvée")
                     return None
                 
-                # Récupérer les opérations
+                # Récupérer les opérations (OpPrevDev depuis GP_FICHES_OPERATIONS)
                 cursor.execute("""
                     SELECT TOP 1
                         ID_OPERATION,
-                        OpPrevDev,
-                        TpsPrevDev
+                        OpPrevDev
                     FROM GP_FICHES_OPERATIONS
                     WHERE ID_FICHE_TRAVAIL = ?
                     ORDER BY ID_OPERATION
                 """, (id_fiche_travail,))
                 
                 operation_data = cursor.fetchone()
+                
+                # Récupérer TpsPrevDev depuis GP_FICHTRA_INT
+                cursor.execute("""
+                    SELECT TpsPrevDev
+                    FROM GP_FICHTRA_INT
+                    WHERE ID_FICHTRA = ?
+                """, (id_fiche_travail,))
+                
+                fichtra_data = cursor.fetchone()
+                tps_prev_dev = fichtra_data.TpsPrevDev if fichtra_data and fichtra_data.TpsPrevDev else None
                 
                 # Récupérer le traitement
                 cursor.execute("""
@@ -862,7 +923,7 @@ def create_traitement(data):
                 else:
                     print(f"[DEBUG] ATTENTION: Aucun opérateur trouvé pour matricule {matricule}")
             
-            # Quantités produites
+            # Quantités produites (Nouvelle fiche de production) → colonnes PdtC, PdtNNC, PdtANC
             def _safe_int(value):
                 try:
                     return int(value)
@@ -922,7 +983,7 @@ def create_traitement(data):
                         Nom_GP_SERVICES,
                         Nom_GP_POSTES,
                         OpPrevDev_GP_FICHES_OPERATIONS,
-                        TpsPrevDev_GP_FICHES_OPERATIONS,
+                        TpsPrevDev_GP_FICHTRA_INT,
                         PostesReel,
                         PdtC,
                         PdtNNC,
@@ -953,7 +1014,8 @@ def create_traitement(data):
                     fiche_data[11],  # Nom_GP_POSTES
                     # Données GP_FICHES_OPERATIONS (sans ID_OPERATION)
                     operation_data[1] if operation_data else None,  # OpPrevDev
-                    operation_data[2] if operation_data else None,  # TpsPrevDev
+                    # Données GP_FICHTRA_INT
+                    tps_prev_dev,  # TpsPrevDev depuis GP_FICHTRA_INT
                     # Poste réellement utilisé
                     data.get('postes_reel'),
                     pdt_c,
@@ -1058,6 +1120,11 @@ def update_traitement(traitement_id, data):
                 except (TypeError, ValueError):
                     return 0
 
+            # PdtC, PdtNNC, PdtANC : valeurs des champs de la fiche (si renseignés)
+            pdt_c = _safe_int(data.get('pdt_c'))
+            pdt_nnc = _safe_int(data.get('pdt_nnc'))
+            pdt_anc = _safe_int(data.get('pdt_anc'))
+
             def _parse_datetime_local(value):
                 if not value:
                     return None
@@ -1085,9 +1152,6 @@ def update_traitement(traitement_id, data):
             dte_deb = _parse_datetime_local(data.get('dte_deb'))
             dte_fin = _parse_datetime_local(data.get('dte_fin'))
 
-            pdt_c = _safe_int(data.get('pdt_c'))
-            pdt_nnc = _safe_int(data.get('pdt_nnc'))
-            pdt_anc = _safe_int(data.get('pdt_anc'))
             nb_op = pdt_c + pdt_nnc + pdt_anc
             nb_pers = _safe_int(data.get('nb_pers'))
 
@@ -1097,6 +1161,8 @@ def update_traitement(traitement_id, data):
             if nb_pers <= 0:
                 nb_pers = 0
 
+            # TpsReel : calculer seulement si les deux dates sont fournies (fiche terminée).
+            # Si dte_fin est None (fiche en cours, ex. fermeture par le X), garder DteFin = NULL et TpsReel = None.
             tps_reel = None
             if dte_deb and dte_fin:
                 try:
@@ -1106,15 +1172,10 @@ def update_traitement(traitement_id, data):
                 except Exception as duree_error:
                     print(f"[WARN] Impossible de calculer TpsReel: {duree_error}")
                     tps_reel = None
-            elif dte_deb and not dte_fin:
-                dte_fin = datetime.now()
-                try:
-                    duree_secondes = (dte_fin - dte_deb).total_seconds()
-                    tps_reel = duree_secondes / 3600.0
-                    print(f"[DEBUG] TpsReel calculé (auto-fin): {tps_reel:.3f}h")
-                except Exception as duree_error:
-                    print(f"[WARN] Impossible de calculer TpsReel (auto-fin): {duree_error}")
-                    tps_reel = None
+            # Ne pas auto-remplir dte_fin quand le client envoie dte_fin null (fiche en cours)
+            
+            print(f"[DEBUG update_traitement] Mise à jour traitement {traitement_id}")
+            print(f"[DEBUG update_traitement] Données: dte_deb={dte_deb}, dte_fin={dte_fin}, nb_op={nb_op}, pdt_c={pdt_c}, pdt_nnc={pdt_nnc}, pdt_anc={pdt_anc}")
             
             cursor.execute("""
                 UPDATE WEB_TRAITEMENTS
@@ -1143,15 +1204,44 @@ def update_traitement(traitement_id, data):
                 traitement_id
             ))
             
-            cursor.commit()
-            print(f"✓ Traitement {traitement_id} mis à jour avec succès")
+            rows_affected = cursor.rowcount
+            print(f"[DEBUG update_traitement] UPDATE exécuté, lignes affectées: {rows_affected}")
+            
+            if rows_affected == 0:
+                # Vérifier si le traitement existe
+                cursor.execute("SELECT ID FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
+                exists = cursor.fetchone()
+                if not exists:
+                    print(f"[ERREUR update_traitement] Le traitement {traitement_id} n'existe pas")
+                    raise Exception(f"Le traitement {traitement_id} n'existe pas")
+                else:
+                    print(f"[WARN update_traitement] Aucune ligne mise à jour pour traitement {traitement_id} - les données sont peut-être identiques")
+            
+            cursor.connection.commit()
+            print(f"[OK] Traitement {traitement_id} mis à jour avec succès")
             return True
             
-    except Exception as e:
-        print(f"Erreur lors de la mise à jour du traitement: {e}")
+    except pyodbc.OperationalError as e:
+        error_msg = str(e)
+        print(f"[ERREUR update_traitement] Erreur de connexion DB: {error_msg}")
+        from db import DB_CONFIG
+        print(f"[ERREUR update_traitement] Serveur configuré: {DB_CONFIG.get('SERVER')}")
         import traceback
         traceback.print_exc()
-        return False
+        raise Exception(f"Erreur de connexion à la base de données lors de la mise à jour: {error_msg}")
+    except pyodbc.Error as e:
+        error_msg = str(e)
+        print(f"[ERREUR update_traitement] Erreur SQL: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        raise Exception(f"Erreur SQL lors de la mise à jour: {error_msg}")
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e)
+        print(f"[ERREUR update_traitement] {error_type}: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        raise Exception(f"Erreur lors de la mise à jour du traitement: {error_msg}")
 
 
 def delete_traitement(traitement_id):
@@ -1167,8 +1257,8 @@ def delete_traitement(traitement_id):
     try:
         with get_db_cursor() as cursor:
             cursor.execute("DELETE FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
-            cursor.commit()
-            print(f"✓ Traitement {traitement_id} supprimé avec succès")
+            cursor.connection.commit()
+            print(f"[OK] Traitement {traitement_id} supprimé avec succès")
             return True
             
     except Exception as e:

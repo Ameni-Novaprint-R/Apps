@@ -19,14 +19,32 @@ TARGET_CONFIG = {
 }
 
 def get_connection(config, readonly=False):
+    """
+    Connexion SQL Server pour la vérification.
+
+    Important: éviter le driver legacy "{SQL Server}" côté cible, car il déclenche
+    des erreurs HYC00 sur certains types.
+    """
     if config.get('trusted_connection'):
-        conn_str = (
-            f"DRIVER={{SQL Server}};"
-            f"SERVER={config['server']};"
-            f"DATABASE={config['database']};"
-            f"Trusted_Connection=yes;"
-            f"TrustServerCertificate=yes"
-        )
+        driver_candidates = ["ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server", "SQL Server"]
+        last_err = None
+        conn = None
+        for drv in driver_candidates:
+            try:
+                conn_str = (
+                    f"DRIVER={{{drv}}};"
+                    f"SERVER={config['server']};"
+                    f"DATABASE={config['database']};"
+                    f"Trusted_Connection=yes;"
+                    f"TrustServerCertificate=yes"
+                )
+                conn = pyodbc.connect(conn_str)
+                break
+            except Exception as e:
+                last_err = e
+                conn = None
+        if conn is None:
+            raise last_err
     else:
         conn_str = (
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
@@ -35,7 +53,7 @@ def get_connection(config, readonly=False):
             f"UID={config['username']};"
             f"PWD={config['password']}"
         )
-    conn = pyodbc.connect(conn_str)
+        conn = pyodbc.connect(conn_str)
     if readonly:
         conn.execute("SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED")
     return conn

@@ -2,7 +2,12 @@
 Routes pour le Projet 16 - GMAO
 """
 from flask import Blueprint, render_template, request, jsonify, Response
-import pdfkit
+try:
+    import pdfkit
+    PDFKIT_AVAILABLE = True
+except ImportError:
+    PDFKIT_AVAILABLE = False
+    pdfkit = None
 from datetime import datetime
 from logic.projet16 import (
     get_operateurs_disponibles,

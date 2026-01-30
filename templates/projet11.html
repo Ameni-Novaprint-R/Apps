@@ -8,11 +8,101 @@
 <style>
     .modal-iframe-container {
         min-height: 70vh;
+        height: 75vh;
+        position: relative;
+        display: flex;
+        flex-direction: column;
     }
     .modal-iframe-container iframe {
         border: 0;
         width: 100%;
         height: 100%;
+        display: block;
+        flex: 1;
+    }
+    /* Style personnalisé pour la section Nouvelle fiche de production */
+    .card-nouvelle-fiche {
+        border-top: 4px solid #28a745 !important;
+        background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%) !important;
+    }
+    .card-nouvelle-fiche .fa-plus-circle {
+        color: #28a745 !important;
+    }
+    .card-nouvelle-fiche .card-title {
+        color: #28a745 !important;
+        font-weight: 600 !important;
+    }
+    .card-nouvelle-fiche .btn-primary,
+    .card-nouvelle-fiche button.btn-primary {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+        color: white !important;
+    }
+    .card-nouvelle-fiche .btn-primary:hover,
+    .card-nouvelle-fiche button.btn-primary:hover {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+        color: white !important;
+    }
+    #modalNouvelleFiche .modal-header .fa-plus-circle,
+    .modal-header .fa-plus-circle {
+        color: #28a745 !important;
+    }
+    #modalNouvelleFiche .btn-outline-success {
+        border-color: #28a745 !important;
+        color: #28a745 !important;
+    }
+    #modalNouvelleFiche .btn-outline-success:hover {
+        background-color: #28a745 !important;
+        color: white !important;
+    }
+    /* Style personnalisé pour la section Liste des Traitements */
+    .card-liste-traitements {
+        border-top: 4px solid #007bff !important;
+        background: linear-gradient(135deg, #f0f8ff 0%, #ffffff 100%) !important;
+    }
+    .card-liste-traitements .fa-list {
+        color: #007bff !important;
+    }
+    .card-liste-traitements .card-title {
+        color: #007bff !important;
+        font-weight: 600 !important;
+    }
+    .card-liste-traitements .btn-success,
+    .card-liste-traitements a.btn-success {
+        background-color: #007bff !important;
+        border-color: #007bff !important;
+        color: white !important;
+    }
+    .card-liste-traitements .btn-success:hover,
+    .card-liste-traitements a.btn-success:hover {
+        background-color: #0056b3 !important;
+        border-color: #004085 !important;
+        color: white !important;
+    }
+    /* Style personnalisé pour la section Statistiques */
+    .card-statistiques {
+        border-top: 4px solid hsl(185, 100%, 50%) !important;
+        background: linear-gradient(135deg, hsl(185, 100%, 97%) 0%, #ffffff 100%) !important;
+    }
+    .card-statistiques .fa-chart-bar {
+        color: hsl(185, 100%, 50%) !important;
+    }
+    .card-statistiques .card-title {
+        color: hsl(185, 100%, 50%) !important;
+        font-weight: 600 !important;
+    }
+    .card-statistiques .btn-info,
+    .card-statistiques a.btn-info {
+        background-color: hsl(185, 100%, 50%) !important;
+        border-color: hsl(185, 100%, 50%) !important;
+        color: white !important;
+    }
+    .card-statistiques .btn-info:hover,
+    .card-statistiques a.btn-info:hover {
+        background-color: hsl(185, 100%, 40%) !important;
+        border-color: hsl(185, 100%, 35%) !important;
+        color: white !important;
     }
 </style>
 {% endblock %}
@@ -31,11 +121,12 @@
     </div>
 
     <div class="row mt-4">
-        <!-- Carte Nouveau Traitement -->
+        <!-- Carte Nouveau Traitement - Affichée uniquement si l'utilisateur a accès à cette section -->
+        {% if show_nouvelle_fiche %}
         <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm">
+            <div class="card h-100 shadow-sm card-nouvelle-fiche">
                 <div class="card-body text-center">
-                    <i class="fas fa-plus-circle fa-3x text-primary mb-3"></i>
+                    <i class="fas fa-plus-circle fa-3x mb-3"></i>
                     <h5 class="card-title">Nouvelle fiche de production</h5>
                     <p class="card-text">Créer un nouveau traitement de production</p>
                     <button type="button"
@@ -47,12 +138,14 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Carte Liste des Traitements -->
+        <!-- Carte Liste des Traitements - Affichée uniquement si l'utilisateur a accès à cette section -->
+        {% if show_liste_traitements %}
         <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm">
+            <div class="card h-100 shadow-sm card-liste-traitements">
                 <div class="card-body text-center">
-                    <i class="fas fa-list fa-3x text-success mb-3"></i>
+                    <i class="fas fa-list fa-3x mb-3"></i>
                     <h5 class="card-title">Liste des Traitements</h5>
                     <p class="card-text">Consulter tous les traitements enregistrés</p>
                     <a href="{{ url_for('projet11.liste_traitements') }}" class="btn btn-success">
@@ -61,12 +154,14 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Carte Statistiques -->
+        <!-- Carte Statistiques - Affichée uniquement si l'utilisateur a accès à cette section -->
+        {% if show_statistiques %}
         <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm">
+            <div class="card h-100 shadow-sm card-statistiques">
                 <div class="card-body text-center">
-                    <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
+                    <i class="fas fa-chart-bar fa-3x mb-3"></i>
                     <h5 class="card-title">Statistiques</h5>
                     <p class="card-text">Analyser les performances des traitements</p>
                     <a href="{{ url_for('projet11.statistiques') }}" class="btn btn-info">
@@ -75,22 +170,30 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
+    
+    {% if not show_nouvelle_fiche and not show_liste_traitements and not show_statistiques %}
+    <div class="alert alert-warning mt-4">
+        <i class="fas fa-exclamation-triangle"></i>
+        Vous n'avez accès à aucune section du Projet 11. Veuillez contacter l'administrateur pour obtenir les droits nécessaires.
+    </div>
+    {% endif %}
 
 </div>
 
 <!-- Modal Nouvelle Fiche de Production -->
-<div class="modal fade" id="modalNouvelleFiche" tabindex="-1" aria-labelledby="modalNouvelleFicheLabel" aria-hidden="true">
+<div class="modal fade" id="modalNouvelleFiche" tabindex="-1" aria-labelledby="modalNouvelleFicheLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalNouvelleFicheLabel">
-                    <i class="fas fa-plus-circle me-2 text-primary"></i>
+                    <i class="fas fa-plus-circle me-2"></i>
                     Nouvelle fiche de production
                 </h5>
                 <div class="d-flex align-items-center gap-2">
                     <button type="button"
-                            class="btn btn-outline-primary btn-sm"
+                            class="btn btn-outline-success btn-sm"
                             id="btnOuvrirPleinEcran">
                         <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
                     </button>
@@ -122,20 +225,40 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${iframeBaseSrc}${separator}ts=${Date.now()}`;
     };
 
+    modalNouvelleFiche.addEventListener('hide.bs.modal', function(event) {
+        if (iframeNouvelleFiche && iframeNouvelleFiche.contentWindow) {
+            try {
+                iframeNouvelleFiche.contentWindow.postMessage({ action: 'saveEnCours' }, window.location.origin);
+            } catch (err) {
+                console.error('postMessage saveEnCours:', err);
+            }
+        }
+    });
+
     modalNouvelleFiche.addEventListener('hidden.bs.modal', function(event) {
-        const trigger = event.target.querySelector('[data-close-action="retour-accueil"]');
         if (modalNouvelleFiche.dataset.redirectOnClose === 'true') {
             window.location.href = "{{ url_for('projet11.index') }}";
             modalNouvelleFiche.dataset.redirectOnClose = 'false';
         }
+        if (iframeNouvelleFiche) {
+            // Ne pas réinitialiser immédiatement pour éviter NS_BINDING_ABORTED
+        }
     });
 
-    modalNouvelleFiche.addEventListener('show.bs.modal', function() {
+    // Utiliser 'shown.bs.modal' au lieu de 'show.bs.modal' pour éviter NS_BINDING_ABORTED
+    // 'shown.bs.modal' se déclenche après que le modal soit complètement visible
+    modalNouvelleFiche.addEventListener('shown.bs.modal', function() {
         modalNouvelleFiche.dataset.redirectOnClose = 'false';
         if (iframeNouvelleFiche) {
-            const newSrc = buildIframeSrc();
-            if (newSrc) {
-                iframeNouvelleFiche.src = newSrc;
+            // Ne recharger l'iframe que si elle n'a pas encore été chargée ou si elle est vide
+            // Cela évite NS_BINDING_ABORTED en évitant les rechargements inutiles
+            const currentSrc = iframeNouvelleFiche.src;
+            if (!currentSrc || currentSrc === '' || currentSrc === 'about:blank' || 
+                !currentSrc.includes('projet11/nouveau')) {
+                const newSrc = buildIframeSrc();
+                if (newSrc) {
+                    iframeNouvelleFiche.src = newSrc;
+                }
             }
         }
     });

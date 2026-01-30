@@ -1,0 +1,168 @@
+﻿================================================================================
+ANALYSE DE FAISABILIT├ë DU R├ëALIGNEMENT DES IDs
+Tables: PAPIERS_ARTICLES et PAPIERS_IMPRIMEURS
+================================================================================
+
+Connexion aux bases de donn├®es...
+[OK] Connexion a Novaprint (source) etablie
+[OK] Connexion a novaprint_restored (cible) etablie
+
+================================================================================
+ANALYSE: PAPIERS_ARTICLES
+================================================================================
+
+1. ANALYSE DE LA CL├ë PRIMAIRE
+--------------------------------------------------------------------------------
+   Colonne PK: ID
+   Type: int
+   Identity: Oui
+   Seed: 0, Increment: 1
+
+2. RELATIONS DIRECTES
+--------------------------------------------------------------------------------
+   FK Sortantes (tables r├®f├®renc├®es): 2
+      -> PAPIERS via FK__PAPIERS_A__ID_PA__41C478EA (ID_PAPIER -> ID)
+      -> PAPIERS_CERTIFICATIONS via FK__PAPIERS_A__ID_CE__03D23369 (ID_CERTIFICATION -> ID)
+   FK Entrantes (tables r├®f├®rencent): 1
+      <- PAPIERS_TARIF_FMT via FK__PAPIERS_T__ID_AR__48717679 (ID_ARTICLE -> ID)
+
+   TOTAL RELATIONS DIRECTES: 3
+
+3. ANALYSE DES DONN├ëES
+--------------------------------------------------------------------------------
+   Lignes dans Novaprint (source): 1,003
+   Lignes dans novaprint_restored (cible): 1,083
+
+   Analyse des chevauchements d'IDs:
+      IDs dans source: 1,003
+      IDs dans cible: 1,003
+      Chevauchement: 1,003 (100.00%)
+      Uniquement source: 0
+      Uniquement cible: 0
+
+   Analyse des r├®f├®rences FK entrantes:
+      PAPIERS_TARIF_FMT:
+         R├®f├®rences distinctes: 1,441
+         Total r├®f├®rences: 1,442
+         R├®f├®rences orphelines: 358
+         Action UPDATE: 0
+         Action DELETE: 0
+
+4. ├ëVALUATION DES RISQUES
+--------------------------------------------------------------------------------
+   [OK] Complexite acceptable: 3 relations directes
+   [OK] Chevauchement acceptable: 100.00%
+   [ATTENTION] AVERTISSEMENT: 358 references orphelines dans PAPIERS_TARIF_FMT
+   [ATTENTION] RISQUE ELEVE: Action UPDATE CASCADE sur FK__PAPIERS_T__ID_AR__48717679
+   [ATTENTION] RISQUE MOYEN: Colonne IDENTITY detectee
+
+5. FAISABILIT├ë TECHNIQUE
+--------------------------------------------------------------------------------
+
+   Techniquement possible: OUI
+   Niveau de s├®curit├®: RISKY
+
+   Recommandations:
+      [OK] Nombre de relations directes acceptable (<= 3)
+      [NON] Risques eleves identifies
+      -> Desactiver IDENTITY avant realignement
+      -> Reactiver IDENTITY apres realignement avec nouvelle seed
+      -> Mettre a jour 1,442 references dans PAPIERS_TARIF_FMT
+      -> Effectuer une sauvegarde complete avant toute operation
+      -> Tester sur un environnement de developpement d'abord
+      -> Utiliser des transactions avec rollback possible
+
+================================================================================
+ANALYSE: PAPIERS_IMPRIMEURS
+================================================================================
+
+1. ANALYSE DE LA CL├ë PRIMAIRE
+--------------------------------------------------------------------------------
+   Colonne PK: ID
+   Type: int
+   Identity: Oui
+   Seed: 0, Increment: 1
+
+2. RELATIONS DIRECTES
+--------------------------------------------------------------------------------
+   FK Sortantes (tables r├®f├®renc├®es): 2
+      -> IMPRIMEURS via FK__PAPIERS_I__ID_IM__46892E07 (ID_IMPRIMEUR -> ID_SOCIETE)
+      -> PAPIERS via FK__PAPIERS_I__ID_PA__459509CE (ID_PAPIER -> ID)
+   FK Entrantes (tables r├®f├®rencent): 2
+      <- PAPIERS_TARIF_FMT via FK__PAPIERS_T__ID_PA__49659AB2 (ID_PAPIMPRIM -> ID)
+      <- PAPIERS_TARIF_GRAM via FK__PAPIERS_T__ID_PA__4A59BEEB (ID_PAPIMPRIM -> ID)
+
+   TOTAL RELATIONS DIRECTES: 4
+
+3. ANALYSE DES DONN├ëES
+--------------------------------------------------------------------------------
+   Lignes dans Novaprint (source): 282
+   Lignes dans novaprint_restored (cible): 282
+
+   Analyse des chevauchements d'IDs:
+      IDs dans source: 282
+      IDs dans cible: 282
+      Chevauchement: 282 (100.00%)
+      Uniquement source: 0
+      Uniquement cible: 0
+
+   Analyse des r├®f├®rences FK entrantes:
+      PAPIERS_TARIF_FMT:
+         R├®f├®rences distinctes: 301
+         Total r├®f├®rences: 1,442
+         R├®f├®rences orphelines: 408
+         Action UPDATE: 0
+         Action DELETE: 1
+      PAPIERS_TARIF_GRAM:
+         R├®f├®rences distinctes: 302
+         Total r├®f├®rences: 679
+         R├®f├®rences orphelines: 145
+         Action UPDATE: 0
+         Action DELETE: 1
+
+4. ├ëVALUATION DES RISQUES
+--------------------------------------------------------------------------------
+   [ATTENTION] RISQUE ELEVE: 4 relations directes (> 3)
+   [OK] Chevauchement acceptable: 100.00%
+   [ATTENTION] AVERTISSEMENT: 408 references orphelines dans PAPIERS_TARIF_FMT
+   [ATTENTION] RISQUE ELEVE: Action UPDATE CASCADE sur FK__PAPIERS_T__ID_PA__49659AB2
+   [ATTENTION] AVERTISSEMENT: 145 references orphelines dans PAPIERS_TARIF_GRAM
+   [ATTENTION] RISQUE ELEVE: Action UPDATE CASCADE sur FK__PAPIERS_T__ID_PA__4A59BEEB
+   [ATTENTION] RISQUE MOYEN: Colonne IDENTITY detectee
+
+5. FAISABILIT├ë TECHNIQUE
+--------------------------------------------------------------------------------
+
+   Techniquement possible: NON
+   Niveau de s├®curit├®: RISKY
+
+   Recommandations:
+      Ô£ù Trop de relations directes (> 3)
+      [NON] Risques eleves identifies
+      -> Desactiver IDENTITY avant realignement
+      -> Reactiver IDENTITY apres realignement avec nouvelle seed
+      -> Mettre a jour 1,442 references dans PAPIERS_TARIF_FMT
+      -> Mettre a jour 679 references dans PAPIERS_TARIF_GRAM
+      -> Effectuer une sauvegarde complete avant toute operation
+      -> Tester sur un environnement de developpement d'abord
+      -> Utiliser des transactions avec rollback possible
+
+================================================================================
+SYNTH├êSE GLOBALE
+================================================================================
+
+Total relations directes (toutes tables): 7
+
+Risques identifi├®s:
+   ├ëlev├®s: 4
+   Moyens: 2
+
+================================================================================
+CONCLUSION
+================================================================================
+
+[NON] OPERATION NON RECOMMANDEE
+
+Le realignement presente trop de risques ou de complexite.
+
+Rapport d├®taill├® sauvegard├®: projet21_analyse_realignement_ids_20260121_163421.json

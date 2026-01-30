@@ -163,3 +163,9 @@ config.ini
 
 # Backup files
 backup_qualite_*.json
+
+# Large static/data folders (optional: remove to track them)
+Integr11/
+kba105_analysis/
+projet17/
+PrintToB_Utilisation/

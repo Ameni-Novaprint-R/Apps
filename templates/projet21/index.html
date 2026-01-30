@@ -20,12 +20,15 @@
     </div>
 </div>
 
-<div style="display: flex; gap: 10px; margin: 20px 0;">
-    <button id="syncBtn" onclick="startSync()" style="flex: 1; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+<div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
+    <button id="syncBtn" onclick="startSync()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
         🔄 Synchroniser Novaprint
     </button>
-    <button id="verifyBtn" onclick="verifySync()" style="flex: 1; background: linear-gradient(135deg, #007bff, #0056b3); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+    <button id="verifyBtn" onclick="verifySync()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #007bff, #0056b3); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
         🔍 Vérifier Synchronisation
+    </button>
+    <button id="analyseSchemaBtn" onclick="analyseSchemaPapiers()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #6f42c1, #5a32a3); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+        📊 Analyser Schéma PAPIERS
     </button>
 </div>
 
@@ -38,13 +41,92 @@
 
 <div id="logContainer" style="display: none; margin-top: 20px; max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa;"></div>
 
+<div id="analyseSchemaContainer" style="display: none; margin-top: 20px; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa;">
+    <h3 style="margin-top: 0;">📊 Analyse du Schéma - Relations avec PAPIERS_ARTICLES et PAPIERS_IMPRIMEURS</h3>
+    <div id="analyseSchemaLoading" style="text-align: center; padding: 20px;">
+        <p>Analyse en cours...</p>
+    </div>
+    <div id="analyseSchemaResults" style="display: none;">
+        <div id="analyseSchemaSummary" style="background: white; padding: 15px; border-radius: 4px; margin-bottom: 15px;"></div>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+            <input type="text" id="filterTables" placeholder="🔍 Filtrer les tables..." style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            <select id="filterStartTable" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="PAPIERS_ARTICLES">PAPIERS_ARTICLES</option>
+                <option value="PAPIERS_IMPRIMEURS">PAPIERS_IMPRIMEURS</option>
+            </select>
+            <select id="filterRelationType" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="">Tous les types</option>
+                <option value="start">Tables de départ</option>
+                <option value="direct_child">Enfants directs</option>
+                <option value="direct_parent">Parents directs</option>
+                <option value="indirect">Liées indirectement</option>
+            </select>
+        </div>
+        <div id="analyseSchemaTables" style="max-height: 600px; overflow-y: auto;"></div>
+    </div>
+    <div id="analyseSchemaError" style="display: none; color: #b00020; font-weight: bold; padding: 15px; background: #ffebee; border-radius: 4px;"></div>
+</div>
+
 <div id="verifyContainer" style="display: none; margin-top: 20px; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa;">
     <h3 style="margin-top: 0;">Résultats de la vérification</h3>
     <pre id="verifyOutput" style="font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; max-height: 500px; overflow-y: auto; background: white; padding: 15px; border-radius: 4px;"></pre>
+
+    <div id="missingRowsSection" style="display:none; margin-top: 15px;">
+        <h3 style="margin-top: 0;">Lignes manquantes (détails)</h3>
+        <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+            <label style="font-weight: bold;">Table :</label>
+            <select id="missingTableSelect" style="min-width: 260px;"></select>
+            <label style="font-weight: bold;">Lignes / page :</label>
+            <select id="missingLimit" style="width: 110px;">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+            <button class="btn-action" onclick="loadMissingRows(0)">Charger</button>
+            <button class="btn-action" onclick="prevMissingPage()">◀ Précédent</button>
+            <button class="btn-action" onclick="nextMissingPage()">Suivant ▶</button>
+            <span id="missingPagingInfo" style="color:#555; font-size: 12px;"></span>
+        </div>
+        <div id="missingRowsError" style="display:none; color:#b00020; font-weight: bold; margin-bottom: 10px;"></div>
+        <div class="table-wrapper">
+            <table id="missingRowsTable" class="novaprint-table"></table>
+        </div>
+    </div>
+
+    <div id="compareRowsSection" style="display:none; margin-top: 20px;">
+        <h3 style="margin-top: 0;">Comparaison SOURCE vs CIBLE (ligne par ligne)</h3>
+        <p style="margin-top: -8px; color:#555; font-size: 12px;">
+            Chaque ligne affiche <b>toutes les colonnes</b> de la ligne SOURCE et de la ligne CIBLE correspondante (si trouvée).
+        </p>
+        <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+            <label style="font-weight: bold;">Table :</label>
+            <select id="compareTableSelect" style="min-width: 260px;"></select>
+            <label style="font-weight: bold;">Lignes / page :</label>
+            <select id="compareLimit" style="width: 110px;">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+            <button class="btn-action" onclick="loadCompareRows(0)">Charger</button>
+            <button class="btn-action" onclick="exportCompareRowsExcel()">Exporter Excel</button>
+            <button class="btn-action" onclick="prevComparePage()">◀ Précédent</button>
+            <button class="btn-action" onclick="nextComparePage()">Suivant ▶</button>
+            <span id="comparePagingInfo" style="color:#555; font-size: 12px;"></span>
+        </div>
+        <div id="compareRowsError" style="display:none; color:#b00020; font-weight: bold; margin-bottom: 10px;"></div>
+        <div class="table-wrapper">
+            <table id="compareRowsTable" class="novaprint-table"></table>
+        </div>
+    </div>
 </div>
 
 <script>
 let polling = null;
+let verifyDetails = null;
+let missingOffset = 0;
+let compareOffset = 0;
 
 function startSync() {
     document.getElementById('syncBtn').disabled = true;
@@ -92,8 +174,11 @@ function verifySync() {
         .then(data => {
             if (data.success) {
                 document.getElementById('verifyOutput').textContent = data.output;
+                verifyDetails = data.details || null;
+                setupMissingRowsUI(verifyDetails);
             } else {
                 document.getElementById('verifyOutput').textContent = 'Erreur: ' + data.error;
+                setupMissingRowsUI(null);
             }
             document.getElementById('verifyBtn').disabled = false;
             document.getElementById('verifyBtn').style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
@@ -102,7 +187,514 @@ function verifySync() {
             document.getElementById('verifyOutput').textContent = 'Erreur: ' + err.message;
             document.getElementById('verifyBtn').disabled = false;
             document.getElementById('verifyBtn').style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
+            setupMissingRowsUI(null);
         });
+}
+
+function setupMissingRowsUI(details) {
+    const section = document.getElementById('missingRowsSection');
+    const select = document.getElementById('missingTableSelect');
+    const tableEl = document.getElementById('missingRowsTable');
+    const errEl = document.getElementById('missingRowsError');
+    const infoEl = document.getElementById('missingPagingInfo');
+
+    tableEl.innerHTML = '';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    infoEl.textContent = '';
+    select.innerHTML = '';
+    missingOffset = 0;
+
+    if (!details || !details.ecarts_critiques || details.ecarts_critiques.length === 0) {
+        section.style.display = 'none';
+        document.getElementById('compareRowsSection').style.display = 'none';
+        return;
+    }
+
+    // ecarts_critiques: (table, source_count, target_count, missing_count, missing_pks)
+    const items = details.ecarts_critiques
+        .filter(x => Array.isArray(x) && x.length >= 4)
+        .sort((a, b) => (b[3] || 0) - (a[3] || 0));
+
+    for (const it of items) {
+        const tableName = it[0];
+        const missingCount = it[3];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (manque: ${missingCount})`;
+        select.appendChild(opt);
+    }
+
+    section.style.display = 'block';
+
+    // Comparaison: même liste de tables critiques
+    const cmpSection = document.getElementById('compareRowsSection');
+    const cmpSelect = document.getElementById('compareTableSelect');
+    const cmpErr = document.getElementById('compareRowsError');
+    const cmpInfo = document.getElementById('comparePagingInfo');
+    const cmpTable = document.getElementById('compareRowsTable');
+    cmpSelect.innerHTML = '';
+    cmpErr.style.display = 'none';
+    cmpErr.textContent = '';
+    cmpInfo.textContent = '';
+    cmpTable.innerHTML = '';
+    compareOffset = 0;
+
+    for (const it of items) {
+        const tableName = it[0];
+        const missingCount = it[3];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (PK manquantes: ${missingCount})`;
+        cmpSelect.appendChild(opt);
+    }
+    cmpSection.style.display = 'block';
+}
+
+function prevMissingPage() {
+    const limit = parseInt(document.getElementById('missingLimit').value || '50', 10);
+    const newOffset = Math.max(0, (missingOffset || 0) - limit);
+    loadMissingRows(newOffset);
+}
+
+function nextMissingPage() {
+    const limit = parseInt(document.getElementById('missingLimit').value || '50', 10);
+    const newOffset = (missingOffset || 0) + limit;
+    loadMissingRows(newOffset);
+}
+
+function loadMissingRows(offset) {
+    const select = document.getElementById('missingTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('missingLimit').value || '50', 10);
+    const tableEl = document.getElementById('missingRowsTable');
+    const errEl = document.getElementById('missingRowsError');
+    const infoEl = document.getElementById('missingPagingInfo');
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/missing-rows?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            missingOffset = data.offset || 0;
+            const total = data.total_missing || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            const start = Math.min(total, missingOffset + 1);
+            const end = Math.min(total, missingOffset + rows.length);
+
+            infoEl.textContent = total > 0 ? `Affichage ${start}-${end} / ${total}` : 'Aucune ligne manquante';
+
+            // Render table
+            let html = '';
+            html += '<thead><tr>';
+            html += '<th>Table</th>';
+            html += '<th>Cause</th>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                html += '<tr>';
+                html += `<td style="font-weight:bold;">${escapeHtml(data.table)}</td>`;
+                html += `<td>${escapeHtml(row.__cause || '')}</td>`;
+                for (const c of cols) {
+                    const v = row[c];
+                    html += `<td>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
+}
+
+function prevComparePage() {
+    const limit = parseInt(document.getElementById('compareLimit').value || '10', 10);
+    const newOffset = Math.max(0, (compareOffset || 0) - limit);
+    loadCompareRows(newOffset);
+}
+
+function nextComparePage() {
+    const limit = parseInt(document.getElementById('compareLimit').value || '10', 10);
+    const newOffset = (compareOffset || 0) + limit;
+    loadCompareRows(newOffset);
+}
+
+function loadCompareRows(offset) {
+    const select = document.getElementById('compareTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('compareLimit').value || '10', 10);
+    const tableEl = document.getElementById('compareRowsTable');
+    const errEl = document.getElementById('compareRowsError');
+    const infoEl = document.getElementById('comparePagingInfo');
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/compare-rows?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            compareOffset = data.offset || 0;
+            const total = data.total_missing || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            const start = Math.min(total, compareOffset + 1);
+            const end = Math.min(total, compareOffset + rows.length);
+            infoEl.textContent = total > 0 ? `Affichage ${start}-${end} / ${total}` : 'Aucune ligne';
+
+            let html = '';
+            html += '<thead><tr>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            const normVal = (v) => {
+                if (v === null || v === undefined) return '';
+                return String(v).trim();
+            };
+            const valuesEqual = (a, b) => normVal(a) === normVal(b);
+
+            for (const row of rows) {
+                html += '<tr>';
+                for (const c of cols) {
+                    const v = row[c];
+                    let style = '';
+                    // Colorer en rouge si SRC.<col> != CIBLE.<col> (ou inverse)
+                    if (c.startsWith('SRC.')) {
+                        const base = c.slice(4);
+                        const otherKey = `CIBLE.${base}`;
+                        if (otherKey in row && !valuesEqual(v, row[otherKey])) {
+                            style = ' style="background:#ffc7ce;"';
+                        }
+                    } else if (c.startsWith('CIBLE.')) {
+                        const base = c.slice(6);
+                        const otherKey = `SRC.${base}`;
+                        if (otherKey in row && !valuesEqual(v, row[otherKey])) {
+                            style = ' style="background:#ffc7ce;"';
+                        }
+                    }
+                    html += `<td${style}>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
+}
+
+function exportCompareRowsExcel() {
+    const select = document.getElementById('compareTableSelect');
+    const tableName = select.value;
+    const url = `/projet21/compare-rows.xlsx?table=${encodeURIComponent(tableName)}`;
+    window.location = url;
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+let schemaReport = null;
+let startTablesList = [];
+let schemaAdj = null; // graphe non orienté des relations
+let schemaReachable = null; // tables atteignables depuis la table de départ
+
+function analyseSchemaPapiers() {
+    const container = document.getElementById('analyseSchemaContainer');
+    const loading = document.getElementById('analyseSchemaLoading');
+    const results = document.getElementById('analyseSchemaResults');
+    const error = document.getElementById('analyseSchemaError');
+    const btn = document.getElementById('analyseSchemaBtn');
+    
+    container.style.display = 'block';
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    error.style.display = 'none';
+    btn.disabled = true;
+    btn.style.background = '#6c757d';
+    
+    fetch('/projet21/analyse-schema-papiers')
+        .then(r => r.json())
+        .then(data => {
+            loading.style.display = 'none';
+            btn.disabled = false;
+            btn.style.background = 'linear-gradient(135deg, #6f42c1, #5a32a3)';
+            
+            if (data.success && data.report) {
+                schemaReport = data.report;
+                startTablesList = data.report.start_tables || [];
+                displaySchemaReport(data.report);
+                results.style.display = 'block';
+            } else {
+                error.style.display = 'block';
+                error.textContent = data.error || 'Erreur lors de l\'analyse';
+            }
+        })
+        .catch(err => {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.textContent = 'Erreur: ' + err.message;
+            btn.disabled = false;
+            btn.style.background = 'linear-gradient(135deg, #6f42c1, #5a32a3)';
+        });
+}
+
+function displaySchemaReport(report) {
+    const summary = document.getElementById('analyseSchemaSummary');
+    const tablesDiv = document.getElementById('analyseSchemaTables');
+    const filterStartTable = document.getElementById('filterStartTable');
+
+    // Table de départ = obligatoirement PAPIERS_ARTICLES ou PAPIERS_IMPRIMEURS
+    // Valeur par défaut: la 1ère table de départ du report si dispo
+    const defaultStart = (report.start_tables && report.start_tables.length) ? report.start_tables[0] : 'PAPIERS_ARTICLES';
+    filterStartTable.value = defaultStart;
+
+    // Construire le graphe et le set atteignable pour la table de départ courante
+    schemaAdj = buildSchemaAdj(report.tables);
+    schemaReachable = computeReachableFromStart(schemaAdj, filterStartTable.value);
+    
+    // Mettre à jour le résumé et les tables pour la table sélectionnée
+    updateSummaryAndTables(report, filterStartTable.value);
+    
+    // Filtres
+    document.getElementById('filterTables').oninput = () => renderTables(report.tables);
+    document.getElementById('filterRelationType').onchange = () => renderTables(report.tables);
+    filterStartTable.onchange = () => {
+        schemaReachable = computeReachableFromStart(schemaAdj, filterStartTable.value);
+        updateSummaryAndTables(report, filterStartTable.value);
+    };
+}
+
+function updateSummaryAndTables(report, selectedStartTable) {
+    const summary = document.getElementById('analyseSchemaSummary');
+    
+    // Calculer les statistiques uniquement pour la table sélectionnée
+    const relatedTables = computeReachableFromStart(schemaAdj, selectedStartTable);
+    const relatedCount = relatedTables.size;
+    
+    // Compter les enfants directs (tables qui référencent la table de départ)
+    const directChildren = new Set();
+    if (schemaAdj.backward[selectedStartTable]) {
+        for (const child of schemaAdj.backward[selectedStartTable]) {
+            directChildren.add(child);
+        }
+    }
+    
+    // Compter les parents directs (tables référencées par la table de départ)
+    const directParents = new Set();
+    if (schemaAdj.forward[selectedStartTable]) {
+        for (const parent of schemaAdj.forward[selectedStartTable]) {
+            directParents.add(parent);
+        }
+    }
+    
+    // Tables indirectes = toutes les autres (sauf la table de départ elle-même)
+    const indirectCount = relatedCount - 1 - directChildren.size - directParents.size;
+    
+    summary.innerHTML = `
+        <h4 style="margin-top: 0;">Résumé - Table de départ: <strong style="color: #1e3c72;">${selectedStartTable}</strong></h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="background: #e3f2fd; padding: 10px; border-radius: 4px;">
+                <strong>Table de départ:</strong> ${selectedStartTable}
+            </div>
+            <div style="background: #f3e5f5; padding: 10px; border-radius: 4px;">
+                <strong>Total tables liées:</strong> ${relatedCount}
+            </div>
+            <div style="background: #e8f5e9; padding: 10px; border-radius: 4px;">
+                <strong>Enfants directs:</strong> ${directChildren.size}
+            </div>
+            <div style="background: #fff3e0; padding: 10px; border-radius: 4px;">
+                <strong>Parents directs:</strong> ${directParents.size}
+            </div>
+            <div style="background: #fce4ec; padding: 10px; border-radius: 4px;">
+                <strong>Liées indirectement:</strong> ${Math.max(0, indirectCount)}
+            </div>
+        </div>
+        <p style="margin-top: 10px; color: #666; font-size: 12px;">
+            Date de génération: ${new Date(report.generation_date).toLocaleString('fr-FR')}
+        </p>
+    `;
+    
+    // Tables
+    renderTables(report.tables);
+}
+
+function buildSchemaAdj(tables) {
+    // Construire un graphe orienté ET non orienté pour trouver toutes les relations
+    // Graphe orienté: parent -> enfant (via FK)
+    const adjForward = {};
+    // Graphe inversé: enfant -> parent (qui référence cette table)
+    const adjBackward = {};
+    
+    for (const name of Object.keys(tables)) {
+        adjForward[name] = new Set();
+        adjBackward[name] = new Set();
+    }
+    
+    for (const [name, info] of Object.entries(tables)) {
+        const rels = info.foreign_key_relations || [];
+        for (const rel of rels) {
+            if (rel.type === 'references' && rel.referenced_table) {
+                // name référence referenced_table
+                adjForward[name].add(rel.referenced_table);
+                adjBackward[rel.referenced_table].add(name);
+            } else if (rel.type === 'referenced_by' && rel.referencing_table) {
+                // referencing_table référence name
+                adjForward[rel.referencing_table].add(name);
+                adjBackward[name].add(rel.referencing_table);
+            }
+        }
+    }
+    
+    return { forward: adjForward, backward: adjBackward };
+}
+
+function computeReachableFromStart(adj, startTable) {
+    // Trouver toutes les tables liées à startTable (directement ou indirectement)
+    // On parcourt dans les deux sens : enfants (forward) et parents (backward)
+    const seen = new Set();
+    if (!startTable || !adj || !(startTable in adj.forward)) return seen;
+    
+    const q = [startTable];
+    seen.add(startTable);
+    
+    while (q.length) {
+        const cur = q.shift();
+        
+        // Parcourir les enfants (tables référencées par cur)
+        for (const child of (adj.forward[cur] || [])) {
+            if (!seen.has(child)) {
+                seen.add(child);
+                q.push(child);
+            }
+        }
+        
+        // Parcourir les parents (tables qui référencent cur)
+        for (const parent of (adj.backward[cur] || [])) {
+            if (!seen.has(parent)) {
+                seen.add(parent);
+                q.push(parent);
+            }
+        }
+    }
+    
+    return seen;
+}
+
+function renderTables(tables) {
+    const filterText = document.getElementById('filterTables').value.toLowerCase();
+    const filterType = document.getElementById('filterRelationType').value;
+    const filterStartTable = document.getElementById('filterStartTable').value;
+    const tablesDiv = document.getElementById('analyseSchemaTables');
+    
+    const filtered = Object.entries(tables).filter(([name, info]) => {
+        const matchText = !filterText || name.toLowerCase().includes(filterText);
+        const matchType = !filterType || info.relation_types.includes(filterType);
+        
+        // Filtre par table de départ: afficher UNIQUEMENT les tables liées à la table sélectionnée
+        // Si aucune table de départ n'est sélectionnée ou si schemaReachable n'est pas défini, on affiche tout
+        let matchStartTable = true;
+        if (filterStartTable && schemaReachable) {
+            // Vérifier si cette table est dans l'ensemble des tables atteignables depuis la table de départ
+            matchStartTable = schemaReachable.has(name);
+        }
+        
+        return matchText && matchType && matchStartTable;
+    }).sort(([a], [b]) => a.localeCompare(b));
+    
+    let html = '<div style="display: grid; gap: 15px;">';
+    
+    for (const [tableName, tableInfo] of filtered) {
+        const types = tableInfo.relation_types || [];
+        const typeLabels = {
+            'start': '🟢 Table de départ',
+            'direct_child': '🔵 Enfant direct',
+            'direct_parent': '🟡 Parent direct',
+            'indirect': '⚪ Liée indirectement'
+        };
+        
+        html += `
+            <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #1e3c72;">${escapeHtml(tableName)}</h4>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        ${types.map(t => `<span style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px; font-size: 11px;">${typeLabels[t] || t}</span>`).join('')}
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; font-size: 12px;">
+                    <div><strong>Lignes:</strong> ${tableInfo.row_count !== null ? tableInfo.row_count.toLocaleString('fr-FR') : 'N/A'}</div>
+                    <div><strong>Colonnes:</strong> ${tableInfo.column_count || 0}</div>
+                </div>
+        `;
+        
+        // Relations FK
+        if (tableInfo.foreign_key_relations && tableInfo.foreign_key_relations.length > 0) {
+            html += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">';
+            html += '<strong style="font-size: 12px;">Relations:</strong><ul style="margin: 5px 0; padding-left: 20px; font-size: 11px;">';
+            
+            for (const rel of tableInfo.foreign_key_relations) {
+                if (rel.type === 'references') {
+                    html += `<li>Référence <strong>${escapeHtml(rel.referenced_table)}</strong> via FK <code>${escapeHtml(rel.fk_name)}</code> (${escapeHtml(rel.parent_column)} → ${escapeHtml(rel.referenced_column)})</li>`;
+                } else if (rel.type === 'referenced_by') {
+                    html += `<li>Référencée par <strong>${escapeHtml(rel.referencing_table)}</strong></li>`;
+                }
+            }
+            
+            html += '</ul></div>';
+        }
+        
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    
+    if (filtered.length === 0) {
+        const filterStartTable = document.getElementById('filterStartTable').value;
+        tablesDiv.innerHTML = `<p style="text-align: center; color: #666; padding: 20px;">
+            Aucune table trouvée avec les filtres sélectionnés.<br>
+            ${filterStartTable ? `Table de départ: <strong>${filterStartTable}</strong>` : ''}
+        </p>`;
+    } else {
+        tablesDiv.innerHTML = html;
+    }
 }
 </script>
 {% endblock %}

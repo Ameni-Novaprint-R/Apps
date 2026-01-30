@@ -2,7 +2,12 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from db import get_db_cursor
 from datetime import datetime, timedelta
 from contextlib import contextmanager
-import pdfkit
+try:
+    import pdfkit
+    PDFKIT_AVAILABLE = True
+except ImportError:
+    PDFKIT_AVAILABLE = False
+    pdfkit = None
 
 
 
@@ -305,10 +310,19 @@ from flask import make_response, render_template
 
 
 
-config = pdfkit.configuration(wkhtmltopdf=r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe")
+if PDFKIT_AVAILABLE:
+    try:
+        config = pdfkit.configuration(wkhtmltopdf=r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe")
+    except Exception:
+        config = None
+else:
+    config = None
 
 @projet6_bp.route('/projet6/pdf/<int:id>')
 def export_pdf(id):
+    if not PDFKIT_AVAILABLE or config is None:
+        flash("Export PDF non disponible : pdfkit n'est pas installé ou wkhtmltopdf n'est pas configuré.", "danger")
+        return redirect(url_for('projet6.programme_voyage'))
     with get_db_cursor() as cur:
         cur.execute("SELECT NumeroVoyage, DateVoyage, Destination, Camion, Chauffeur FROM VOYAGES WHERE ID = ?", (id,))
         voyage_data = cur.fetchone()

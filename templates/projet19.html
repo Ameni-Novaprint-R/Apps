@@ -3,14 +3,20 @@
 {% block title %}Projet 19 – Gestion des Dossiers en Cours{% endblock %}
 
 {% block head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+
 <style>
     .dossiers-table {
         width: 100%;
+        max-width: 100%;
         border-collapse: collapse;
         background: white;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border-radius: 8px;
         overflow: hidden;
+        table-layout: fixed; /* Forcer les largeurs définies */
     }
     
     .dossiers-table thead {
@@ -18,16 +24,156 @@
         color: white;
     }
     
-    .dossiers-table th {
+    .dossiers-table thead th {
         padding: 12px;
         text-align: left;
         font-weight: 600;
         font-size: 0.9rem;
+        position: relative;
+        cursor: pointer;
+    }
+    
+    .dossiers-table thead th.sorting:after,
+    .dossiers-table thead th.sorting_asc:after,
+    .dossiers-table thead th.sorting_desc:after {
+        content: '';
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.8rem;
+    }
+    
+    .dossiers-table thead th.sorting:after {
+        content: '⇅';
+        opacity: 0.5;
+    }
+    
+    .dossiers-table thead th.sorting_asc:after {
+        content: '↑';
+    }
+    
+    .dossiers-table thead th.sorting_desc:after {
+        content: '↓';
+    }
+    
+    /* Ligne de filtres */
+    .dossiers-table thead tr.table-filters th {
+        padding: 8px;
+        background: #f8f9fa;
+        border-top: 2px solid #dee2e6;
+    }
+    
+    .dossiers-table thead tr.table-filters input,
+    .dossiers-table thead tr.table-filters select {
+        width: 100%;
+        padding: 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+    
+    .dossiers-table thead tr.table-filters input:focus,
+    .dossiers-table thead tr.table-filters select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+    }
+    
+    /* Style pour DataTables */
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter,
+    .dataTables_wrapper .dataTables_info,
+    .dataTables_wrapper .dataTables_paginate {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .dataTables_wrapper .dataTables_filter input {
+        margin-left: 0.5em;
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+    
+    .dataTables_wrapper .dataTables_length select {
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        margin: 0 0.5em;
+    }
+    
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        padding: 0.5em 1em;
+        margin: 0 2px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        background: #667eea;
+        color: white !important;
+        border-color: #667eea;
+    }
+    
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+        background: #667eea;
+        color: white !important;
+        border-color: #667eea;
     }
     
     .dossiers-table td {
         padding: 10px 12px;
         border-bottom: 1px solid #e9ecef;
+    }
+    
+    /* Largeur spécifique pour la colonne Désignation (colonne 3) - ajustée */
+    .dossiers-table th:nth-child(3),
+    .dossiers-table td:nth-child(3) {
+        min-width: 120px;
+        max-width: 150px;
+        word-wrap: break-word;
+    }
+    
+    /* Colonne Avancement (colonne 11) - ajustée */
+    .dossiers-table th:nth-child(11),
+    .dossiers-table td:nth-child(11) {
+        width: 100px;
+        min-width: 80px;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dossiers-table td:nth-child(11) .avancement-select {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        font-size: 0.85rem;
+    }
+    
+    /* Largeur minimale pour la colonne Actions (colonne 12) */
+    .dossiers-table th:nth-child(12),
+    .dossiers-table td:nth-child(12) {
+        width: 70px;
+        min-width: 70px;
+        max-width: 70px;
+        padding: 4px 1px;
+        text-align: center;
+        overflow: visible;
+        white-space: nowrap;
+    }
+    
+    /* Réduire la taille de la police pour certaines colonnes */
+    .dossiers-table td {
+        font-size: 0.85rem;
+        padding: 8px 6px;
+    }
+    
+    .dossiers-table th {
+        font-size: 0.85rem;
+        padding: 10px 6px;
     }
     
     .dossiers-table tbody tr:hover {
@@ -36,6 +182,26 @@
     
     .dossiers-table tbody tr:last-child td {
         border-bottom: none;
+    }
+    
+    /* Largeur spécifique pour la colonne Désignation (colonne 3) */
+    .dossiers-table th:nth-child(3),
+    .dossiers-table td:nth-child(3) {
+        min-width: 300px;
+        max-width: 400px;
+        word-wrap: break-word;
+    }
+    
+    /* Largeur minimale pour la colonne Actions (colonne 12) */
+    .dossiers-table th:nth-child(12),
+    .dossiers-table td:nth-child(12) {
+        width: 85px;
+        min-width: 85px;
+        max-width: 85px;
+        padding: 6px 2px;
+        text-align: center;
+        overflow: visible;
+        white-space: nowrap;
     }
     
     /* Ligne de saisie en haut */
@@ -73,26 +239,31 @@
     /* Actions */
     .action-icons {
         display: flex;
-        gap: 8px;
+        gap: 4px;
         justify-content: center;
         align-items: center;
+        flex-wrap: nowrap;
+        min-width: 80px;
     }
     
     .icon-btn {
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 1.2rem;
-        padding: 4px 8px;
-        border-radius: 4px;
+        font-size: 0.9rem;
+        padding: 2px 4px;
+        border-radius: 3px;
         transition: all 0.2s ease;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        line-height: 1;
     }
     
     .icon-btn:hover {
-        transform: scale(1.2);
+        transform: scale(1.15);
         background-color: rgba(0,0,0,0.05);
     }
     
@@ -151,29 +322,12 @@
         padding: 40px;
         color: #6c757d;
     }
-    
-    .filter-section {
-        margin-bottom: 20px;
-    }
-    
-    .filter-section input {
-        max-width: 300px;
-    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid" style="width: 100%; max-width: 100%; overflow-x: visible;">
     <h1 class="mb-4">📁 Projet 19 – Gestion des Dossiers en Cours</h1>
-    
-    <!-- Section de filtre -->
-    <div class="filter-section">
-        <input type="text" 
-               id="filter-dossiers" 
-               class="form-control" 
-               placeholder="🔍 Filtrer par numéro de dossier..."
-               autocomplete="off">
-    </div>
     
     <!-- Barre d'actions au-dessus du tableau -->
     <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -205,28 +359,28 @@
     </div>
     
     <!-- Tableau des dossiers -->
-    <div class="table-responsive">
-        <table class="dossiers-table">
-            <thead>
-                <tr>
-                    <th>N° de dossier</th>
-                    <th>Client</th>
-                    <th>Désignation</th>
-                    <th>Marge</th>
-                    <th>Prix de vente unitaire</th>
-                    <th>Quantité</th>
-                    <th>Prix de vente total</th>
-                    <th>Coût Total Estimé</th>
-                    <th>Cout Total</th>
-                    <th>Cout Total Réel</th>
-                    <th>Avancement</th>
-                    <th style="text-align: center; width: 120px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="dossiers-tbody">
-                <!-- Les lignes de données seront ajoutées ici -->
-            </tbody>
-        </table>
+    <div class="table-responsive" style="overflow-x: visible; width: 100%;">
+            <table id="dossiers-table" class="dossiers-table table table-striped table-hover" style="width: 100%; table-layout: fixed; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th>N° de dossier</th>
+                        <th>Client</th>
+                        <th>Désignation</th>
+                        <th>Marge</th>
+                        <th>Prix de vente unitaire</th>
+                        <th>Quantité</th>
+                        <th>Prix de vente total</th>
+                        <th>Coût Total Estimé</th>
+                        <th>Cout Total</th>
+                        <th>Cout Total Réel</th>
+                        <th>Avancement</th>
+                        <th style="text-align: center; width: 70px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="dossiers-tbody">
+                    <!-- Les lignes de données seront ajoutées ici -->
+                </tbody>
+            </table>
     </div>
     
 </div>
@@ -1181,7 +1335,7 @@ async function saveNewDossier(event) {
         // clearCommandeDetails(); // Fonction obsolète
         
         // Recharger les dossiers pour afficher le nouveau dossier avec les bonnes valeurs
-        loadDossiers();
+        reloadDossiersAndRefreshTable();
         
         // CRITIQUE: Réinitialiser le flag APRÈS l'enregistrement réussi
         isSavingDossier = false;
@@ -1234,13 +1388,15 @@ function loadDossiers() {
             }
             
             allDossiers = data.dossiers || [];
-            console.log('[loadDossiers]', allDossiers.length, 'dossiers chargés');
+            console.log('[loadDossiers]', allDossiers.length, 'dossiers chargés depuis l\'API');
             // Debug: afficher le premier dossier
             if (allDossiers.length > 0) {
                 console.log('[loadDossiers] Premier dossier:', allDossiers[0]);
                 console.log('[loadDossiers] prix_vente_unitaire:', allDossiers[0].prix_vente_unitaire);
+                console.log('[loadDossiers] Exemple de données - Dossier ID:', allDossiers[0].id, 'Quantité:', allDossiers[0].quantite, 'Prix total:', allDossiers[0].prix_vente_total);
             }
-            filterDossiers();
+            // Afficher tous les dossiers (le filtrage se fait via DataTables)
+            displayDossiers(allDossiers);
         })
         .catch(error => {
             console.error('[loadDossiers] Erreur lors du fetch:', error);
@@ -1251,18 +1407,37 @@ function loadDossiers() {
         });
 }
 
-// Filtrer les dossiers
-document.getElementById('filter-dossiers').addEventListener('input', function(e) {
-    filterDossiers();
-});
+// Fonction filterDossiers supprimée - le filtrage se fait maintenant uniquement via DataTables
+// (filtres par colonne et recherche globale de DataTables)
 
-function filterDossiers() {
-    const filterTerm = document.getElementById('filter-dossiers').value.toLowerCase();
-    const filtered = allDossiers.filter(d => 
-        !filterTerm || (d.numero && d.numero.toLowerCase().includes(filterTerm))
-    );
+// Variable globale pour DataTable
+let dataTableInstance = null;
+
+// Fonction helper pour rafraîchir DataTable après modification
+function refreshDataTable() {
+    if (dataTableInstance) {
+        // Recharger les données depuis allDossiers
+        displayDossiers(allDossiers);
+    }
+}
+
+// Fonction pour recharger les dossiers et rafraîchir le tableau DataTable
+function reloadDossiersAndRefreshTable() {
+    console.log('[reloadDossiersAndRefreshTable] Rechargement des dossiers depuis l\'API...');
     
-    displayDossiers(filtered);
+    // Détruire DataTable avant de recharger pour éviter les conflits
+    if (dataTableInstance) {
+        try {
+            dataTableInstance.destroy();
+            dataTableInstance = null;
+            console.log('[reloadDossiersAndRefreshTable] DataTable détruit');
+        } catch (e) {
+            console.warn('[reloadDossiersAndRefreshTable] Erreur lors de la destruction de DataTable:', e);
+        }
+    }
+    
+    // Recharger les données depuis l'API
+    loadDossiers();
 }
 
 // Afficher les dossiers dans le tableau
@@ -1275,11 +1450,16 @@ function displayDossiers(dossiers) {
     if (dossiers.length === 0) {
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `
-            <td colspan="11" class="empty-state">
+            <td colspan="12" class="empty-state">
                 <p>Aucun dossier en suivi</p>
             </td>
         `;
         tbody.appendChild(emptyRow);
+        // Détruire DataTable s'il existe
+        if (dataTableInstance) {
+            dataTableInstance.destroy();
+            dataTableInstance = null;
+        }
         return;
     }
     
@@ -1288,20 +1468,243 @@ function displayDossiers(dossiers) {
         console.log('[filterDossiers] Création ligne pour dossier:', dossier.numero);
         const row = createDossierRow(dossier);
         tbody.appendChild(row);
-        
-        // Vérifier le nombre de colonnes
-        const cells = row.querySelectorAll('td');
-        console.log('[filterDossiers] Nombre de colonnes dans la ligne:', cells.length, 'pour dossier', dossier.numero);
-        
-        // Vérifier le nombre de colonnes (maintenant 7 au lieu de 9)
     });
     
-    // Vérifier le nombre de colonnes dans l'en-tête
-    const headerCells = document.querySelectorAll('.dossiers-table thead th');
-    console.log('[filterDossiers] Nombre de colonnes dans l\'en-tête:', headerCells.length);
-    headerCells.forEach((th, index) => {
-        console.log(`[filterDossiers] En-tête colonne ${index + 1}:`, th.textContent.trim());
+    // Initialiser ou réinitialiser DataTable après un court délai pour s'assurer que le DOM est mis à jour
+    setTimeout(() => {
+        initializeDataTable();
+    }, 100);
+}
+
+// Initialiser DataTable avec filtres et tri
+function initializeDataTable() {
+    console.log('[initializeDataTable] Début de l\'initialisation...');
+    
+    // Vérifier que jQuery est disponible
+    if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
+        console.error('[initializeDataTable] jQuery n\'est pas disponible, réessai dans 200ms...');
+        setTimeout(initializeDataTable, 200);
+        return;
+    }
+    
+    // Vérifier que DataTable est disponible
+    if (typeof $.fn.DataTable === 'undefined') {
+        console.error('[initializeDataTable] DataTables n\'est pas disponible, réessai dans 200ms...');
+        setTimeout(initializeDataTable, 200);
+        return;
+    }
+    
+    const $table = $('#dossiers-table');
+    
+    if ($table.length === 0) {
+        console.error('[initializeDataTable] Tableau introuvable');
+        return;
+    }
+    
+    console.log('[initializeDataTable] Tableau trouvé, nombre de lignes:', $table.find('tbody tr').length);
+    
+    // Détruire l'instance existante si elle existe
+    if (dataTableInstance) {
+        try {
+            dataTableInstance.destroy();
+            dataTableInstance = null;
+        } catch (e) {
+            console.warn('[initializeDataTable] Erreur lors de la destruction:', e);
+        }
+    }
+    
+    // Supprimer l'ancienne ligne de filtres si elle existe
+    $table.find('thead tr.table-filters').remove();
+    
+    // Ajouter une nouvelle ligne de filtres
+    const $thead = $table.find('thead');
+    const $filterRow = $('<tr class="table-filters"></tr>');
+    
+    // Colonnes avec leurs types de filtres
+    const filterConfig = [
+        { type: 'text', placeholder: 'Filtrer N° dossier' },
+        { type: 'text', placeholder: 'Filtrer Client' },
+        { type: 'text', placeholder: 'Filtrer Désignation' },
+        { type: 'text', placeholder: 'Filtrer Marge' },
+        { type: 'text', placeholder: 'Filtrer Prix unitaire' },
+        { type: 'text', placeholder: 'Filtrer Quantité' },
+        { type: 'text', placeholder: 'Filtrer Prix total' },
+        { type: 'text', placeholder: 'Filtrer CT Estimé' },
+        { type: 'text', placeholder: 'Filtrer Cout Total' },
+        { type: 'text', placeholder: 'Filtrer Ct Rel' },
+        { type: 'text', placeholder: 'Filtrer Avancement' },
+        { type: null } // Actions - pas de filtre
+    ];
+    
+    filterConfig.forEach((config, index) => {
+        const $cell = $('<th></th>');
+        if (config && config.type) {
+            if (config.type === 'text') {
+                $cell.append(`<input type="text" placeholder="${config.placeholder}" data-col="${index}" class="column-filter" />`);
+            } else if (config.type === 'select') {
+                $cell.append(`<select data-col="${index}" class="column-filter"><option value="">Tous</option></select>`);
+            }
+        }
+        $filterRow.append($cell);
     });
+    
+    $thead.append($filterRow);
+    
+    // Configuration des colonnes avec largeurs ajustées pour éviter le défilement horizontal
+    const columnDefs = [
+        { targets: 0, orderable: true, type: 'string', width: '90px' },  // N° dossier
+        { targets: 1, orderable: true, type: 'string', width: '100px' },  // Client
+        { targets: 2, orderable: true, type: 'string', width: '150px' },  // Désignation (réduite)
+        { targets: 3, orderable: true, type: 'num', width: '60px' },     // Marge
+        { targets: 4, orderable: true, type: 'num', width: '90px' },     // Prix unitaire
+        { targets: 5, orderable: true, type: 'num', width: '60px' },     // Quantité
+        { targets: 6, orderable: true, type: 'num', width: '90px' },      // Prix total
+        { targets: 7, orderable: true, type: 'num', width: '90px' },     // CT Estimé
+        { targets: 8, orderable: true, type: 'num', width: '80px' },     // Cout Total
+        { targets: 9, orderable: true, type: 'num', width: '80px' },     // Ct Rel
+        { targets: 10, orderable: true, type: 'string', width: '100px' },  // Avancement
+        { targets: 11, orderable: false, width: '70px' }                  // Actions (minimisée)
+    ];
+    
+    // Initialiser DataTable
+    try {
+        console.log('[initializeDataTable] Initialisation de DataTable...');
+        dataTableInstance = $table.DataTable({
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/fr-FR.json',
+                search: 'Recherche globale:',
+                lengthMenu: 'Afficher _MENU_ entrées',
+                info: 'Affichage de _START_ à _END_ sur _TOTAL_ entrées',
+                infoEmpty: 'Affichage de 0 à 0 sur 0 entrées',
+                infoFiltered: '(filtré sur _MAX_ entrées au total)',
+                zeroRecords: 'Aucun résultat trouvé',
+                emptyTable: 'Aucune donnée disponible'
+            },
+            order: [[0, 'desc']], // Tri par défaut sur la colonne N° dossier (décroissant)
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tous']],
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
+        columnDefs: columnDefs,
+        autoWidth: false, // Utiliser les largeurs définies
+        responsive: false, // Désactiver responsive pour respecter les largeurs définies
+        scrollX: false, // Désactiver le défilement horizontal
+        fixedColumns: false, // Ne pas fixer les colonnes
+            initComplete: function() {
+                console.log('[initializeDataTable] DataTable initialisé avec succès');
+                // Initialiser les filtres par colonne
+                const api = this.api();
+                
+                // Écouter les changements dans les champs de filtre
+                $('.column-filter').on('keyup change', function() {
+                    const columnIndex = $(this).data('col');
+                    const filterValue = $(this).val();
+                    
+                    // Appliquer le filtre
+                    api.column(columnIndex).search(filterValue).draw();
+                });
+                
+                // Barre de défilement horizontale désactivée - tableau ajusté pour s'afficher sans défilement
+                
+                console.log('[initializeDataTable] Filtres par colonne initialisés');
+            }
+        });
+        console.log('[initializeDataTable] ✅ DataTable créé avec succès');
+    } catch (error) {
+        console.error('[initializeDataTable] ❌ Erreur lors de l\'initialisation de DataTable:', error);
+    }
+}
+
+// Synchroniser les barres de défilement horizontales (haut et bas)
+function setupHorizontalScrollSync() {
+    // Attendre que DataTables soit complètement initialisé
+    setTimeout(function() {
+        // Chercher le conteneur de défilement de DataTables
+        // Avec scrollX, DataTables crée .dataTables_scrollBody ou .dataTables_scroll
+        let $tableWrapper = $('.dataTables_scrollBody');
+        if ($tableWrapper.length === 0) {
+            $tableWrapper = $('.dataTables_scroll');
+        }
+        if ($tableWrapper.length === 0) {
+            // Si aucun wrapper DataTables trouvé, utiliser le conteneur table-responsive
+            $tableWrapper = $('.table-responsive');
+        }
+        
+        const $topScroll = $('#table-scroll-top');
+        const $topScrollInner = $('.table-scroll-inner-top');
+        
+        if ($tableWrapper.length === 0 || $topScroll.length === 0) {
+            console.warn('[setupHorizontalScrollSync] Éléments de défilement non trouvés', {
+                tableWrapper: $tableWrapper.length,
+                topScroll: $topScroll.length
+            });
+            // Réessayer après un délai
+            setTimeout(setupHorizontalScrollSync, 500);
+            return;
+        }
+        
+        let isScrolling = false; // Éviter les boucles infinies
+        
+        // Fonction pour synchroniser la largeur et la position
+        function syncScroll() {
+            if (isScrolling) return;
+            
+            // Obtenir la largeur réelle du contenu du tableau
+            const tableElement = document.getElementById('dossiers-table');
+            if (tableElement) {
+                const scrollWidth = tableElement.scrollWidth;
+                const clientWidth = $tableWrapper[0].clientWidth || $tableWrapper.width();
+                
+                // Ajuster la largeur du conteneur interne
+                $topScrollInner.css('width', scrollWidth + 'px');
+                
+                // Synchroniser la position de défilement
+                const scrollLeft = $tableWrapper.scrollLeft();
+                if (Math.abs($topScroll.scrollLeft() - scrollLeft) > 1) {
+                    isScrolling = true;
+                    $topScroll.scrollLeft(scrollLeft);
+                    setTimeout(() => { isScrolling = false; }, 10);
+                }
+            }
+        }
+        
+        // Synchroniser lors du défilement du tableau principal
+        $tableWrapper.on('scroll', function() {
+            if (isScrolling) return;
+            const scrollLeft = $(this).scrollLeft();
+            isScrolling = true;
+            $topScroll.scrollLeft(scrollLeft);
+            setTimeout(() => { isScrolling = false; }, 10);
+        });
+        
+        // Synchroniser lors du défilement de la barre en haut
+        $topScroll.on('scroll', function() {
+            if (isScrolling) return;
+            const scrollLeft = $(this).scrollLeft();
+            isScrolling = true;
+            $tableWrapper.scrollLeft(scrollLeft);
+            setTimeout(() => { isScrolling = false; }, 10);
+        });
+        
+        // Synchroniser après chaque redraw de DataTable
+        if (dataTableInstance) {
+            dataTableInstance.on('draw', function() {
+                setTimeout(syncScroll, 150);
+            });
+        }
+        
+        // Synchroniser initialement
+        setTimeout(syncScroll, 300);
+        
+        // Synchroniser lors du redimensionnement de la fenêtre
+        $(window).on('resize', function() {
+            setTimeout(syncScroll, 100);
+        });
+        
+        console.log('[setupHorizontalScrollSync] Synchronisation des barres de défilement configurée', {
+            tableWrapper: $tableWrapper.length,
+            topScroll: $topScroll.length
+        });
+    }, 500);
 }
 
 // Créer une ligne de dossier
@@ -1393,14 +1796,14 @@ function createDossierRow(dossier) {
             <td class="readonly-cell edit-ct-estime-display" data-id="${dossier.id}">${ctEstimeDisplay}</td>
             <td class="readonly-cell edit-cout-total-display" data-id="${dossier.id}">${coutTotalDisplay}</td>
             <td class="readonly-cell edit-ct-rel-display" data-id="${dossier.id}">${ctRelDisplay}</td>
-            <td>
+            <td style="width: 150px; min-width: 150px; max-width: 150px; overflow: hidden;">
                 <select class="edit-avancement-select form-control" 
                         data-id="${dossier.id}"
-                        style="width: 100%; padding: 4px;">
+                        style="width: 100%; padding: 4px; max-width: 100%; box-sizing: border-box;">
                     <option value="">Chargement...</option>
                 </select>
             </td>
-            <td>
+            <td style="width: 85px; min-width: 85px; max-width: 85px; padding: 6px 2px; overflow: visible;">
                 <div class="action-icons">
                     <button class="icon-btn icon-save" 
                             onclick="saveEdit(${dossier.id})"
@@ -1473,12 +1876,12 @@ function createDossierRow(dossier) {
             <td class="readonly-cell">${ctEstimeDisplay}</td>
             <td class="readonly-cell">${coutTotalDisplay}</td>
             <td class="readonly-cell">${ctRelDisplay}</td>
-            <td class="avancement-cell" data-id="${dossier.id}" data-numero="${dossier.numero || ''}">
-                <select class="avancement-select form-control" style="width: 100%; padding: 4px;">
+            <td class="avancement-cell" data-id="${dossier.id}" data-numero="${dossier.numero || ''}" style="width: 100px; min-width: 80px; max-width: 100px; overflow: hidden;">
+                <select class="avancement-select form-control" style="width: 100%; padding: 3px; max-width: 100%; box-sizing: border-box; font-size: 0.85rem;">
                     <option value="">Chargement...</option>
                 </select>
             </td>
-            <td>
+            <td style="width: 70px; min-width: 70px; max-width: 70px; padding: 4px 1px; overflow: visible;">
                 <div class="action-icons">
                     <button class="icon-btn icon-edit" 
                             onclick="startEdit(${dossier.id})"
@@ -1516,13 +1919,31 @@ function createDossierRow(dossier) {
                     const option = document.createElement('option');
                     option.value = poste;
                     option.textContent = poste;
+                    // Sélectionner si c'est l'avancement actuel (qui contient le dernier service coché)
                     if (poste === dossier.avancement) {
                         option.selected = true;
                     }
                     select.appendChild(option);
                 });
+                
+                // Si l'avancement n'est pas dans la liste mais existe, l'ajouter et le sélectionner
+                if (dossier.avancement && !postes.includes(dossier.avancement)) {
+                    const option = document.createElement('option');
+                    option.value = dossier.avancement;
+                    option.textContent = dossier.avancement;
+                    option.selected = true;
+                    select.insertBefore(option, select.firstChild.nextSibling); // Insérer après "-- Sélectionner --"
+                }
             } else {
                 select.innerHTML = '<option value="">-- Aucun poste disponible --</option>';
+                // Si on a un avancement même sans postes, l'afficher
+                if (dossier.avancement) {
+                    const option = document.createElement('option');
+                    option.value = dossier.avancement;
+                    option.textContent = dossier.avancement;
+                    option.selected = true;
+                    select.appendChild(option);
+                }
             }
             
             // Ajouter l'événement onChange
@@ -1758,7 +2179,7 @@ function startEdit(id) {
 // Annuler l'édition
 function cancelEdit() {
     editingId = null;
-    loadDossiers();
+    reloadDossiersAndRefreshTable();
 }
 
 // Enregistrer l'édition
@@ -1838,8 +2259,8 @@ function saveEdit(id) {
         editingId = null;
         // Attendre un peu pour s'assurer que la base de données est à jour
         setTimeout(() => {
-            loadDossiers();
-        }, 100);
+            reloadDossiersAndRefreshTable();
+        }, 500);
     })
     .catch(error => {
         console.error('Erreur lors de la mise à jour:', error);
@@ -1850,7 +2271,7 @@ function saveEdit(id) {
             saveButton.style.opacity = '1';
         }
         editingId = null;
-        loadDossiers(); // Recharger en cas d'erreur
+        reloadDossiersAndRefreshTable(); // Recharger en cas d'erreur
     });
 }
 
@@ -1895,7 +2316,7 @@ function deleteDossier(id) {
             return;
         }
         
-        loadDossiers();
+        reloadDossiersAndRefreshTable();
     })
     .catch(error => {
         console.error('Erreur:', error);
@@ -1946,6 +2367,7 @@ function openNewDossierPopup() {
     // Réinitialiser les données
     popupCommandeData = null;
     popupServicesData = {};
+    window.popupCheckedServices = []; // Réinitialiser les services cochés en mode création
     
     // Focus sur le champ numéro
     setTimeout(() => {
@@ -1962,6 +2384,7 @@ function closeNewDossierPopup() {
     if (modal) {
         modal.style.display = 'none';
     }
+    // NE PAS réinitialiser popupCheckedServices ici - ils doivent persister pour la prochaine ouverture
     // Réinitialiser le mode d'édition
     popupEditMode = false;
     popupEditDossierId = null;
@@ -2057,6 +2480,23 @@ function openEditDossierPopup(dossierId) {
         quantite: dossier.quantite
     };
     
+    // Récupérer les services cochés depuis le localStorage pour ce dossier
+    const storageKey = `projet19_checked_services_${dossier.numero}`;
+    const savedCheckedServices = localStorage.getItem(storageKey);
+    if (savedCheckedServices) {
+        try {
+            window.popupCheckedServices = JSON.parse(savedCheckedServices);
+            console.log('[openEditDossierPopup] Services cochés restaurés depuis localStorage:', window.popupCheckedServices);
+        } catch (e) {
+            console.warn('[openEditDossierPopup] Erreur lors de la restauration des services cochés:', e);
+            window.popupCheckedServices = [];
+        }
+    } else {
+        // Si pas de services cochés sauvegardés, initialiser avec l'avancement
+        window.popupCheckedServices = [];
+        console.log('[openEditDossierPopup] Aucun service coché sauvegardé, utilisation de l\'avancement:', dossier.avancement);
+    }
+    
     // Charger les services pour ce dossier
     loadServicesInPopup(dossier.numero, dossier.avancement);
 }
@@ -2148,6 +2588,9 @@ function loadCommandeDataInPopup(numero) {
         });
 }
 
+// Variable globale pour stocker les services cochés (pour les restaurer lors de la réouverture)
+window.popupCheckedServices = window.popupCheckedServices || [];
+
 // Charger et afficher les services dans le popup
 function loadServicesInPopup(numero, selectedAvancement = null) {
     const servicesList = document.getElementById('popup-services-list');
@@ -2155,6 +2598,29 @@ function loadServicesInPopup(numero, selectedAvancement = null) {
     
     // Stocker l'avancement sélectionné pour le pré-cocher
     window.popupSelectedAvancement = selectedAvancement;
+    
+    // Si on est en mode édition, essayer de restaurer les services cochés depuis localStorage
+    if (popupEditMode) {
+        const storageKey = `projet19_checked_services_${numero}`;
+        const savedCheckedServices = localStorage.getItem(storageKey);
+        if (savedCheckedServices) {
+            try {
+                window.popupCheckedServices = JSON.parse(savedCheckedServices);
+                console.log('[loadServicesInPopup] Mode édition - Services cochés restaurés depuis localStorage:', window.popupCheckedServices);
+            } catch (e) {
+                console.warn('[loadServicesInPopup] Erreur lors de la restauration:', e);
+                window.popupCheckedServices = [];
+            }
+        } else {
+            // Si pas de services cochés sauvegardés, initialiser avec l'avancement
+            window.popupCheckedServices = [];
+            console.log('[loadServicesInPopup] Mode édition - Aucun service coché sauvegardé, utilisation de l\'avancement:', selectedAvancement);
+        }
+    } else {
+        // Mode création : réinitialiser les services cochés
+        window.popupCheckedServices = [];
+        console.log('[loadServicesInPopup] Mode création - Services cochés réinitialisés');
+    }
     
     // Charger la liste des services avec leurs coûts CtPrevDev
     fetch(`{{ url_for('projet19.api_get_postes', numero='') }}${encodeURIComponent(numero)}`)
@@ -2294,9 +2760,11 @@ function loadServiceCosts(numero, services) {
             return (a.id_fiche_travail || 0) - (b.id_fiche_travail || 0);
         });
         
-        // Récupérer l'avancement sélectionné pour pré-cocher les services correspondants
+        // Récupérer l'avancement sélectionné et les services cochés précédemment
         const selectedAvancement = window.popupSelectedAvancement;
+        const checkedServices = window.popupCheckedServices || [];
         console.log('[renderServicesList] Avancement à pré-cocher:', selectedAvancement);
+        console.log('[renderServicesList] Services cochés à restaurer:', checkedServices);
         
         sortedServices.forEach(serviceData => {
             // Afficher le nom du service avec le nom du poste si disponible pour différencier les occurrences
@@ -2311,8 +2779,30 @@ function loadServiceCosts(numero, services) {
                 displayName += ` #${occurrenceIndex}`;
             }
             
-            // Pré-cocher si c'est l'avancement sélectionné
-            const isChecked = serviceData.checked || (selectedAvancement && serviceData.nom === selectedAvancement);
+            // Déterminer si le service doit être coché :
+            // 1. Priorité : restaurer depuis les services cochés précédemment (mode édition)
+            // 2. Sinon : cocher si c'est l'avancement sélectionné (mode création ou première ouverture)
+            let isChecked = false;
+            if (checkedServices.length > 0 && popupEditMode) {
+                // Mode édition : restaurer tous les services qui étaient cochés
+                isChecked = checkedServices.includes(serviceData.id);
+                console.log(`[renderServicesList] Service ${serviceData.nom} (ID: ${serviceData.id}) - Dans checkedServices: ${isChecked}`);
+            } else if (selectedAvancement) {
+                // Mode création ou première ouverture : cocher le service correspondant à l'avancement
+                // Si plusieurs occurrences du même service, cocher toutes les occurrences
+                isChecked = serviceData.nom === selectedAvancement;
+                console.log(`[renderServicesList] Service ${serviceData.nom} - Correspond à avancement: ${isChecked}`);
+                
+                // Si on coche ce service, l'ajouter à la liste des services cochés pour la sauvegarde
+                if (isChecked && !checkedServices.includes(serviceData.id)) {
+                    checkedServices.push(serviceData.id);
+                }
+            }
+            
+            // Mettre à jour l'état checked dans popupServicesData pour cohérence
+            if (isChecked) {
+                serviceData.checked = true;
+            }
             
             html += `
                 <div class="service-item">
@@ -2329,6 +2819,10 @@ function loadServiceCosts(numero, services) {
         });
         
         servicesList.innerHTML = html;
+        
+        // Mettre à jour window.popupCheckedServices avec les services effectivement cochés
+        window.popupCheckedServices = checkedServices;
+        console.log('[renderServicesList] Services cochés après rendu:', window.popupCheckedServices);
         
         // Calculer le coût total initial (cela appellera aussi calculerCtRelPopup())
         updateCoutTotalPopup();
@@ -2446,14 +2940,28 @@ function saveNewDossierFromPopup() {
     const selectedServices = [];
     document.querySelectorAll('.service-checkbox:checked').forEach(checkbox => {
         const serviceName = checkbox.getAttribute('data-service-name');
+        const serviceId = checkbox.getAttribute('data-service-id');
         if (serviceName) {
-            selectedServices.push(serviceName);
+            selectedServices.push({
+                name: serviceName,
+                id: serviceId
+            });
         }
     });
     
-    // Si aucun service n'est sélectionné, utiliser le premier service comme avancement (compatibilité)
-    // Pour plusieurs occurrences du même service, utiliser le nom du service
-    const avancement = selectedServices.length > 0 ? selectedServices[0] : null;
+    // Stocker tous les services cochés pour les restaurer lors de la réouverture
+    window.popupCheckedServices = selectedServices.map(s => s.id);
+    
+    // Sauvegarder les services cochés dans localStorage pour ce dossier
+    // (numero est déjà déclaré au début de la fonction)
+    if (numero) {
+        const storageKey = `projet19_checked_services_${numero}`;
+        localStorage.setItem(storageKey, JSON.stringify(window.popupCheckedServices));
+        console.log('[saveNewDossierFromPopup] Services cochés sauvegardés dans localStorage:', window.popupCheckedServices);
+    }
+    
+    // Utiliser le DERNIER service coché comme avancement (au lieu du premier)
+    const avancement = selectedServices.length > 0 ? selectedServices[selectedServices.length - 1].name : null;
     
     // Calculer le coût total
     const coutTotal = parseFloat(document.getElementById('popup-cout-total').textContent.replace(',', '.')) || 0;
@@ -2541,7 +3049,7 @@ function saveNewDossierFromPopup() {
         if (data.success || data.id) {
             alert('Dossier ajouté au suivi avec succès');
             closeNewDossierPopup();
-            loadDossiers(); // Recharger la liste
+            reloadDossiersAndRefreshTable(); // Recharger la liste
         } else {
             alert('Erreur: ' + (data.error || 'Erreur lors de l\'enregistrement'));
         }
@@ -2578,6 +3086,16 @@ function updateCheckAllState() {
 function updateDossierFromPopup(dossierId, data) {
     console.log('[updateDossierFromPopup] Mise à jour du dossier ID:', dossierId, 'avec:', data);
     
+    // Sauvegarder les services cochés dans localStorage
+    const dossier = allDossiers.find(d => d.id === dossierId);
+    if (dossier && dossier.numero) {
+        const storageKey = `projet19_checked_services_${dossier.numero}`;
+        if (window.popupCheckedServices && window.popupCheckedServices.length > 0) {
+            localStorage.setItem(storageKey, JSON.stringify(window.popupCheckedServices));
+            console.log('[updateDossierFromPopup] Services cochés sauvegardés dans localStorage:', window.popupCheckedServices);
+        }
+    }
+    
     const payload = {
         id: dossierId,
         avancement: data.avancement,
@@ -2602,7 +3120,7 @@ function updateDossierFromPopup(dossierId, data) {
         if (result.success) {
             alert('Dossier mis à jour avec succès');
             closeNewDossierPopup();
-            loadDossiers(); // Recharger la liste
+            reloadDossiersAndRefreshTable(); // Recharger la liste
         } else {
             alert('Erreur: ' + (result.error || 'Erreur lors de la mise à jour'));
         }
@@ -2961,6 +3479,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('[DOMContentLoaded] ========================================');
+});
+</script>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- jQuery (requis pour DataTables) - Chargé dans extra_js pour être disponible après le DOM -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+
+<script>
+// S'assurer que jQuery est chargé avant d'initialiser DataTable
+$(document).ready(function() {
+    console.log('[jQuery Ready] jQuery est disponible, version:', $.fn.jquery);
+    console.log('[jQuery Ready] DataTables disponible:', typeof $.fn.DataTable !== 'undefined');
 });
 </script>
 {% endblock %}

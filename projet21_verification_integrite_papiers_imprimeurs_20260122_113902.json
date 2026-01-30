@@ -1,0 +1,83 @@
+{
+  "date_verification": "2026-01-22T11:39:01.451862",
+  "table_verifiee": "PAPIERS_IMPRIMEURS",
+  "verifications": {
+    "volume": {
+      "statut": "OK",
+      "source": 282,
+      "cible": 282,
+      "difference": 0
+    },
+    "correspondance_ids": {
+      "statut": "OK",
+      "mismatches": 0
+    },
+    "fk_entrantes_fmt": {
+      "statut": "ATTENTION",
+      "total": 1442,
+      "valides": 1084,
+      "orphelines": 358
+    },
+    "fk_entrantes_gram": {
+      "statut": "ATTENTION",
+      "total": 679,
+      "valides": 545,
+      "orphelines": 134
+    },
+    "fk_sortantes": {
+      "statut": "OK",
+      "imp": {
+        "valides": 282,
+        "orphelines": 0
+      },
+      "pap": {
+        "valides": 282,
+        "orphelines": 0
+      }
+    },
+    "duplication": {
+      "statut": "OK",
+      "ids_dupliques": 0,
+      "donnees_dupliquees": 0
+    },
+    "index": {
+      "statut": "OK",
+      "indexes": [
+        {
+          "name": "PK__PAPIERS_IMPRIMEU__176E4C6B",
+          "is_primary_key": true,
+          "is_unique": true,
+          "is_disabled": false
+        },
+        {
+          "name": "IDX_PAPIERS_IMPRIM1",
+          "is_primary_key": false,
+          "is_unique": true,
+          "is_disabled": false
+        },
+        {
+          "name": "IDX_PAPIERS_IMPRIMEURS2",
+          "is_primary_key": false,
+          "is_unique": false,
+          "is_disabled": false
+        },
+        {
+          "name": "IDX_PAPIERS_IMPRIMEURS3",
+          "is_primary_key": false,
+          "is_unique": false,
+          "is_disabled": false
+        }
+      ]
+    },
+    "coherence": {
+      "statut": "OK",
+      "incoherent_fmt": 0,
+      "incoherent_gram": 0
+    }
+  },
+  "resultat_global": "ATTENTION",
+  "risques_detectes": [
+    "358 références orphelines dans PAPIERS_TARIF_FMT",
+    "134 références orphelines dans PAPIERS_TARIF_GRAM"
+  ]
+}

@@ -1,0 +1,782 @@
+{% extends "base.html" %}
+{% from "_macros_temps.html" import format_hhmm %}
+
+{% block title %}Liste des Traitements - Projet 11{% endblock %}
+
+{% block head %}
+<!-- jQuery (requis pour DataTables) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<!-- Font Awesome pour les icÃ´nes -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+.table-responsive {
+    overflow-x: auto;
+    position: relative;
+}
+.table-responsive.no-horizontal-scroll {
+    overflow-x: hidden;
+}
+.table-scroll-top {
+    height: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid #dee2e6;
+}
+.table-responsive.no-horizontal-scroll .table-scroll-top {
+    display: none;
+}
+.table-scroll-inner {
+    height: 1px;
+}
+.table-scroll-top::-webkit-scrollbar {
+    height: 12px;
+}
+.table-scroll-top::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+}
+.table-scroll-top::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+#tableTraitements {
+    width: auto;
+    table-layout: auto;
+}
+#tableTraitements th,
+#tableTraitements td {
+    white-space: nowrap;
+}
+th.col-id, td.col-id {
+    width: 60px;
+    max-width: 70px;
+    text-align: center;
+}
+th.col-date, td.col-date {
+    width: 140px;
+    max-width: 160px;
+}
+th.col-numero, td.col-numero {
+    width: 140px;
+}
+th.col-reference, td.col-reference {
+    width: 160px;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.truncate-cell {
+    max-width: 100%;
+}
+th.col-client, td.col-client {
+    width: 220px;
+    max-width: 260px;
+}
+th.col-service, td.col-service {
+    width: 170px;
+    max-width: 200px;
+}
+th.col-poste, td.col-poste,
+th.col-machine, td.col-machine {
+    width: 170px;
+    max-width: 210px;
+}
+th.col-operateur, td.col-operateur {
+    width: 190px;
+    max-width: 220px;
+}
+th.col-nb, td.col-nb {
+    width: 85px;
+    max-width: 100px;
+    text-align: center;
+}
+th.col-temps, td.col-temps {
+    width: 115px;
+    max-width: 130px;
+    text-align: center;
+}
+th.col-ecart, td.col-ecart {
+    width: 110px;
+    max-width: 130px;
+    text-align: center;
+}
+th.col-statut, td.col-statut {
+    width: 120px;
+    max-width: 140px;
+    text-align: center;
+}
+th.col-actions, td.col-actions {
+    width: 150px;
+    max-width: 160px;
+}
+.dataTables_wrapper .dataTables_scroll {
+    overflow: visible;
+}
+.table-filters input {
+    width: 100%;
+    font-size: 0.85rem;
+    padding: 4px;
+    box-sizing: border-box;
+}
+.column-toggle-panel {
+    margin-bottom: 1rem;
+}
+.column-toggle-panel .form-check {
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+}
+.column-toggle-panel .form-check-input {
+    margin-top: 0.3rem;
+    margin-right: 0.35rem;
+}
+.btn-edit {
+    background-color: #FFF44F;
+    border-color: #FFF44F;
+    color: #212529;
+}
+.btn-edit:hover,
+.btn-edit:focus {
+    background-color: #f2e64a;
+    border-color: #e3d646;
+    color: #212529;
+}
+.btn-delete {
+    background-color: #FF0000;
+    border-color: #FF0000;
+    color: #fff;
+}
+.btn-delete:hover,
+.btn-delete:focus {
+    background-color: #e00000;
+    border-color: #c50000;
+    color: #fff;
+}
+.badge-statut-encours {
+    background-color: #FFF44F;
+    color: #212529;
+}
+.badge-statut-termine {
+    background-color: #00B140;
+    color: #ffffff;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-list"></i> Liste des Traitements
+                </h1>
+                <div>
+                    <a href="{{ url_for('projet11.nouveau_traitement') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Nouveau Traitement
+                    </a>
+                    <a href="{{ url_for('projet11.index') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Retour
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="column-toggle-panel">
+                        <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
+                        <div class="d-flex flex-wrap gap-2" id="columnToggleContainer"></div>
+                    </div>
+                    <div class="table-responsive position-relative">
+                        <div class="table-scroll-top">
+                            <div class="table-scroll-inner"></div>
+                        </div>
+                        <table class="table table-striped table-hover mb-0" id="tableTraitements">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="col-id">ID</th>
+                                    <th class="col-date">Date DÃ©but</th>
+                                    <th class="col-date">Date Fin</th>
+                                    <th class="col-numero">NÂ° Commande</th>
+                                    <th class="col-reference">RÃ©fÃ©rence</th>
+                                    <th class="col-client">Client</th>
+                                    <th class="col-service">Service</th>
+                                    <th class="col-poste">Poste PrÃ©vu</th>
+                                    <th class="col-machine">Machine RÃ©elle</th>
+                                    <th class="col-operateur">OpÃ©rateur</th>
+                                    <th class="col-nb">Nb Op.</th>
+                                    <th class="col-nb">Nb Pers.</th>
+                                    <th class="col-temps">Tps PrÃ©vu</th>
+                                    <th class="col-temps">Tps RÃ©el</th>
+                                    <th class="col-ecart">Ã‰cart</th>
+                                    <th class="col-statut">Statut</th>
+                                    <th class="col-actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in traitements %}
+                                <tr>
+                                    <td class="col-id">{{ t.id }}</td>
+                                    <td class="col-date">
+                                        {% if t.dte_deb %}
+                                            {{ t.dte_deb }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-date">
+                                        {% if t.dte_fin %}
+                                            {{ t.dte_fin }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-numero"><strong>{{ t.numero_commande }}</strong></td>
+                                    <td class="col-reference">
+                                        {% if t.reference %}
+                                            <span class="d-inline-block text-truncate w-100 truncate-cell"
+                                                  data-bs-toggle="tooltip"
+                                                  data-bs-placement="top"
+                                                  title="{{ t.reference }}">
+                                                {{ t.reference }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-client">{{ t.client or '-' }}</td>
+                                    <td class="col-service">{{ t.service or '-' }}</td>
+                                    <td class="col-poste">{{ t.poste or '-' }}</td>
+                                    <td class="col-machine">
+                                        {% if t.postes_reel %}
+                                            <strong class="text-primary">{{ t.postes_reel }}</strong>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-operateur">{{ t.operateur or '-' }}</td>
+                                    <td class="col-nb">{{ t.nb_op or 0 }}</td>
+                                    <td class="col-nb">{{ t.nb_pers or 0 }}</td>
+                                    <td class="col-temps">
+                                        {% if t.tps_prev_dev %}
+                                            {{ format_hhmm(t.tps_prev_dev) }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-temps">
+                                        {% if t.tps_reel %}
+                                            <strong class="text-primary">{{ format_hhmm(t.tps_reel) }}</strong>
+                                        {% else %}
+                                            <span class="text-muted">â³ En cours</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-ecart">
+                                        {% if t.ecart_temps is not none %}
+                                            {{ format_hhmm(t.ecart_temps, show_sign=True) }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-statut">
+                                        {% if t.dte_fin %}
+                                            <span class="badge badge-statut-termine">TerminÃ©</span>
+                                        {% else %}
+                                            <span class="badge badge-statut-encours">En cours</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-actions">
+                                        <button class="btn btn-sm btn-info btn-view-traitement" data-id="{{ t.id }}" title="Voir les dÃ©tails">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-edit btn-edit-traitement" data-id="{{ t.id }}" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-delete btn-delete-traitement" data-id="{{ t.id }}" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <!-- ICONES EXPORT AJOUTEES -->
+                                        <a href="/projet11/statistiques/export-excel" class="btn btn-sm btn-success me-1" title="Exporter en Excel" data-bs-toggle="tooltip">
+                                            <i class="fas fa-file-excel"></i>
+                                        </a>
+                                        <a href="/projet11/statistiques/export-pdf" class="btn btn-sm btn-danger" title="Exporter en PDF" data-bs-toggle="tooltip">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="17" class="text-center text-muted">
+                                        Aucun traitement enregistrÃ©
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal DÃ©tails -->
+<div class="modal fade" id="modalDetails" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">DÃ©tails du Traitement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailsContent">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modification -->
+<div class="modal fade" id="modalModifier" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modifier le Traitement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formModifier">
+                    <input type="hidden" id="edit_id">
+                    
+                    <div class="mb-3">
+                        <label for="edit_dte_deb" class="form-label">Date de DÃ©but</label>
+                        <input type="datetime-local" class="form-control" id="edit_dte_deb">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_dte_fin" class="form-label">Date de Fin</label>
+                        <input type="datetime-local" class="form-control" id="edit_dte_fin">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_pdt_c" class="form-label">QuantitÃ© conforme (PdtC)</label>
+                        <input type="number" class="form-control" id="edit_pdt_c" min="0" value="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_pdt_nnc" class="form-label">Non conformes (bonnes feuilles) - PdtNNC</label>
+                        <input type="number" class="form-control" id="edit_pdt_nnc" min="0" value="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_pdt_anc" class="form-label">Non conformes (macules) - PdtANC</label>
+                        <input type="number" class="form-control" id="edit_pdt_anc" min="0" value="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_nb_op" class="form-label">Total (calculÃ©)</label>
+                        <input type="number" class="form-control" id="edit_nb_op" min="0" value="0" readonly>
+                        <small class="text-muted">Somme automatique des quantitÃ©s conformes et non conformes</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_nb_pers" class="form-label">Nombre de Personnes</label>
+                        <input type="number" class="form-control" id="edit_nb_pers" min="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_postes_reel" class="form-label">Machine/Poste RÃ©el</label>
+                        <input type="text" class="form-control" id="edit_postes_reel" placeholder="Ex: OFFSET - XL75">
+                        <small class="text-muted">Machine rÃ©ellement utilisÃ©e (si diffÃ©rente de celle prÃ©vue)</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="sauvegarderModifications()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialiser DataTable
+$(document).ready(function() {
+    const $table = $('#tableTraitements');
+    const colonneDefs = [
+        { titre: 'ID', filtre: true, toggle: true, className: 'col-id', width: '70px' },
+        { titre: 'Date DÃ©but', filtre: true, toggle: true, className: 'col-date', width: '150px' },
+        { titre: 'Date Fin', filtre: true, toggle: true, className: 'col-date', width: '150px' },
+        { titre: 'NÂ° Commande', filtre: true, toggle: true, className: 'col-numero', width: '150px' },
+        { titre: 'RÃ©fÃ©rence', filtre: true, toggle: true, className: 'col-reference', width: '160px' },
+        { titre: 'Client', filtre: true, toggle: true, className: 'col-client', width: '220px' },
+        { titre: 'Service', filtre: true, toggle: true, className: 'col-service', width: '180px' },
+        { titre: 'Poste PrÃ©vu', filtre: true, toggle: true, className: 'col-poste', width: '180px' },
+        { titre: 'Machine RÃ©elle', filtre: true, toggle: true, className: 'col-machine', width: '180px' },
+        { titre: 'OpÃ©rateur', filtre: true, toggle: true, className: 'col-operateur', width: '200px' },
+        { titre: 'Nb Op.', filtre: true, toggle: true, className: 'col-nb', width: '90px' },
+        { titre: 'Nb Pers.', filtre: true, toggle: true, className: 'col-nb', width: '90px' },
+        { titre: 'Tps PrÃ©vu', filtre: true, toggle: true, className: 'col-temps col-temps-prev', width: '120px' },
+        { titre: 'Tps RÃ©el', filtre: true, toggle: true, className: 'col-temps col-temps-reel', width: '120px' },
+        { titre: 'Ã‰cart', filtre: true, toggle: true, className: 'col-ecart', width: '120px' },
+        { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '130px' },
+        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '150px', orderable: false }
+    ];
+
+    // Ajouter une ligne de filtres
+    const $thead = $table.find('thead');
+    const $filterRow = $('<tr class="table-filters"></tr>');
+    $thead.find('tr').first().find('th').each(function(index) {
+        const def = colonneDefs[index];
+        const $cell = $('<th></th>');
+        if (def && def.filtre) {
+            const placeholder = `Filtrer ${def.titre}`;
+            $cell.append(`<input type="text" placeholder="${placeholder}" data-col="${index}" />`);
+        }
+        $filterRow.append($cell);
+    });
+    $thead.append($filterRow);
+
+    let updateTopScrollWidth = function(){};
+    let evaluerScrollHorizontal = function(){};
+
+    const columnDefsConfig = colonneDefs.map((def, index) => ({
+        targets: index,
+        orderable: def.orderable !== false,
+        className: def.className || '',
+        width: def.width || null
+    }));
+
+    const dataTable = $table.DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json'
+        },
+        order: [[0, 'desc']],
+        dom: 'lrtip',
+        autoWidth: false,
+        columnDefs: columnDefsConfig,
+        initComplete: function() {
+            initialiserFiltres(this.api());
+            initialiserToggles(this.api());
+            updateTopScrollWidth();
+            evaluerScrollHorizontal();
+            activerTooltips();
+        }
+    });
+
+    function setupHorizontalScrollSync() {
+        const $wrapper = $('.table-responsive');
+        const $topScroll = $wrapper.find('.table-scroll-top');
+        const $topInner = $topScroll.find('.table-scroll-inner');
+
+        if ($topScroll.length === 0) {
+            return;
+        }
+
+        function _evaluerScrollHorizontal() {
+            const tableWidth = $table.outerWidth();
+            const wrapperWidth = $wrapper.innerWidth();
+            if (tableWidth <= wrapperWidth + 1) {
+                $wrapper.addClass('no-horizontal-scroll');
+            } else {
+                $wrapper.removeClass('no-horizontal-scroll');
+            }
+        }
+
+        function _updateTopScrollWidth() {
+            const tableWidth = $('#tableTraitements').outerWidth();
+            $topInner.width(tableWidth);
+            _evaluerScrollHorizontal();
+        }
+
+        let isSyncingTop = false;
+        let isSyncingBottom = false;
+
+        $topScroll.off('scroll.tableSync').on('scroll.tableSync', function() {
+            if (isSyncingTop) return;
+            isSyncingBottom = true;
+            $wrapper.scrollLeft($topScroll.scrollLeft());
+            isSyncingBottom = false;
+        });
+
+        $wrapper.off('scroll.tableSync').on('scroll.tableSync', function() {
+            if (isSyncingBottom) return;
+            isSyncingTop = true;
+            $topScroll.scrollLeft($wrapper.scrollLeft());
+            isSyncingTop = false;
+        });
+
+        updateTopScrollWidth = _updateTopScrollWidth;
+        evaluerScrollHorizontal = _evaluerScrollHorizontal;
+        updateTopScrollWidth();
+        $(window).off('resize.tableSync').on('resize.tableSync', function() {
+            updateTopScrollWidth();
+            evaluerScrollHorizontal();
+        });
+        dataTable.on('draw', function() {
+            updateTopScrollWidth();
+            evaluerScrollHorizontal();
+            activerTooltips();
+        });
+    }
+
+    setupHorizontalScrollSync();
+    updateTopScrollWidth();
+    evaluerScrollHorizontal();
+    activerTooltips();
+
+    function initialiserFiltres(api) {
+        api.columns().every(function() {
+            const column = this;
+            const colIndex = column.index();
+            const def = colonneDefs[colIndex];
+            if (!def || !def.filtre) {
+                return;
+            }
+            const input = $(`.table-filters input[data-col="${colIndex}"]`);
+            input.on('keyup change clear', function() {
+                const value = this.value;
+                if (column.search() !== value) {
+                    column.search(value, false, true).draw();
+                }
+            });
+        });
+    }
+
+    function activerTooltips() {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"], [title]'));
+        tooltipTriggerList.forEach(triggerEl => {
+            if (bootstrap.Tooltip.getInstance(triggerEl)) {
+                bootstrap.Tooltip.getInstance(triggerEl).dispose();
+            }
+            new bootstrap.Tooltip(triggerEl);
+        });
+    }
+
+    function initialiserToggles(api) {
+        const $container = $('#columnToggleContainer');
+        $container.empty();
+
+        colonneDefs.forEach((def, index) => {
+            if (!def || !def.toggle) {
+                return;
+            }
+            const column = api.column(index);
+            const toggleId = `colToggle_${index}`;
+            const isVisible = column.visible();
+            const $checkbox = $(`
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="${toggleId}" ${isVisible ? 'checked' : ''}>
+                    <label class="form-check-label" for="${toggleId}">${def.titre}</label>
+                </div>
+            `);
+
+            $checkbox.find('input').on('change', function() {
+                column.visible(this.checked, false);
+                api.columns.adjust().draw(false);
+                setTimeout(() => {
+                    updateTopScrollWidth();
+                    evaluerScrollHorizontal();
+                    activerTooltips();
+                }, 100);
+            });
+
+            $container.append($checkbox);
+        });
+    }
+
+    $(document).on('click', '.btn-view-traitement', function() {
+        const id = $(this).data('id');
+        if (id) {
+            voirDetails(id);
+        }
+    });
+
+    $(document).on('click', '.btn-edit-traitement', function() {
+        const id = $(this).data('id');
+        if (id) {
+            modifierTraitement(id);
+        }
+    });
+
+    $(document).on('click', '.btn-delete-traitement', function() {
+        const id = $(this).data('id');
+        if (id) {
+            supprimerTraitement(id);
+        }
+    });
+});
+
+function voirDetails(id) {
+    fetch(`/projet11/api/traitements/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            let html = `
+                <table class="table">
+                    <tr><th>ID:</th><td>${data.id}</td></tr>
+                    <tr><th>Date DÃ©but:</th><td>${data.dte_deb || '-'}</td></tr>
+                    <tr><th>Date Fin:</th><td>${data.dte_fin || '-'}</td></tr>
+                    <tr><th>NÂ° Commande:</th><td>${data.numero_commandes || '-'}</td></tr>
+                    <tr><th>RÃ©fÃ©rence:</th><td>${data.reference_commandes || '-'}</td></tr>
+                    <tr><th>Client:</th><td>${data.raisoctri_societes || '-'}</td></tr>
+                    <tr><th>Service:</th><td>${data.nom_gp_services || '-'}</td></tr>
+                    <tr><th>Poste:</th><td>${data.nom_gp_postes || '-'}</td></tr>
+                    <tr><th>OpÃ©rateur:</th><td>${data.nom_personel || ''} ${data.prenom_personel || ''}</td></tr>
+                    <tr><th>Machine RÃ©elle:</th><td>${data.postes_reel || '-'}</td></tr>
+                    <tr><th>Nb OpÃ©rations:</th><td>${data.nb_op || 0}</td></tr>
+                    <tr><th>QtÃ© Conforme (PdtC):</th><td>${data.pdt_c || 0}</td></tr>
+                    <tr><th>Nouvelles NC (PdtNNC):</th><td>${data.pdt_nnc || 0}</td></tr>
+                    <tr><th>Anciennes NC (PdtANC):</th><td>${data.pdt_anc || 0}</td></tr>
+                    <tr><th>Nb Personnes:</th><td>${data.nb_pers || 0}</td></tr>
+                    <tr class="table-info"><th>Temps PrÃ©vu:</th><td>${data.tps_prev_dev ? data.tps_prev_dev.toFixed(3) + 'h' : '-'}</td></tr>
+                    <tr class="table-primary"><th>Temps RÃ©el:</th><td>${data.tps_reel ? data.tps_reel.toFixed(3) + 'h' : 'En cours'}</td></tr>
+                    <tr class="${data.ecart_temps && data.ecart_temps > 0 ? 'table-danger' : data.ecart_temps && data.ecart_temps < 0 ? 'table-success' : ''}">
+                        <th>Ã‰cart (RÃ©el - PrÃ©vu):</th>
+                        <td>${data.ecart_temps ? (data.ecart_temps > 0 ? '+' : '') + data.ecart_temps.toFixed(3) + 'h' : '-'}</td>
+                    </tr>
+                    <tr><th>Date CrÃ©ation:</th><td>${data.date_creation || '-'}</td></tr>
+                    <tr><th>Date Modification:</th><td>${data.date_modification || '-'}</td></tr>
+                </table>
+            `;
+            
+            document.getElementById('detailsContent').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('modalDetails')).show();
+        })
+        .catch(error => {
+            alert('Erreur lors du chargement des dÃ©tails');
+            console.error(error);
+        });
+}
+
+function modifierTraitement(id) {
+    fetch(`/projet11/api/traitements/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('edit_id').value = data.id;
+            
+            // Formater les dates pour datetime-local
+            if (data.dte_deb) {
+                const dteDeb = new Date(data.dte_deb);
+                document.getElementById('edit_dte_deb').value = 
+                    dteDeb.toISOString().slice(0, 16);
+            }
+            
+            if (data.dte_fin) {
+                const dteFin = new Date(data.dte_fin);
+                document.getElementById('edit_dte_fin').value = 
+                    dteFin.toISOString().slice(0, 16);
+            }
+            
+            document.getElementById('edit_nb_op').value = data.nb_op || 0;
+            document.getElementById('edit_pdt_c').value = data.pdt_c || 0;
+            document.getElementById('edit_pdt_nnc').value = data.pdt_nnc || 0;
+            document.getElementById('edit_pdt_anc').value = data.pdt_anc || 0;
+            recalculerTotalEdition();
+            document.getElementById('edit_nb_pers').value = data.nb_pers || 0;
+            document.getElementById('edit_postes_reel').value = data.postes_reel || '';
+            
+            new bootstrap.Modal(document.getElementById('modalModifier')).show();
+        })
+        .catch(error => {
+            alert('Erreur lors du chargement du traitement');
+            console.error(error);
+        });
+}
+
+function sauvegarderModifications() {
+    const id = document.getElementById('edit_id').value;
+    const pdtC = parseInt(document.getElementById('edit_pdt_c').value, 10) || 0;
+    const pdtNNC = parseInt(document.getElementById('edit_pdt_nnc').value, 10) || 0;
+    const pdtANC = parseInt(document.getElementById('edit_pdt_anc').value, 10) || 0;
+    const total = pdtC + pdtNNC + pdtANC;
+
+    if (total <= 0) {
+        alert('Veuillez saisir au moins une quantitÃ© produite');
+        return;
+    }
+    document.getElementById('edit_nb_op').value = total;
+
+    const data = {
+        dte_deb: document.getElementById('edit_dte_deb').value,
+        dte_fin: document.getElementById('edit_dte_fin').value,
+        nb_op: total,
+        pdt_c: pdtC,
+        pdt_nnc: pdtNNC,
+        pdt_anc: pdtANC,
+        nb_pers: parseInt(document.getElementById('edit_nb_pers').value) || 0,
+        postes_reel: document.getElementById('edit_postes_reel').value || null
+    };
+    
+    fetch(`/projet11/api/traitements/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Traitement mis Ã  jour avec succÃ¨s');
+            location.reload();
+        } else {
+            alert('Erreur: ' + result.error);
+        }
+    })
+    .catch(error => {
+        alert('Erreur lors de la mise Ã  jour');
+        console.error(error);
+    });
+}
+
+function recalculerTotalEdition() {
+    const pdtC = parseInt(document.getElementById('edit_pdt_c').value, 10) || 0;
+    const pdtNNC = parseInt(document.getElementById('edit_pdt_nnc').value, 10) || 0;
+    const pdtANC = parseInt(document.getElementById('edit_pdt_anc').value, 10) || 0;
+    document.getElementById('edit_nb_op').value = pdtC + pdtNNC + pdtANC;
+}
+
+;['edit_pdt_c', 'edit_pdt_nnc', 'edit_pdt_anc'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+        input.addEventListener('input', recalculerTotalEdition);
+    }
+});
+
+function supprimerTraitement(id) {
+    if (!confirm('ÃŠtes-vous sÃ»r de vouloir supprimer ce traitement ?')) {
+        return;
+    }
+    
+    fetch(`/projet11/api/traitements/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Traitement supprimÃ© avec succÃ¨s');
+            location.reload();
+        } else {
+            alert('Erreur: ' + result.error);
+        }
+    })
+    .catch(error => {
+        alert('Erreur lors de la suppression');
+        console.error(error);
+    });
+}
+</script>
+{% endblock %}
+
