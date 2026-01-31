@@ -62,7 +62,7 @@ $gitPath = "C:\Program Files\Git\bin\git.exe"
 ## Vérification
 
 Après le push, vérifiez sur GitHub :
-- https://github.com/ameni-compta/Apps
+- https://github.com/Ameni-Novaprint-R/Apps
 
 Tous vos fichiers devraient être présents.
 

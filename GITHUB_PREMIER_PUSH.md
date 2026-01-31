@@ -4,7 +4,7 @@
 
 - **Git** est initialisé à la racine du projet (x:\)
 - **Premier commit** créé : 196 fichiers (app Flask, routes, logic, templates, scripts)
-- **Remote** configuré : `origin` → `https://github.com/ameni-compta/Apps.git`
+- **Remote** configuré : `origin` → `https://github.com/Ameni-Novaprint-R/Apps.git`
 - Le dépôt distant **n’existe pas encore** ou n’est pas accessible → il faut le créer puis pousser.
 
 ## Étapes à suivre
@@ -38,13 +38,13 @@ git push -u origin main
 ```
 
 Quand Git demande :
-- **Username** : `ameni-compta`
+- **Username** : `Ameni-Novaprint-R`
 - **Password** : **collez le PAT** (pas le mot de passe du compte)
 
 Si le dépôt a un autre nom que `Apps`, mettez à jour l’URL :
 
 ```powershell
-git remote set-url origin https://github.com/ameni-compta/VOTRE_NOM_REPO.git
+git remote set-url origin https://github.com/Ameni-Novaprint-R/VOTRE_NOM_REPO.git
 git push -u origin main
 ```
 
@@ -68,7 +68,7 @@ Les dossiers **Integr11**, **kba105_analysis**, **projet17**, **PrintToB_Utilisa
 
 Une fois le push réussi, le projet sera disponible à :
 
-**https://github.com/ameni-compta/Apps**  
+**https://github.com/Ameni-Novaprint-R/Apps**  
 (ou l’URL correspondant au nom du dépôt que vous avez créé)
 
 Vous pourrez ainsi restaurer un fichier ou tout le projet en cas de suppression ou d’erreur.

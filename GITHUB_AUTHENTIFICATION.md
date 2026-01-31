@@ -20,7 +20,7 @@ git push -u origin main
 ```
 
 Quand Git demande :
-- **Username** : `ameni-compta` (ou votre identifiant GitHub)
+- **Username** : `Ameni-Novaprint-R` (ou votre identifiant GitHub)
 - **Password** : **collez le PAT** (pas le mot de passe du compte)
 
 ## 3. (Optionnel) Enregistrer le token pour ne pas le ressaisir
@@ -29,7 +29,7 @@ Sous Windows, Git Credential Manager peut mémoriser le token. À la première d
 
 ---
 
-**Dépôt distant actuel :** `https://github.com/ameni-compta/Apps.git`  
+**Dépôt distant actuel :** `https://github.com/Ameni-Novaprint-R/Apps.git`  
 **Branche :** `main`
 
 **Si "Repository not found"** : le dépôt n’existe pas encore sur GitHub. Suivez les étapes dans **GITHUB_PREMIER_PUSH.md** pour créer le dépôt puis pousser.

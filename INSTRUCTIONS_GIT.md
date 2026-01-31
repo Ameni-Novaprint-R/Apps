@@ -41,7 +41,7 @@ cd c:\Apps
 ```
 
 Le script vous demandera :
-- **Nom d'utilisateur GitHub** (ex: ameni-compta)
+- **Nom d'utilisateur GitHub** (ex: Ameni-Novaprint-R)
 - **Nom du dépôt GitHub** (ex: Apps)
 
 Puis il effectuera la synchronisation NON DESTRUCTIVE avec GitHub.
