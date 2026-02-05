@@ -25,7 +25,7 @@ PROJECT_ROUTES = {
     19: ('projet19.index', 'Dossiers en Cours'),
     20: ('/projet20/', 'Analyse Dossiers'),
     21: ('/projet21/', 'Sync BDD'),
-    22: ('projet22.index', 'Employés'),
+    22: ('projet22.index', 'Employés et Ateliers'),
 }
 
 # Mapping des numéros de projets vers leurs icônes

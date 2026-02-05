@@ -7,7 +7,7 @@ Routes Flask pour le Projet 11 - Gestion des traitements (WEB_TRAITEMENTS)
 
 from flask import Blueprint, render_template, request, jsonify, Response
 from logic import projet11
-from logic.auth import get_user_sections, has_section_access, is_super_user
+from logic.auth import get_user_sections, has_section_access, has_action_access, is_super_user
 from datetime import datetime
 
 # Créer le blueprint
@@ -563,7 +563,14 @@ def api_start_traitement():
 
 @projet11_bp.route('/projet11/api/traitements/<int:traitement_id>', methods=['PUT'])
 def api_update_traitement(traitement_id):
-    """API pour mettre à jour un traitement"""
+    """API pour mettre à jour un traitement - Vérifie ID_Action 3 dans WEB_DROITS_ACCES"""
+    from logic.auth import has_action_access, is_super_user
+    
+    # Vérification stricte : l'ID_Action 3 (MODIFICATION) doit être présent dans WEB_DROITS_ACCES
+    if not is_super_user() and not has_action_access(3):
+        flash("Vous n'avez pas l'autorisation de modifier les traitements.", "error")
+        return jsonify({"error": "Accès refusé : vous n'avez pas l'autorisation de modifier les traitements"}), 403
+    
     try:
         data = request.get_json()
 
@@ -630,7 +637,14 @@ def api_update_traitement(traitement_id):
 
 @projet11_bp.route('/projet11/api/traitements/<int:traitement_id>', methods=['DELETE'])
 def api_delete_traitement(traitement_id):
-    """API pour supprimer un traitement"""
+    """API pour supprimer un traitement - Vérifie ID_Action 4 dans WEB_DROITS_ACCES"""
+    from logic.auth import has_action_access, is_super_user
+    
+    # Vérification stricte : l'ID_Action 4 (SUPPRESSION) doit être présent dans WEB_DROITS_ACCES
+    if not is_super_user() and not has_action_access(4):
+        flash("Vous n'avez pas l'autorisation de supprimer les traitements.", "error")
+        return jsonify({"error": "Accès refusé : vous n'avez pas l'autorisation de supprimer les traitements"}), 403
+    
     try:
         success = projet11.delete_traitement(traitement_id)
         
@@ -711,7 +725,12 @@ def api_statistiques():
 
 @projet11_bp.route('/projet11/statistiques/export-excel')
 def export_statistiques_excel():
-    """Export des statistiques au format Excel"""
+    """Export des statistiques au format Excel - Vérifie ID_Action 6 dans WEB_DROITS_ACCES"""
+    # Vérification stricte : l'ID_Action 6 (EXPORT_EXCEL) doit être présent dans WEB_DROITS_ACCES
+    if not is_super_user() and not has_action_access(6):
+        from flask import flash, redirect, url_for
+        flash("Vous n'avez pas accès à cette action (Export Excel).", "error")
+        return redirect(url_for('projet11.statistiques'))
     try:
         import pandas as pd
         from io import BytesIO
@@ -881,7 +900,12 @@ def admin_renommer_colonne_tpsprevdev():
 
 @projet11_bp.route('/projet11/statistiques/export-pdf')
 def export_statistiques_pdf():
-    """Export des statistiques au format PDF"""
+    """Export des statistiques au format PDF - Vérifie ID_Action 7 dans WEB_DROITS_ACCES"""
+    # Vérification stricte : l'ID_Action 7 (EXPORT_PDF) doit être présent dans WEB_DROITS_ACCES
+    if not is_super_user() and not has_action_access(7):
+        from flask import flash, redirect, url_for
+        flash("Vous n'avez pas accès à cette action (Export PDF).", "error")
+        return redirect(url_for('projet11.statistiques'))
     try:
         from reportlab.lib.pagesizes import letter, A4
         from reportlab.lib import colors
@@ -1086,7 +1110,12 @@ def api_postes_tous_service(nom_service):
 
 @projet11_bp.route('/projet11/traitements/export-excel')
 def export_traitements_excel():
-    """Export du tableau des traitements au format Excel"""
+    """Export du tableau des traitements au format Excel - Vérifie ID_Action 6 dans WEB_DROITS_ACCES"""
+    # Vérification stricte : l'ID_Action 6 (EXPORT_EXCEL) doit être présent dans WEB_DROITS_ACCES
+    if not is_super_user() and not has_action_access(6):
+        from flask import flash, redirect, url_for
+        flash("Vous n'avez pas accès à cette action (Export Excel).", "error")
+        return redirect(url_for('projet11.liste_traitements'))
     try:
         import pandas as pd
         from io import BytesIO
@@ -1156,7 +1185,12 @@ def export_traitements_excel():
 
 @projet11_bp.route('/projet11/traitements/export-pdf')
 def export_traitements_pdf():
-    """Export du tableau des traitements au format PDF"""
+    """Export du tableau des traitements au format PDF - Vérifie ID_Action 7 dans WEB_DROITS_ACCES"""
+    # Vérification stricte : l'ID_Action 7 (EXPORT_PDF) doit être présent dans WEB_DROITS_ACCES
+    if not is_super_user() and not has_action_access(7):
+        from flask import flash, redirect, url_for
+        flash("Vous n'avez pas accès à cette action (Export PDF).", "error")
+        return redirect(url_for('projet11.liste_traitements'))
     try:
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib import colors

@@ -1,5 +1,5 @@
 """
-Projet 22 - Gestion des employés et mots de passe
+Projet 22 - Gestion des employés et des ateliers
 """
 
 from db import get_db_cursor
@@ -321,3 +321,180 @@ def get_matricules_disponibles(limit=20):
             import traceback
             traceback.print_exc()
             return []
+
+
+# --- Gestion des ateliers (WEB_ATELIER_ACCES) ---
+
+MDP_ATELIER_DEFAUT = "000000"
+
+
+def get_all_ateliers():
+    """Récupère la liste de tous les ateliers (avec mdp et archive si colonnes présentes)"""
+    with get_db_cursor() as cursor:
+        try:
+            cursor.execute("""
+                SELECT ID, Nom, mdp, archive
+                FROM [dbo].[WEB_ATELIER_ACCES]
+                ORDER BY ID ASC
+            """)
+        except Exception:
+            try:
+                cursor.execute("SELECT ID, Nom FROM [dbo].[WEB_ATELIER_ACCES] ORDER BY ID ASC")
+                return [
+                    {"id": row.ID, "nom": row.Nom or "", "a_mot_de_passe": False, "archive": False}
+                    for row in cursor.fetchall()
+                ]
+            except Exception as e2:
+                print(f"Erreur get_all_ateliers: {e2}")
+                import traceback
+                traceback.print_exc()
+                return []
+        rows = cursor.fetchall()
+        result = []
+        for row in rows:
+            item = {"id": row.ID, "nom": row.Nom or ""}
+            item["a_mot_de_passe"] = getattr(row, "mdp", None) is not None and str(getattr(row, "mdp", "") or "").strip() != ""
+            item["archive"] = bool(getattr(row, "archive", False)) if getattr(row, "archive", None) is not None else False
+            result.append(item)
+        return result
+
+
+def get_atelier_by_id(atelier_id):
+    """Récupère un atelier par son ID"""
+    with get_db_cursor() as cursor:
+        try:
+            cursor.execute("""
+                SELECT ID, Nom, mdp, archive
+                FROM [dbo].[WEB_ATELIER_ACCES] WHERE ID = ?
+            """, (atelier_id,))
+            row = cursor.fetchone()
+            if row:
+                item = {"id": row.ID, "nom": row.Nom or ""}
+                item["a_mot_de_passe"] = getattr(row, "mdp", None) is not None and str(getattr(row, "mdp", "") or "").strip() != ""
+                item["archive"] = bool(getattr(row, "archive", False)) if getattr(row, "archive", None) is not None else False
+                return item
+            return None
+        except Exception as e:
+            try:
+                cursor.execute("SELECT ID, Nom FROM [dbo].[WEB_ATELIER_ACCES] WHERE ID = ?", (atelier_id,))
+                row = cursor.fetchone()
+                if row:
+                    return {"id": row.ID, "nom": row.Nom or "", "a_mot_de_passe": False, "archive": False}
+            except Exception:
+                pass
+            print(f"Erreur lors de la récupération de l'atelier: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+
+def create_atelier(nom):
+    """Crée un nouvel atelier (mdp par défaut 000000, archive=0)"""
+    with get_db_cursor() as cursor:
+        try:
+            nom = (nom or "").strip()
+            if not nom:
+                return {"success": False, "error": "Le nom de l'atelier est requis"}
+            mdp_hash = bcrypt.hashpw(MDP_ATELIER_DEFAUT.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            try:
+                cursor.execute("""
+                    INSERT INTO [dbo].[WEB_ATELIER_ACCES] (Nom, mdp, archive) VALUES (?, ?, 0)
+                """, (nom, mdp_hash))
+            except Exception:
+                cursor.execute("""
+                    INSERT INTO [dbo].[WEB_ATELIER_ACCES] (Nom) VALUES (?)
+                """, (nom,))
+            cursor.connection.commit()
+            return {"success": True, "message": f"Atelier « {nom} » créé avec succès (mdp par défaut: {MDP_ATELIER_DEFAUT})"}
+        except Exception as e:
+            print(f"Erreur lors de la création de l'atelier: {e}")
+            import traceback
+            traceback.print_exc()
+            cursor.connection.rollback()
+            return {"success": False, "error": str(e)}
+
+
+def update_atelier(atelier_id, nom):
+    """Met à jour le nom d'un atelier"""
+    with get_db_cursor() as cursor:
+        try:
+            nom = (nom or "").strip()
+            if not nom:
+                return {"success": False, "error": "Le nom de l'atelier est requis"}
+            cursor.execute("""
+                UPDATE [dbo].[WEB_ATELIER_ACCES] SET Nom = ? WHERE ID = ?
+            """, (nom, atelier_id))
+            if cursor.rowcount == 0:
+                return {"success": False, "error": "Atelier non trouvé"}
+            cursor.connection.commit()
+            return {"success": True, "message": "Atelier modifié avec succès"}
+        except Exception as e:
+            print(f"Erreur lors de la mise à jour de l'atelier: {e}")
+            import traceback
+            traceback.print_exc()
+            cursor.connection.rollback()
+            return {"success": False, "error": str(e)}
+
+
+def set_atelier_mdp(atelier_id, new_mdp, old_mdp=None):
+    """Définit ou met à jour le mot de passe d'un atelier (bcrypt)."""
+    with get_db_cursor() as cursor:
+        try:
+            cursor.execute("SELECT ID, mdp FROM [dbo].[WEB_ATELIER_ACCES] WHERE ID = ?", (atelier_id,))
+            row = cursor.fetchone()
+            if not row:
+                return {"success": False, "error": "Atelier non trouvé"}
+            mdp_actuel = getattr(row, "mdp", None)
+            mdp_actuel = _normalize_bcrypt_hash(mdp_actuel) if mdp_actuel else None
+            if mdp_actuel and mdp_actuel.strip():
+                if not old_mdp:
+                    return {"success": False, "error": "L'ancien mot de passe est requis"}
+                if not bcrypt.checkpw(old_mdp.encode("utf-8"), mdp_actuel.encode("utf-8")):
+                    return {"success": False, "error": "Ancien mot de passe incorrect"}
+            if not new_mdp or len(new_mdp) < 6:
+                return {"success": False, "error": "Le mot de passe doit contenir au moins 6 caractères"}
+            hash_new = bcrypt.hashpw(new_mdp.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            cursor.execute("UPDATE [dbo].[WEB_ATELIER_ACCES] SET mdp = ? WHERE ID = ?", (hash_new, atelier_id))
+            cursor.connection.commit()
+            return {"success": True, "message": "Mot de passe atelier modifié avec succès"}
+        except Exception as e:
+            print(f"Erreur set_atelier_mdp: {e}")
+            import traceback
+            traceback.print_exc()
+            cursor.connection.rollback()
+            return {"success": False, "error": str(e)}
+
+
+def archive_atelier(atelier_id, archive=True):
+    """Archive ou désarchive un atelier."""
+    with get_db_cursor() as cursor:
+        try:
+            val = 1 if archive else 0
+            cursor.execute("UPDATE [dbo].[WEB_ATELIER_ACCES] SET archive = ? WHERE ID = ?", (val, atelier_id))
+            if cursor.rowcount == 0:
+                return {"success": False, "error": "Atelier non trouvé"}
+            cursor.connection.commit()
+            return {"success": True, "message": "Atelier archivé avec succès" if archive else "Atelier désarchivé avec succès"}
+        except Exception as e:
+            print(f"Erreur archive_atelier: {e}")
+            import traceback
+            traceback.print_exc()
+            cursor.connection.rollback()
+            return {"success": False, "error": str(e)}
+
+
+def delete_atelier(atelier_id):
+    """Supprime un atelier"""
+    with get_db_cursor() as cursor:
+        try:
+            cursor.execute("DELETE FROM [dbo].[WEB_ATELIER_ACCES] WHERE ID = ?", (atelier_id,))
+            if cursor.rowcount == 0:
+                return {"success": False, "error": "Atelier non trouvé"}
+            cursor.connection.commit()
+            return {"success": True, "message": "Atelier supprimé avec succès"}
+        except Exception as e:
+            print(f"Erreur lors de la suppression de l'atelier: {e}")
+            import traceback
+            traceback.print_exc()
+            cursor.connection.rollback()
+            return {"success": False, "error": str(e)}

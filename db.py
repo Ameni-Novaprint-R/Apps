@@ -238,7 +238,7 @@ def get_commandes_avec_suivi():
                             ELSE 'Non Défini'
                         END
                     WHEN C.DteLivPrev < GETDATE() THEN 'En Retard'
-                    ELSE 'En Cours'
+                    ELSE 'Non livré'
                 END AS StatutDelai,
                 CASE 
                     WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' THEN
@@ -246,7 +246,15 @@ def get_commandes_avec_suivi():
                     WHEN C.DteLivPrev < GETDATE() THEN
                         DATEDIFF(day, C.DteLivPrev, GETDATE())
                     ELSE 0
-                END AS EcartJours
+                END AS EcartJours,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM WEB_TRAITEMENTS WT 
+                        WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(C.Numero))
+                    ) THEN 'encours'
+                    ELSE '-'
+                END AS StatutDossier
             FROM COMMANDES C
             INNER JOIN SOCIETES S ON C.ID_SOCIETE = S.ID
             LEFT JOIN LIVRAISONS_CMDE L ON C.ID = L.ID_COMMANDE 
@@ -256,16 +264,25 @@ def get_commandes_avec_suivi():
             ORDER BY C.DteLivPrev DESC
         """)
         for row in cursor.fetchall():
+            # Vérifier si la date réelle est valide (pas None, pas 9999-12-31, et dans une plage raisonnable)
+            date_reelle = None
+            if row.DteLivReelle:
+                # Vérifier que la date n'est pas une date placeholder invalide
+                date_str = row.DteLivReelle.strftime('%Y-%m-%d') if hasattr(row.DteLivReelle, 'strftime') else str(row.DteLivReelle)
+                if date_str and date_str != '9999-12-31' and date_str >= '1900-01-01' and date_str < '2100-01-01':
+                    date_reelle = date_str
+            
             commandes.append({
                 "numero": row.Numero,
                 "date_prevue": row.DteLivPrev.strftime('%Y-%m-%d') if row.DteLivPrev else None,
-                "date_reelle": row.DteLivReelle.strftime('%Y-%m-%d') if row.DteLivReelle else None,
+                "date_reelle": date_reelle,
                 "reference": row.Reference,
                 "client": row.Client,
                 "termine": bool(row.Termine),
                 "etat_liv": row.EtatLiv,
                 "statut_delai": row.StatutDelai,
-                "ecart_jours": row.EcartJours
+                "ecart_jours": row.EcartJours,
+                "statut_dossier": row.StatutDossier
             })
     return commandes
 
@@ -336,50 +353,56 @@ def get_statistiques_performance():
 
 def get_performance_par_client():
     """Calcule la performance par client"""
-    with get_db_cursor() as cursor:
-        cursor.execute("""
-            SELECT 
-                S.RaiSocTri AS Client,
-                COUNT(*) as total_commandes,
-                SUM(CASE 
-                    WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' THEN 1 
-                    ELSE 0 
-                END) as commandes_livrees,
-                SUM(CASE 
-                    WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' AND L.DteLiv <= C.DteLivPrev THEN 1 
-                    ELSE 0 
-                END) as livrees_a_temps,
-                AVG(CASE 
-                    WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' THEN DATEDIFF(day, C.DteLivPrev, L.DteLiv) 
-                    ELSE NULL 
-                END) as delai_moyen
-            FROM COMMANDES C
-            INNER JOIN SOCIETES S ON C.ID_SOCIETE = S.ID
-            LEFT JOIN LIVRAISONS_CMDE L ON C.ID = L.ID_COMMANDE 
-            WHERE C.DteLivPrev IS NOT NULL 
-            AND C.DteLivPrev <> '9999-12-31 00:00:00.000' 
-            AND C.DteLivPrev > '1900-01-01'
-            AND S.RaiSocTri IS NOT NULL
-            GROUP BY S.RaiSocTri
-            HAVING COUNT(*) >= 1
-            ORDER BY COUNT(*) DESC
-        """)
-        clients = []
-        for row in cursor.fetchall():
-            total = row.total_commandes or 0
-            livrees = row.commandes_livrees or 0
-            a_temps = row.livrees_a_temps or 0
-            taux_ponctualite = (a_temps / livrees * 100) if livrees > 0 else 0
-            
-            clients.append({
-                "client": row.Client,
-                "total_commandes": total,
-                "commandes_livrees": livrees,
-                "livrees_a_temps": a_temps,
-                "taux_ponctualite": round(taux_ponctualite, 2),
-                "delai_moyen": round(row.delai_moyen or 0, 2)
-            })
-        return clients
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    S.RaiSocTri AS Client,
+                    COUNT(*) as total_commandes,
+                    SUM(CASE 
+                        WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' THEN 1 
+                        ELSE 0 
+                    END) as commandes_livrees,
+                    SUM(CASE 
+                        WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' AND L.DteLiv <= C.DteLivPrev THEN 1 
+                        ELSE 0 
+                    END) as livrees_a_temps,
+                    AVG(CASE 
+                        WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' THEN DATEDIFF(day, C.DteLivPrev, L.DteLiv) 
+                        ELSE NULL 
+                    END) as delai_moyen
+                FROM COMMANDES C
+                INNER JOIN SOCIETES S ON C.ID_SOCIETE = S.ID
+                LEFT JOIN LIVRAISONS_CMDE L ON C.ID = L.ID_COMMANDE 
+                WHERE C.DteLivPrev IS NOT NULL 
+                AND C.DteLivPrev <> '9999-12-31 00:00:00.000' 
+                AND C.DteLivPrev > '1900-01-01'
+                AND S.RaiSocTri IS NOT NULL
+                GROUP BY S.RaiSocTri
+                HAVING COUNT(*) >= 1
+                ORDER BY COUNT(*) DESC
+            """)
+            clients = []
+            for row in cursor.fetchall():
+                total = row.total_commandes or 0
+                livrees = row.commandes_livrees or 0
+                a_temps = row.livrees_a_temps or 0
+                taux_ponctualite = (a_temps / livrees * 100) if livrees > 0 else 0
+                
+                clients.append({
+                    "client": row.Client,
+                    "total_commandes": total,
+                    "commandes_livrees": livrees,
+                    "livrees_a_temps": a_temps,
+                    "taux_ponctualite": round(taux_ponctualite, 2),
+                    "delai_moyen": round(row.delai_moyen or 0, 2)
+                })
+            return clients
+    except Exception as e:
+        print(f"[Erreur get_performance_par_client] {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 def get_alertes_retard():
     """Récupère les commandes en retard nécessitant une attention (sans date de livraison)"""
@@ -451,7 +474,7 @@ def get_controles_qualite():
                 rebus,
                 validation_chef,
                 date_creation
-            FROM CONTROLES_QUALITE
+            FROM WEB_CONTROLES_QUALITE
             ORDER BY date_controle DESC, date_creation DESC
         """)
         controles = []
@@ -487,7 +510,7 @@ def get_controle_qualite_by_id(controle_id):
                 rebus,
                 validation_chef,
                 date_creation
-            FROM CONTROLES_QUALITE
+            FROM WEB_CONTROLES_QUALITE
             WHERE id = ?
         """, (controle_id,))
         
@@ -610,7 +633,7 @@ def get_controle_qualite_by_numero(numero_commande):
                 rebus,
                 validation_chef,
                 date_creation
-            FROM CONTROLES_QUALITE
+            FROM WEB_CONTROLES_QUALITE
             WHERE LTRIM(RTRIM(Numero_COMMANDES)) = ?
             ORDER BY date_creation DESC
         """, (numero_clean,))
@@ -662,7 +685,7 @@ def create_controle_qualite(data):
             # Insérer le contrôle qualité et récupérer l'ID directement
             print(f"DEBUG CREATE: Insertion contrôle avec data={data}")
             cursor.execute("""
-                INSERT INTO CONTROLES_QUALITE (
+                INSERT INTO WEB_CONTROLES_QUALITE (
                     date_controle, Numero_COMMANDES, operateur, machine_impression, operateur_machine_impression, 
                     machine_decoupe, operateur_machine_decoupe, rebus, validation_chef, date_creation
                 )
@@ -721,7 +744,7 @@ def update_controle_qualite(controle_id, data):
         with get_db_cursor() as cursor:
             # Mettre à jour le contrôle qualité
             cursor.execute("""
-                UPDATE CONTROLES_QUALITE SET
+                UPDATE WEB_CONTROLES_QUALITE SET
                     date_controle = ?,
                     Numero_COMMANDES = ?,
                     operateur = ?,
@@ -774,6 +797,30 @@ def update_controle_qualite(controle_id, data):
         print(f"Erreur lors de la mise à jour du contrôle qualité: {e}")
         return False
 
+def delete_controle_qualite(controle_id):
+    """Supprime un contrôle qualité et ses tolérances associées"""
+    try:
+        with get_db_cursor() as cursor:
+            # Supprimer d'abord les tolérances associées
+            cursor.execute("DELETE FROM TOLERANCES_CONTROLE WHERE controle_id = ?", (controle_id,))
+            
+            # Supprimer le contrôle qualité
+            cursor.execute("DELETE FROM WEB_CONTROLES_QUALITE WHERE id = ?", (controle_id,))
+            
+            # Vérifier si une ligne a été supprimée
+            if cursor.rowcount > 0:
+                cursor.connection.commit()
+                return True
+            else:
+                cursor.connection.rollback()
+                return False
+    except Exception as e:
+        print(f"Erreur lors de la suppression du contrôle qualité: {e}")
+        import traceback
+        traceback.print_exc()
+        cursor.connection.rollback()
+        return False
+
 def get_statistiques_controle_qualite():
     """Récupère les statistiques globales de contrôle qualité"""
     with get_db_cursor() as cursor:
@@ -784,7 +831,7 @@ def get_statistiques_controle_qualite():
                 COUNT(CASE WHEN validation_chef IS NOT NULL AND validation_chef != '' THEN 1 END) as controles_valides,
                 AVG(CAST(rebus AS FLOAT)) as rebus_moyen,
                 SUM(rebus) as total_rebus
-            FROM CONTROLES_QUALITE
+            FROM WEB_CONTROLES_QUALITE
         """)
         
         row = cursor.fetchone()
@@ -842,7 +889,7 @@ def get_performance_par_machine():
                     C.machine_impression,
                     SUM(T.quantite_conforme) as total_conforme,
                     MAX(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as rebus
-                FROM CONTROLES_QUALITE C
+                FROM WEB_CONTROLES_QUALITE C
                 LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
                 LEFT JOIN DernieresLignes D ON D.controle_id = C.id AND D.rn = 1
                 WHERE C.machine_impression IS NOT NULL AND C.machine_impression != ''
@@ -892,7 +939,7 @@ def get_evolution_qualite(jours=30):
                     CAST(C.date_controle AS DATE) as jour,
                     SUM(T.quantite_conforme) as total_conforme,
                     SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus
-                FROM CONTROLES_QUALITE C
+                FROM WEB_CONTROLES_QUALITE C
                 LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
                 LEFT JOIN DernieresLignes D ON D.controle_id = C.id
                 WHERE C.date_controle >= DATEADD(day, -?, GETDATE())
@@ -951,7 +998,7 @@ def get_dossiers_probleme(seuil_rebus_pct=10):
                     C.machine_impression,
                     SUM(T.quantite_conforme) as total_conforme,
                     MAX(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus
-                FROM CONTROLES_QUALITE C
+                FROM WEB_CONTROLES_QUALITE C
                 LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
                 LEFT JOIN DernieresLignes D ON D.controle_id = C.id
                 GROUP BY C.id, C.Numero_COMMANDES, C.date_controle, C.operateur, C.machine_impression
@@ -1016,7 +1063,7 @@ def get_comparaison_periodes(date_debut1, date_fin1, date_debut2, date_fin2):
                 SUM(T.quantite_conforme) as total_conforme,
                 SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
                 SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
-            FROM CONTROLES_QUALITE C
+            FROM WEB_CONTROLES_QUALITE C
             LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
             LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE CAST(C.date_controle AS DATE) BETWEEN ? AND ?
@@ -1046,7 +1093,7 @@ def get_comparaison_periodes(date_debut1, date_fin1, date_debut2, date_fin2):
                 SUM(T.quantite_conforme) as total_conforme,
                 SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
                 SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
-            FROM CONTROLES_QUALITE C
+            FROM WEB_CONTROLES_QUALITE C
             LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
             LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE CAST(C.date_controle AS DATE) BETWEEN ? AND ?
@@ -1086,6 +1133,81 @@ def get_machines_impression():
             })
         return machines
 
+def get_traitement_data_for_controle(numero_commande):
+    """
+    Récupère les données de WEB_TRAITEMENTS pour pré-remplir le formulaire de contrôle qualité.
+    Retourne les données pour :
+    - Machine d'impression si Nom_GP_SERVICES = 'OFFSET FEUILLES'
+    - Machine de découpe si Nom_GP_SERVICES = 'TYPO'
+    
+    Retourne:
+    - machine_impression: PostesReel (si OFFSET FEUILLES)
+    - operateurs_impression: liste de {nom, prenom} (si OFFSET FEUILLES)
+    - machine_decoupe: PostesReel (si TYPO)
+    - operateurs_decoupe: liste de {nom, prenom} (si TYPO)
+    """
+    with get_db_cursor() as cursor:
+        result = {
+            "machine_impression": None,
+            "operateurs_impression": [],
+            "machine_decoupe": None,
+            "operateurs_decoupe": []
+        }
+        
+        # Récupérer les données pour OFFSET FEUILLES (machine d'impression)
+        cursor.execute("""
+            SELECT TOP 1
+                WT.PostesReel,
+                WT.Nom_personel,
+                WT.Prenom_personel,
+                WT.Nom_GP_SERVICES
+            FROM WEB_TRAITEMENTS WT
+            WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(?))
+              AND LTRIM(RTRIM(WT.Nom_GP_SERVICES)) = 'OFFSET FEUILLES'
+              AND WT.PostesReel IS NOT NULL
+              AND WT.PostesReel != ''
+            ORDER BY WT.ID DESC
+        """, (numero_commande,))
+        
+        row_impression = cursor.fetchone()
+        if row_impression:
+            result["machine_impression"] = (row_impression.PostesReel or '').strip()
+            if row_impression.Nom_personel and row_impression.Prenom_personel:
+                result["operateurs_impression"].append({
+                    "nom": (row_impression.Nom_personel or '').strip(),
+                    "prenom": (row_impression.Prenom_personel or '').strip()
+                })
+        
+        # Récupérer les données pour TYPO (machine de découpe)
+        cursor.execute("""
+            SELECT TOP 1
+                WT.PostesReel,
+                WT.Nom_personel,
+                WT.Prenom_personel,
+                WT.Nom_GP_SERVICES
+            FROM WEB_TRAITEMENTS WT
+            WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(?))
+              AND LTRIM(RTRIM(WT.Nom_GP_SERVICES)) = 'TYPO'
+              AND WT.PostesReel IS NOT NULL
+              AND WT.PostesReel != ''
+            ORDER BY WT.ID DESC
+        """, (numero_commande,))
+        
+        row_decoupe = cursor.fetchone()
+        if row_decoupe:
+            result["machine_decoupe"] = (row_decoupe.PostesReel or '').strip()
+            if row_decoupe.Nom_personel and row_decoupe.Prenom_personel:
+                result["operateurs_decoupe"].append({
+                    "nom": (row_decoupe.Nom_personel or '').strip(),
+                    "prenom": (row_decoupe.Prenom_personel or '').strip()
+                })
+        
+        # Retourner None seulement si aucune donnée n'a été trouvée
+        if not result["machine_impression"] and not result["machine_decoupe"]:
+            return None
+        
+        return result
+
 def get_comparaison_machines(machine1, machine2, jours=30):
     """Compare les statistiques entre deux machines sur une période donnée"""
     with get_db_cursor() as cursor:
@@ -1103,7 +1225,7 @@ def get_comparaison_machines(machine1, machine2, jours=30):
                 SUM(T.quantite_conforme) as total_conforme,
                 SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
                 SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
-            FROM CONTROLES_QUALITE C
+            FROM WEB_CONTROLES_QUALITE C
             LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
             LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE C.machine_impression = ?
@@ -1135,7 +1257,7 @@ def get_comparaison_machines(machine1, machine2, jours=30):
                 SUM(T.quantite_conforme) as total_conforme,
                 SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
                 SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
-            FROM CONTROLES_QUALITE C
+            FROM WEB_CONTROLES_QUALITE C
             LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
             LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE C.machine_impression = ?
@@ -1163,12 +1285,29 @@ def marquer_livraison_reelle(numero, date_livraison, user=None):
     try:
         date_obj = datetime.strptime(date_livraison, '%Y-%m-%d')
         with get_db_cursor() as cursor:
-            # Mettre à jour la commande
+            # Récupérer l'ID de la commande depuis le numéro
+            cursor.execute("SELECT ID FROM COMMANDES WHERE Numero = ?", (numero,))
+            commande_row = cursor.fetchone()
+            
+            if not commande_row:
+                print(f"[Erreur] Commande {numero} non trouvée")
+                return False
+            
+            commande_id = commande_row[0]
+            
+            # Mettre à jour la date de livraison dans LIVRAISONS_CMDE (table source)
+            cursor.execute("""
+                UPDATE LIVRAISONS_CMDE 
+                SET DteLiv = ?, EtatLiv = 3
+                WHERE ID_COMMANDE = ?
+            """, (date_obj, commande_id))
+            
+            # Mettre à jour aussi la commande (Termine et EtatLiv)
             cursor.execute("""
                 UPDATE COMMANDES 
-                SET DteLivReelle = ?, Termine = 1, EtatLiv = 1
-                WHERE Numero = ?
-            """, date_obj, numero)
+                SET Termine = 1, EtatLiv = 3
+                WHERE ID = ?
+            """, (commande_id,))
             
             # Enregistrer dans l'historique si un utilisateur est fourni
             if user:
@@ -1176,12 +1315,14 @@ def marquer_livraison_reelle(numero, date_livraison, user=None):
                     INSERT INTO HISTORIQUE_LIVRAISON 
                     (NumeroCommande, AncienneDate, NouvelleDate, ModifiePar, TypeModification)
                     VALUES (?, NULL, ?, ?, 'Livraison Réelle')
-                """, numero, date_obj, user)
+                """, (numero, date_obj, user))
             
             cursor.connection.commit()
             return True
     except Exception as e:
         print(f"[Erreur marquage livraison] {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # ---------------------------

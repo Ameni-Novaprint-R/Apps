@@ -237,7 +237,7 @@ def get_liste_enregistrements(type_registre=None):
                 try:
                     cursor.execute("""
                         SELECT COUNT(*) 
-                        FROM CONTROLES_QUALITE 
+                        FROM WEB_CONTROLES_QUALITE 
                         WHERE LTRIM(RTRIM(Numero_COMMANDES)) = ?
                     """, (numero_clean,))
                     count = cursor.fetchone()[0]

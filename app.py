@@ -54,6 +54,9 @@ def inject_now():
     return {"now": datetime.now(timezone.utc)}
 
 
+# Cache des fichiers statiques (1 jour) pour éviter NS_BINDING_ABORTED sur le logo
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 86400
+
 # Configuration pour Crystal Reports
 app.config['CRYSTAL_REPORTS_DIR'] = os.path.join(app.root_path, 'crystalreport')
 
@@ -119,6 +122,7 @@ print("Renommer blueprint enregistre ( /admin/renommer-web-droits-acces-en-web-a
 from routes.auth_routes import auth_bp
 from logic.auth import get_user_projects, is_authenticated, is_super_user, has_project_access, get_user_sections, has_section_access, has_action_access
 from logic.project_routes import get_project_url, get_project_name, get_project_icon
+from flask import jsonify
 app.register_blueprint(auth_bp)
 print("Auth blueprint enregistre ( /auth/login, /auth/logout )")
 
@@ -127,16 +131,19 @@ print("Auth blueprint enregistre ( /auth/login, /auth/logout )")
 @app.context_processor
 def inject_auth():
     try:
-        from logic.auth import get_current_user
+        from logic.auth import get_current_user as auth_get_current_user
         
         def get_current_user_name():
             """Helper pour obtenir le nom de l'utilisateur depuis la session"""
             try:
-                user = get_current_user()
-                if user:
-                    return user.get('nom', 'Utilisateur')
-                return None
-            except:
+                user = auth_get_current_user()
+                if user is None:
+                    return None
+                # Ancien format (dict) ou nouveau format (str)
+                if isinstance(user, dict):
+                    return user.get('nom') or user.get('name') or None
+                return str(user)
+            except Exception:
                 return None
         
         return {
@@ -203,6 +210,91 @@ def index():
             return redirect(url_for('auth.login'))
         except:
             return f"<h1>Erreur</h1><p>{str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
+
+@app.route('/api/navigation-menu')
+def api_navigation_menu():
+    """
+    API pour obtenir les projets et sections accessibles par l'utilisateur connecté
+    Retourne une structure JSON avec les projets et leurs sections
+    """
+    try:
+        if not is_authenticated():
+            return jsonify({"error": "Non authentifié"}), 401
+        
+        user_projects = get_user_projects()
+        projects_data = []
+        
+        for project in user_projects:
+            project_num = project.get('num')
+            project_id = project.get('id')
+            
+            # Obtenir l'URL du projet
+            project_url = get_project_url(project_num)
+            project_icon = get_project_icon(project_num)
+            project_name = project.get('nom') or get_project_name(project_num) or f"Projet {project_num}"
+            
+            # Obtenir les sections du projet
+            sections = get_user_sections(project_id) if project_id else []
+            
+            # Construire les données des sections avec leurs URLs
+            sections_data = []
+            for section in sections:
+                section_id = section.get('id')
+                section_nom = section.get('nom', '')
+                
+                # Construire l'URL de la section selon le projet
+                section_url = None
+                if project_url:
+                    # Pour le projet 11, les sections sont gérées via des routes spécifiques
+                    if project_num == 11:
+                        # Mapper les noms de sections aux routes du projet 11
+                        section_nom_lower = section_nom.lower()
+                        try:
+                            from flask import url_for
+                            if 'nouvelle fiche' in section_nom_lower or ('fiche' in section_nom_lower and 'production' in section_nom_lower):
+                                section_url = url_for('projet11.index')
+                            elif ('liste' in section_nom_lower and 'traitements' in section_nom_lower) or section_nom_lower == 'liste des traitements':
+                                section_url = url_for('projet11.liste_traitements')
+                            elif 'statistiques' in section_nom_lower or 'stats' in section_nom_lower:
+                                section_url = url_for('projet11.statistiques')
+                            else:
+                                section_url = url_for('projet11.index')
+                        except Exception as e:
+                            # Fallback si url_for échoue
+                            section_nom_lower = section_nom.lower()
+                            if 'nouvelle fiche' in section_nom_lower or ('fiche' in section_nom_lower and 'production' in section_nom_lower):
+                                section_url = '/projet11/'
+                            elif ('liste' in section_nom_lower and 'traitements' in section_nom_lower):
+                                section_url = '/projet11/traitements'
+                            elif 'statistiques' in section_nom_lower or 'stats' in section_nom_lower:
+                                section_url = '/projet11/statistiques'
+                            else:
+                                section_url = project_url
+                    else:
+                        # Pour les autres projets, utiliser l'URL du projet avec section_id en paramètre
+                        section_url = f'{project_url}?section_id={section_id}' if section_id else project_url
+                
+                sections_data.append({
+                    "id": section_id,
+                    "nom": section_nom,
+                    "url": section_url or project_url
+                })
+            
+            projects_data.append({
+                "id": project_id,
+                "num": project_num,
+                "nom": project_name,
+                "icon": project_icon,
+                "url": project_url,
+                "sections": sections_data
+            })
+        
+        return jsonify({"projects": projects_data})
+    except Exception as e:
+        print(f"[Erreur api_navigation_menu] {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/favicon.ico')
 def favicon():

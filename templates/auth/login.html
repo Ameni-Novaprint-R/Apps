@@ -15,7 +15,11 @@
     .login-container h2 {
         text-align: center;
         margin-bottom: 30px;
-        color: #333;
+        color: #003366; /* Bleu Novaprint */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
     }
     .form-group {
         margin-bottom: 20px;
@@ -26,31 +30,114 @@
         font-weight: 600;
         color: #555;
     }
-    .form-group input {
+    /* Styles pour les champs de saisie avec spécificité maximale - Vert Novaprint */
+    .login-container .form-group input,
+    .login-container input[type="text"],
+    .login-container input[type="password"],
+    .login-container input[type="email"],
+    .login-container #matricule,
+    .login-container #password {
         width: 100%;
         padding: 10px;
         border: 1px solid #ddd;
         border-radius: 5px;
         font-size: 16px;
+        background-color: rgba(128, 195, 66, 0.1) !important; /* Vert Novaprint transparent */
+        transition: background-color 0.3s, border-color 0.3s;
     }
-    .form-group input:focus {
-        outline: none;
-        border-color: #007bff;
+    .login-container .form-group input:focus,
+    .login-container input[type="text"]:focus,
+    .login-container input[type="password"]:focus,
+    .login-container input[type="email"]:focus,
+    .login-container #matricule:focus,
+    .login-container #password:focus {
+        outline: none !important;
+        border-color: #2377c !important; /* Couleur focus */
+        background-color: rgba(35, 119, 192, 0.1) !important; /* #2377c transparent au focus */
+        box-shadow: 0 0 0 0.2rem rgba(35, 119, 192, 0.2) !important;
+    }
+    .login-container .form-group input::placeholder,
+    .login-container input[type="text"]::placeholder,
+    .login-container input[type="password"]::placeholder,
+    .login-container input[type="email"]::placeholder {
+        color: rgba(94, 157, 45, 0.6) !important; /* Vert Novaprint foncé pour placeholder */
+    }
+    
+    /* Désactiver le style jaune de l'autofill du navigateur - utiliser le vert Novaprint */
+    .login-container input:-webkit-autofill,
+    .login-container input:-webkit-autofill:hover,
+    .login-container input:-webkit-autofill:focus,
+    .login-container input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 30px rgba(128, 195, 66, 0.1) inset !important;
+        -webkit-text-fill-color: #333 !important;
+        background-color: rgba(128, 195, 66, 0.1) !important;
+        transition: background-color 5000s ease-in-out 0s;
+    }
+    
+    /* Pour Firefox et autres navigateurs */
+    .login-container input:autofill {
+        background-color: rgba(128, 195, 66, 0.1) !important;
+    }
+    .password-wrapper {
+        position: relative;
+        display: block;
+    }
+    .password-wrapper input {
+        padding-right: 42px;
+    }
+    .password-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        color: #64748b;
+        transition: color 0.2s, background 0.2s;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .password-toggle:hover {
+        color: #80C342; /* Vert Novaprint */
+        background: rgba(128, 195, 66, 0.12); /* Vert Novaprint transparent */
+    }
+    .password-toggle:active {
+        background: rgba(128, 195, 66, 0.2); /* Vert Novaprint plus intense */
+    }
+    .password-toggle svg {
+        width: 20px;
+        height: 20px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
     }
     .btn-login {
         width: 100%;
         padding: 12px;
-        background-color: #007bff;
+        background-color: #003366; /* Bleu Novaprint */
         color: white;
         border: none;
         border-radius: 5px;
         font-size: 16px;
         font-weight: 600;
         cursor: pointer;
-        transition: background-color 0.3s;
+        transition: background-color 0.3s, transform 0.2s;
     }
     .btn-login:hover {
-        background-color: #0056b3;
+        background-color: #004080; /* Bleu Novaprint plus foncé */
+        transform: translateY(-1px);
+    }
+    .btn-login:active {
+        transform: translateY(0);
     }
     .alert {
         padding: 12px;
@@ -86,25 +173,55 @@
     
     <form method="POST" action="{{ url_for('auth.login') }}">
         <div class="form-group">
-            <label for="matricule">Matricule *</label>
-            <input type="number" 
+            <label for="matricule">Matricule ou nom d'atelier *</label>
+            <input type="text" 
                    id="matricule" 
                    name="matricule" 
                    required 
                    autofocus
-                   placeholder="Entrez votre matricule">
+                   placeholder="Matricule (ex. 321) ou atelier (ex. Atelier1)">
         </div>
         
         <div class="form-group">
             <label for="password">Mot de passe *</label>
-            <input type="password" 
-                   id="password" 
-                   name="password" 
-                   required
-                   placeholder="Entrez votre mot de passe">
+            <div class="password-wrapper">
+                <input type="password" 
+                       id="password" 
+                       name="password" 
+                       required
+                       placeholder="Entrez votre mot de passe">
+                <button type="button" class="password-toggle" id="togglePassword" title="Maintenir pour afficher le mot de passe" aria-label="Maintenir pour afficher le mot de passe">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+            </div>
         </div>
         
         <button type="submit" class="btn-login">Se connecter</button>
     </form>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('togglePassword');
+    var input = document.getElementById('password');
+    if (!btn || !input) return;
+    function showPassword() {
+        input.type = 'text';
+    }
+    function hidePassword() {
+        input.type = 'password';
+    }
+    btn.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        showPassword();
+    });
+    btn.addEventListener('mouseup', hidePassword);
+    btn.addEventListener('mouseleave', hidePassword);
+    document.addEventListener('mouseup', function(e) {
+        if (!btn.contains(e.target)) hidePassword();
+    });
+});
+</script>
 {% endblock %}

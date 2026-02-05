@@ -3,32 +3,409 @@
 
 {% block title %}Planning & Suivi des Délais{% endblock %}
 
+{% block head %}
+<!-- jQuery (requis pour DataTables) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<!-- Font Awesome pour les icônes -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* Style du titre (style Projet 14) */
+    .page-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 35px 40px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .page-header h1 {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        font-weight: 700;
+    }
+
+    /* Styles pour les sections toggleables (style Projet 10) */
+    .section-selection {
+        background: #f8f9fa !important;
+        padding: 20px !important;
+        border-radius: 8px !important;
+        margin-bottom: 25px !important;
+        text-align: center !important;
+        border: 1px solid #e0e0e0 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
+
+    .section-options {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: center !important;
+        gap: 20px !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+    }
+
+    .section-btn {
+        padding: 15px 30px !important;
+        background: white !important;
+        color: #2c3e50 !important;
+        text-decoration: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        transition: all 0.3s !important;
+        border: 2px solid #ddd !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        flex: 1 !important;
+        max-width: calc(33.333% - 14px) !important;
+        min-width: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    .section-btn:hover {
+        background: #9c27b0 !important;
+        color: white !important;
+        border-color: #9c27b0 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(156, 39, 176, 0.3) !important;
+    }
+
+    .section-btn.active {
+        background: #9c27b0 !important;
+        color: white !important;
+        border-color: #9c27b0 !important;
+    }
+
+    .content-section {
+        background: white !important;
+        padding: 25px 20px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        border: 1px solid #e0e0e0 !important;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        margin-bottom: 20px !important;
+        transition: opacity 0.3s ease !important;
+    }
+
+    .content-section.active {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    @media (max-width: 992px) {
+        .section-options {
+            flex-direction: column !important;
+        }
+        .section-btn {
+            max-width: 100% !important;
+        }
+    }
+    
+    /* Styles pour la vue standard - s'assurer que le calendrier s'affiche */
+    #vueStandard {
+        width: 100%;
+    }
+    
+    #calendarStandard {
+        min-height: 600px;
+        width: 100%;
+    }
+    
+    /* Styles pour la vue 2 mois */
+    #vueDeuxMois {
+        display: none;
+        width: 100%;
+    }
+    
+    #vueDeuxMois > div {
+        display: flex;
+        gap: 2rem;
+        align-items: flex-start;
+        width: 100%;
+    }
+    
+    #calendar1, #calendar2 {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    /* Styles pour la barre de défilement horizontale en haut du tableau */
+    .table-wrapper-scroll {
+        position: relative;
+        width: 100%;
+    }
+    
+    .table-scroll-top {
+        height: 16px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        position: sticky;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        background: var(--bs-body-bg);
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .table-responsive.no-horizontal-scroll .table-scroll-top {
+        display: none;
+    }
+    
+    .table-scroll-inner {
+        height: 1px;
+    }
+    
+    .table-scroll-top::-webkit-scrollbar {
+        height: 12px;
+    }
+    
+    .table-scroll-top::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 6px;
+    }
+    
+    .table-scroll-top::-webkit-scrollbar-track {
+        background-color: transparent;
+    }
+    
+    /* Styles pour les colonnes du tableau - largeurs réduites */
+    #tableSuivi {
+        width: auto;
+        table-layout: auto;
+    }
+    
+    #tableSuivi th,
+    #tableSuivi td {
+        white-space: nowrap;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    th.col-numero, td.col-numero {
+        width: 100px;
+        max-width: 120px;
+    }
+    
+    th.col-client, td.col-client {
+        width: 150px;
+        max-width: 180px;
+    }
+    
+    th.col-reference, td.col-reference {
+        width: 140px;
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    th.col-date, td.col-date {
+        width: 110px;
+        max-width: 130px;
+        text-align: center;
+    }
+    
+    th.col-statut, td.col-statut {
+        width: 100px;
+        max-width: 120px;
+        text-align: center;
+    }
+    
+    th.col-statut-dossier, td.col-statut-dossier {
+        width: 120px;
+        max-width: 140px;
+        text-align: center;
+    }
+    
+    th.col-ecart, td.col-ecart {
+        width: 100px;
+        max-width: 120px;
+        text-align: center;
+    }
+    
+    th.col-actions, td.col-actions {
+        width: 110px;
+        min-width: 110px;
+        max-width: 120px;
+    }
+    
+    .table-filters input {
+        width: 100%;
+        font-size: 0.85rem;
+        padding: 4px;
+        box-sizing: border-box;
+    }
+    
+    .table-filters input[type="date"] {
+        font-size: 0.85rem;
+        padding: 4px;
+    }
+    
+    .table-filters th {
+        padding: 8px 4px;
+    }
+    
+    .column-toggle-panel {
+        margin-bottom: 1rem;
+    }
+    
+    .column-toggle-panel .form-check {
+        margin-right: 1rem;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        vertical-align: middle;
+    }
+    
+    .column-toggle-panel .form-check-input {
+        margin-top: 0;
+        margin-right: 0.35rem;
+        vertical-align: middle;
+    }
+    
+    .column-toggle-panel .form-check-label {
+        margin-bottom: 0;
+        vertical-align: middle;
+    }
+    
+    .dataTables_wrapper .dataTables_scroll {
+        overflow: visible;
+    }
+    
+    /* Styles pour les icônes de tri DataTables */
+    #tableSuivi thead th.sorting,
+    #tableSuivi thead th.sorting_asc,
+    #tableSuivi thead th.sorting_desc {
+        position: relative;
+        padding-right: 30px;
+        cursor: pointer;
+    }
+    
+    #tableSuivi thead th.sorting:before,
+    #tableSuivi thead th.sorting:after {
+        content: "";
+        position: absolute;
+        right: 8px;
+        opacity: 0.3;
+        font-size: 0.8em;
+    }
+    
+    #tableSuivi thead th.sorting:before {
+        content: "▲";
+        top: 8px;
+        opacity: 0.3;
+    }
+    
+    #tableSuivi thead th.sorting:after {
+        content: "▼";
+        bottom: 8px;
+        opacity: 0.3;
+    }
+    
+    #tableSuivi thead th.sorting_asc:before {
+        content: "▲";
+        opacity: 1;
+        top: 8px;
+    }
+    
+    #tableSuivi thead th.sorting_desc:after {
+        content: "▼";
+        opacity: 1;
+        bottom: 8px;
+    }
+    
+    /* Styles pour les champs de date dans la section toggle */
+    .date-range-toggle-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 10px;
+        padding: 5px 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        vertical-align: middle;
+    }
+    
+    .date-range-toggle-container input[type="date"] {
+        font-size: 0.8rem;
+        padding: 2px 4px;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        width: 130px;
+    }
+    
+    .date-range-toggle-container .date-separator {
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .date-range-toggle-container .btn-clear-date,
+    .date-range-toggle-container .btn-validate-date {
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        line-height: 1.2;
+    }
+    
+    .date-range-toggle-container .btn-validate-date {
+        background-color: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+    
+    .date-range-toggle-container .btn-validate-date:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-    <h1 class="fade-in">Planning & Suivi des Délais</h1>
+    <div class="container-fluid">
+        <!-- En-tête du formulaire (style Projet 14 avec couleur violette) -->
+        <div class="page-header" style="background: linear-gradient(135deg, #e1bee7 0%, #ba68c8 100%); color: #4B0082; border: 2px solid #9c27b0; border-radius: 10px; padding: 35px 40px;">
+            <h1 style="font-size: 2rem; margin-bottom: 10px; color: #4B0082; font-weight: 700;">📅 Planning & Suivi des Délais de Livraison</h1>
+        </div>
+    </div>
 
-    <!-- Onglets principaux -->
-    <ul class="nav nav-tabs" id="mainTabs" role="tablist" style="margin-bottom: 1rem;">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="planning-tab" data-bs-toggle="tab" data-bs-target="#planning" type="button" role="tab">
-                📅 Planning
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="suivi-tab" data-bs-toggle="tab" data-bs-target="#suivi" type="button" role="tab">
-                📊 Suivi des Délais
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance" type="button" role="tab">
-                📈 Performance
-            </button>
-        </li>
-    </ul>
+    <!-- Sélection de section (style Projet 10) -->
+    <div class="section-selection">
+        <div class="section-options">
+            <div class="section-btn" id="toggle-planning" data-section="planning">
+                <span>📅</span>
+                <span>Calendrier des Dossiers à Livrer</span>
+            </div>
+            <div class="section-btn" id="toggle-suivi" data-section="suivi">
+                <span>📊</span>
+                <span>Suivi des Dossiers et des Délais de Livraison</span>
+            </div>
+            <div class="section-btn" id="toggle-performance" data-section="performance">
+                <span>📈</span>
+                <span>Performance</span>
+            </div>
+        </div>
+    </div>
 
-    <!-- Contenu des onglets -->
-    <div class="tab-content" id="mainTabContent">
-        <!-- Onglet Planning -->
-        <div class="tab-pane fade show active" id="planning" role="tabpanel">
+    <!-- Section Calendrier des Dossiers à Livrer -->
+    <div class="content-section" id="section-planning">
             <div style="margin-bottom: 1rem;">
                 <button id="btnVueStandard" style="padding: 6px 12px; margin-right: 10px;">Vue standard</button>
                 <button id="btnVueDeuxMois" style="padding: 6px 12px;">Vue 2 mois</button>
@@ -41,33 +418,55 @@
     </div>
 
     <div id="vueStandard">
-        <div id="calendarStandard"></div>
+        <div id="calendarStandard" style="min-height: 600px;"></div>
     </div>
 
             <div id="vueDeuxMois" style="display: none;">
-                <div style="display: flex; gap: 2rem;">
-                    <div id="calendar1" style="flex: 1;"></div>
-                    <div id="calendar2" style="flex: 1;"></div>
+                <div style="display: flex; gap: 2rem; align-items: flex-start; width: 100%;">
+                    <div id="calendar1" style="flex: 1; min-width: 0;"></div>
+                    <div id="calendar2" style="flex: 1; min-width: 0;"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Onglet Suivi des Délais -->
-        <div class="tab-pane fade" id="suivi" role="tabpanel">
+    <!-- Section Suivi des Dossiers et des Délais de Livraison -->
+    <div class="content-section" id="section-suivi">
+            <!-- Alertes de Retard en haut -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <h3>Alertes de Retard</h3>
+                    <div id="alertesRetard">
+                        <!-- Alertes chargées via JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tableau Commandes avec Suivi en pleine largeur -->
             <div class="row">
-                <div class="col-md-8">
+                <div class="col-12">
                     <h3>Commandes avec Suivi</h3>
-                    <div class="table-responsive">
-                        <table class="table table-striped" id="tableSuivi">
-                            <thead>
-                                <tr>
-                                    <th>Numéro</th>
-                                    <th>Client</th>
-                                    <th>Date Prévue</th>
-                                    <th>Date Réelle</th>
-                                    <th>Statut</th>
-                                    <th>Écart (jours)</th>
-                                    <th>Actions</th>
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="column-toggle-panel">
+                                <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
+                                <div class="d-flex flex-wrap gap-2" id="columnToggleContainer"></div>
+                            </div>
+                            <div class="table-responsive position-relative">
+                                <div class="table-scroll-top">
+                                    <div class="table-scroll-inner"></div>
+                                </div>
+                                <table class="table table-striped table-hover mb-0" id="tableSuivi">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th class="col-numero">Numéro</th>
+                                            <th class="col-client">Client</th>
+                                            <th class="col-reference">Référence</th>
+                                            <th class="col-date">Date Prévue</th>
+                                            <th class="col-date">Date Réelle</th>
+                                            <th class="col-statut">Statut</th>
+                                            <th class="col-statut-dossier">Statut de dossier</th>
+                                            <th class="col-ecart">Écart (jours)</th>
+                                            <th class="col-actions">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="tbodySuivi">
@@ -76,17 +475,13 @@
                         </table>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <h3>Alertes de Retard</h3>
-                    <div id="alertesRetard">
-                        <!-- Alertes chargées via JavaScript -->
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Onglet Performance -->
-        <div class="tab-pane fade" id="performance" role="tabpanel">
+    <!-- Section Performance -->
+    <div class="content-section" id="section-performance">
             <div class="row">
                 <div class="col-md-6">
                     <h3>Indicateurs Globaux</h3>
@@ -111,7 +506,6 @@
                                 <!-- Données chargées via JavaScript -->
                             </tbody>
                         </table>
-                    </div>
                 </div>
             </div>
         </div>
@@ -200,9 +594,19 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('setupCalendars appelée avec', events.length, 'événements');
         countEvents(events);
 
-        if (calStd) calStd.destroy();
-        if (cal1) cal1.destroy();
-        if (cal2) cal2.destroy();
+        // Détruire les calendriers existants s'ils existent
+        if (calStd) {
+            calStd.destroy();
+            calStd = null;
+        }
+        if (cal1) {
+            cal1.destroy();
+            cal1 = null;
+        }
+        if (cal2) {
+            cal2.destroy();
+            cal2 = null;
+        }
 
         calStd = new FullCalendar.Calendar(document.getElementById('calendarStandard'), {
             locale: 'fr',
@@ -213,50 +617,115 @@ document.addEventListener('DOMContentLoaded', function () {
                 center: 'title',
                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
             },
+            height: 'auto',
+            contentHeight: 'auto',
             events,
             eventDidMount(info) {
                 if (info.event.extendedProps.reference) {
                     info.el.setAttribute("title", info.event.extendedProps.reference);
                 }
             },
-            dayCellDidMount: createBadge
+            dayCellDidMount: createBadge,
+            eventDrop: function(info) {
+                const numero = info.event.id;
+                const newDate = info.event.startStr;
+                
+                fetch('/projet1/update_commande', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: numero,
+                        start: newDate
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log('Date mise à jour avec succès pour le dossier', numero);
+                        // Optionnel : afficher une notification
+                        const eventEl = info.el;
+                        eventEl.style.opacity = '0.5';
+                        setTimeout(() => {
+                            eventEl.style.opacity = '1';
+                        }, 500);
+                    } else {
+                        info.revert(); // Annuler le déplacement en cas d'erreur
+                        alert('Erreur lors de la mise à jour : ' + (data.message || 'Erreur inconnue'));
+                    }
+                })
+                .catch(error => {
+                    info.revert(); // Annuler le déplacement en cas d'erreur réseau
+                    console.error('Erreur lors de la mise à jour:', error);
+                    alert('Erreur de connexion lors de la mise à jour');
+                });
+            }
         });
 
-        cal1 = new FullCalendar.Calendar(document.getElementById('calendar1'), {
-            locale: 'fr',
-            editable: false,
-            initialView: 'dayGridMonth',
-            initialDate: new Date(),
-            headerToolbar: { left: '', center: 'title', right: '' },
-            events,
-            eventDidMount(info) {
-                if (info.event.extendedProps.reference) {
-                    info.el.setAttribute("title", info.event.extendedProps.reference);
-                }
-            },
-            dayCellDidMount: createBadge
-        });
-
-        cal2 = new FullCalendar.Calendar(document.getElementById('calendar2'), {
-            locale: 'fr',
-            editable: false,
-            initialView: 'dayGridMonth',
-            initialDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1),
-            headerToolbar: { left: '', center: 'title', right: '' },
-            events,
-            eventDidMount(info) {
-                if (info.event.extendedProps.reference) {
-                    info.el.setAttribute("title", info.event.extendedProps.reference);
-                }
-            },
-            dayCellDidMount: createBadge
-        });
-
-        calStd.render();
-        cal1.render();
-        cal2.render();
+        const calendar1El = document.getElementById('calendar1');
+        const calendar2El = document.getElementById('calendar2');
         
-        console.log('Calendriers rendus. Événements dans calStd:', calStd.getEvents().length);
+        if (calendar1El) {
+            cal1 = new FullCalendar.Calendar(calendar1El, {
+                locale: 'fr',
+                editable: false,
+                initialView: 'dayGridMonth',
+                initialDate: new Date(),
+                headerToolbar: { left: '', center: 'title', right: '' },
+                height: 'auto',
+                contentHeight: 'auto',
+                aspectRatio: 1.35,
+                events,
+                eventDidMount(info) {
+                    if (info.event.extendedProps.reference) {
+                        info.el.setAttribute("title", info.event.extendedProps.reference);
+                    }
+                },
+                dayCellDidMount: createBadge
+            });
+        }
+
+        if (calendar2El) {
+            cal2 = new FullCalendar.Calendar(calendar2El, {
+                locale: 'fr',
+                editable: false,
+                initialView: 'dayGridMonth',
+                initialDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1),
+                headerToolbar: { left: '', center: 'title', right: '' },
+                height: 'auto',
+                contentHeight: 'auto',
+                aspectRatio: 1.35,
+                events,
+                eventDidMount(info) {
+                    if (info.event.extendedProps.reference) {
+                        info.el.setAttribute("title", info.event.extendedProps.reference);
+                    }
+                },
+                dayCellDidMount: createBadge
+            });
+        }
+
+        // Toujours rendre le calendrier standard car il est visible par défaut
+        calStd.render();
+        console.log('Calendrier standard rendu avec', calStd.getEvents().length, 'événements');
+        
+        // Ne rendre cal1 et cal2 que si leur conteneur est visible
+        // Sinon, ils seront rendus quand l'utilisateur passera à la vue 2 mois
+        const vueDeuxMoisElement = document.getElementById('vueDeuxMois');
+        const vueDeuxMoisVisible = vueDeuxMoisElement && vueDeuxMoisElement.style.display !== 'none';
+        if (vueDeuxMoisVisible) {
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    cal1.render();
+                    cal2.render();
+                    // Forcer le recalcul des dimensions
+                    setTimeout(() => {
+                        cal1.updateSize();
+                        cal2.updateSize();
+                    }, 50);
+                    console.log('Calendriers cal1 et cal2 rendus');
+                }, 100);
+            });
+        }
     }
 
     fetch('/projet1/api/commandes')
@@ -293,52 +762,706 @@ document.addEventListener('DOMContentLoaded', function () {
         setupCalendars(allEvents);
     });
 
-    // Onglets
+    // Onglets - Gestion de l'affichage des vues
     document.getElementById('btnVueStandard').addEventListener('click', () => {
-        document.getElementById('vueStandard').style.display = 'block';
-        document.getElementById('vueDeuxMois').style.display = 'none';
+        const vueStandardEl = document.getElementById('vueStandard');
+        const vueDeuxMoisEl = document.getElementById('vueDeuxMois');
+        
+        // Masquer complètement la vue 2 mois
+        if (vueDeuxMoisEl) {
+            vueDeuxMoisEl.style.display = 'none';
+            vueDeuxMoisEl.style.visibility = 'hidden';
+        }
+        
+        // Afficher la vue standard
+        if (vueStandardEl) {
+            vueStandardEl.style.display = 'block';
+            vueStandardEl.style.visibility = 'visible';
+        }
+        
+        // Re-rendre le calendrier standard après avoir rendu le conteneur visible
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                if (calStd) {
+                    calStd.render();
+                    setTimeout(() => {
+                        calStd.updateSize();
+                        console.log('Calendrier standard re-rendu');
+                    }, 50);
+                }
+            }, 100);
+        });
     });
+    
     document.getElementById('btnVueDeuxMois').addEventListener('click', () => {
-        document.getElementById('vueStandard').style.display = 'none';
-        document.getElementById('vueDeuxMois').style.display = 'block';
+        const vueStandardEl = document.getElementById('vueStandard');
+        const vueDeuxMoisEl = document.getElementById('vueDeuxMois');
+        
+        // Masquer complètement la vue standard
+        if (vueStandardEl) {
+            vueStandardEl.style.display = 'none';
+            vueStandardEl.style.visibility = 'hidden';
+        }
+        
+        // Afficher la vue 2 mois
+        if (vueDeuxMoisEl) {
+            vueDeuxMoisEl.style.display = 'block';
+            vueDeuxMoisEl.style.visibility = 'visible';
+        }
+        
+        // Créer les calendriers s'ils n'existent pas encore
+        if (!cal1 || !cal2) {
+            console.log('Création des calendriers cal1 et cal2...');
+            setupCalendars(allEvents);
+        } else {
+            // Re-rendre les calendriers après avoir rendu le conteneur visible
+            // Utiliser requestAnimationFrame pour s'assurer que le DOM est mis à jour
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    if (cal1) {
+                        cal1.render();
+                        // Forcer le recalcul des dimensions après le rendu
+                        setTimeout(() => {
+                            cal1.updateSize();
+                            // Forcer un deuxième updateSize pour s'assurer que tout est bien calculé
+                            requestAnimationFrame(() => {
+                                cal1.updateSize();
+                                console.log('cal1 rendu avec', cal1.getEvents().length, 'événements');
+                            });
+                        }, 100);
+                    }
+                    if (cal2) {
+                        cal2.render();
+                        // Forcer le recalcul des dimensions après le rendu
+                        setTimeout(() => {
+                            cal2.updateSize();
+                            // Forcer un deuxième updateSize pour s'assurer que tout est bien calculé
+                            requestAnimationFrame(() => {
+                                cal2.updateSize();
+                                console.log('cal2 rendu avec', cal2.getEvents().length, 'événements');
+                            });
+                        }, 100);
+                    }
+                }, 150);
+            });
+        }
     });
 
     // ---------------------------
-    // SUIVI DES DÉLAIS
+    // SUIVI DES DOSSIERS ET DES DÉLAIS DE LIVRAISON
     // ---------------------------
     
-    // Charger les données de suivi
+    // Variable globale pour DataTable
+    var dataTableSuivi = null;
+    var dateRangeFilterIndex = -1; // Index du filtre de plage de dates dans $.fn.dataTable.ext.search
+    
+    // Charger les données de suivi avec DataTables
     function loadSuiviData() {
+        // Vérifier que jQuery est disponible
+        if (typeof $ === 'undefined') {
+            console.error('jQuery n\'est pas disponible. Veuillez recharger la page.');
+            return;
+        }
+        
         fetch('/projet1/api/commandes-avec-suivi')
             .then(res => res.json())
             .then(data => {
+                // Si DataTable existe déjà, la détruire
+                if (dataTableSuivi) {
+                    // Supprimer le filtre de plage de dates personnalisé
+                    if (dateRangeFilterIndex >= 0) {
+                        $.fn.dataTable.ext.search.splice(dateRangeFilterIndex, 1);
+                        dateRangeFilterIndex = -1;
+                    }
+                    dataTableSuivi.destroy();
+                    dataTableSuivi = null;
+                }
+                
                 const tbody = document.getElementById('tbodySuivi');
+                if (!tbody) {
+                    console.error('Élément tbodySuivi non trouvé');
+                    return;
+                }
+                
                 tbody.innerHTML = '';
                 
-                data.forEach(commande => {
-                    const row = document.createElement('tr');
+                // Préparer les données pour DataTables
+                const tableData = data.map(commande => {
                     const statutClass = getStatutClass(commande.statut_delai);
                     const ecartText = commande.ecart_jours !== null ? 
                         `${commande.ecart_jours > 0 ? '+' : ''}${commande.ecart_jours}` : '-';
+                    const actionBtn = !commande.termine ? 
+                        `<button class="btn btn-sm btn-success" onclick="marquerLivraison('${commande.numero}')">Marquer livré</button>` : 
+                        '<span class="text-muted">Terminé</span>';
                     
-                    row.innerHTML = `
-                        <td>${commande.numero}</td>
-                        <td>${commande.client || '-'}</td>
-                        <td>${commande.date_prevue || '-'}</td>
-                        <td>${commande.date_reelle || '-'}</td>
-                        <td><span class="badge ${statutClass}">${commande.statut_delai}</span></td>
-                        <td>${ecartText}</td>
-                        <td>
-                            ${!commande.termine ? 
-                                `<button class="btn btn-sm btn-success" onclick="marquerLivraison('${commande.numero}')">
-                                    Marquer livré
-                                </button>` : 
-                                '<span class="text-muted">Terminé</span>'
-                            }
-                        </td>
-                    `;
-                    tbody.appendChild(row);
+                    // Formater la date pour le filtrage (garder le format original pour l'affichage)
+                    const datePrevueFormatted = commande.date_prevue || '-';
+                    
+                    // Formater la date réelle - vérifier si elle est valide (pas "9999-12-31" ou vide)
+                    let dateReelleFormatted = '<span style="display: block; text-align: center;">-</span>';
+                    if (commande.date_reelle && commande.date_reelle !== '9999-12-31' && commande.date_reelle !== '9999-12-31 00:00:00.000') {
+                        // Extraire juste la date si c'est un datetime
+                        const dateOnly = commande.date_reelle.split(' ')[0];
+                        if (dateOnly && dateOnly >= '1900-01-01' && dateOnly < '2100-01-01') {
+                            dateReelleFormatted = dateOnly;
+                        }
+                    }
+                    
+                    // Formater le statut de dossier
+                    const statutDossierText = commande.statut_dossier === 'encours' ? 
+                        '<span class="badge bg-info">encours</span>' : 
+                        (commande.statut_dossier || '-');
+                    
+                    return [
+                        commande.numero,
+                        commande.client || '-',
+                        commande.reference || '-',
+                        datePrevueFormatted, // Date Prévue (index 3)
+                        dateReelleFormatted, // Date Réelle (index 4)
+                        `<span class="badge ${statutClass}">${commande.statut_delai || '-'}</span>`,
+                        statutDossierText, // Statut de dossier (index 6)
+                        ecartText,
+                        actionBtn
+                    ];
                 });
+                
+                // Initialiser DataTables
+                initializeDataTable(tableData);
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des données:', error);
+            });
+    }
+    
+    // Initialiser DataTables avec filtres et tri
+    function initializeDataTable(data) {
+        // Vérifier que jQuery et DataTables sont disponibles
+        if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') {
+            console.error('jQuery ou DataTables n\'est pas disponible');
+            return;
+        }
+        
+        const $table = $('#tableSuivi');
+        if ($table.length === 0) {
+            console.error('Table #tableSuivi non trouvée');
+            return;
+        }
+        
+        const colonneDefs = [
+            { titre: 'Numéro', filtre: true, toggle: true, className: 'col-numero', width: '100px' },
+            { titre: 'Client', filtre: true, toggle: true, className: 'col-client', width: '150px' },
+            { titre: 'Référence', filtre: true, toggle: true, className: 'col-reference', width: '140px' },
+            { titre: 'Date Prévue', filtre: true, toggle: true, className: 'col-date', width: '110px' },
+            { titre: 'Date Réelle', filtre: true, toggle: true, className: 'col-date', width: '110px' },
+            { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '100px' },
+            { titre: 'Statut de dossier', filtre: true, toggle: true, className: 'col-statut-dossier', width: '120px' },
+            { titre: 'Écart (jours)', filtre: true, toggle: true, className: 'col-ecart', width: '100px' },
+            { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '110px', orderable: false }
+        ];
+        
+        // Ajouter une ligne de filtres
+        const $thead = $table.find('thead');
+        const $filterRow = $('<tr class="table-filters"></tr>');
+        $thead.find('tr').first().find('th').each(function(index) {
+            const def = colonneDefs[index];
+            const $cell = $('<th></th>');
+            if (def && def.filtre) {
+                // Pour toutes les colonnes avec filtre, ajouter un champ texte standard
+                if (def && def.filtre) {
+                    const placeholder = `Filtrer ${def.titre}`;
+                    $cell.append(`<input type="text" placeholder="${placeholder}" data-col="${index}" />`);
+                }
+            }
+            $filterRow.append($cell);
+        });
+        $thead.append($filterRow);
+        
+        let updateTopScrollWidth = function(){};
+        let evaluerScrollHorizontal = function(){};
+        
+        const columnDefsConfig = colonneDefs.map((def, index) => ({
+            targets: index,
+            orderable: def.orderable !== false,
+            className: def.className || '',
+            width: def.width || null,
+            render: function(data, type, row) {
+                // Pour les colonnes avec ellipsis, appliquer le style
+                if (def.className === 'col-reference' && type === 'display') {
+                    return '<span style="display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + (data || '') + '">' + (data || '-') + '</span>';
+                }
+                return data;
+            }
+        }));
+        
+        // Créer l'instance DataTables et la rendre accessible globalement
+        dataTableSuivi = $table.DataTable({
+            data: data,
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json'
+            },
+            order: [[0, 'desc']],
+            dom: 'lrtip',
+            autoWidth: false,
+            columnDefs: columnDefsConfig,
+            orderClasses: true,
+            orderMulti: true,
+            initComplete: function() {
+                const api = this.api();
+                // S'assurer que dataTableSuivi est accessible globalement
+                window.dataTableSuivi = dataTableSuivi;
+                console.log('DataTables initialisé, dataTableSuivi:', dataTableSuivi);
+                initialiserFiltres(api);
+                initialiserToggles(api);
+                api.columns.adjust();
+                // Initialiser le filtre de plage de dates
+                initializeDateRangeFilter(api);
+                // Forcer un redraw pour appliquer les filtres initiaux
+                setTimeout(function() {
+                    api.draw();
+                }, 200);
+                // La synchronisation du scroll sera gérée par setupHorizontalScrollSync
+            }
+        });
+        
+        // Configuration de la synchronisation du scroll horizontal
+        function setupHorizontalScrollSync() {
+            const $wrapper = $table.closest('.table-responsive');
+            const $topScroll = $wrapper.find('.table-scroll-top');
+            const $topInner = $topScroll.find('.table-scroll-inner');
+            
+            if ($topScroll.length === 0) {
+                console.warn('Élément .table-scroll-top non trouvé');
+                return;
+            }
+            
+            function _evaluerScrollHorizontal() {
+                const tableWidth = $table.outerWidth();
+                const wrapperWidth = $wrapper.innerWidth();
+                if (tableWidth <= wrapperWidth + 1) {
+                    $wrapper.addClass('no-horizontal-scroll');
+                } else {
+                    $wrapper.removeClass('no-horizontal-scroll');
+                }
+            }
+            
+            function _updateTopScrollWidth() {
+                const tableWidth = $table.outerWidth();
+                if (tableWidth > 0) {
+                    $topInner.width(tableWidth);
+                    _evaluerScrollHorizontal();
+                }
+            }
+            
+            let isSyncingTop = false;
+            let isSyncingBottom = false;
+            
+            $topScroll.off('scroll.tableSync').on('scroll.tableSync', function() {
+                if (isSyncingTop) return;
+                isSyncingBottom = true;
+                $wrapper.scrollLeft($topScroll.scrollLeft());
+                setTimeout(() => { isSyncingBottom = false; }, 10);
+            });
+            
+            $wrapper.off('scroll.tableSync').on('scroll.tableSync', function() {
+                if (isSyncingBottom) return;
+                isSyncingTop = true;
+                $topScroll.scrollLeft($wrapper.scrollLeft());
+                setTimeout(() => { isSyncingTop = false; }, 10);
+            });
+            
+            updateTopScrollWidth = _updateTopScrollWidth;
+            evaluerScrollHorizontal = _evaluerScrollHorizontal;
+            
+            // Mettre à jour immédiatement
+            setTimeout(() => {
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
+            }, 100);
+            
+            $(window).off('resize.tableSync').on('resize.tableSync', function() {
+                setTimeout(() => {
+                    updateTopScrollWidth();
+                    evaluerScrollHorizontal();
+                }, 100);
+            });
+            
+            dataTableSuivi.on('draw', function() {
+                dataTableSuivi.columns.adjust();
+                setTimeout(function() {
+                    updateTopScrollWidth();
+                    evaluerScrollHorizontal();
+                }, 100);
+            });
+            
+            // Mettre à jour aussi lors du redimensionnement des colonnes
+            dataTableSuivi.on('column-sizing', function() {
+                setTimeout(function() {
+                    updateTopScrollWidth();
+                    evaluerScrollHorizontal();
+                }, 50);
+            });
+        }
+        
+        // Appeler setupHorizontalScrollSync après l'initialisation de DataTables
+        // Utiliser un délai pour s'assurer que DataTables est complètement initialisé
+        setTimeout(() => {
+            setupHorizontalScrollSync();
+        }, 200);
+    }
+    
+    // Fonction pour parser une date au format YYYY-MM-DD ou DD/MM/YYYY
+    function parseDate(dateStr) {
+        if (!dateStr || dateStr === '-' || dateStr.trim() === '') return null;
+        
+        // Nettoyer la chaîne
+        dateStr = dateStr.trim();
+        
+        // Format YYYY-MM-DD (input type="date" ou format ISO)
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return new Date(dateStr + 'T00:00:00');
+        }
+        
+        // Format YYYY-MM-DD HH:MM:SS (format datetime complet)
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/)) {
+            return new Date(dateStr.replace(' ', 'T'));
+        }
+        
+        // Format DD/MM/YYYY
+        if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+            const parts = dateStr.split('/');
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+        
+        // Format DD/MM/YYYY HH:MM
+        if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}$/)) {
+            const [datePart, timePart] = dateStr.split(' ');
+            const parts = datePart.split('/');
+            const [hours, minutes] = timePart.split(':');
+            return new Date(parts[2], parts[1] - 1, parts[0], hours, minutes);
+        }
+        
+        // Essayer de parser directement
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+            console.warn('Impossible de parser la date:', dateStr);
+            return null;
+        }
+        return date;
+    }
+    
+    // Fonction pour comparer deux dates (sans l'heure)
+    function compareDates(date1, date2) {
+        if (!date1 || !date2) return 0;
+        const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+        const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+        if (d1 < d2) return -1;
+        if (d1 > d2) return 1;
+        return 0;
+    }
+    
+    // Initialiser les filtres
+    function initialiserFiltres(api) {
+        const colonneDefs = [
+            { titre: 'Numéro', filtre: true },
+            { titre: 'Client', filtre: true },
+            { titre: 'Référence', filtre: true },
+            { titre: 'Date Prévue', filtre: true },
+            { titre: 'Date Réelle', filtre: true },
+            { titre: 'Statut', filtre: true },
+            { titre: 'Statut de dossier', filtre: true },
+            { titre: 'Écart (jours)', filtre: true },
+            { titre: 'Actions', filtre: false }
+        ];
+        
+        api.columns().every(function() {
+            const column = this;
+            const colIndex = column.index();
+            const def = colonneDefs[colIndex];
+            if (!def || !def.filtre) {
+                return;
+            }
+            
+            // Pour toutes les colonnes, utiliser le filtre texte standard
+            const input = $(`.table-filters input[data-col="${colIndex}"]`);
+            input.on('keyup change clear', function() {
+                const value = this.value;
+                if (column.search() !== value) {
+                    column.search(value, false, true).draw();
+                }
+            });
+        });
+    }
+    
+    // Initialiser le filtre de plage de dates pour Date Prévue
+    function initializeDateRangeFilter(api) {
+        // Fonction de recherche personnalisée pour la plage de dates
+        const dateRangeFilter = function(settings, data, dataIndex) {
+            // Vérifier que c'est bien notre tableau
+            if (!settings || !settings.nTable || settings.nTable.id !== 'tableSuivi') {
+                return true;
+            }
+            
+            // Récupérer les valeurs depuis les champs de la section toggle
+            let startDateStr = '';
+            let endDateStr = '';
+            
+            const $toggleStart = $('.date-start-toggle');
+            const $toggleEnd = $('.date-end-toggle');
+            
+            if ($toggleStart.length) {
+                const toggleVal = $toggleStart.val();
+                if (toggleVal && toggleVal.trim() !== '') {
+                    startDateStr = toggleVal;
+                }
+            }
+            
+            if ($toggleEnd.length) {
+                const toggleVal = $toggleEnd.val();
+                if (toggleVal && toggleVal.trim() !== '') {
+                    endDateStr = toggleVal;
+                }
+            }
+            
+            // Si aucune date n'est définie, ne pas filtrer
+            if (!startDateStr && !endDateStr) {
+                return true; // Pas de filtre, afficher toutes les lignes
+            }
+            
+            // Récupérer la date de la colonne (index 3 pour Date Prévue)
+            const dateStr = data[3];
+            if (!dateStr || dateStr === '-') {
+                return false; // Pas de date, exclure
+            }
+            
+            const cellDate = parseDate(dateStr);
+            if (!cellDate) {
+                return false;
+            }
+            
+            const startDate = startDateStr ? parseDate(startDateStr) : null;
+            const endDate = endDateStr ? parseDate(endDateStr) : null;
+            
+            // Si seulement la date de début est définie
+            if (startDate && !endDate) {
+                const result = compareDates(cellDate, startDate) >= 0;
+                return result;
+            }
+            
+            // Si seulement la date de fin est définie
+            if (!startDate && endDate) {
+                const result = compareDates(cellDate, endDate) <= 0;
+                return result;
+            }
+            
+            // Si les deux dates sont définies
+            if (startDate && endDate) {
+                const result = compareDates(cellDate, startDate) >= 0 && compareDates(cellDate, endDate) <= 0;
+                return result;
+            }
+            
+            return true;
+        };
+        
+        // Ajouter le filtre et sauvegarder son index
+        // S'assurer que le filtre précédent est supprimé s'il existe
+        if (dateRangeFilterIndex >= 0 && dateRangeFilterIndex < $.fn.dataTable.ext.search.length) {
+            $.fn.dataTable.ext.search.splice(dateRangeFilterIndex, 1);
+            dateRangeFilterIndex = -1;
+        }
+        dateRangeFilterIndex = $.fn.dataTable.ext.search.push(dateRangeFilter) - 1;
+        console.log('Filtre de plage de dates ajouté, index:', dateRangeFilterIndex, 'Total filtres:', $.fn.dataTable.ext.search.length);
+        
+        // Forcer un redraw initial pour appliquer le filtre
+        setTimeout(function() {
+            console.log('Redraw initial pour appliquer le filtre');
+            if (api && typeof api.draw === 'function') {
+                api.draw();
+            }
+        }, 200);
+    }
+    
+    // Initialiser les toggles de colonnes
+    function initialiserToggles(api) {
+        const colonneDefs = [
+            { titre: 'Numéro', toggle: true },
+            { titre: 'Client', toggle: true },
+            { titre: 'Référence', toggle: true },
+            { titre: 'Date Prévue', toggle: true },
+            { titre: 'Date Réelle', toggle: true },
+            { titre: 'Statut', toggle: true },
+            { titre: 'Statut de dossier', toggle: true },
+            { titre: 'Écart (jours)', toggle: true },
+            { titre: 'Actions', toggle: true }
+        ];
+        
+        const $container = $('#columnToggleContainer');
+        $container.empty();
+        
+        colonneDefs.forEach((def, index) => {
+            if (!def || !def.toggle) {
+                return;
+            }
+            const column = api.column(index);
+            const toggleId = `colToggle_${index}`;
+            const isVisible = column.visible();
+            
+            // Pour la colonne "Date Prévue", ajouter les champs de date
+            let $checkbox;
+            if (def.titre === 'Date Prévue') {
+                $checkbox = $(`
+                    <div class="form-check form-check-inline" style="display: inline-flex; align-items: center; vertical-align: middle;">
+                        <input class="form-check-input" type="checkbox" id="${toggleId}" ${isVisible ? 'checked' : ''} style="margin-top: 0;">
+                        <label class="form-check-label" for="${toggleId}" style="margin-bottom: 0;">${def.titre}</label>
+                        <div class="date-range-toggle-container" id="dateRangeToggle_${index}" style="display: ${isVisible ? 'inline-flex' : 'none'};">
+                            <input type="date" class="date-start-toggle" data-col-index="${index}" placeholder="Date début" style="width: 130px;" />
+                            <span class="date-separator">à</span>
+                            <input type="date" class="date-end-toggle" data-col-index="${index}" placeholder="Date fin" style="width: 130px;" />
+                            <button type="button" class="btn btn-sm btn-secondary btn-clear-date" data-col-index="${index}" title="Effacer" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-validate-date" data-col-index="${index}" title="Valider" style="display: none;">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+            } else {
+                $checkbox = $(`
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="${toggleId}" ${isVisible ? 'checked' : ''}>
+                        <label class="form-check-label" for="${toggleId}">${def.titre}</label>
+                    </div>
+                `);
+            }
+            
+            $checkbox.find('input[type="checkbox"]').on('change', function() {
+                const checked = this.checked;
+                column.visible(checked, false);
+                
+                // Afficher/masquer les champs de date pour Date Prévue
+                if (def.titre === 'Date Prévue') {
+                    const $dateContainer = $(`#dateRangeToggle_${index}`);
+                    if (checked) {
+                        $dateContainer.slideDown(200);
+                    } else {
+                        $dateContainer.slideUp(200);
+                        // Réinitialiser les champs
+                        $dateContainer.find('.date-start-toggle').val('');
+                        $dateContainer.find('.date-end-toggle').val('');
+                    }
+                }
+                
+                api.columns.adjust().draw(false);
+                setTimeout(() => {
+                    if (typeof window.updateTopScrollWidthSuivi === 'function') {
+                        window.updateTopScrollWidthSuivi();
+                    }
+                    if (typeof window.evaluerScrollHorizontalSuivi === 'function') {
+                        window.evaluerScrollHorizontalSuivi();
+                    }
+                }, 100);
+            });
+            
+            // Gestionnaires pour les champs de date dans le toggle
+            if (def.titre === 'Date Prévue') {
+                // Attacher les événements après que l'élément soit ajouté au DOM
+                setTimeout(function() {
+                    const $dateContainer = $(`#dateRangeToggle_${index}`);
+                    if ($dateContainer.length === 0) {
+                        console.warn('Conteneur de date toggle non trouvé pour index', index);
+                        return;
+                    }
+                    
+                    const $startInput = $dateContainer.find('.date-start-toggle');
+                    const $endInput = $dateContainer.find('.date-end-toggle');
+                    const $clearBtn = $dateContainer.find('.btn-clear-date');
+                    const $validateBtn = $dateContainer.find('.btn-validate-date');
+                    
+                    if ($startInput.length === 0 || $endInput.length === 0) {
+                        console.warn('Champs de date toggle non trouvés');
+                        return;
+                    }
+                    
+                    // Fonction pour mettre à jour la visibilité des boutons
+                    const updateToggleButtonVisibility = function() {
+                        const hasDate = ($startInput.val() && $startInput.val().trim() !== '') || 
+                                       ($endInput.val() && $endInput.val().trim() !== '');
+                        if (hasDate) {
+                            $validateBtn.show();
+                            $clearBtn.hide();
+                        } else {
+                            $validateBtn.hide();
+                            $clearBtn.hide();
+                        }
+                    };
+                    
+                    // Fonction pour déclencher le filtre - utiliser directement l'API passée en paramètre
+                    const triggerDateFilter = function() {
+                        console.log('Déclenchement du filtre de date depuis toggle');
+                        // Utiliser directement l'API passée en paramètre
+                        if (api && typeof api.draw === 'function') {
+                            console.log('Redraw avec api depuis toggle');
+                            api.draw();
+                        } else {
+                            console.warn('API non disponible depuis toggle, tentative avec window.dataTableSuivi');
+                            const dt = window.dataTableSuivi || dataTableSuivi;
+                            if (dt && typeof dt.draw === 'function') {
+                                console.log('Redraw avec instance alternative depuis toggle');
+                                dt.draw();
+                            } else {
+                                console.error('Aucune instance DataTables disponible depuis toggle');
+                            }
+                        }
+                    };
+                    
+                    // Événements sur les champs de date
+                    $startInput.off('change.dateFilter input.dateFilter').on('change.dateFilter input.dateFilter', function() {
+                        const val = $(this).val();
+                        console.log('Date début changée dans toggle:', val);
+                        // Mettre à jour la visibilité des boutons
+                        updateToggleButtonVisibility();
+                        // Déclencher le filtre automatiquement
+                        triggerDateFilter();
+                    });
+                    
+                    $endInput.off('change.dateFilter input.dateFilter').on('change.dateFilter input.dateFilter', function() {
+                        const val = $(this).val();
+                        console.log('Date fin changée dans toggle:', val);
+                        // Mettre à jour la visibilité des boutons
+                        updateToggleButtonVisibility();
+                        // Déclencher le filtre automatiquement
+                        triggerDateFilter();
+                    });
+                    
+                    // Bouton de validation (tic)
+                    $validateBtn.off('click.dateFilter').on('click.dateFilter', function(e) {
+                        e.preventDefault();
+                        console.log('Validation du filtre de date dans toggle');
+                        // Appliquer le filtre
+                        triggerDateFilter();
+                        // Masquer le bouton tic et afficher la croix
+                        $validateBtn.hide();
+                        $clearBtn.show();
+                    });
+                    
+                    // Bouton d'effacement (croix)
+                    $clearBtn.off('click.dateFilter').on('click.dateFilter', function(e) {
+                        e.preventDefault();
+                        console.log('Effacement des dates dans toggle');
+                        $startInput.val('');
+                        $endInput.val('');
+                        // Masquer les deux boutons
+                        $validateBtn.hide();
+                        $clearBtn.hide();
+                        // Réinitialiser le filtre
+                        triggerDateFilter();
+                    });
+                    
+                    console.log('Événements attachés pour les champs de date dans toggle, index:', index);
+                }, 200);
+            }
+            
+            $container.append($checkbox);
             });
     }
 
@@ -413,10 +1536,30 @@ document.addEventListener('DOMContentLoaded', function () {
     // Charger la performance par client
     function loadPerformanceClient() {
         fetch('/projet1/api/performance-par-client')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+                return res.json();
+            })
             .then(data => {
                 const tbody = document.getElementById('tbodyPerformanceClient');
+                if (!tbody) {
+                    console.error('Élément tbodyPerformanceClient non trouvé');
+                    return;
+                }
                 tbody.innerHTML = '';
+                
+                // Vérifier que data est un tableau
+                if (!Array.isArray(data)) {
+                    console.error('Les données reçues ne sont pas un tableau:', data);
+                    return;
+                }
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Aucune donnée disponible</td></tr>';
+                    return;
+                }
                 
                 data.forEach(client => {
                     const row = document.createElement('tr');
@@ -432,17 +1575,33 @@ document.addEventListener('DOMContentLoaded', function () {
                     `;
                     tbody.appendChild(row);
                 });
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement de la performance par client:', error);
+                const tbody = document.getElementById('tbodyPerformanceClient');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erreur lors du chargement des données</td></tr>';
+                }
             });
     }
 
     // Fonction utilitaire pour les classes de statut
     function getStatutClass(statut) {
+        if (!statut) return 'bg-secondary';
         switch(statut) {
             case 'Livré à Temps': return 'bg-success';
             case 'Livré en Retard': return 'bg-danger';
             case 'En Retard': return 'bg-warning';
-            case 'En Cours': return 'bg-info';
-            default: return 'bg-secondary';
+            case 'Non livré': return 'bg-info';
+            case 'En Cours': return 'bg-info'; // Ancienne valeur pour compatibilité
+            default: 
+                // Vérifier si le statut contient certains mots-clés
+                const statutLower = statut.toLowerCase();
+                if (statutLower.includes('retard')) return 'bg-danger';
+                if (statutLower.includes('temps') || statutLower.includes('à temps')) return 'bg-success';
+                if (statutLower.includes('non livré') || statutLower.includes('non livre')) return 'bg-info';
+                if (statutLower.includes('avance')) return 'bg-info';
+                return 'bg-secondary';
         }
     }
 
@@ -470,19 +1629,115 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     alert('Erreur: ' + data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors du marquage de la livraison');
             });
         }
     }
 
-    // Gestion des onglets
-    document.getElementById('suivi-tab').addEventListener('click', () => {
-        loadSuiviData();
-        loadAlertesRetard();
+    // Gestion des sections toggleables (style Projet 10)
+    const buttons = document.querySelectorAll('.section-btn');
+    const sections = document.querySelectorAll('.content-section');
+    
+    // Fermer toutes les sections au chargement de la page
+    sections.forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+        section.style.visibility = 'hidden';
+        section.style.opacity = '0';
     });
-
-    document.getElementById('performance-tab').addEventListener('click', () => {
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Fonction pour fermer toutes les sections sauf celle spécifiée
+    function closeAllSections(exceptSectionId) {
+        sections.forEach(section => {
+            if (section.id !== `section-${exceptSectionId}`) {
+                section.classList.remove('active');
+                section.style.display = 'none';
+                section.style.visibility = 'hidden';
+                section.style.opacity = '0';
+            }
+        });
+        buttons.forEach(btn => {
+            if (btn.getAttribute('data-section') !== exceptSectionId) {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    
+    // Ajouter les event listeners pour les sections
+    buttons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const sectionId = this.getAttribute('data-section');
+            const section = document.getElementById(`section-${sectionId}`);
+            
+            if (!section) {
+                console.error('Section introuvable:', `section-${sectionId}`);
+                return;
+            }
+            
+            // Si la section est déjà ouverte, la fermer
+            if (section.classList.contains('active')) {
+                section.classList.remove('active');
+                section.style.display = 'none';
+                section.style.visibility = 'hidden';
+                section.style.opacity = '0';
+                this.classList.remove('active');
+            } else {
+                // Fermer toutes les autres sections d'abord
+                closeAllSections(sectionId);
+                
+                // Ouvrir la section cliquée
+                section.classList.add('active');
+                section.style.display = 'block';
+                section.style.visibility = 'visible';
+                section.style.opacity = '1';
+                this.classList.add('active');
+                
+                // Charger les données si nécessaire
+                if (sectionId === 'suivi') {
+                    loadSuiviData();
+                    loadAlertesRetard();
+                } else if (sectionId === 'performance') {
         loadIndicateursPerformance();
         loadPerformanceClient();
+                } else if (sectionId === 'planning') {
+                    // Re-rendre les calendriers si nécessaire
+                    requestAnimationFrame(() => {
+                        setTimeout(() => {
+                            const vueStandardEl = document.getElementById('vueStandard');
+                            const vueDeuxMoisEl = document.getElementById('vueDeuxMois');
+                            
+                            if (vueStandardEl && vueStandardEl.style.display !== 'none' && calStd) {
+                                calStd.render();
+                                setTimeout(() => calStd.updateSize(), 50);
+                            }
+                            
+                            if (vueDeuxMoisEl && vueDeuxMoisEl.style.display !== 'none') {
+                                if (cal1 && cal2) {
+                                    cal1.render();
+                                    cal2.render();
+                                    setTimeout(() => {
+                                        cal1.updateSize();
+                                        cal2.updateSize();
+                                    }, 50);
+                                } else if (allEvents && allEvents.length > 0) {
+                                    // Si les calendriers n'existent pas encore, les créer
+                                    setupCalendars(allEvents);
+                                }
+                            }
+                        }, 100);
+                    });
+                }
+            }
+        });
     });
 });
 </script>

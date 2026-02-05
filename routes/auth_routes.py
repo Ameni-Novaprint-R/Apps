@@ -2,7 +2,7 @@
 Routes d'authentification
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from logic.auth import login_user, logout_user, is_authenticated, get_current_user
+from logic.auth import login_user, login_atelier, logout_user, is_authenticated, get_current_user
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -13,11 +13,11 @@ def login():
     """
     try:
         if request.method == 'POST':
-            matricule = request.form.get('matricule', '').strip()
+            identifiant = request.form.get('matricule', '').strip()
             password = request.form.get('password', '')
             
-            if not matricule:
-                flash("Veuillez saisir votre matricule.", "error")
+            if not identifiant:
+                flash("Veuillez saisir votre matricule ou nom d'atelier.", "error")
                 return render_template('auth/login.html')
             
             if not password:
@@ -25,17 +25,16 @@ def login():
                 return render_template('auth/login.html')
             
             try:
-                matricule_int = int(matricule)
-            except ValueError:
-                flash("Le matricule doit être un nombre.", "error")
-                return render_template('auth/login.html')
-            
-            try:
-                success, message = login_user(matricule_int, password)
+                # Connexion par matricule (nombre) ou par nom d'atelier (texte)
+                is_numeric = identifiant.isdigit()
+                if is_numeric:
+                    matricule_int = int(identifiant)
+                    success, message = login_user(matricule_int, password)
+                else:
+                    success, message = login_atelier(identifiant, password)
                 
                 if success:
                     flash(message, "success")
-                    # Rediriger vers la page demandée ou l'accueil
                     next_page = request.args.get('next')
                     if next_page:
                         return redirect(next_page)
@@ -44,7 +43,6 @@ def login():
                     flash(message, "error")
                     return render_template('auth/login.html')
             except Exception as e:
-                # Gestion d'erreur pour login_user
                 error_msg = str(e)
                 import traceback
                 traceback.print_exc()

@@ -502,7 +502,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10000;
+    z-index: 1055 !important;
     overflow-y: auto;
     padding: 20px;
 }
@@ -2348,6 +2348,9 @@ function openNewDossierPopup() {
         modalTitle.textContent = 'Nouveau Dossier';
     }
     
+    // Ajouter la classe modal-open sur le body pour griser l'en-tête
+    document.body.classList.add('modal-open');
+    
     modal.style.display = 'flex';
     
     // Réinitialiser les champs
@@ -2384,6 +2387,9 @@ function closeNewDossierPopup() {
     if (modal) {
         modal.style.display = 'none';
     }
+    
+    // Retirer la classe modal-open du body
+    document.body.classList.remove('modal-open');
     // NE PAS réinitialiser popupCheckedServices ici - ils doivent persister pour la prochaine ouverture
     // Réinitialiser le mode d'édition
     popupEditMode = false;
@@ -2422,6 +2428,9 @@ function openEditDossierPopup(dossierId) {
     if (modalTitle) {
         modalTitle.textContent = 'Modifier Dossier - ' + (dossier.numero || 'N/A');
     }
+    
+    // Ajouter la classe modal-open sur le body pour griser l'en-tête
+    document.body.classList.add('modal-open');
     
     modal.style.display = 'flex';
     

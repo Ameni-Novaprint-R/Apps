@@ -7,8 +7,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     .modal-iframe-container {
-        min-height: 70vh;
-        height: 75vh;
+        min-height: 80vh;
+        height: 85vh;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -19,6 +19,78 @@
         height: 100%;
         display: block;
         flex: 1;
+    }
+
+    /* Modal "custom" calqué sur le rendu de projet12 (overlay sombre + contenu blanc) */
+    .p12-modal {
+        display: none;
+        position: fixed;
+        z-index: 1055;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow-y: auto;
+        padding: 15px;
+    }
+    .p12-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .p12-modal-content {
+        background-color: #ffffff;
+        color: #000000;
+        border-radius: 8px;
+        width: min(1100px, 95vw);
+        max-height: 95vh;
+        overflow: hidden;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        position: relative;
+        animation: p12SlideDown 0.25s ease;
+    }
+    @keyframes p12SlideDown {
+        from { opacity: 0; transform: translateY(-25px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .p12-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border-bottom: 2px solid #28a745;
+        background: #ffffff;
+    }
+    .p12-modal-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .p12-close-modal {
+        font-size: 2rem;
+        color: #7f8c8d;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+        line-height: 1;
+    }
+    .p12-close-modal:hover {
+        color: #e74c3c;
+    }
+    .p12-modal-body {
+        background: #ffffff;
+        padding: 0;
+    }
+    .p12-modal-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
     }
     /* Style personnalisé pour la section Nouvelle fiche de production */
     .card-nouvelle-fiche {
@@ -131,8 +203,7 @@
                     <p class="card-text">Créer un nouveau traitement de production</p>
                     <button type="button"
                             class="btn btn-primary"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalNouvelleFiche">
+                            onclick="ouvrirModalNouvelleFiche()">
                         <i class="fas fa-plus"></i> Nouvelle fiche de production
                     </button>
                 </div>
@@ -182,33 +253,28 @@
 
 </div>
 
-<!-- Modal Nouvelle Fiche de Production -->
-<div class="modal fade" id="modalNouvelleFiche" tabindex="-1" aria-labelledby="modalNouvelleFicheLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalNouvelleFicheLabel">
-                    <i class="fas fa-plus-circle me-2"></i>
-                    Nouvelle fiche de production
-                </h5>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button"
-                            class="btn btn-outline-success btn-sm"
-                            id="btnOuvrirPleinEcran">
-                        <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
-                    </button>
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            data-close-action="retour-accueil"
-                            aria-label="Close"></button>
-                </div>
+<!-- Modal Nouvelle Fiche de Production (style identique projet12) -->
+<div class="p12-modal" id="modalNouvelleFiche" aria-hidden="true">
+    <div class="p12-modal-content" role="dialog" aria-modal="true" aria-labelledby="modalNouvelleFicheLabel">
+        <div class="p12-modal-header">
+            <h2 class="p12-modal-title" id="modalNouvelleFicheLabel">
+                <i class="fas fa-plus-circle"></i>
+                Nouvelle fiche de production
+            </h2>
+            <div class="p12-modal-actions">
+                <button type="button"
+                        class="btn btn-outline-success btn-sm"
+                        id="btnOuvrirPleinEcran">
+                    <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
+                </button>
+                <button class="p12-close-modal" type="button" aria-label="Fermer" onclick="fermerModalNouvelleFiche()">&times;</button>
             </div>
-            <div class="modal-body modal-iframe-container p-0">
-                <iframe src="{{ url_for('projet11.nouveau_traitement', embed=1) }}"
-                        data-base-src="{{ url_for('projet11.nouveau_traitement', embed=1) }}"
-                        title="Nouvelle fiche de production"></iframe>
-            </div>
+        </div>
+        <div class="p12-modal-body modal-iframe-container">
+            <iframe id="iframeNouvelleFiche"
+                    src="{{ url_for('projet11.nouveau_traitement', embed=1) }}"
+                    data-base-src="{{ url_for('projet11.nouveau_traitement', embed=1) }}"
+                    title="Nouvelle fiche de production"></iframe>
         </div>
     </div>
 </div>
@@ -216,57 +282,67 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const modalNouvelleFiche = document.getElementById('modalNouvelleFiche');
-    if (!modalNouvelleFiche) return;
-    const iframeNouvelleFiche = modalNouvelleFiche.querySelector('iframe');
+    const iframeNouvelleFiche = document.getElementById('iframeNouvelleFiche');
     const iframeBaseSrc = iframeNouvelleFiche ? (iframeNouvelleFiche.getAttribute('data-base-src') || iframeNouvelleFiche.src) : null;
+
     const buildIframeSrc = () => {
         if (!iframeBaseSrc) return null;
         const separator = iframeBaseSrc.includes('?') ? '&' : '?';
         return `${iframeBaseSrc}${separator}ts=${Date.now()}`;
     };
 
-    modalNouvelleFiche.addEventListener('hide.bs.modal', function(event) {
-        if (iframeNouvelleFiche && iframeNouvelleFiche.contentWindow) {
+    window.ouvrirModalNouvelleFiche = function() {
+        if (!modalNouvelleFiche) return;
+        document.body.classList.add('modal-open');
+        modalNouvelleFiche.classList.add('active');
+        modalNouvelleFiche.setAttribute('aria-hidden', 'false');
+
+        // Rafraîchir l'iframe uniquement si nécessaire (évite des aborts inutiles)
+        if (iframeNouvelleFiche) {
+            const currentSrc = iframeNouvelleFiche.src;
+            if (!currentSrc || currentSrc === 'about:blank') {
+                const newSrc = buildIframeSrc();
+                if (newSrc) iframeNouvelleFiche.src = newSrc;
+            }
+        }
+    };
+
+    window.fermerModalNouvelleFiche = function(sansSauvegarde = false) {
+        if (!modalNouvelleFiche) return;
+        // Demande de sauvegarde "en cours" avant fermeture (si la page embed l'écoute)
+        // SAUF si on annule (sansSauvegarde = true)
+        if (!sansSauvegarde && iframeNouvelleFiche && iframeNouvelleFiche.contentWindow) {
             try {
                 iframeNouvelleFiche.contentWindow.postMessage({ action: 'saveEnCours' }, window.location.origin);
             } catch (err) {
                 console.error('postMessage saveEnCours:', err);
             }
         }
-    });
-
-    modalNouvelleFiche.addEventListener('hidden.bs.modal', function(event) {
-        if (modalNouvelleFiche.dataset.redirectOnClose === 'true') {
-            window.location.href = "{{ url_for('projet11.index') }}";
-            modalNouvelleFiche.dataset.redirectOnClose = 'false';
-        }
-        if (iframeNouvelleFiche) {
-            // Ne pas réinitialiser immédiatement pour éviter NS_BINDING_ABORTED
-        }
-    });
-
-    // Utiliser 'shown.bs.modal' au lieu de 'show.bs.modal' pour éviter NS_BINDING_ABORTED
-    // 'shown.bs.modal' se déclenche après que le modal soit complètement visible
-    modalNouvelleFiche.addEventListener('shown.bs.modal', function() {
-        modalNouvelleFiche.dataset.redirectOnClose = 'false';
-        if (iframeNouvelleFiche) {
-            // Ne recharger l'iframe que si elle n'a pas encore été chargée ou si elle est vide
-            // Cela évite NS_BINDING_ABORTED en évitant les rechargements inutiles
-            const currentSrc = iframeNouvelleFiche.src;
-            if (!currentSrc || currentSrc === '' || currentSrc === 'about:blank' || 
-                !currentSrc.includes('projet11/nouveau')) {
-                const newSrc = buildIframeSrc();
-                if (newSrc) {
-                    iframeNouvelleFiche.src = newSrc;
-                }
-            }
+        modalNouvelleFiche.classList.remove('active');
+        modalNouvelleFiche.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+    };
+    
+    // Écouter les messages de l'iframe pour gérer l'annulation
+    window.addEventListener('message', function(event) {
+        // Vérifier l'origine pour la sécurité
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data && event.data.action === 'annuler') {
+            // Fermer le popup sans sauvegarder
+            window.fermerModalNouvelleFiche(true);
         }
     });
 
-    modalNouvelleFiche.querySelector('[data-close-action="retour-accueil"]').addEventListener('click', function() {
-        const modalEl = bootstrap.Modal.getInstance(modalNouvelleFiche);
-        modalNouvelleFiche.dataset.redirectOnClose = 'true';
+    // Fermeture en cliquant en dehors désactivée (le modal ne se ferme que via le bouton de fermeture)
+    
+    // Fermer avec Échap
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && modalNouvelleFiche && modalNouvelleFiche.classList.contains('active')) {
+            window.fermerModalNouvelleFiche();
+        }
     });
+
     const btnOuvrir = document.getElementById('btnOuvrirPleinEcran');
     if (btnOuvrir) {
         btnOuvrir.addEventListener('click', function() {
@@ -277,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const baseUrl = "{{ url_for('projet11.nouveau_traitement') }}";
             let targetUrl = baseUrl;
             let serializedForm = null;
-            const iframe = modalNouvelleFiche.querySelector('iframe');
+            const iframe = iframeNouvelleFiche;
             if (iframe) {
                 try {
                     const iframeDoc = iframe.contentWindow.document;
@@ -306,9 +382,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!newWindow) {
                 alert('Veuillez autoriser les popups pour ouvrir la fiche en plein écran.');
             }
-            const modalInstance = bootstrap.Modal.getInstance(modalNouvelleFiche) || new bootstrap.Modal(modalNouvelleFiche);
             setTimeout(() => {
-                modalInstance.hide();
+                window.fermerModalNouvelleFiche();
             }, 50);
             setTimeout(() => {
                 btnOuvrir.dataset.opening = 'false';

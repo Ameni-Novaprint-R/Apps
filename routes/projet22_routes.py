@@ -1,5 +1,5 @@
 """
-Routes pour le Projet 22 - Gestion des employés et mots de passe
+Routes pour le Projet 22 - Gestion des employés et des ateliers
 """
 
 from flask import Blueprint, render_template, request, jsonify
@@ -11,16 +11,22 @@ from logic.projet22 import (
     set_mot_de_passe,
     archiver_employe,
     verifier_mot_de_passe,
-    get_matricules_disponibles
+    get_matricules_disponibles,
+    get_all_ateliers,
+    get_atelier_by_id,
+    create_atelier,
+    update_atelier,
+    delete_atelier,
+    set_atelier_mdp,
+    archive_atelier,
 )
 
 projet22_bp = Blueprint('projet22', __name__, url_prefix='/projet22')
 
 @projet22_bp.route('/')
 def index():
-    """Page principale de gestion des employés"""
-    employes = get_all_employes()
-    return render_template('projet22.html', employes=employes)
+    """Page d'accueil : Gestion des Employés et des Ateliers (sections à afficher au clic)"""
+    return render_template('projet22.html')
 
 @projet22_bp.route('/api/employes', methods=['GET'])
 def api_get_employes():
@@ -195,6 +201,128 @@ def api_get_matricules_disponibles():
         return jsonify({"success": True, "matricules": matricules})
     except Exception as e:
         print(f"[ERREUR API] Erreur dans api_get_matricules_disponibles: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- API Ateliers (WEB_ATELIER_ACCES) ---
+
+@projet22_bp.route('/api/ateliers', methods=['GET'])
+def api_get_ateliers():
+    """API pour récupérer tous les ateliers"""
+    try:
+        ateliers = get_all_ateliers()
+        return jsonify({"success": True, "ateliers": ateliers})
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_get_ateliers: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet22_bp.route('/api/atelier/<int:atelier_id>', methods=['GET'])
+def api_get_atelier(atelier_id):
+    """API pour récupérer un atelier par ID"""
+    try:
+        atelier = get_atelier_by_id(atelier_id)
+        if atelier:
+            return jsonify({"success": True, "atelier": atelier})
+        return jsonify({"success": False, "error": "Atelier non trouvé"}), 404
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_get_atelier: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet22_bp.route('/api/atelier', methods=['POST'])
+def api_create_atelier():
+    """API pour créer un atelier"""
+    try:
+        data = request.get_json()
+        nom = (data or {}).get('nom', '').strip()
+        if not nom:
+            return jsonify({"success": False, "error": "Le nom de l'atelier est requis"}), 400
+        result = create_atelier(nom)
+        if result["success"]:
+            return jsonify(result), 201
+        return jsonify(result), 400
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_create_atelier: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet22_bp.route('/api/atelier/<int:atelier_id>', methods=['PUT'])
+def api_update_atelier(atelier_id):
+    """API pour modifier un atelier"""
+    try:
+        data = request.get_json()
+        nom = (data or {}).get('nom', '').strip()
+        if not nom:
+            return jsonify({"success": False, "error": "Le nom de l'atelier est requis"}), 400
+        result = update_atelier(atelier_id, nom)
+        if result["success"]:
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_update_atelier: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet22_bp.route('/api/atelier/<int:atelier_id>', methods=['DELETE'])
+def api_delete_atelier(atelier_id):
+    """API pour supprimer un atelier"""
+    try:
+        result = delete_atelier(atelier_id)
+        if result["success"]:
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_delete_atelier: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet22_bp.route('/api/atelier/<int:atelier_id>/set-password', methods=['POST'])
+def api_set_atelier_password(atelier_id):
+    """API pour définir ou modifier le mot de passe d'un atelier"""
+    try:
+        data = request.get_json() or {}
+        new_mdp = (data.get('mdp') or '').strip()
+        old_mdp = (data.get('oldPassword') or '').strip() or None
+        if not new_mdp:
+            return jsonify({"success": False, "error": "Le nouveau mot de passe est requis"}), 400
+        if len(new_mdp) < 6:
+            return jsonify({"success": False, "error": "Le mot de passe doit contenir au moins 6 caractères"}), 400
+        result = set_atelier_mdp(atelier_id, new_mdp, old_mdp)
+        if result["success"]:
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        print(f"[ERREUR API] api_set_atelier_password: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet22_bp.route('/api/atelier/<int:atelier_id>/archive', methods=['POST'])
+def api_archive_atelier(atelier_id):
+    """API pour archiver ou désarchiver un atelier"""
+    try:
+        data = request.get_json() or {}
+        archive = data.get('archive', True)
+        result = archive_atelier(atelier_id, archive)
+        if result["success"]:
+            return jsonify(result)
+        return jsonify(result), 400
+    except Exception as e:
+        print(f"[ERREUR API] api_archive_atelier: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500

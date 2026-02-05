@@ -3,14 +3,14 @@
 {% block title %}Accueil – Portail Novaprint{% endblock %}
 
 {% block content %}
-    <h1 class="fade-in">Bienvenue sur le Portail Novaprint</h1>
+    <h1 class="fade-in welcome-title">Bienvenue</h1>
     
     {% if is_authenticated() %}
         {% if is_super %}
             {# Super-utilisateur : afficher tous les projets #}
-            <p class="fade-in">Vous êtes connecté en tant que super-utilisateur. Accès complet à tous les projets.</p>
+            <p class="fade-in welcome-subtitle">Vous êtes connecté en tant que super-utilisateur. Accès complet à tous les projets.</p>
             <ul class="project-list fade-in">
-                <li><a href="{{ url_for('projet1.index') }}">📋 Projet 1 – Planning</a></li>
+                <li><a href="{{ url_for('projet1.index') }}">📋 Projet 1 – Planning & Suivi des Délais de Livraison</a></li>
                 <li><a href="{{ url_for('projet2.commandes') }}">📦 Projet 2 – Gestion de commandes</a></li>
                 <li><a href="{{ url_for('projet3.page_projet3') }}">🖨️ Projet 3 – Suivi BAT / Prépresse</a></li>
                 <li><a href="{{ url_for('projet4.rapport_visite') }}">📝 Projet 4 – Rapport de visite client</a></li>
@@ -30,11 +30,11 @@
                 <li><a href="{{ url_for('projet19.index') }}">📁 Projet 19 – Gestion des Dossiers en Cours</a></li>
                 <li><a href="/projet20/">🔍 Projet 20 – Analyse des Dossiers</a></li>
                 <li><a href="/projet21/">🔄 Projet 21 – Mise à jour Base de Données</a></li>
-                <li><a href="{{ url_for('projet22.index') }}">👥 Projet 22 – Gestion des Employés</a></li>
+                <li><a href="{{ url_for('projet22.index') }}">👥 Projet 22 – Gestion des Employés et des Ateliers</a></li>
             </ul>
         {% elif user_projects and user_projects|length > 0 %}
             {# Utilisateur avec droits : afficher uniquement ses projets #}
-            <p class="fade-in">Vous avez accès aux projets suivants :</p>
+            <p class="fade-in welcome-subtitle">Vous avez accès aux projets suivants :</p>
             <ul class="project-list fade-in">
                 {% for project in user_projects %}
                     {% set project_url = get_project_url(project.num) %}
@@ -46,8 +46,8 @@
             </ul>
         {% else %}
             {# Utilisateur sans droits : page d'accueil vide #}
-            <p class="fade-in">Bienvenue, {{ get_current_user() }}.</p>
-            <p class="fade-in">Vous n'avez actuellement accès à aucun projet. Veuillez contacter l'administrateur pour obtenir les droits d'accès nécessaires.</p>
+            <p class="fade-in welcome-subtitle">Bienvenue, {{ get_current_user() }}.</p>
+            <p class="fade-in welcome-subtitle">Vous n'avez actuellement accès à aucun projet. Veuillez contacter l'administrateur pour obtenir les droits d'accès nécessaires.</p>
         {% endif %}
     {% else %}
         {# Non authentifié : ne devrait pas arriver car redirection dans la route #}

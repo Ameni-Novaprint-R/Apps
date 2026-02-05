@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Projet 22 - Gestion des Employés{% endblock %}
+{% block title %}Gestion des Employés et des Ateliers{% endblock %}
 
 {% block head %}
 <style>
@@ -280,28 +280,98 @@
         fill: var(--color-green);
     }
     
-    /* Modals avec fond blanc */
+    /* Modals custom (style projet14) - fond blanc opaque */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1055 !important;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.5);
+        animation: fadeIn 0.3s;
+    }
+
+    .modal.show {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        flex-direction: row !important;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
     .modal-content {
-        border-radius: 8px;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        background-color: white !important;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        max-width: 700px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: slideDown 0.3s;
+        margin: auto;
+        position: relative;
+        border: none !important;
+    }
+
+    @keyframes slideDown {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
     }
     
     .modal-header {
-        background: white;
-        border-radius: 8px 8px 0 0;
-        padding: 20px;
-        border-bottom: 2px solid #e0e0e0;
+        background: white !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--color-blue);
+        padding-bottom: 15px;
+        padding-top: 0;
+        border-radius: 0;
     }
     
     .modal-title {
-        color: #333;
+        color: var(--color-blue);
         font-weight: 600;
+        margin: 0;
+        font-size: 1.25rem;
     }
     
     .modal-body {
-        padding: 25px;
-        background: white;
+        padding: 25px 0;
+        background: white !important;
+    }
+    
+    .close-modal,
+    .btn-close {
+        font-size: 28px;
+        font-weight: bold;
+        color: #aaa;
+        cursor: pointer;
+        line-height: 1;
+        background: none;
+        border: none;
+        padding: 0;
+        opacity: 1;
+    }
+
+    .close-modal:hover,
+    .btn-close:hover {
+        color: #000;
     }
     
     .form-group {
@@ -333,8 +403,12 @@
     
     .modal-footer {
         border-top: 1px solid #e0e0e0;
-        padding: 20px 25px;
-        background: white;
+        padding: 20px 0;
+        background: white !important;
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
     }
     
     .modal-footer .btn {
@@ -422,13 +496,66 @@
         min-width: 180px;
         text-align: center;
     }
+    
+    /* Sections repliables page d'accueil : deux sections sur une seule ligne */
+    .section-toggles-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .section-toggle {
+        cursor: pointer;
+        padding: 20px 24px;
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 200px;
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 1.15em;
+        font-weight: 600;
+        color: #333;
+        transition: all 0.25s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .section-toggle:hover {
+        background: #f8f9fa;
+        border-color: var(--color-blue);
+        color: var(--color-blue);
+    }
+    .section-toggle .icon { font-size: 1.3em; }
+    .section-content {
+        display: none;
+        padding: 0 0 25px 0;
+        margin-bottom: 20px;
+    }
+    .section-content.visible { display: block; }
+    
+    /* Ateliers (réutilisation des styles table/modal) */
+    .ateliers-container { padding-top: 15px; }
+    #ateliers-tbody .btn-action-delete svg { fill: var(--color-red); }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="employes-container">
-    <h1>Gestion des Employés</h1>
+    <h1>Gestion des Employés et des Ateliers</h1>
+    <p class="text-muted" style="margin-bottom: 20px;">Choisissez une section pour afficher son contenu. Un second clic masque la section.</p>
     
+    <div class="section-toggles-row">
+        <div class="section-toggle" id="toggle-employes" data-section="employes">
+            <span class="icon">👥</span>
+            <span>Gestion des Employés</span>
+        </div>
+        <div class="section-toggle" id="toggle-ateliers" data-section="ateliers">
+            <span class="icon">🏭</span>
+            <span>Gestion des Ateliers</span>
+        </div>
+    </div>
+    <div class="section-content" id="content-employes">
     <div class="action-buttons">
         <button class="btn btn-primary" onclick="showCreateModal()">
             ➕ Ajouter un employé
@@ -496,17 +623,42 @@
             </div>
         </div>
     </div>
+    </div>
+    
+    <div class="section-content ateliers-container" id="content-ateliers">
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="showAtelierModal()">➕ Ajouter un atelier</button>
+            <button class="btn btn-secondary" onclick="loadAteliers()">🔄 Actualiser</button>
+        </div>
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="ateliers-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom</th>
+                            <th>Mot de passe</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ateliers-tbody">
+                        <tr><td colspan="5" class="no-results">Chargement des ateliers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal pour créer/modifier un employé -->
-<div class="modal fade" id="employeModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="employeModalTitle">Nouvel employé</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
+<div class="modal" id="employeModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="employeModalTitle">Nouvel employé</h5>
+            <span class="close-modal" onclick="closeEmployeModal()">&times;</span>
+        </div>
+        <div class="modal-body">
                 <form id="employeForm">
                     <input type="hidden" id="editMatricule" name="editMatricule">
                     
@@ -543,22 +695,20 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEmployeModal()">Annuler</button>
                 <button type="button" class="btn btn-primary" onclick="saveEmploye()">Enregistrer</button>
             </div>
-        </div>
     </div>
 </div>
 
 <!-- Modal pour définir/modifier le mot de passe -->
-<div class="modal fade" id="passwordModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Définir le mot de passe</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
+<div class="modal" id="passwordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Définir le mot de passe</h5>
+            <span class="close-modal" onclick="closePasswordModal()">&times;</span>
+        </div>
+        <div class="modal-body">
                 <form id="passwordForm">
                     <input type="hidden" id="passwordMatricule" name="matricule">
                     <input type="hidden" id="hasExistingPassword" name="hasExistingPassword">
@@ -581,9 +731,62 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-secondary" onclick="closePasswordModal()">Annuler</button>
                 <button type="button" class="btn btn-primary" onclick="savePassword()">Enregistrer</button>
             </div>
+    </div>
+</div>
+
+<!-- Modal pour créer/modifier un atelier -->
+<div class="modal" id="atelierModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="atelierModalTitle">Nouvel atelier</h5>
+            <span class="close-modal" onclick="closeAtelierModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="atelierForm">
+                <input type="hidden" id="atelierId" name="atelierId">
+                <div class="form-group">
+                    <label for="atelierNom">Nom de l'atelier *</label>
+                    <input type="text" id="atelierNom" name="nom" required>
+                </div>
+                <div id="atelierFormAlert"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAtelierModal()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="saveAtelier()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal mot de passe atelier -->
+<div class="modal" id="atelierPasswordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Mot de passe atelier</h5>
+            <span class="close-modal" onclick="closeAtelierPasswordModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="atelierPasswordForm">
+                <input type="hidden" id="atelierPasswordId" name="atelierId">
+                <input type="hidden" id="atelierHasExistingPassword" name="hasExistingPassword">
+                <div class="form-group" id="atelierOldPasswordGroup" style="display: none;">
+                    <label for="atelierOldPassword">Ancien mot de passe *</label>
+                    <input type="password" id="atelierOldPassword" name="oldPassword" minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="atelierNewPassword">Nouveau mot de passe *</label>
+                    <input type="password" id="atelierNewPassword" name="mdp" required minlength="6">
+                    <small class="text-muted">Minimum 6 caractères</small>
+                </div>
+                <div id="atelierPasswordAlert"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAtelierPasswordModal()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="saveAtelierPassword()">Enregistrer</button>
         </div>
     </div>
 </div>
@@ -594,18 +797,108 @@ let filteredData = [];
 let sortColumn = 'matricule';
 let sortDirection = 'asc';
 let filters = {};
-let employeModal;
-let passwordModal;
+let ateliersData = [];
+
+// Fonctions pour ouvrir/fermer les modals (style custom comme projet14)
+function openEmployeModal() {
+    document.getElementById('employeModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
+function closeEmployeModal() {
+    document.getElementById('employeModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+
+function openPasswordModal() {
+    document.getElementById('passwordModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
+function closePasswordModal() {
+    document.getElementById('passwordModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+
+function openAtelierModal() {
+    document.getElementById('atelierModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
+function closeAtelierModal() {
+    document.getElementById('atelierModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+
+function openAtelierPasswordModal() {
+    document.getElementById('atelierPasswordModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+
+function closeAtelierPasswordModal() {
+    document.getElementById('atelierPasswordModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
 
 document.addEventListener('DOMContentLoaded', function() {
-    employeModal = new bootstrap.Modal(document.getElementById('employeModal'));
-    passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'));
+    // Fermer les modals en cliquant en dehors
+    document.getElementById('employeModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeEmployeModal();
+        }
+    });
+    document.getElementById('passwordModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePasswordModal();
+        }
+    });
+    document.getElementById('atelierModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeAtelierModal();
+        }
+    });
+    document.getElementById('atelierPasswordModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeAtelierPasswordModal();
+        }
+    });
     
-    // Initialiser les écouteurs d'événements
+    // Fermer avec Échap
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (document.getElementById('employeModal').classList.contains('show')) {
+                closeEmployeModal();
+            }
+            if (document.getElementById('passwordModal').classList.contains('show')) {
+                closePasswordModal();
+            }
+            if (document.getElementById('atelierModal').classList.contains('show')) {
+                closeAtelierModal();
+            }
+            if (document.getElementById('atelierPasswordModal').classList.contains('show')) {
+                closeAtelierPasswordModal();
+            }
+        }
+    });
+    
     initSortListeners();
     initFilterListeners();
     
-    loadEmployes();
+    // Sections repliables : afficher le contenu au premier clic, masquer au second
+    document.querySelectorAll('.section-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const section = this.getAttribute('data-section');
+            const content = document.getElementById('content-' + section);
+            if (!content) return;
+            if (content.classList.contains('visible')) {
+                content.classList.remove('visible');
+            } else {
+                content.classList.add('visible');
+                if (section === 'employes') loadEmployes();
+                if (section === 'ateliers') loadAteliers();
+            }
+        });
+    });
 });
 
 function initSortListeners() {
@@ -852,7 +1145,7 @@ function showCreateModal() {
     mdpHint.style.color = '';
     
     document.getElementById('formAlert').innerHTML = '';
-    employeModal.show();
+    openEmployeModal();
 }
 
 function editEmploye(matricule) {
@@ -893,7 +1186,7 @@ function editEmploye(matricule) {
     }
     
     document.getElementById('formAlert').innerHTML = '';
-    employeModal.show();
+    openEmployeModal();
 }
 
 function saveEmploye() {
@@ -979,7 +1272,7 @@ function saveEmploye() {
         if (result.success) {
             showAlert('formAlert', result.message, 'success');
             setTimeout(() => {
-                employeModal.hide();
+                closeEmployeModal();
                 loadEmployes();
             }, 1000);
         } else {
@@ -1017,7 +1310,7 @@ function setPassword(matricule) {
         oldPasswordField.required = false;
     }
     
-    passwordModal.show();
+    openPasswordModal();
 }
 
 function savePassword() {
@@ -1056,7 +1349,7 @@ function savePassword() {
         if (result.success) {
             showAlert('passwordAlert', result.message, 'success');
             setTimeout(() => {
-                passwordModal.hide();
+                closePasswordModal();
                 loadEmployes();
             }, 1000);
         } else {
@@ -1106,6 +1399,214 @@ function resetFilters() {
 function showAlert(containerId, message, type) {
     const container = document.getElementById(containerId);
     container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+}
+
+// --- Gestion des ateliers ---
+function loadAteliers() {
+    const tbody = document.getElementById('ateliers-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="no-results">Chargement...</td></tr>';
+    fetch('/projet22/api/ateliers')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                ateliersData = data.ateliers;
+                displayAteliers(ateliersData);
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="no-results text-danger">' + (data.error || 'Erreur chargement') + '</td></tr>';
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="5" class="no-results text-danger">Erreur lors du chargement des ateliers</td></tr>';
+        });
+}
+
+function displayAteliers(ateliers) {
+    const tbody = document.getElementById('ateliers-tbody');
+    if (!tbody) return;
+    if (!ateliers || ateliers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="no-results">Aucun atelier</td></tr>';
+        return;
+    }
+    const hasMdp = function(a) { return a.a_mot_de_passe === true; };
+    const isArchived = function(a) { return a.archive === true; };
+    const textMdp = function(a) { return hasMdp(a) ? '<span class="text-password has">✓ Oui</span>' : '<span class="text-password none">✗ Non</span>'; };
+    const textStatut = function(a) { return isArchived(a) ? '<span class="text-status archived">Archivé</span>' : '<span class="text-status active">Actif</span>'; };
+    const btnEdit = '<button class="btn-action btn-action-edit" onclick="editAtelier({{id}})" title="Modifier"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>';
+    const btnMdp = '<button class="btn-action btn-action-password" onclick="setPasswordAtelier({{id}})" title="Mot de passe"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></button>';
+    const btnArchive = '<button class="btn-action btn-action-archive" onclick="archiveAtelier({{id}}, true)" title="Archiver"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg></button>';
+    const btnUnarchive = '<button class="btn-action btn-action-unarchive" onclick="archiveAtelier({{id}}, false)" title="Désarchiver"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button>';
+    const btnDelete = '<button class="btn-action btn-action-delete" onclick="deleteAtelier({{id}})" title="Supprimer"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>';
+    tbody.innerHTML = ateliers.map(function(a) {
+        const archived = isArchived(a);
+        const actions = (archived ? btnUnarchive : btnEdit + btnMdp + btnArchive) + btnDelete;
+        return '<tr' + (archived ? ' class="archived"' : '') + '>' +
+            '<td><strong>' + escapeHtml(String(a.id)) + '</strong></td>' +
+            '<td>' + escapeHtml(a.nom || '') + '</td>' +
+            '<td style="text-align: center;">' + textMdp(a) + '</td>' +
+            '<td style="text-align: center;">' + textStatut(a) + '</td>' +
+            '<td style="text-align: center;"><div class="btn-group-employe">' + actions.replace(/\{\{id\}\}/g, a.id) + '</div></td></tr>';
+    }).join('');
+}
+
+function showAtelierModal() {
+    document.getElementById('atelierModalTitle').textContent = 'Nouvel atelier';
+    document.getElementById('atelierForm').reset();
+    document.getElementById('atelierId').value = '';
+    document.getElementById('atelierFormAlert').innerHTML = '';
+    openAtelierModal();
+}
+
+function editAtelier(id) {
+    const a = ateliersData.find(function(x) { return x.id === id; });
+    if (!a) return;
+    document.getElementById('atelierModalTitle').textContent = 'Modifier l\'atelier';
+    document.getElementById('atelierId').value = id;
+    document.getElementById('atelierNom').value = a.nom || '';
+    document.getElementById('atelierFormAlert').innerHTML = '';
+    openAtelierModal();
+}
+
+function saveAtelier() {
+    const id = document.getElementById('atelierId').value;
+    const nom = (document.getElementById('atelierNom').value || '').trim();
+    if (!nom) {
+        showAtelierAlert('Le nom de l\'atelier est requis', 'danger');
+        return;
+    }
+    const isEdit = !!id;
+    const url = isEdit ? '/projet22/api/atelier/' + id : '/projet22/api/atelier';
+    const method = isEdit ? 'PUT' : 'POST';
+    fetch(url, {
+        method: method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ nom: nom })
+    })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success) {
+                showAtelierAlert(result.message, 'success');
+                setTimeout(function() {
+                    closeAtelierModal();
+                    loadAteliers();
+                }, 800);
+            } else {
+                showAtelierAlert(result.error || 'Erreur', 'danger');
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            showAtelierAlert('Erreur lors de l\'enregistrement', 'danger');
+        });
+}
+
+function showAtelierAlert(message, type) {
+    const el = document.getElementById('atelierFormAlert');
+    if (el) el.innerHTML = '<div class="alert alert-' + type + '">' + escapeHtml(message) + '</div>';
+}
+
+function deleteAtelier(id) {
+    const a = ateliersData.find(function(x) { return x.id === id; });
+    const nom = a ? (a.nom || '') : String(id);
+    if (!confirm('Supprimer l\'atelier « ' + nom + ' » ?')) return;
+    fetch('/projet22/api/atelier/' + id, { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success) {
+                loadAteliers();
+            } else {
+                alert(result.error || 'Erreur');
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            alert('Erreur lors de la suppression');
+        });
+}
+
+function setPasswordAtelier(id) {
+    const a = ateliersData.find(function(x) { return x.id === id; });
+    if (!a) return;
+    document.getElementById('atelierPasswordId').value = id;
+    document.getElementById('atelierNewPassword').value = '';
+    document.getElementById('atelierOldPassword').value = '';
+    document.getElementById('atelierPasswordAlert').innerHTML = '';
+    const hasExisting = a.a_mot_de_passe === true;
+    document.getElementById('atelierHasExistingPassword').value = hasExisting ? 'true' : 'false';
+    const oldGroup = document.getElementById('atelierOldPasswordGroup');
+    if (hasExisting) {
+        oldGroup.style.display = 'block';
+        document.getElementById('atelierOldPassword').required = true;
+    } else {
+        oldGroup.style.display = 'none';
+        document.getElementById('atelierOldPassword').required = false;
+    }
+    openAtelierPasswordModal();
+}
+
+function saveAtelierPassword() {
+    const id = parseInt(document.getElementById('atelierPasswordId').value, 10);
+    const hasExisting = document.getElementById('atelierHasExistingPassword').value === 'true';
+    const oldPassword = document.getElementById('atelierOldPassword').value;
+    const newPassword = document.getElementById('atelierNewPassword').value;
+    if (hasExisting && !oldPassword) {
+        const el = document.getElementById('atelierPasswordAlert');
+        el.innerHTML = '<div class="alert alert-danger">L\'ancien mot de passe est requis</div>';
+        return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+        const el = document.getElementById('atelierPasswordAlert');
+        el.innerHTML = '<div class="alert alert-danger">Le nouveau mot de passe doit contenir au moins 6 caractères</div>';
+        return;
+    }
+    const body = { mdp: newPassword };
+    if (hasExisting) body.oldPassword = oldPassword;
+    fetch('/projet22/api/atelier/' + id + '/set-password', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success) {
+                document.getElementById('atelierPasswordAlert').innerHTML = '<div class="alert alert-success">' + result.message + '</div>';
+                setTimeout(function() {
+                    closeAtelierPasswordModal();
+                    loadAteliers();
+                }, 1000);
+            } else {
+                document.getElementById('atelierPasswordAlert').innerHTML = '<div class="alert alert-danger">' + escapeHtml(result.error || 'Erreur') + '</div>';
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            document.getElementById('atelierPasswordAlert').innerHTML = '<div class="alert alert-danger">Erreur lors de l\'enregistrement</div>';
+        });
+}
+
+function archiveAtelier(id, archive) {
+    const a = ateliersData.find(function(x) { return x.id === id; });
+    const nom = a ? (a.nom || '') : String(id);
+    const action = archive ? 'archiver' : 'désarchiver';
+    if (!confirm('Êtes-vous sûr de vouloir ' + action + ' l\'atelier « ' + nom + ' » ?')) return;
+    fetch('/projet22/api/atelier/' + id + '/archive', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ archive: archive })
+    })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success) {
+                loadAteliers();
+            } else {
+                alert(result.error || 'Erreur');
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            alert('Erreur lors de l\'archivage');
+        });
 }
 </script>
 {% endblock %}

@@ -472,7 +472,7 @@
     .modal {
         display: none;
         position: fixed;
-        z-index: 9999;
+        z-index: 1055 !important;
         left: 0;
         top: 0;
         width: 100%;
@@ -483,9 +483,10 @@
     }
 
     .modal.show {
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        flex-direction: row !important;
     }
 
     @keyframes fadeIn {
@@ -503,6 +504,8 @@
         max-height: 90vh;
         overflow-y: auto;
         animation: slideDown 0.3s;
+        margin: auto;
+        position: relative;
     }
 
     @keyframes slideDown {
@@ -1049,6 +1052,7 @@ $(document).ready(function() {
     // Si section saisie, ouvrir automatiquement la popup
     {% if section == 'saisie' %}
     $('#modal-saisie').addClass('show');
+    document.body.classList.add('modal-open');
     {% endif %}
 
     // Si section registre, charger les données
@@ -1465,6 +1469,7 @@ function viewDetail(id) {
             `;
             $('#detail-content').html(html);
             $('#modal-detail').addClass('show');
+            document.body.classList.add('modal-open');
         },
         error: function() {
             showAlert('danger', 'Erreur lors du chargement des détails');
@@ -1486,6 +1491,7 @@ function editDechet(id) {
             $('#edit-receptionnaire').val(dechet.receptionnaire || '');
             
             $('#modal-edit').addClass('show');
+            document.body.classList.add('modal-open');
         },
         error: function() {
             showAlert('danger', 'Erreur lors du chargement des données');
@@ -1819,15 +1825,18 @@ function showAlert(type, message) {
 
 function closeDetailModal() {
     $('#modal-detail').removeClass('show');
+    document.body.classList.remove('modal-open');
 }
 
 function closeEditModal() {
     $('#modal-edit').removeClass('show');
+    document.body.classList.remove('modal-open');
     $('#form-edit-dechet')[0].reset();
 }
 
 function closeSaisieModal() {
     $('#modal-saisie').removeClass('show');
+    document.body.classList.remove('modal-open');
     // Rediriger vers la page principale
     window.location.href = '{{ url_for("projet14.index") }}';
 }
@@ -1845,6 +1854,7 @@ function generatePDF() {
 window.onclick = function(event) {
     if (event.target.className === 'modal show') {
         event.target.classList.remove('show');
+        document.body.classList.remove('modal-open');
     }
 }
 </script>

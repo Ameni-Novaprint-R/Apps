@@ -23,7 +23,7 @@ from db import get_db_cursor
 
 # Données initiales : CodeProj = avant « – », Nom = après « – ». Projet 13 = placeholder (archive=1).
 PROJETS_INITIAUX = [
-    (1,  'Projet 1',  'Planning', 0),
+    (1,  'Projet 1',  'Planning & Suivi des Délais de Livraison', 0),
     (2,  'Projet 2',  'Gestion de commandes', 0),
     (3,  'Projet 3',  'Suivi BAT / Prépresse', 0),
     (4,  'Projet 4',  'Rapport de visite client', 0),
@@ -44,7 +44,7 @@ PROJETS_INITIAUX = [
     (19, 'Projet 19', 'Gestion des Dossiers en Cours', 0),
     (20, 'Projet 20', 'Analyse des Dossiers', 0),
     (21, 'Projet 21', 'Mise à jour Base de Données', 0),
-    (22, 'Projet 22', 'Gestion des Employés', 0),
+    (22, 'Projet 22', 'Gestion des Employés et des Ateliers', 0),
 ]
 
 

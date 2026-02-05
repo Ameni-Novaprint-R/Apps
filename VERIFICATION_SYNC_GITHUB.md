@@ -35,33 +35,30 @@
 ## 3. Synchronisation avec GitHub
 
 - **Remote :** `origin` → `https://github.com/Ameni-Novaprint-R/Apps.git`
-- **État :** Le dépôt distant **Apps** n’existe pas encore (ou n’est pas accessible depuis cet environnement). Un `git fetch origin` renvoie « Repository not found ».
-- **Conséquence :** Les commits locaux ne sont **pas encore poussés** sur GitHub. La branche `main` locale n’a pas de suivi `origin/main` tant que le premier push n’a pas été fait.
+- **État :** **Synchronisé.** Le premier push a été effectué avec succès.
+- **Branche :** `main` suit `origin/main`. Working tree clean, aucun changement local non poussé.
+- **Dépôt GitHub :** https://github.com/Ameni-Novaprint-R/Apps
+
+Le projet local et GitHub sont identiques ; la sauvegarde est fiable.
 
 ---
 
-## 4. Actions à faire pour une synchronisation complète
+## 4. Prochaines synchronisations
 
-1. **Créer le dépôt sur GitHub** (si ce n’est pas déjà fait)  
-   - Aller sur https://github.com/new  
-   - Compte : **Ameni-Novaprint-R**  
-   - Nom du dépôt : **Apps**  
-   - Ne pas cocher « Add a README » / « .gitignore »
-
-2. **Pousser la branche main** (avec un token valide)  
-   ```powershell
-   cd x:\
-   git push -u origin main
-   ```  
-   Lors de la demande de mot de passe : coller le **Personal Access Token** (PAT) GitHub.
-
-3. Après un push réussi :  
-   - La branche `main` locale sera à jour avec `origin/main`.  
-   - Le projet local et GitHub seront identiques et la sauvegarde sera fiable.
+- Pour pousser les futurs développements : `git add -A` puis `git commit` puis `git push`.
+- Cursor peut exécuter le push pour vous si vous fournissez un token (avec permission **repo**) lors de votre demande de synchronisation.
 
 ---
 
-## 5. Fichiers exclus du dépôt (.gitignore)
+## 5. Token GitHub pour les prochains push (via Cursor)
+
+- **Garder le token actuel** (avec permission **repo**) si vous voulez que Cursor exécute les prochains `git push` à votre place : donnez le même token lorsque vous demandez une synchronisation.
+- **Révoquer et en créer un nouveau** si vous préférez limiter les risques (token déjà partagé en chat). Lors des prochaines demandes de sync, vous créerez un nouveau token et le fournirez à Cursor pour qu’il exécute le push.
+- En résumé : **garder le token** = plus simple pour les syncs futurs ; **révoquer** = plus prudent côté sécurité.
+
+---
+
+## 6. Fichiers exclus du dépôt (.gitignore)
 
 - Environnements virtuels (`venv/`, `.venv/`, etc.)
 - `__pycache__/`, `.env`, `config.ini`

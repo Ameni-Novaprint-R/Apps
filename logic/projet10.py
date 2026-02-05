@@ -4,6 +4,7 @@ from db import (
     get_controle_qualite_by_id,
     create_controle_qualite,
     update_controle_qualite,
+    delete_controle_qualite,
     get_statistiques_controle_qualite,
     get_performance_par_machine,
     get_evolution_qualite,
@@ -12,7 +13,8 @@ from db import (
     get_operateurs,
     get_comparaison_periodes,
     get_comparaison_machines,
-    get_machines_impression
+    get_machines_impression,
+    get_traitement_data_for_controle
 )
 
 # Déclaration du blueprint
@@ -142,8 +144,17 @@ def api_update_controle(controle_id):
 @bp.route("/api/controle/<int:controle_id>", methods=["DELETE"])
 def api_delete_controle(controle_id):
     """API pour supprimer un contrôle qualité"""
-    # Note: Vous pouvez ajouter une fonction de suppression dans db.py si nécessaire
-    return jsonify({"error": "Suppression non implémentée"}), 501
+    try:
+        success = delete_controle_qualite(controle_id)
+        if success:
+            return jsonify({"status": "success", "message": "Contrôle supprimé avec succès"}), 200
+        else:
+            return jsonify({"error": "Contrôle non trouvé"}), 404
+    except Exception as e:
+        print(f"ERREUR API DELETE CONTROLE: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Erreur serveur: {str(e)}"}), 500
 
 @bp.route("/api/statistiques/comparaison-periodes")
 def api_comparaison_periodes():
@@ -179,4 +190,19 @@ def api_machines_disponibles():
         noms_machines = [m["nom"] for m in machines]
         return jsonify(noms_machines)
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@bp.route("/api/traitement-data/<numero_commande>")
+def api_traitement_data(numero_commande):
+    """API pour récupérer les données de WEB_TRAITEMENTS pour pré-remplir le formulaire"""
+    try:
+        data = get_traitement_data_for_controle(numero_commande)
+        if data:
+            return jsonify(data)
+        else:
+            return jsonify({"machine_impression": None, "operateurs": []})
+    except Exception as e:
+        print(f"Erreur lors de la récupération des données traitement: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500

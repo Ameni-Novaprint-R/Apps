@@ -5,6 +5,7 @@
     <title>{% block title %}Portail Novaprint{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='logo-novaprint.png') }}">
+    <link rel="preload" href="{{ url_for('static', filename='logo-novaprint.png') }}" as="image">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     {% block head %}{% endblock %}
@@ -14,49 +15,38 @@
     <!-- NAVBAR -->
     <nav class="navbar">
         <div class="navbar-container">
-            <img src="{{ url_for('static', filename='logo-novaprint.png') }}" alt="Novaprint" class="navbar-logo">
-            <ul class="navbar-links">
-                <li><a href="/">🏠 Accueil</a></li>
+            <!-- Logo à l'extrême gauche -->
+            <div class="navbar-left">
+                <img src="{{ url_for('static', filename='logo-novaprint.png') }}" alt="Novaprint" class="navbar-logo" fetchpriority="high">
+            </div>
+            
+            <!-- Niveau supérieur : Accueil + Phrase + Menu -->
+            <div class="navbar-top-center">
+                <a href="/" class="navbar-link navbar-link-home" title="Accueil">🏠</a>
+                <span class="branding-text">Le Portail Digital Unifié au Cœur de la Performance</span>
                 {% if is_authenticated() %}
-                    {% set user_projects = get_user_projects() %}
-                    {% if is_super_user() %}
-                        {# Super-utilisateur : afficher tous les projets #}
-                        <li><a href="{{ url_for('projet1.index') }}">📋 Planning</a></li>
-                        <li><a href="{{ url_for('projet2.commandes') }}">📦 Commandes</a></li>
-                        <li><a href="{{ url_for('projet3.page_projet3') }}">🖨️ Suivi BAT</a></li>
-                        <li><a href="{{ url_for('projet4.rapport_visite') }}">📝 Rapport Visite</a></li>
-                        <li><a href="{{ url_for('projet5.index') }}">📝 Planning Production</a></li>
-                        <li><a href="{{ url_for('projet6.programme_voyage') }}">🚚 Voyages</a></li>
-                        <li><a href="{{ url_for('projet7_bp.import_facture') }}">💡 Factures STEG</a></li>
-                        <li><a href="{{ url_for('projet8.stats_devis_commandes') }}">📊 Stats</a></li>
-                        <li><a href="{{ url_for('projet9.index') }}">📈 Performance</a></li>
-                        <li><a href="{{ url_for('projet10.index') }}">🔍 Qualité</a></li>
-                        <li><a href="{{ url_for('projet11.index') }}">🔧 Traitements</a></li>
-                        <li><a href="{{ url_for('projet12.projet12') }}">📋 NC & Réclamations</a></li>
-                        <li><a href="{{ url_for('projet14.index') }}">♻️ Déchets</a></li>
-                        <li><a href="{{ url_for('projet15.index') }}">📊 Corrélation</a></li>
-                        <li><a href="{{ url_for('projet16.index') }}">🔧 GMAO</a></li>
-                        <li><a href="{{ url_for('projet17.index') }}">📚 Fusion HTML</a></li>
-                        <li><a href="{{ url_for('projet18.index') }}">📅 Agenda 2026</a></li>
-                        <li><a href="{{ url_for('projet19.index') }}">📁 Dossiers en Cours</a></li>
-                        <li><a href="/projet20/">🔍 Analyse Dossiers</a></li>
-                        <li><a href="/projet21/">🔄 Sync BDD</a></li>
-                        <li><a href="{{ url_for('projet22.index') }}">👥 Employés</a></li>
-                    {% else %}
-                        {# Utilisateur normal : afficher uniquement les projets auxquels il a accès #}
-                        {% for project in user_projects %}
-                            {% set project_url = get_project_url(project.num) %}
-                            {% set project_icon = get_project_icon(project.num) %}
-                            {% if project_url %}
-                                <li><a href="{{ project_url }}">{{ project_icon }} {{ project.nom }}</a></li>
-                            {% endif %}
-                        {% endfor %}
-                    {% endif %}
-                    <li><a href="{{ url_for('auth.logout') }}">🚪 Déconnexion ({{ get_current_user() }})</a></li>
-                {% else %}
-                    <li><a href="{{ url_for('auth.login') }}">🔐 Connexion</a></li>
+                    <div class="navbar-menu-toggle">
+                        <button id="menuToggleBtn" class="menu-toggle-btn" aria-label="Menu projets" title="Menu projets">
+                            <span class="menu-icon">≡</span>
+                        </button>
+                        <!-- Menu déroulant des projets -->
+                        <div id="projectsMenu" class="projects-menu" style="display: none;">
+                            <div class="menu-loading">Chargement...</div>
+                        </div>
+                    </div>
                 {% endif %}
-            </ul>
+            </div>
+            
+            <!-- Déconnexion à droite niveau inférieur (extrême droite) -->
+            {% if is_authenticated() %}
+                <div class="navbar-right-bottom">
+                    <a href="{{ url_for('auth.logout') }}" class="navbar-link navbar-link-logout">🚪 Déconnexion ({{ get_current_user() or 'Utilisateur' }})</a>
+                </div>
+            {% else %}
+                <div class="navbar-right-bottom">
+                    <a href="{{ url_for('auth.login') }}" class="navbar-link navbar-link-login">🔐 Connexion</a>
+                </div>
+            {% endif %}
         </div>
     </nav>
 
@@ -81,6 +71,227 @@
 
     <!-- Bootstrap JS Bundle (incl. Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script pour le menu hamburger -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const menuToggleBtn = document.getElementById('menuToggleBtn');
+        const projectsMenu = document.getElementById('projectsMenu');
+        
+        if (!menuToggleBtn || !projectsMenu) {
+            return; // Menu non disponible si non authentifié
+        }
+        
+        let menuData = null;
+        let isMenuOpen = false;
+        
+        // Charger les données du menu
+        function loadMenuData() {
+            if (menuData) {
+                return Promise.resolve(menuData);
+            }
+            
+            return fetch('/api/navigation-menu')
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`HTTP error! status: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    menuData = data;
+                    return data;
+                })
+                .catch(error => {
+                    console.error('Erreur lors du chargement du menu:', error);
+                    projectsMenu.innerHTML = '<div class="menu-loading" style="color: red;">Erreur de chargement</div>';
+                    return null;
+                });
+        }
+        
+        // Rendre le menu
+        function renderMenu(data) {
+            if (!data || !data.projects || data.projects.length === 0) {
+                projectsMenu.innerHTML = '<div class="menu-loading">Aucun projet disponible</div>';
+                return;
+            }
+            
+            let html = '';
+            data.projects.forEach(project => {
+                const hasSections = project.sections && project.sections.length > 0;
+                
+                html += `
+                    <div class="project-item" data-project-id="${project.id}">
+                        <a href="${project.url || '#'}" class="project-link" data-project-url="${project.url || '#'}">
+                            <span class="project-icon">${project.icon || '📌'}</span>
+                            <span class="project-name">${project.nom}</span>
+                        </a>
+                        ${hasSections ? `
+                            <div class="sections-submenu">
+                                ${project.sections.map(section => `
+                                    <a href="${section.url || project.url || '#'}" class="section-link">
+                                        ${section.nom}
+                                    </a>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            projectsMenu.innerHTML = html;
+            
+            // Gérer les clics sur les projets et sections
+            projectsMenu.querySelectorAll('.project-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // Si on clique sur la flèche, ne pas naviguer (juste afficher le sous-menu)
+                    if (e.target.classList.contains('project-arrow')) {
+                        return;
+                    }
+                    
+                    const url = this.getAttribute('href') || this.getAttribute('data-project-url');
+                    const projectItem = this.closest('.project-item');
+                    const hasSections = projectItem && projectItem.querySelector('.sections-submenu');
+                    
+                    // Si le projet n'a pas de sections, naviguer directement
+                    if (!hasSections && url && url !== '#') {
+                        window.location.href = url;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Fermer le menu
+                        projectsMenu.style.display = 'none';
+                        isMenuOpen = false;
+                    } else if (hasSections) {
+                        // Si le projet a des sections, permettre la navigation vers la page principale du projet
+                        // Le survol affichera les sections
+                        if (url && url !== '#') {
+                            // Optionnel : naviguer vers le projet principal
+                            // Pour l'instant, on laisse juste le survol gérer les sections
+                        }
+                    }
+                });
+            });
+            
+            projectsMenu.querySelectorAll('.section-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    const url = this.getAttribute('href');
+                    if (url && url !== '#') {
+                        // Fermer le menu avant la navigation
+                        projectsMenu.style.display = 'none';
+                        isMenuOpen = false;
+                        window.location.href = url;
+                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+        }
+        
+        // Afficher le menu au survol
+        menuToggleBtn.addEventListener('mouseenter', function(e) {
+            loadMenuData().then(data => {
+                if (data) {
+                    renderMenu(data);
+                    projectsMenu.style.display = 'block';
+                    isMenuOpen = true;
+                }
+            });
+        });
+        
+        // Garder le menu ouvert quand on survole le menu lui-même
+        projectsMenu.addEventListener('mouseenter', function() {
+            if (!isMenuOpen) {
+                projectsMenu.style.display = 'block';
+                isMenuOpen = true;
+            }
+        });
+        
+        // Fermer le menu des projets quand un modal Bootstrap s'ouvre
+        document.addEventListener('show.bs.modal', function(e) {
+            if (isMenuOpen) {
+                projectsMenu.style.display = 'none';
+                isMenuOpen = false;
+            }
+        });
+        
+        // Fermer le menu quand on quitte l'icône ou le menu
+        menuToggleBtn.addEventListener('mouseleave', function(e) {
+            // Vérifier si on passe vers le menu
+            if (!projectsMenu.matches(':hover')) {
+                setTimeout(() => {
+                    if (!projectsMenu.matches(':hover') && !menuToggleBtn.matches(':hover')) {
+                        projectsMenu.style.display = 'none';
+                        isMenuOpen = false;
+                    }
+                }, 100);
+            }
+        });
+        
+        projectsMenu.addEventListener('mouseleave', function(e) {
+            // Vérifier si on passe vers l'icône
+            if (!menuToggleBtn.matches(':hover')) {
+                setTimeout(() => {
+                    if (!projectsMenu.matches(':hover') && !menuToggleBtn.matches(':hover')) {
+                        projectsMenu.style.display = 'none';
+                        isMenuOpen = false;
+                    }
+                }, 100);
+            }
+        });
+        
+        let hideSectionsTimeout = null;
+        
+        // Gérer le survol pour afficher les sous-menus
+        projectsMenu.addEventListener('mouseover', function(e) {
+            // Annuler le timeout de masquage s'il existe
+            if (hideSectionsTimeout) {
+                clearTimeout(hideSectionsTimeout);
+                hideSectionsTimeout = null;
+            }
+            
+            const projectItem = e.target.closest('.project-item');
+            if (projectItem) {
+                // Retirer active de tous les autres
+                projectsMenu.querySelectorAll('.project-item').forEach(item => {
+                    if (item !== projectItem) {
+                        item.classList.remove('active');
+                    }
+                });
+                // Ajouter active à l'élément survolé pour afficher les sections
+                projectItem.classList.add('active');
+            }
+        });
+        
+        projectsMenu.addEventListener('mouseout', function(e) {
+            const projectItem = e.target.closest('.project-item');
+            const sectionsSubmenu = projectItem ? projectItem.querySelector('.sections-submenu') : null;
+            
+            // Vérifier si on passe vers le sous-menu des sections
+            if (sectionsSubmenu && sectionsSubmenu.contains(e.relatedTarget)) {
+                // On passe vers le sous-menu, ne rien faire
+                return;
+            }
+            
+            // Si on quitte vraiment le projet et son sous-menu, attendre un peu avant de masquer
+            if (projectItem && !projectItem.contains(e.relatedTarget)) {
+                hideSectionsTimeout = setTimeout(() => {
+                    projectItem.classList.remove('active');
+                    hideSectionsTimeout = null;
+                }, 200); // Délai de 200ms avant de masquer
+            }
+        });
+        
+        // Garder le sous-menu ouvert quand on le survole
+        projectsMenu.addEventListener('mouseover', function(e) {
+            if (e.target.closest('.sections-submenu')) {
+                const projectItem = e.target.closest('.project-item');
+                if (projectItem) {
+                    projectItem.classList.add('active');
+                }
+            }
+        });
+    });
+    </script>
 
 </body>
 </html>

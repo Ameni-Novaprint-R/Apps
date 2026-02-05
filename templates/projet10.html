@@ -2,68 +2,207 @@
 
 {% block title %}Feuille de suivi machine contrôle qualité{% endblock %}
 
+{% block head %}
+<!-- jQuery (requis pour DataTables) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<style>
+    .table-filters input {
+        width: 100%;
+        font-size: 0.85rem;
+        padding: 4px;
+        box-sizing: border-box;
+    }
+    .column-toggle-panel {
+        margin-bottom: 1rem;
+    }
+    .column-toggle-panel .form-check {
+        margin-right: 1rem;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+    }
+    .column-toggle-panel .form-check-input {
+        margin-top: 0.3rem;
+        margin-right: 0.35rem;
+    }
+    /* Boutons d'action modernes avec icônes SVG (style projet11) */
+    .btn-action-modern {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        padding: 0;
+        margin: 0 1px;
+        flex-shrink: 0;
+    }
+    .btn-action-modern svg {
+        width: 16px;
+        height: 16px;
+        transition: all 0.3s ease;
+    }
+    .btn-action-modern:hover {
+        transform: scale(1.15);
+        background: #f8f9fa;
+    }
+    .btn-action-modern:hover svg {
+        transform: scale(1.1);
+    }
+    .btn-action-modern:active {
+        transform: scale(1.05);
+    }
+    /* Couleurs pour les différents types d'actions */
+    .btn-action-view svg {
+        fill: #4A90E2;
+    }
+    .btn-action-edit svg {
+        fill: #FFB347;
+    }
+    .btn-action-delete svg {
+        fill: #E74C3C;
+    }
+    
+    /* Style du titre (style Projet 14) */
+    .page-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .page-header h1 {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
 
 {% block content %}
     <div class="container-fluid">
-        <!-- En-tête du formulaire -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white text-center">
-                        <div class="row align-items-center">
-                            <div class="col-2">
-                                <span class="fw-bold" style="writing-mode: vertical-rl; text-orientation: mixed;">Formulaire</span>
-                            </div>
-                            <div class="col-8">
-                                <h2 class="mb-0">Feuille de suivi machine contrôle qualité</h2>
-                            </div>
-                            <div class="col-2 text-end">
-                                <img src="{{ url_for('static', filename='logo-novaprint.png') }}" alt="NOVA" style="height: 40px;">
-                                <div class="fw-bold">NOVA</div>
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-3">
-                                <small>Code : FOR-SMI-14</small>
-                            </div>
-                            <div class="col-3">
-                                <small>Version : 00</small>
-                            </div>
-                            <div class="col-3">
-                                <small>Date : <span id="form-date"></span></small>
-                            </div>
-                            <div class="col-3">
-                                <small>Page : 1/1</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <!-- En-tête du formulaire (style Projet 14 avec couleur bleue) -->
+        <div class="page-header" style="background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%); color: #1976d2; border: 2px solid #2196f3;">
+            <h1 style="font-size: 2rem; margin-bottom: 10px; color: #1976d2; font-weight: 700;">🔍 Feuille de suivi machine contrôle qualité</h1>
+            <div style="margin-top: 15px; font-size: 0.9rem; opacity: 0.85;">
+                <span style="margin-right: 20px;">Code : FOR-SMI-14</span>
+                <span style="margin-right: 20px;">Version : 00</span>
+                <span style="margin-right: 20px;">Date : <span id="form-date"></span></span>
+                <span>Page : 1/1</span>
             </div>
         </div>
+        
+    <!-- Sections repliables - Style Projet 15 -->
+    <style>
+        .section-selection {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
 
-    <!-- Onglets principaux -->
-    <ul class="nav nav-tabs" id="mainTabs" role="tablist" style="margin-bottom: 1rem;">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="controles-tab" data-bs-toggle="tab" data-bs-target="#controles" type="button" role="tab">
-                📋 Contrôles
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="nouveau-tab" data-bs-toggle="tab" data-bs-target="#nouveau" type="button" role="tab">
-                ➕ Nouveau Contrôle
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <a class="nav-link" href="/projet10/stat" target="_blank">
-                📊 Statistiques
-            </a>
-        </li>
-    </ul>
+        .section-options {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: nowrap;
+        }
 
-    <!-- Contenu des onglets -->
-    <div class="tab-content" id="mainTabContent">
-        <!-- Onglet Contrôles -->
-        <div class="tab-pane fade show active" id="controles" role="tabpanel">
+        .section-btn {
+            padding: 15px 30px;
+            background: white;
+            color: #2c3e50;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+            border: 2px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            user-select: none;
+            flex: 1;
+            max-width: 33.333%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .section-btn:hover {
+            background: #2196f3;
+            color: white;
+            border-color: #2196f3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+        }
+
+        .section-btn.active {
+            background: #2196f3;
+            color: white;
+            border-color: #2196f3;
+        }
+
+        .content-section {
+            background: white;
+            padding: 25px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+            visibility: hidden;
+            opacity: 0;
+            margin-bottom: 20px;
+            transition: opacity 0.3s ease;
+        }
+
+        .content-section.active {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        @media (max-width: 992px) {
+            .section-options {
+                flex-direction: column;
+            }
+            .section-btn {
+                max-width: 100%;
+            }
+        }
+    </style>
+
+    <!-- Sélection de section (style Projet 15) -->
+    <div class="section-selection">
+        <div class="section-options">
+            <div class="section-btn" id="toggle-controles" data-section="controles">
+                <span>📋</span>
+                <span>Liste des Contrôles</span>
+            </div>
+            <div class="section-btn" id="toggle-nouveau" data-section="nouveau">
+                <span>➕</span>
+                <span>Nouveau Contrôle</span>
+            </div>
+            <div class="section-btn" id="toggle-statistiques" data-section="statistiques">
+                <span>📊</span>
+                <span>Statistiques</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Contrôles -->
+    <div class="content-section" id="section-controles">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3>Liste des Contrôles Qualité</h3>
                 <button class="btn btn-primary" onclick="actualiserControles()">
@@ -71,16 +210,18 @@
                 </button>
             </div>
             
-            <div class="table-responsive">
-                <table class="table table-striped" id="tableControles">
-                    <thead>
+            <div class="table-responsive position-relative">
+                <table class="table table-striped table-hover mb-0" id="tableControles">
+                    <thead class="table-dark">
                         <tr>
                             <th>ID</th>
                             <th>Date</th>
                             <th>N° Dossier</th>
                             <th>Opérateur</th>
                             <th>Machine Impression</th>
+                            <th>Opérateur(s) Machine d'impression</th>
                             <th>Machine Découpe</th>
+                            <th>Opérateur(s) Machine de découpe</th>
                             <th>Rebus</th>
                             <th>Validation</th>
                             <th>Actions</th>
@@ -91,10 +232,10 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+    </div>
 
-        <!-- Onglet Nouveau Contrôle -->
-        <div class="tab-pane fade" id="nouveau" role="tabpanel">
+    <!-- Section Nouveau Contrôle -->
+    <div class="content-section" id="section-nouveau">
             <div class="card">
                 <div class="card-body">
             <form id="formNouveauControle">
@@ -164,7 +305,34 @@
                             </div>
                         </div>
                         
-                        <!-- Machine de découpe (désactivée) -->
+                        <!-- Machine de découpe -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">✂️ Machine de Découpe :</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                        <div class="mb-3">
+                                            <label for="machine_decoupe" class="form-label">Machine de découpe :</label>
+                                            <select class="form-select" id="machine_decoupe" name="machine_decoupe">
+                                                <option value="">-- Sélectionner une machine --</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                        <div class="mb-3 position-relative">
+                                            <label class="form-label" for="op_decoupe_input">👥 Opérateur(s) Machine de découpe :</label>
+                                            <input class="form-control" id="op_decoupe_input" placeholder="Saisir matricule/nom et cliquer une suggestion..." autocomplete="off">
+                                            <div id="op_decoupe_suggestions" class="list-group" style="position:absolute; z-index:1050; max-height:240px; overflow:auto; display:none; width:100%;"></div>
+                                            <div class="mt-2 small text-muted">Sélectionnés:</div>
+                                            <div id="op_decoupe_tags" class="mt-1 d-flex flex-wrap gap-2"></div>
+                                            <small class="form-text text-muted">Tapez pour rechercher, cliquez pour ajouter. Cliquez sur une étiquette pour enlever.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <!-- Tableau des tolérances -->
                         <div class="card mb-4">
@@ -390,23 +558,113 @@
                     </form>
                 </div>
                 </div>
-        </div>
+    </div>
 
-        <!-- Onglet Statistiques (maintenant un lien externe) -->
-        <div class="tab-pane fade" id="statistiques" role="tabpanel" style="min-height: 240px; padding: 12px 8px; display: none;">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h3>Statistiques de Contrôle Qualité</h3>
-                <button class="btn btn-primary btn-sm" onclick="chargerStatistiques()">
-                    🔄 Actualiser les statistiques
-                </button>
-            </div>
-            <div class="row" id="statistiques-container">
-                <div class="col-12 text-center text-muted py-4" id="stats-placeholder">
-                    Chargement des statistiques...
-                </div>
+    <!-- Section Statistiques -->
+    <div class="content-section" id="section-statistiques">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Statistiques de Contrôle Qualité</h3>
+            <button class="btn btn-primary btn-sm" onclick="chargerStatistiques()">
+                🔄 Actualiser les statistiques
+            </button>
+        </div>
+        <div class="row" id="statistiques-container">
+            <div class="col-12 text-center text-muted py-4" id="stats-placeholder">
+                <p>Les statistiques vont se charger automatiquement...</p>
             </div>
         </div>
     </div>
+
+    <!-- JavaScript pour gérer les sections repliables -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tous les boutons de sections
+            const buttons = document.querySelectorAll('.section-btn');
+            const sections = document.querySelectorAll('.content-section');
+            
+            // Fonction pour fermer toutes les sections sauf celle spécifiée
+            function closeAllSections(exceptSectionId) {
+                sections.forEach(section => {
+                    if (section.id !== `section-${exceptSectionId}`) {
+                        section.classList.remove('active');
+                    }
+                });
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('data-section') !== exceptSectionId) {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+            
+            // Ajouter les event listeners
+            buttons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const sectionId = this.getAttribute('data-section');
+                    const section = document.getElementById(`section-${sectionId}`);
+                    
+                    console.log('Bouton cliqué:', sectionId);
+                    console.log('Section trouvée:', section);
+                    
+                    if (!section) {
+                        console.error('Section introuvable:', `section-${sectionId}`);
+                        return;
+                    }
+                    
+                    // Si la section est déjà ouverte, la fermer
+                    if (section.classList.contains('active')) {
+                        console.log('Fermeture de la section:', sectionId);
+                        section.classList.remove('active');
+                        section.style.display = 'none';
+                        section.style.visibility = 'hidden';
+                        section.style.opacity = '0';
+                        this.classList.remove('active');
+                    } else {
+                        console.log('Ouverture de la section:', sectionId);
+                        
+                        // Fermer toutes les autres sections d'abord
+                        closeAllSections(sectionId);
+                        
+                        // Ouvrir la section cliquée
+                        section.classList.add('active');
+                        section.style.display = 'block';
+                        section.style.visibility = 'visible';
+                        section.style.opacity = '1';
+                        this.classList.add('active');
+                        
+                        console.log('Section ouverte, display:', window.getComputedStyle(section).display);
+                        
+                        // Charger les données si nécessaire
+                        if (sectionId === 'controles') {
+                            if (typeof chargerControles === 'function') {
+                                chargerControles();
+                            }
+                        } else if (sectionId === 'statistiques') {
+                            console.log('Section statistiques ouverte');
+                            
+                            // Charger les statistiques immédiatement après l'ouverture
+                            if (typeof chargerStatistiques === 'function') {
+                                // Petit délai pour s'assurer que la section est bien visible
+                                setTimeout(() => {
+                                    console.log('Appel de chargerStatistiques() depuis le toggle');
+                                    chargerStatistiques();
+                                }, 100);
+                            } else {
+                                console.error('chargerStatistiques() n\'est pas définie');
+                                // Afficher un message d'erreur dans la section
+                                const container = document.getElementById('statistiques-container');
+                                if (container) {
+                                    container.innerHTML = '<div class="alert alert-danger">Erreur: La fonction chargerStatistiques() n\'est pas disponible. Veuillez recharger la page.</div>';
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    </script>
 {% endblock %}
 
 {% block extra_js %}
@@ -448,8 +706,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Charger les machines d'impression disponibles
     chargerMachinesImpression();
     
-    // Charger les contrôles existants
-    chargerControles();
+    // Ne pas charger automatiquement les contrôles - ils seront chargés quand l'utilisateur ouvrira la section
+    // chargerControles();
     
     // Gestion du formulaire
     document.getElementById('formNouveauControle').addEventListener('submit', function(e) {
@@ -462,18 +720,26 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     
     // Gestion des onglets - Charger les statistiques lors du clic
-    const statsTab = document.getElementById('statistiques-tab');
-    if (statsTab) {
+    // Les sections sont maintenant gérées par le système de toggle ci-dessus
+    // Plus besoin de gérer les événements Bootstrap tab
+    function openStatistiquesSection() {
+        const toggle = document.getElementById('toggle-statistiques');
+        if (toggle && !document.getElementById('section-statistiques').classList.contains('active')) {
+            toggle.click();
+        }
+    }
+    
+    // Pour compatibilité avec le code existant
+    const statsTab = { addEventListener: function() {} };
+    if (false) { // Désactivé car on utilise maintenant les sections repliables
         statsTab.addEventListener('shown.bs.tab', function () {
             console.log('Onglet Statistiques affiché');
             chargerStatistiques();
         });
     }
     
-    // Charger les statistiques au démarrage (pour qu'elles soient prêtes)
-    setTimeout(() => {
-        chargerStatistiques();
-    }, 500);
+    // Ne plus charger les statistiques automatiquement au démarrage
+    // Elles seront chargées uniquement quand l'utilisateur ouvre la section
     
     // Initialiser la date d'aujourd'hui
     const today = new Date().toISOString().split('T')[0];
@@ -484,6 +750,25 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Mettre à jour la date du formulaire
     document.getElementById('form-date').textContent = new Date().toLocaleDateString('fr-FR');
+    
+    // Pré-remplissage automatique depuis WEB_TRAITEMENTS lors de la sélection d'un numéro de commande
+    const numeroSelect = document.getElementById('Numero_COMMANDES');
+    if (numeroSelect) {
+        numeroSelect.addEventListener('change', function() {
+            const numeroCommande = this.value.trim();
+            if (numeroCommande) {
+                preRemplirDepuisTraitement(numeroCommande);
+            } else {
+                // Réinitialiser les champs si aucun numéro n'est sélectionné
+                document.getElementById('machine_impression').value = '';
+                const opImpTags = document.getElementById('op_impression_tags');
+                if (opImpTags) opImpTags.innerHTML = '';
+                document.getElementById('machine_decoupe').value = '';
+                const opDecTags = document.getElementById('op_decoupe_tags');
+                if (opDecTags) opDecTags.innerHTML = '';
+            }
+        });
+    }
 });
 
 // Charger les numéros de commandes disponibles
@@ -511,18 +796,190 @@ function chargerMachinesImpression() {
     fetch('/projet10/api/machines-disponibles')
         .then(res => res.json())
         .then(data => {
-            const select = document.getElementById('machine_impression');
-            select.innerHTML = '<option value="">-- Sélectionner une machine --</option>';
+            // Remplir le select machine d'impression
+            const selectImp = document.getElementById('machine_impression');
+            if (selectImp) {
+                selectImp.innerHTML = '<option value="">-- Sélectionner une machine --</option>';
+                data.forEach(machine => {
+                    const option = document.createElement('option');
+                    option.value = machine;
+                    option.textContent = machine;
+                    selectImp.appendChild(option);
+                });
+            }
             
-            data.forEach(machine => {
-                const option = document.createElement('option');
-                option.value = machine;
-                option.textContent = machine;
-                select.appendChild(option);
-            });
+            // Remplir aussi le select machine de découpe (même liste)
+            const selectDec = document.getElementById('machine_decoupe');
+            if (selectDec) {
+                selectDec.innerHTML = '<option value="">-- Sélectionner une machine --</option>';
+                data.forEach(machine => {
+                    const option = document.createElement('option');
+                    option.value = machine;
+                    option.textContent = machine;
+                    selectDec.appendChild(option);
+                });
+            }
         })
         .catch(error => {
             console.error('Erreur lors du chargement des machines:', error);
+        });
+}
+
+// Pré-remplir les champs depuis WEB_TRAITEMENTS
+function preRemplirDepuisTraitement(numeroCommande) {
+    console.log('Pré-remplissage depuis WEB_TRAITEMENTS pour:', numeroCommande);
+    
+    // Attendre que les opérateurs soient chargés
+    if (!window.__OPERATEURS__) {
+        console.warn('Opérateurs non encore chargés, attente...');
+        setTimeout(() => preRemplirDepuisTraitement(numeroCommande), 500);
+        return;
+    }
+    
+    fetch(`/projet10/api/traitement-data/${encodeURIComponent(numeroCommande)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                console.warn('Erreur API:', data.error);
+                return;
+            }
+            
+            // Pré-remplir la machine d'impression
+            if (data.machine_impression) {
+                const machineSelect = document.getElementById('machine_impression');
+                if (machineSelect) {
+                    // Vérifier si l'option existe déjà
+                    let optionExists = false;
+                    for (let i = 0; i < machineSelect.options.length; i++) {
+                        if (machineSelect.options[i].value === data.machine_impression) {
+                            optionExists = true;
+                            break;
+                        }
+                    }
+                    
+                    // Si l'option n'existe pas, l'ajouter
+                    if (!optionExists) {
+                        const option = document.createElement('option');
+                        option.value = data.machine_impression;
+                        option.textContent = data.machine_impression;
+                        machineSelect.appendChild(option);
+                    }
+                    
+                    machineSelect.value = data.machine_impression;
+                    console.log('Machine d\'impression pré-remplie:', data.machine_impression);
+                }
+            }
+            
+            // Pré-remplir les opérateurs machine d'impression
+            if (data.operateurs_impression && Array.isArray(data.operateurs_impression) && data.operateurs_impression.length > 0) {
+                const opImpTags = document.getElementById('op_impression_tags');
+                if (opImpTags && window.__OPERATEURS__) {
+                    // Vider les tags existants
+                    opImpTags.innerHTML = '';
+                    
+                    // Pour chaque opérateur retourné, créer un tag
+                    data.operateurs_impression.forEach(op => {
+                        // Chercher le matricule correspondant dans la liste des opérateurs
+                        const operateurTrouve = window.__OPERATEURS__.find(o => 
+                            (o.nom || '').trim().toLowerCase() === (op.nom || '').trim().toLowerCase() &&
+                            (o.prenom || '').trim().toLowerCase() === (op.prenom || '').trim().toLowerCase()
+                        );
+                        
+                        const matricule = operateurTrouve ? (operateurTrouve.matricule || '').trim() : '';
+                        const nom = (op.nom || '').trim();
+                        const prenom = (op.prenom || '').trim();
+                        
+                        if (nom || prenom) {
+                            // Créer le tag directement (même logique que dans chargerOperateurs)
+                            const exists = Array.from(opImpTags.querySelectorAll('span.badge')).some(b => 
+                                b.getAttribute('data-m') === matricule && matricule !== ''
+                            );
+                            if (!exists) {
+                                const tag = document.createElement('span');
+                                tag.className = 'badge bg-primary';
+                                tag.textContent = `${matricule ? matricule + ' — ' : ''}${nom} ${prenom}`.trim();
+                                tag.setAttribute('data-m', matricule);
+                                tag.setAttribute('data-n', nom);
+                                tag.setAttribute('data-p', prenom);
+                                tag.style.cursor = 'pointer';
+                                tag.addEventListener('click', () => tag.remove());
+                                opImpTags.appendChild(tag);
+                            }
+                            console.log('Opérateur impression pré-rempli:', nom, prenom, '(matricule:', matricule || 'non trouvé', ')');
+                        }
+                    });
+                }
+            }
+            
+            // Pré-remplir la machine de découpe
+            if (data.machine_decoupe) {
+                const machineSelect = document.getElementById('machine_decoupe');
+                if (machineSelect) {
+                    // Vérifier si l'option existe déjà
+                    let optionExists = false;
+                    for (let i = 0; i < machineSelect.options.length; i++) {
+                        if (machineSelect.options[i].value === data.machine_decoupe) {
+                            optionExists = true;
+                            break;
+                        }
+                    }
+                    
+                    // Si l'option n'existe pas, l'ajouter
+                    if (!optionExists) {
+                        const option = document.createElement('option');
+                        option.value = data.machine_decoupe;
+                        option.textContent = data.machine_decoupe;
+                        machineSelect.appendChild(option);
+                    }
+                    
+                    machineSelect.value = data.machine_decoupe;
+                    console.log('Machine de découpe pré-remplie:', data.machine_decoupe);
+                }
+            }
+            
+            // Pré-remplir les opérateurs machine de découpe
+            if (data.operateurs_decoupe && Array.isArray(data.operateurs_decoupe) && data.operateurs_decoupe.length > 0) {
+                const opDecTags = document.getElementById('op_decoupe_tags');
+                if (opDecTags && window.__OPERATEURS__) {
+                    // Vider les tags existants
+                    opDecTags.innerHTML = '';
+                    
+                    // Pour chaque opérateur retourné, créer un tag
+                    data.operateurs_decoupe.forEach(op => {
+                        // Chercher le matricule correspondant dans la liste des opérateurs
+                        const operateurTrouve = window.__OPERATEURS__.find(o => 
+                            (o.nom || '').trim().toLowerCase() === (op.nom || '').trim().toLowerCase() &&
+                            (o.prenom || '').trim().toLowerCase() === (op.prenom || '').trim().toLowerCase()
+                        );
+                        
+                        const matricule = operateurTrouve ? (operateurTrouve.matricule || '').trim() : '';
+                        const nom = (op.nom || '').trim();
+                        const prenom = (op.prenom || '').trim();
+                        
+                        if (nom || prenom) {
+                            // Créer le tag directement (même logique que dans chargerOperateurs)
+                            const exists = Array.from(opDecTags.querySelectorAll('span.badge')).some(b => 
+                                b.getAttribute('data-m') === matricule && matricule !== ''
+                            );
+                            if (!exists) {
+                                const tag = document.createElement('span');
+                                tag.className = 'badge bg-primary';
+                                tag.textContent = `${matricule ? matricule + ' — ' : ''}${nom} ${prenom}`.trim();
+                                tag.setAttribute('data-m', matricule);
+                                tag.setAttribute('data-n', nom);
+                                tag.setAttribute('data-p', prenom);
+                                tag.style.cursor = 'pointer';
+                                tag.addEventListener('click', () => tag.remove());
+                                opDecTags.appendChild(tag);
+                            }
+                            console.log('Opérateur découpe pré-rempli:', nom, prenom, '(matricule:', matricule || 'non trouvé', ')');
+                        }
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors du pré-remplissage depuis WEB_TRAITEMENTS:', error);
         });
 }
 
@@ -559,10 +1016,10 @@ function chargerOperateurs() {
             const opImpInput = document.getElementById('op_impression_input');
             const opImpSugg = document.getElementById('op_impression_suggestions');
             const opImpTags = document.getElementById('op_impression_tags');
-            // Découpe désactivée
-            const opDecInput = null;
-            const opDecSugg = document.createElement('div');
-            const opDecTags = document.createElement('div');
+            // Découpe activée
+            const opDecInput = document.getElementById('op_decoupe_input');
+            const opDecSugg = document.getElementById('op_decoupe_suggestions');
+            const opDecTags = document.getElementById('op_decoupe_tags');
 
             // (opérations spécifiques chef/opérateur sont gérées par les pickers ci-dessous)
 
@@ -648,18 +1105,34 @@ function chargerOperateurs() {
                 container.appendChild(tag);
             }
             // Impression
-            opImpInput.addEventListener('input', function(){
-                renderOpSuggestions(opImpSugg, filterOps(this.value.trim()));
-            });
-            opImpSugg.addEventListener('click', function(e){
-                const btn = e.target.closest('button'); if (!btn) return;
-                addTag(opImpTags, btn.getAttribute('data-m')||'', btn.getAttribute('data-n')||'', btn.getAttribute('data-p')||'');
-                opImpSugg.style.display='none'; opImpInput.value='';
-            });
-            // Découpe (aucune interaction)
+            if (opImpInput) {
+                opImpInput.addEventListener('input', function(){
+                    renderOpSuggestions(opImpSugg, filterOps(this.value.trim()));
+                });
+            }
+            if (opImpSugg) {
+                opImpSugg.addEventListener('click', function(e){
+                    const btn = e.target.closest('button'); if (!btn) return;
+                    addTag(opImpTags, btn.getAttribute('data-m')||'', btn.getAttribute('data-n')||'', btn.getAttribute('data-p')||'');
+                    opImpSugg.style.display='none'; if (opImpInput) opImpInput.value='';
+                });
+            }
+            // Découpe (même logique que impression)
+            if (opDecInput) {
+                opDecInput.addEventListener('input', function(){
+                    renderOpSuggestions(opDecSugg, filterOps(this.value.trim()));
+                });
+            }
+            if (opDecSugg) {
+                opDecSugg.addEventListener('click', function(e){
+                    const btn = e.target.closest('button'); if (!btn) return;
+                    addTag(opDecTags, btn.getAttribute('data-m')||'', btn.getAttribute('data-n')||'', btn.getAttribute('data-p')||'');
+                    opDecSugg.style.display='none'; if (opDecInput) opDecInput.value='';
+                });
+            }
             document.addEventListener('click', function(e){
-                if (!opImpSugg.contains(e.target) && e.target!==opImpInput) opImpSugg.style.display='none';
-                // pas de gestion découpe
+                if (opImpSugg && !opImpSugg.contains(e.target) && e.target!==opImpInput) opImpSugg.style.display='none';
+                if (opDecSugg && !opDecSugg.contains(e.target) && e.target!==opDecInput) opDecSugg.style.display='none';
             });
 
             function renderChefSuggestions(term) {
@@ -715,11 +1188,19 @@ function chargerOperateurs() {
         });
 }
 
-// Charger les contrôles existants
+// Charger les contrôles existants avec DataTables
+let dataTableControles = null;
+
 function chargerControles() {
     fetch('/projet10/api/controles')
         .then(res => res.json())
         .then(data => {
+            // Détruire DataTable existant s'il existe
+            if (dataTableControles) {
+                dataTableControles.destroy();
+                dataTableControles = null;
+            }
+            
             const tbody = document.getElementById('tbodyControles');
             tbody.innerHTML = '';
             
@@ -729,36 +1210,225 @@ function chargerControles() {
                     <td>${controle.id}</td>
                     <td>${new Date(controle.date_controle).toLocaleDateString('fr-FR')}</td>
                     <td>${controle.Numero_COMMANDES}</td>
-                    <td>${controle.operateur}</td>
+                    <td>${controle.operateur || '-'}</td>
                     <td>${controle.machine_impression || '-'}</td>
+                    <td>${controle.operateur_machine_impression || '-'}</td>
                     <td>${controle.machine_decoupe || '-'}</td>
-                    <td>${controle.rebus}</td>
+                    <td>${controle.operateur_machine_decoupe || '-'}</td>
+                    <td>${controle.rebus || 0}</td>
                     <td>${controle.validation_chef || 'Non validé'}</td>
-                    <td>
-                        <button class="btn btn-sm btn-info" onclick="voirControle(${controle.id})">Voir</button>
-                        <button class="btn btn-sm btn-warning" onclick="editerControle(${controle.id})">Éditer</button>
-                        <a class="btn btn-sm btn-outline-primary" href="/projet10/fiche/${controle.id}">Fiche</a>
+                    <td style="white-space: nowrap;">
+                        <div style="display: inline-flex; align-items: center; gap: 2px; flex-wrap: nowrap;">
+                            <button class="btn-action-modern btn-action-view btn-view-controle" data-id="${controle.id}" title="Voir les détails" data-bs-toggle="tooltip">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </button>
+                            <button class="btn-action-modern btn-action-edit btn-edit-controle" data-id="${controle.id}" title="Modifier" data-bs-toggle="tooltip">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                            <button class="btn-action-modern btn-action-delete btn-delete-controle" data-id="${controle.id}" title="Supprimer" data-bs-toggle="tooltip">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(row);
             });
+            
+            // Initialiser DataTables
+            initialiserDataTable();
         })
         .catch(error => {
             console.error('Erreur lors du chargement des contrôles:', error);
         });
 }
 
+function initialiserDataTable() {
+    const $table = $('#tableControles');
+    
+    const colonneDefs = [
+        { titre: 'ID', filtre: true, toggle: true, className: 'col-id', width: '60px' },
+        { titre: 'Date', filtre: true, toggle: true, className: 'col-date', width: '120px' },
+        { titre: 'N° Dossier', filtre: true, toggle: true, className: 'col-numero', width: '140px' },
+        { titre: 'Opérateur', filtre: true, toggle: true, className: 'col-operateur', width: '180px' },
+        { titre: 'Machine Impression', filtre: true, toggle: true, className: 'col-machine', width: '160px' },
+        { titre: 'Opérateur(s) Machine d\'impression', filtre: true, toggle: true, className: 'col-operateur-imp', width: '220px' },
+        { titre: 'Machine Découpe', filtre: true, toggle: true, className: 'col-machine', width: '160px' },
+        { titre: 'Opérateur(s) Machine de découpe', filtre: true, toggle: true, className: 'col-operateur-dec', width: '220px' },
+        { titre: 'Rebus', filtre: true, toggle: true, className: 'col-rebus', width: '100px' },
+        { titre: 'Validation', filtre: true, toggle: true, className: 'col-validation', width: '150px' },
+        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '180px', orderable: false }
+    ];
+    
+    // Supprimer l'ancienne ligne de filtres si elle existe
+    $table.find('thead tr.table-filters').remove();
+    
+    // Ajouter une ligne de filtres
+    const $thead = $table.find('thead');
+    const $filterRow = $('<tr class="table-filters"></tr>');
+    $thead.find('tr').first().find('th').each(function(index) {
+        const def = colonneDefs[index];
+        const $cell = $('<th></th>');
+        if (def && def.filtre) {
+            const placeholder = `Filtrer ${def.titre}`;
+            $cell.append(`<input type="text" placeholder="${placeholder}" data-col="${index}" />`);
+        }
+        $filterRow.append($cell);
+    });
+    $thead.append($filterRow);
+    
+    const columnDefsConfig = colonneDefs.map((def, index) => ({
+        targets: index,
+        orderable: def.orderable !== false,
+        className: def.className || '',
+        width: def.width || null
+    }));
+    
+    dataTableControles = $table.DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json'
+        },
+        order: [[0, 'desc']],
+        dom: 'lrtip',
+        autoWidth: false,
+        columnDefs: columnDefsConfig,
+        initComplete: function() {
+            const api = this.api();
+            initialiserFiltres(api);
+            initialiserToggles(api);
+            api.columns.adjust();
+            // Activer les tooltips après l'initialisation
+            setTimeout(() => {
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.forEach(triggerEl => {
+                    if (bootstrap.Tooltip.getInstance(triggerEl)) {
+                        bootstrap.Tooltip.getInstance(triggerEl).dispose();
+                    }
+                    new bootstrap.Tooltip(triggerEl);
+                });
+            }, 100);
+        }
+    });
+    
+    function initialiserFiltres(api) {
+        api.columns().every(function() {
+            const column = this;
+            const colIndex = column.index();
+            const def = colonneDefs[colIndex];
+            if (!def || !def.filtre) {
+                return;
+            }
+            const input = $(`.table-filters input[data-col="${colIndex}"]`);
+            input.on('keyup change clear', function() {
+                const value = this.value;
+                if (column.search() !== value) {
+                    column.search(value, false, true).draw();
+                }
+            });
+        });
+    }
+    
+    function initialiserToggles(api) {
+        const $container = $('#columnToggleContainer');
+        if ($container.length === 0) {
+            // Créer le conteneur si il n'existe pas
+            const $togglePanel = $('<div class="column-toggle-panel"><div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div><div class="d-flex flex-wrap gap-2" id="columnToggleContainer"></div></div>');
+            $table.closest('.content-section').find('.d-flex.justify-content-between').after($togglePanel);
+        }
+        const $containerFinal = $('#columnToggleContainer');
+        $containerFinal.empty();
+        
+        colonneDefs.forEach((def, index) => {
+            if (!def || !def.toggle) {
+                return;
+            }
+            const column = api.column(index);
+            const toggleId = `colToggle_${index}`;
+            const isVisible = column.visible();
+            const $checkbox = $(`
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="${toggleId}" ${isVisible ? 'checked' : ''}>
+                    <label class="form-check-label" for="${toggleId}">${def.titre}</label>
+                </div>
+            `);
+            
+            $checkbox.find('input').on('change', function() {
+                column.visible(this.checked, false);
+                api.columns.adjust().draw(false);
+            });
+            
+            $containerFinal.append($checkbox);
+        });
+    }
+    
+    // Ajouter les event listeners pour les boutons d'action
+    $(document).off('click', '.btn-view-controle').on('click', '.btn-view-controle', function() {
+        const id = $(this).data('id');
+        if (id) {
+            voirControle(id);
+        }
+    });
+    
+    $(document).off('click', '.btn-edit-controle').on('click', '.btn-edit-controle', function() {
+        const id = $(this).data('id');
+        if (id) {
+            editerControle(id);
+        }
+    });
+    
+    $(document).off('click', '.btn-delete-controle').on('click', '.btn-delete-controle', function() {
+        const id = $(this).data('id');
+        if (id) {
+            supprimerControle(id);
+        }
+    });
+    
+    // Activer les tooltips Bootstrap
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(triggerEl => {
+        if (bootstrap.Tooltip.getInstance(triggerEl)) {
+            bootstrap.Tooltip.getInstance(triggerEl).dispose();
+        }
+        new bootstrap.Tooltip(triggerEl);
+    });
+}
+
 // Charger les statistiques - VERSION ULTRA SIMPLIFIÉE
 function chargerStatistiques() {
     console.log('=== DEBUT chargerStatistiques ===');
     const container = document.getElementById('statistiques-container');
+    const section = document.getElementById('section-statistiques');
     
     if (!container) {
-        console.error('ERREUR: Container introuvable!');
+        console.error('ERREUR: Container statistiques-container introuvable!');
+        alert('Erreur: Le conteneur des statistiques est introuvable!');
         return;
     }
     
-    console.log('Container trouvé, appel API...');
+    if (!section) {
+        console.error('ERREUR: Section section-statistiques introuvable!');
+        alert('Erreur: La section statistiques est introuvable!');
+        return;
+    }
+    
+    // Ne pas modifier l'état de la section ici
+    // La section doit être ouverte par le toggle avant d'appeler cette fonction
+    // Vérifier seulement que la section existe et est visible
+    if (!section.classList.contains('active')) {
+        console.warn('ATTENTION: La section statistiques n\'est pas active. Elle doit être ouverte par le toggle avant de charger les données.');
+        return;
+    }
+    
+    console.log('Container trouvé, section visible:', window.getComputedStyle(section).display);
+    console.log('Appel API...');
+    
+    // Afficher un message de chargement
+    container.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Chargement...</span></div><p class="mt-2">Chargement des statistiques...</p></div>';
     
     fetch('/projet10/api/statistiques')
         .then(res => res.json())
@@ -784,22 +1454,84 @@ function chargerStatistiques() {
             
             console.log('Construction du HTML SIMPLIFIÉ...');
             
-            // VERSION ULTRA SIMPLE POUR DIAGNOSTIC
+            // HTML pour afficher les statistiques
             const html = `
-                <div class="col-12" style="background: #f0f8ff; padding: 30px; border: 3px solid #007bff; margin: 20px 0;">
-                    <h1 style="color: #007bff; font-size: 48px; text-align: center;">📊 STATISTIQUES</h1>
-                    
-                    <div style="background: white; padding: 20px; margin: 20px 0; border-radius: 10px;">
-                        <h2 style="color: #28a745;">✅ Données chargées avec succès !</h2>
-                        <hr>
-                        <p style="font-size: 24px;"><strong>Total Contrôles :</strong> <span style="color: #007bff; font-size: 36px;">${data.total_controles}</span></p>
-                        <p style="font-size: 24px;"><strong>Contrôles Validés :</strong> <span style="color: #28a745; font-size: 36px;">${data.controles_valides}</span></p>
-                        <p style="font-size: 24px;"><strong>Total Produit :</strong> <span style="color: #17a2b8; font-size: 36px;">${formatNumber(data.total_produit)}</span> pièces</p>
-                        <p style="font-size: 24px;"><strong>Taux de Conformité :</strong> <span style="color: #28a745; font-size: 36px;">${formatDecimal(data.taux_conformite)}%</span></p>
-                        <p style="font-size: 24px;"><strong>Total Conforme :</strong> <span style="color: #28a745; font-size: 36px;">${formatNumber(data.total_conforme)}</span> pièces</p>
-                        <p style="font-size: 24px;"><strong>Total Rebus :</strong> <span style="color: #dc3545; font-size: 36px;">${formatNumber(data.total_non_conforme)}</span> pièces</p>
-                        <p style="font-size: 24px;"><strong>Taux de Rebus :</strong> <span style="color: #dc3545; font-size: 36px;">${formatDecimal(data.taux_rebus)}%</span></p>
-                        <p style="font-size: 24px;"><strong>Rebus Moyen :</strong> <span style="color: #ffc107; font-size: 36px;">${formatDecimal(data.rebus_moyen)}</span> par contrôle</p>
+                <div class="col-12">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">📊 Statistiques Globales</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-primary">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Total Contrôles</h5>
+                                            <h2 class="text-primary mb-0">${data.total_controles || 0}</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-success">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Contrôles Validés</h5>
+                                            <h2 class="text-success mb-0">${data.controles_valides || 0}</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card border-info">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Total Produit</h5>
+                                            <h3 class="text-info mb-0">${formatNumber(data.total_produit || 0)}</h3>
+                                            <small class="text-muted">pièces</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card border-success">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Total Conforme</h5>
+                                            <h3 class="text-success mb-0">${formatNumber(data.total_conforme || 0)}</h3>
+                                            <small class="text-muted">pièces</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card border-danger">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Total Rebus</h5>
+                                            <h3 class="text-danger mb-0">${formatNumber(data.total_non_conforme || 0)}</h3>
+                                            <small class="text-muted">pièces</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-success">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Taux de Conformité</h5>
+                                            <h2 class="text-success mb-0">${formatDecimal(data.taux_conformite || 0)}%</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border-danger">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Taux de Rebus</h5>
+                                            <h2 class="text-danger mb-0">${formatDecimal(data.taux_rebus || 0)}%</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="card border-warning">
+                                        <div class="card-body text-center">
+                                            <h5 class="text-muted">Rebus Moyen par Contrôle</h5>
+                                            <h2 class="text-warning mb-0">${formatDecimal(data.rebus_moyen || 0)}</h2>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1065,8 +1797,12 @@ function creerControle() {
     data.operateur_machine_impression_noms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-n'));
     data.operateur_machine_impression_prenoms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-p'));
     
-    // Opérateurs machine découpe (désactivé)
-    data.operateur_machine_decoupe = '';
+    // Opérateurs machine découpe (tags sélectionnés)
+    const opDecTagsSel = document.querySelectorAll('#op_decoupe_tags .badge');
+    data.operateur_machine_decoupe = Array.from(opDecTagsSel).map(t => `${t.getAttribute('data-n')} ${t.getAttribute('data-p')}`).join(', ');
+    data.operateur_machine_decoupe_matricules = Array.from(opDecTagsSel).map(t => t.getAttribute('data-m'));
+    data.operateur_machine_decoupe_noms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-n'));
+    data.operateur_machine_decoupe_prenoms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-p'));
     
     // Chef de section (tag unique)
     const chefTag = document.querySelector('#op_chef_tags .badge');
@@ -1121,7 +1857,11 @@ function creerControle() {
             reinitialiserFormulaire();
             chargerControles();
             // Basculer vers l'onglet des contrôles
-            document.getElementById('controles-tab').click();
+            // Ouvrir la section Contrôles
+            const toggleControles = document.getElementById('toggle-controles');
+            if (toggleControles && !document.getElementById('section-controles').classList.contains('active')) {
+                toggleControles.click();
+            }
         } else {
             showNotification('Erreur: ' + response.error, 'error');
         }
@@ -1188,8 +1928,12 @@ function updateControle(id) {
     data.operateur_machine_impression_noms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-n'));
     data.operateur_machine_impression_prenoms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-p'));
     
-    // Opérateurs machine découpe (désactivé)
-    data.operateur_machine_decoupe = '';
+    // Opérateurs machine découpe (tags sélectionnés)
+    const opDecTagsSel = document.querySelectorAll('#op_decoupe_tags .badge');
+    data.operateur_machine_decoupe = Array.from(opDecTagsSel).map(t => `${t.getAttribute('data-n')} ${t.getAttribute('data-p')}`).join(', ');
+    data.operateur_machine_decoupe_matricules = Array.from(opDecTagsSel).map(t => t.getAttribute('data-m'));
+    data.operateur_machine_decoupe_noms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-n'));
+    data.operateur_machine_decoupe_prenoms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-p'));
     
     // Chef de section (tag unique)
     const chefTag = document.querySelector('#op_chef_tags .badge');
@@ -1217,7 +1961,11 @@ function updateControle(id) {
             __EDIT_ID__ = null;
             reinitialiserFormulaire();
             chargerControles();
-            document.getElementById('controles-tab').click();
+            // Ouvrir la section Contrôles
+            const toggleControles = document.getElementById('toggle-controles');
+            if (toggleControles && !document.getElementById('section-controles').classList.contains('active')) {
+                toggleControles.click();
+            }
         } else {
             showNotification('Erreur: ' + response.error, 'error');
         }
@@ -1536,6 +2284,30 @@ function enregistrerPDF(controleId) {
     }
 }
 
+// Supprimer un contrôle
+function supprimerControle(id) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce contrôle ?')) {
+        return;
+    }
+    
+    fetch(`/projet10/api/controle/${id}`, {
+        method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.status === 'success') {
+            showNotification('Contrôle supprimé avec succès', 'success');
+            chargerControles();
+        } else {
+            showNotification('Erreur: ' + (result.error || 'Erreur lors de la suppression'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la suppression:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+    });
+}
+
 // Éditer un contrôle
 function editerControle(id) {
     __EDIT_ID__ = id;
@@ -1544,7 +2316,11 @@ function editerControle(id) {
         .then(data => {
             if (data.error) { showNotification('Erreur: '+data.error, 'error'); return; }
             // Remplir formulaire
-            document.getElementById('nouveau-tab').click();
+            // Ouvrir la section Nouveau Contrôle
+            const toggleNouveau = document.getElementById('toggle-nouveau');
+            if (toggleNouveau && !document.getElementById('section-nouveau').classList.contains('active')) {
+                toggleNouveau.click();
+            }
             document.getElementById('date_controle').value = (data.date_controle||'').split('T')[0] || '';
             document.getElementById('Numero_COMMANDES').value = data.Numero_COMMANDES || '';
             // Opérateur contrôle (multi)
@@ -1586,37 +2362,78 @@ function editerControle(id) {
             document.getElementById('machine_impression').value = data.machine_impression || '';
             // Opérateurs machine impression (tags)
             const opImpTags = document.getElementById('op_impression_tags');
-            opImpTags.innerHTML = '';
-            if (Array.isArray(data.operateur_machine_impression_matricules) && Array.isArray(data.operateur_machine_impression_noms) && Array.isArray(data.operateur_machine_impression_prenoms)) {
-                for (let i=0; i<data.operateur_machine_impression_matricules.length; i++) {
-                    const m = data.operateur_machine_impression_matricules[i]||'';
-                    const n = data.operateur_machine_impression_noms[i]||'';
-                    const p = data.operateur_machine_impression_prenoms[i]||'';
-                    const tag = document.createElement('span');
-                    tag.className = 'badge bg-primary';
-                    tag.textContent = `${m} — ${n} ${p}`;
-                    tag.setAttribute('data-m', m);
-                    tag.setAttribute('data-n', n);
-                    tag.setAttribute('data-p', p);
-                    tag.style.cursor = 'pointer';
-                    tag.addEventListener('click', () => tag.remove());
-                    opImpTags.appendChild(tag);
+            if (opImpTags) {
+                opImpTags.innerHTML = '';
+                if (Array.isArray(data.operateur_machine_impression_matricules) && Array.isArray(data.operateur_machine_impression_noms) && Array.isArray(data.operateur_machine_impression_prenoms)) {
+                    for (let i=0; i<data.operateur_machine_impression_matricules.length; i++) {
+                        const m = data.operateur_machine_impression_matricules[i]||'';
+                        const n = data.operateur_machine_impression_noms[i]||'';
+                        const p = data.operateur_machine_impression_prenoms[i]||'';
+                        const tag = document.createElement('span');
+                        tag.className = 'badge bg-primary';
+                        tag.textContent = `${m} — ${n} ${p}`;
+                        tag.setAttribute('data-m', m);
+                        tag.setAttribute('data-n', n);
+                        tag.setAttribute('data-p', p);
+                        tag.style.cursor = 'pointer';
+                        tag.addEventListener('click', () => tag.remove());
+                        opImpTags.appendChild(tag);
+                    }
+                } else if (typeof data.operateur_machine_impression === 'string' && data.operateur_machine_impression.trim()) {
+                    data.operateur_machine_impression.split(',').map(s=>s.trim()).forEach(full=>{
+                        const parts = full.split(' ');
+                        const n = parts[0]||''; const p = parts.slice(1).join(' ');
+                        const m = '';
+                        const tag = document.createElement('span');
+                        tag.className='badge bg-primary';
+                        tag.textContent = `${m} — ${n} ${p}`;
+                        tag.setAttribute('data-m', m);
+                        tag.setAttribute('data-n', n);
+                        tag.setAttribute('data-p', p);
+                        tag.style.cursor='pointer';
+                        tag.addEventListener('click', ()=>tag.remove());
+                        opImpTags.appendChild(tag);
+                    });
                 }
-            } else if (typeof data.operateur_machine_impression === 'string' && data.operateur_machine_impression.trim()) {
-                data.operateur_machine_impression.split(',').map(s=>s.trim()).forEach(full=>{
-                    const parts = full.split(' ');
-                    const n = parts[0]||''; const p = parts.slice(1).join(' ');
-                    const m = '';
-                    const tag = document.createElement('span');
-                    tag.className='badge bg-primary';
-                    tag.textContent = `${m} — ${n} ${p}`;
-                    tag.setAttribute('data-m', m);
-                    tag.setAttribute('data-n', n);
-                    tag.setAttribute('data-p', p);
-                    tag.style.cursor='pointer';
-                    tag.addEventListener('click', ()=>tag.remove());
-                    opImpTags.appendChild(tag);
-                });
+            }
+            
+            // Machine de découpe
+            document.getElementById('machine_decoupe').value = data.machine_decoupe || '';
+            // Opérateurs machine découpe (tags)
+            const opDecTags = document.getElementById('op_decoupe_tags');
+            if (opDecTags) {
+                opDecTags.innerHTML = '';
+                if (Array.isArray(data.operateur_machine_decoupe_matricules) && Array.isArray(data.operateur_machine_decoupe_noms) && Array.isArray(data.operateur_machine_decoupe_prenoms)) {
+                    for (let i=0; i<data.operateur_machine_decoupe_matricules.length; i++) {
+                        const m = data.operateur_machine_decoupe_matricules[i]||'';
+                        const n = data.operateur_machine_decoupe_noms[i]||'';
+                        const p = data.operateur_machine_decoupe_prenoms[i]||'';
+                        const tag = document.createElement('span');
+                        tag.className = 'badge bg-primary';
+                        tag.textContent = `${m} — ${n} ${p}`;
+                        tag.setAttribute('data-m', m);
+                        tag.setAttribute('data-n', n);
+                        tag.setAttribute('data-p', p);
+                        tag.style.cursor = 'pointer';
+                        tag.addEventListener('click', () => tag.remove());
+                        opDecTags.appendChild(tag);
+                    }
+                } else if (typeof data.operateur_machine_decoupe === 'string' && data.operateur_machine_decoupe.trim()) {
+                    data.operateur_machine_decoupe.split(',').map(s=>s.trim()).forEach(full=>{
+                        const parts = full.split(' ');
+                        const n = parts[0]||''; const p = parts.slice(1).join(' ');
+                        const m = '';
+                        const tag = document.createElement('span');
+                        tag.className='badge bg-primary';
+                        tag.textContent = `${m} — ${n} ${p}`;
+                        tag.setAttribute('data-m', m);
+                        tag.setAttribute('data-n', n);
+                        tag.setAttribute('data-p', p);
+                        tag.style.cursor='pointer';
+                        tag.addEventListener('click', ()=>tag.remove());
+                        opDecTags.appendChild(tag);
+                    });
+                }
             }
             // Chef section
             if (data.chef_matricule) {
@@ -1892,6 +2709,10 @@ function reinitialiserFormulaire() {
     // Réinitialiser les tags opérateurs multi-sélection
     const impTags = document.getElementById('op_impression_tags'); if (impTags) impTags.innerHTML = '';
     const decTags = document.getElementById('op_decoupe_tags'); if (decTags) decTags.innerHTML = '';
+    
+    // Réinitialiser les machines
+    document.getElementById('machine_impression').value = '';
+    document.getElementById('machine_decoupe').value = '';
     
     // Réinitialiser les totaux
     calculerTotaux();

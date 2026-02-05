@@ -712,7 +712,7 @@
     .modal {
         display: none;
         position: fixed;
-        z-index: 1000;
+        z-index: 1055 !important;
         left: 0;
         top: 0;
         width: 100%;
@@ -725,6 +725,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        z-index: 1055 !important;
     }
     
     .modal-content {
@@ -1544,6 +1545,8 @@ window.addEventListener('click', function(event) {
             fermerModalSaisie();
         } else {
             event.target.classList.remove('active');
+            // Retirer la classe modal-open du body
+            document.body.classList.remove('modal-open');
         }
     }
 });
@@ -1916,12 +1919,19 @@ function afficherModalEdit(enreg) {
     document.getElementById('edit-desc').value = enreg.DesNC || '';
     document.getElementById('edit-cause').value = enreg.Cause || '';
     
+    // Ajouter la classe modal-open sur le body pour griser l'en-tête
+    document.body.classList.add('modal-open');
+    
     // Afficher la modal
     document.getElementById('modal-edit').classList.add('active');
 }
 
 function fermerModalEdit() {
     document.getElementById('modal-edit').classList.remove('active');
+    
+    // Retirer la classe modal-open du body
+    document.body.classList.remove('modal-open');
+    
     enregistrementActuel = null;
 }
 
@@ -2210,11 +2220,17 @@ function afficherFiche(enreg) {
     `;
     
     document.getElementById('fiche-content').innerHTML = ficheHTML;
+    // Ajouter la classe modal-open sur le body pour griser l'en-tête
+    document.body.classList.add('modal-open');
+    
     document.getElementById('modal-view').classList.add('active');
 }
 
 function fermerModalView() {
     document.getElementById('modal-view').classList.remove('active');
+    
+    // Retirer la classe modal-open du body
+    document.body.classList.remove('modal-open');
 }
 
 // Fonction pour afficher le contrôle qualité du Projet 10
@@ -2334,12 +2350,18 @@ function afficherControleQualite(controle) {
     `;
     
     document.getElementById('controle-qualite-content').innerHTML = controleHTML;
+    // Ajouter la classe modal-open sur le body pour griser l'en-tête
+    document.body.classList.add('modal-open');
+    
     document.getElementById('modal-controle-qualite').classList.add('active');
 }
 
 // Fonction pour fermer le modal de contrôle qualité
 function fermerModalControleQualite() {
     document.getElementById('modal-controle-qualite').classList.remove('active');
+    
+    // Retirer la classe modal-open du body
+    document.body.classList.remove('modal-open');
 }
 
 function ouvrirModalSaisie(updateUrl = true) {
@@ -2348,6 +2370,9 @@ function ouvrirModalSaisie(updateUrl = true) {
     // Réinitialiser la date à aujourd'hui
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('new-date').value = today;
+    // Ajouter la classe modal-open sur le body pour griser l'en-tête
+    document.body.classList.add('modal-open');
+    
     // Ouvrir le modal
     document.getElementById('modal-saisie').classList.add('active');
     
@@ -2367,6 +2392,9 @@ function ouvrirModalSaisie(updateUrl = true) {
 
 function fermerModalSaisie(updateUrl = true) {
     document.getElementById('modal-saisie').classList.remove('active');
+    
+    // Retirer la classe modal-open du body
+    document.body.classList.remove('modal-open');
     
     // Revenir à l'URL précédente si demandé
     if (updateUrl) {
