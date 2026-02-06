@@ -1754,25 +1754,31 @@ $('#formNouveauTraitement').on('submit', function(e) {
         return;
     }
     
-    let dteDebValue = $('#dte_deb').val();
-    // En modification d'une fiche "en cours", la date de début peut être portée par le chronomètre (chronoStart)
-    if (!dteDebValue && (currentTraitementId || traitementIdFromUrl) && operateurPrincipal && chronoStart) {
-        dteDebValue = formatDateTimeLocal(chronoStart);
-        $('#dte_deb').val(dteDebValue);
-    }
-    const dteFinValue = $('#dte_fin').val();
-    if (!dteDebValue) {
-        alert('La date de début du traitement est manquante. Veuillez sélectionner un opérateur pour démarrer le chronomètre (nouvelle fiche) ou recharger la modification.');
-        return;
-    }
-    if (!dteFinValue) {
-        alert('Veuillez arrêter le chronomètre (bouton Arrêter et Enregistrer) ou renseigner la date de fin pour une fiche terminée');
-        return;
-    }
-    const idFicheRaw = $('#id_fiche_travail').val();
-    const idFicheValue = parseInt(idFicheRaw, 10);
-    const nbPersValue = parseInt($('#nb_pers').val(), 10) || 1;
-    const matriculeValue = parseInt(operateurPrincipal, 10);
+    // Fonction pour effectuer l'enregistrement (appelée directement ou après récupération de la date)
+    function effectuerEnregistrement() {
+        let dteDebValue = $('#dte_deb').val();
+        const dteFinValue = $('#dte_fin').val();
+        
+        if (!dteDebValue) {
+            alert('La date de début du traitement est manquante. Veuillez sélectionner un opérateur pour démarrer le chronomètre (nouvelle fiche) ou recharger la modification.');
+            return;
+        }
+        if (!dteFinValue) {
+            alert('Veuillez arrêter le chronomètre (bouton Arrêter et Enregistrer) ou renseigner la date de fin pour une fiche terminée');
+            return;
+        }
+        
+        // Récupérer le matricule de l'opérateur principal
+        const operateurPrincipalLocal = $('#operateur_1').attr('data-matricule');
+        if (!operateurPrincipalLocal) {
+            alert('Erreur: Veuillez sélectionner au moins l\'opérateur principal dans la liste');
+            return;
+        }
+        
+        const idFicheRaw = $('#id_fiche_travail').val();
+        const idFicheValue = parseInt(idFicheRaw, 10);
+        const nbPersValue = parseInt($('#nb_pers').val(), 10) || 1;
+        const matriculeValue = parseInt(operateurPrincipalLocal, 10);
     const posteReelValue = $('#machine_reelle').val() || null;
     
     const pdtC = parseInt($('#pdt_c').val(), 10);
@@ -1905,6 +1911,62 @@ $('#formNouveauTraitement').on('submit', function(e) {
         alert('❌ Erreur lors de l\'enregistrement: ' + error.message);
         console.error('Erreur complète:', error);
     });
+    } // Fin de effectuerEnregistrement()
+    
+    // Vérifier et récupérer la date de début si nécessaire
+    let dteDebValue = $('#dte_deb').val();
+    // En modification d'une fiche "en cours", la date de début peut être portée par le chronomètre (chronoStart)
+    if (!dteDebValue && (currentTraitementId || traitementIdFromUrl) && operateurPrincipal && chronoStart) {
+        dteDebValue = formatDateTimeLocal(chronoStart);
+        $('#dte_deb').val(dteDebValue);
+    }
+    
+    // Si la date de début est toujours manquante mais qu'un traitement existe, récupérer depuis le serveur
+    if (!dteDebValue && (currentTraitementId || traitementIdFromUrl)) {
+        const idToFetch = currentTraitementId || traitementIdFromUrl;
+        console.log('[DEBUG] Date de début manquante, récupération depuis le traitement ID:', idToFetch);
+        // Récupérer les données du traitement depuis le serveur
+        fetch(`/projet11/api/traitements/${idToFetch}`)
+            .then(response => response.json())
+            .then(traitementData => {
+                if (traitementData && traitementData.dte_deb) {
+                    try {
+                        let dteDeb = null;
+                        if (typeof traitementData.dte_deb === 'string') {
+                            dteDeb = new Date(traitementData.dte_deb.replace(' ', 'T'));
+                        } else {
+                            dteDeb = new Date(traitementData.dte_deb);
+                        }
+                        if (!isNaN(dteDeb.getTime())) {
+                            const dteDebValueFormatted = formatDateTimeLocal(dteDeb);
+                            $('#dte_deb').val(dteDebValueFormatted);
+                            // Mettre à jour chronoStart si nécessaire
+                            if (!chronoStart && !traitementData.dte_fin) {
+                                chronoStart = dteDeb;
+                            }
+                            console.log('[DEBUG] Date de début récupérée depuis le serveur:', dteDebValueFormatted);
+                            // Continuer avec l'enregistrement après avoir récupéré la date
+                            effectuerEnregistrement();
+                        } else {
+                            throw new Error('Date invalide');
+                        }
+                    } catch (e) {
+                        console.error('[DEBUG] Erreur lors de la récupération de la date de début:', e);
+                        alert('La date de début du traitement est manquante. Veuillez sélectionner un opérateur pour démarrer le chronomètre (nouvelle fiche) ou recharger la modification.');
+                    }
+                } else {
+                    alert('La date de début du traitement est manquante. Veuillez sélectionner un opérateur pour démarrer le chronomètre (nouvelle fiche) ou recharger la modification.');
+                }
+            })
+            .catch(error => {
+                console.error('[DEBUG] Erreur lors de la récupération du traitement:', error);
+                alert('La date de début du traitement est manquante. Veuillez sélectionner un opérateur pour démarrer le chronomètre (nouvelle fiche) ou recharger la modification.');
+            });
+        return; // Sortir de la fonction, effectuerEnregistrement() sera appelé après la récupération
+    }
+    
+    // Si la date de début est disponible, continuer directement avec l'enregistrement
+    effectuerEnregistrement();
 });
 
 // ============================================================================

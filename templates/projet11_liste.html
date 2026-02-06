@@ -14,10 +14,81 @@
 <!-- Font Awesome pour les icônes -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
+    /* Modal "custom" calqué sur le rendu de projet12 (overlay sombre + contenu blanc) */
+    .p12-modal {
+        display: none;
+        position: fixed;
+        z-index: 1055;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow-y: auto;
+        padding: 15px;
+    }
+    .p12-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .p12-modal-content {
+        background-color: #ffffff;
+        color: #000000;
+        border-radius: 8px;
+        width: min(1100px, 95vw);
+        max-height: 95vh;
+        overflow: hidden;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        position: relative;
+        animation: p12SlideDown 0.25s ease;
+    }
+    @keyframes p12SlideDown {
+        from { opacity: 0; transform: translateY(-25px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .p12-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border-bottom: 2px solid #007bff;
+        background: #ffffff;
+    }
+    .p12-modal-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .p12-close-modal {
+        font-size: 2rem;
+        color: #7f8c8d;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+        line-height: 1;
+    }
+    .p12-close-modal:hover {
+        color: #e74c3c;
+    }
+    .p12-modal-body {
+        background: #ffffff;
+        padding: 0;
+    }
+    .p12-modal-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
     /* Styles pour le modal de modification avec iframe */
     .modal-iframe-container {
-        min-height: 70vh;
-        height: 75vh;
+        min-height: 80vh;
+        height: 85vh;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -413,50 +484,47 @@ th.col-actions, td.col-actions {
 </div>
 
 <!-- Modal Détails -->
-<div class="modal fade" id="modalDetails" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Détails du Traitement</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="p12-modal" id="modalDetails" aria-hidden="true">
+    <div class="p12-modal-content" role="dialog" aria-modal="true" aria-labelledby="modalDetailsLabel">
+        <div class="p12-modal-header">
+            <h2 class="p12-modal-title" id="modalDetailsLabel">
+                <i class="fas fa-eye"></i>
+                Détails du Traitement
+            </h2>
+            <div class="p12-modal-actions">
+                <button class="p12-close-modal" type="button" aria-label="Fermer" onclick="fermerModalDetails()">&times;</button>
             </div>
-            <div class="modal-body" id="detailsContent">
+        </div>
+        <div class="p12-modal-body" style="padding: 15px;">
+            <div id="detailsContent">
                 <!-- Contenu dynamique -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Modal Modification - Utilise le même popup que "Nouvelle fiche de production" -->
-<div class="modal fade" id="modalModifierTraitement" tabindex="-1" aria-labelledby="modalModifierTraitementLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalModifierTraitementLabel">
-                    <i class="fas fa-edit me-2"></i>
-                    Modifier le Traitement
-                </h5>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button"
-                            class="btn btn-outline-success btn-sm"
-                            id="btnOuvrirPleinEcranModif">
-                        <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
-                    </button>
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Close"></button>
-                </div>
+<div class="p12-modal" id="modalModifierTraitement" aria-hidden="true">
+    <div class="p12-modal-content" role="dialog" aria-modal="true" aria-labelledby="modalModifierTraitementLabel">
+        <div class="p12-modal-header">
+            <h2 class="p12-modal-title" id="modalModifierTraitementLabel">
+                <i class="fas fa-edit"></i>
+                Modifier le Traitement
+            </h2>
+            <div class="p12-modal-actions">
+                <button type="button"
+                        class="btn btn-outline-success btn-sm"
+                        id="btnOuvrirPleinEcranModif">
+                    <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
+                </button>
+                <button class="p12-close-modal" type="button" aria-label="Fermer" onclick="fermerModalModification()">&times;</button>
             </div>
-            <div class="modal-body modal-iframe-container p-0">
-                <iframe id="iframeModifierTraitement"
-                        src=""
-                        data-base-src="{{ url_for('projet11.nouveau_traitement', embed=1) }}"
-                        title="Modifier le Traitement"></iframe>
-            </div>
+        </div>
+        <div class="p12-modal-body modal-iframe-container">
+            <iframe id="iframeModifierTraitement"
+                    src=""
+                    data-base-src="{{ url_for('projet11.nouveau_traitement', embed=1) }}"
+                    title="Modifier le Traitement"></iframe>
         </div>
     </div>
 </div>
@@ -660,6 +728,34 @@ $(document).ready(function() {
             voirDetails(id);
         }
     });
+    
+    // Fermer les modals avec Échap
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const modalDetails = document.getElementById('modalDetails');
+            const modalModifier = document.getElementById('modalModifierTraitement');
+            
+            if (modalDetails && modalDetails.classList.contains('active')) {
+                fermerModalDetails();
+            }
+            if (modalModifier && modalModifier.classList.contains('active')) {
+                fermerModalModification();
+            }
+        }
+    });
+    
+    // Fermer en cliquant sur l'overlay (arrière-plan)
+    document.getElementById('modalDetails')?.addEventListener('click', function(event) {
+        if (event.target === this) {
+            fermerModalDetails();
+        }
+    });
+    
+    document.getElementById('modalModifierTraitement')?.addEventListener('click', function(event) {
+        if (event.target === this) {
+            fermerModalModification();
+        }
+    });
 
     $(document).on('click', '.btn-edit-traitement', function() {
         const id = $(this).data('id');
@@ -683,17 +779,17 @@ function voirDetails(id) {
             let html = `
                 <table class="table">
                     <tr><th>ID:</th><td>${data.id}</td></tr>
-                    <tr><th>Date DÃ©but:</th><td>${data.dte_deb || '-'}</td></tr>
+                    <tr><th>Date Début:</th><td>${data.dte_deb || '-'}</td></tr>
                     <tr><th>Date Fin:</th><td>${data.dte_fin || '-'}</td></tr>
-                    <tr><th>NÂ° Commande:</th><td>${data.numero_commandes || '-'}</td></tr>
-                    <tr><th>RÃ©fÃ©rence:</th><td>${data.reference_commandes || '-'}</td></tr>
+                    <tr><th>N° Commande:</th><td>${data.numero_commandes || '-'}</td></tr>
+                    <tr><th>Référence:</th><td>${data.reference_commandes || '-'}</td></tr>
                     <tr><th>Client:</th><td>${data.raisoctri_societes || '-'}</td></tr>
                     <tr><th>Service:</th><td>${data.nom_gp_services || '-'}</td></tr>
                     <tr><th>Poste:</th><td>${data.nom_gp_postes || '-'}</td></tr>
-                    <tr><th>OpÃ©rateur:</th><td>${data.nom_personel || ''} ${data.prenom_personel || ''}</td></tr>
-                    <tr><th>Machine RÃ©elle:</th><td>${data.postes_reel || '-'}</td></tr>
-                    <tr><th>Nb OpÃ©rations:</th><td>${data.nb_op || 0}</td></tr>
-                    <tr><th>QtÃ© Conforme (PdtC):</th><td>${data.pdt_c || 0}</td></tr>
+                    <tr><th>Opérateur:</th><td>${data.nom_personel || ''} ${data.prenom_personel || ''}</td></tr>
+                    <tr><th>Machine Réelle:</th><td>${data.postes_reel || '-'}</td></tr>
+                    <tr><th>Nb Opérations:</th><td>${data.nb_op || 0}</td></tr>
+                    <tr><th>Qté Conforme (PdtC):</th><td>${data.pdt_c || 0}</td></tr>
                     <tr><th>Nouvelles NC (PdtNNC):</th><td>${data.pdt_nnc || 0}</td></tr>
                     <tr><th>Anciennes NC (PdtANC):</th><td>${data.pdt_anc || 0}</td></tr>
                     <tr><th>Nb Personnes:</th><td>${data.nb_pers || 0}</td></tr>
@@ -709,12 +805,28 @@ function voirDetails(id) {
             `;
             
             document.getElementById('detailsContent').innerHTML = html;
-            new bootstrap.Modal(document.getElementById('modalDetails')).show();
+            ouvrirModalDetails();
         })
         .catch(error => {
             alert('Erreur lors du chargement des détails');
             console.error(error);
         });
+}
+
+function ouvrirModalDetails() {
+    const modalDetails = document.getElementById('modalDetails');
+    if (!modalDetails) return;
+    document.body.classList.add('modal-open');
+    modalDetails.classList.add('active');
+    modalDetails.setAttribute('aria-hidden', 'false');
+}
+
+function fermerModalDetails() {
+    const modalDetails = document.getElementById('modalDetails');
+    if (!modalDetails) return;
+    modalDetails.classList.remove('active');
+    modalDetails.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
 }
 
 function ouvrirModalModification(id) {
@@ -737,9 +849,10 @@ function ouvrirModalModification(id) {
     const newUrl = `${baseUrl}${separator}id=${id}&ts=${Date.now()}`;
     iframe.src = newUrl;
     
-    // Afficher le modal
-    const bsModal = new bootstrap.Modal(modalModifier);
-    bsModal.show();
+    // Afficher le modal avec le style p12-modal
+    document.body.classList.add('modal-open');
+    modalModifier.classList.add('active');
+    modalModifier.setAttribute('aria-hidden', 'false');
     
     // Gérer le bouton "Ouvrir plein écran"
     const btnPleinEcran = document.getElementById('btnOuvrirPleinEcranModif');
@@ -750,10 +863,32 @@ function ouvrirModalModification(id) {
         };
     }
     
-    // Réinitialiser l'iframe lorsque le modal est fermé
-    modalModifier.addEventListener('hidden.bs.modal', function() {
+    // Écouter les messages de l'iframe pour gérer la fermeture
+    window.addEventListener('message', function fermetureHandler(event) {
+        if (event.origin !== window.location.origin) return;
+        if (event.data && event.data.action === 'annuler') {
+            fermerModalModification();
+            window.removeEventListener('message', fermetureHandler);
+        }
+    });
+}
+
+function fermerModalModification() {
+    const modalModifier = document.getElementById('modalModifierTraitement');
+    if (!modalModifier) return;
+    
+    const iframe = document.getElementById('iframeModifierTraitement');
+    if (iframe) {
+        // Réinitialiser l'iframe
         iframe.src = 'about:blank';
-    }, { once: true });
+    }
+    
+    modalModifier.classList.remove('active');
+    modalModifier.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    
+    // Recharger la page pour mettre à jour la liste
+    window.location.reload();
 }
 
 function sauvegarderModifications() {

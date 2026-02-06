@@ -267,7 +267,7 @@
                         id="btnOuvrirPleinEcran">
                     <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
                 </button>
-                <button class="p12-close-modal" type="button" aria-label="Fermer" onclick="fermerModalNouvelleFiche()">&times;</button>
+                <button class="p12-close-modal" type="button" aria-label="Fermer" onclick="fermerModalNouvelleFiche(true)">&times;</button>
             </div>
         </div>
         <div class="p12-modal-body modal-iframe-container">
@@ -297,12 +297,13 @@ document.addEventListener('DOMContentLoaded', function() {
         modalNouvelleFiche.classList.add('active');
         modalNouvelleFiche.setAttribute('aria-hidden', 'false');
 
-        // Rafraîchir l'iframe uniquement si nécessaire (évite des aborts inutiles)
+        // Toujours recharger l'iframe avec un nouveau timestamp pour avoir un formulaire vide
+        // Cela garantit que les données précédentes ne persistent pas après une fermeture sans sauvegarde
         if (iframeNouvelleFiche) {
-            const currentSrc = iframeNouvelleFiche.src;
-            if (!currentSrc || currentSrc === 'about:blank') {
-                const newSrc = buildIframeSrc();
-                if (newSrc) iframeNouvelleFiche.src = newSrc;
+            const newSrc = buildIframeSrc();
+            if (newSrc) {
+                // Forcer le rechargement même si l'iframe a déjà un src
+                iframeNouvelleFiche.src = newSrc;
             }
         }
     };
@@ -318,6 +319,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('postMessage saveEnCours:', err);
             }
         }
+        
+        // Si on ferme sans sauvegarder (annulation ou X), réinitialiser l'iframe pour effacer les données
+        if (sansSauvegarde && iframeNouvelleFiche) {
+            // Réinitialiser l'iframe pour forcer le rechargement avec un formulaire vide
+            iframeNouvelleFiche.src = 'about:blank';
+        }
+        
         modalNouvelleFiche.classList.remove('active');
         modalNouvelleFiche.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('modal-open');
@@ -336,10 +344,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fermeture en cliquant en dehors désactivée (le modal ne se ferme que via le bouton de fermeture)
     
-    // Fermer avec Échap
+    // Fermer avec Échap (sans sauvegarder, donc réinitialiser l'iframe)
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && modalNouvelleFiche && modalNouvelleFiche.classList.contains('active')) {
-            window.fermerModalNouvelleFiche();
+            window.fermerModalNouvelleFiche(true);
         }
     });
 

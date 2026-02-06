@@ -5,7 +5,7 @@
 Routes Flask pour le Projet 11 - Gestion des traitements (WEB_TRAITEMENTS)
 """
 
-from flask import Blueprint, render_template, request, jsonify, Response
+from flask import Blueprint, render_template, request, jsonify, Response, flash
 from logic import projet11
 from logic.auth import get_user_sections, has_section_access, has_action_access, is_super_user
 from datetime import datetime
@@ -566,10 +566,31 @@ def api_update_traitement(traitement_id):
     """API pour mettre à jour un traitement - Vérifie ID_Action 3 dans WEB_DROITS_ACCES"""
     from logic.auth import has_action_access, is_super_user
     
-    # Vérification stricte : l'ID_Action 3 (MODIFICATION) doit être présent dans WEB_DROITS_ACCES
-    if not is_super_user() and not has_action_access(3):
-        flash("Vous n'avez pas l'autorisation de modifier les traitements.", "error")
-        return jsonify({"error": "Accès refusé : vous n'avez pas l'autorisation de modifier les traitements"}), 403
+    # Vérifier si c'est une finalisation d'un traitement en cours (créé récemment sans dte_fin)
+    # Dans ce cas, le droit SAISIE suffit (pas besoin de MODIFICATION)
+    traitement_existant = projet11.get_traitement_by_id(traitement_id)
+    is_finalisation = False
+    
+    if traitement_existant:
+        # Si le traitement existe et n'a pas encore de date de fin, c'est une finalisation
+        # d'un traitement qu'on vient de créer (via /start)
+        if not traitement_existant.get('dte_fin'):
+            is_finalisation = True
+    
+    # Vérification des droits :
+    # - Si c'est une finalisation d'un traitement en cours : droit SAISIE suffit
+    # - Si c'est une modification d'un traitement existant terminé : droit MODIFICATION requis
+    if not is_super_user():
+        if is_finalisation:
+            # Pour finaliser un traitement qu'on vient de créer, le droit SAISIE suffit
+            if not has_action_access(1):  # ID_Action 1 = SAISIE
+                flash("Vous n'avez pas l'autorisation de saisir des traitements.", "error")
+                return jsonify({"error": "Accès refusé : vous n'avez pas l'autorisation de saisir des traitements"}), 403
+        else:
+            # Pour modifier un traitement existant terminé, le droit MODIFICATION est requis
+            if not has_action_access(3):  # ID_Action 3 = MODIFICATION
+                flash("Vous n'avez pas l'autorisation de modifier les traitements.", "error")
+                return jsonify({"error": "Accès refusé : vous n'avez pas l'autorisation de modifier les traitements"}), 403
     
     try:
         data = request.get_json()
