@@ -80,6 +80,16 @@
         background: #ffffff;
         padding: 0;
     }
+    /* Style spécifique pour le modal Details avec défilement vertical */
+    #modalDetails .p12-modal-body {
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 15px;
+    }
+    /* Augmenter la hauteur du contenu modal pour Details */
+    #modalDetails .p12-modal-content {
+        max-height: 90vh;
+    }
     .p12-modal-actions {
         display: inline-flex;
         align-items: center;
@@ -202,9 +212,9 @@ th.col-statut, td.col-statut {
     text-align: center;
 }
 th.col-actions, td.col-actions {
-    width: 120px;
-    min-width: 120px;
-    max-width: 130px;
+    width: 140px;
+    min-width: 140px;
+    max-width: 150px;
 }
 /* Boutons d'action modernes avec icônes SVG (style projet22) */
 .btn-action-modern {
@@ -247,6 +257,9 @@ th.col-actions, td.col-actions {
 }
 .btn-action-delete svg {
     fill: #E74C3C;
+}
+.btn-action-reprise svg {
+    fill: #10B981;
 }
 .dataTables_wrapper .dataTables_scroll {
     overflow: visible;
@@ -343,7 +356,12 @@ th.col-actions, td.col-actions {
                     </div>
                     <div class="column-toggle-panel">
                         <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
-                        <div class="d-flex flex-wrap gap-2" id="columnToggleContainer"></div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center" id="columnToggleContainer">
+                            <div class="form-check form-check-inline me-2" id="colToggleAllWrapper">
+                                <input class="form-check-input" type="checkbox" id="colToggleAll" checked title="Tout cocher / tout décocher">
+                                <label class="form-check-label" for="colToggleAll">Tout cocher</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="table-responsive position-relative">
                         <div class="table-scroll-top">
@@ -461,6 +479,13 @@ th.col-actions, td.col-actions {
                                             <button class="btn-action-modern btn-action-delete btn-delete-traitement" data-id="{{ t.id }}" title="Supprimer" data-bs-toggle="tooltip">
                                                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                                </svg>
+                                            </button>
+                                            {% endif %}
+                                            {% if reprise_action_id and has_action_access(reprise_action_id) and not t.dte_fin %}
+                                            <button class="btn-action-modern btn-action-reprise btn-reprise-traitement" data-id="{{ t.id }}" title="Reprise" data-bs-toggle="tooltip">
+                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
                                                 </svg>
                                             </button>
                                             {% endif %}
@@ -587,8 +612,34 @@ $(document).ready(function() {
         columnDefs: columnDefsConfig,
         initComplete: function() {
             const api = this.api();
+            var saved = sessionStorage.getItem('projet11_liste_etat');
+            var etat = null;
+            if (saved) {
+                try {
+                    etat = JSON.parse(saved);
+                    sessionStorage.removeItem('projet11_liste_etat');
+                    colonneDefs.forEach(function(def, i) {
+                        if (def && def.toggle && etat.colVisible && etat.colVisible[i] !== undefined) {
+                            api.column(i).visible(etat.colVisible[i], false);
+                        }
+                    });
+                    colonneDefs.forEach(function(def, i) {
+                        if (etat.filterValues && etat.filterValues[i] !== undefined) {
+                            var input = $('.table-filters input[data-col="' + i + '"]');
+                            if (input.length) {
+                                input.val(etat.filterValues[i]);
+                                api.column(i).search(etat.filterValues[i], false, true);
+                            }
+                        }
+                    });
+                    api.draw(false);
+                } catch (e) { }
+            }
             initialiserFiltres(api);
             initialiserToggles(api);
+            if (etat && etat.toutCocher !== undefined) {
+                $('#colToggleAll').prop('checked', etat.toutCocher);
+            }
             api.columns.adjust();
             setTimeout(function() {
                 updateTopScrollWidth();
@@ -692,7 +743,35 @@ $(document).ready(function() {
 
     function initialiserToggles(api) {
         const $container = $('#columnToggleContainer');
-        $container.empty();
+        const $toggleAll = $('#colToggleAll');
+        // Garder le bloc "Tout cocher", supprimer uniquement les toggles de colonnes
+        $container.children().not('#colToggleAllWrapper').remove();
+
+        function updateToggleAllState() {
+            let allVisible = true;
+            colonneDefs.forEach((def, index) => {
+                if (def && def.toggle && !api.column(index).visible()) {
+                    allVisible = false;
+                }
+            });
+            $toggleAll.prop('checked', allVisible);
+        }
+
+        $toggleAll.off('change').on('change', function() {
+            const check = this.checked;
+            colonneDefs.forEach((def, index) => {
+                if (def && def.toggle) {
+                    api.column(index).visible(check, false);
+                }
+            });
+            $container.find('.form-check-input').not('#colToggleAll').prop('checked', check);
+            api.columns.adjust().draw(false);
+            setTimeout(() => {
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
+                activerTooltips();
+            }, 100);
+        });
 
         colonneDefs.forEach((def, index) => {
             if (!def || !def.toggle) {
@@ -711,6 +790,7 @@ $(document).ready(function() {
             $checkbox.find('input').on('change', function() {
                 column.visible(this.checked, false);
                 api.columns.adjust().draw(false);
+                updateToggleAllState();
                 setTimeout(() => {
                     updateTopScrollWidth();
                     evaluerScrollHorizontal();
@@ -720,6 +800,7 @@ $(document).ready(function() {
 
             $container.append($checkbox);
         });
+        updateToggleAllState();
     }
 
     $(document).on('click', '.btn-view-traitement', function() {
@@ -760,7 +841,13 @@ $(document).ready(function() {
     $(document).on('click', '.btn-edit-traitement', function() {
         const id = $(this).data('id');
         if (id) {
-            ouvrirModalModification(id);
+            ouvrirModalModification(id, false);
+        }
+    });
+    $(document).on('click', '.btn-reprise-traitement', function() {
+        const id = $(this).data('id');
+        if (id) {
+            ouvrirModalModification(id, true);
         }
     });
 
@@ -771,6 +858,33 @@ $(document).ready(function() {
         }
     });
 });
+
+// Fonction pour formater une date au même format que Date Début/Fin
+function formaterDate(dateStr) {
+    if (!dateStr || dateStr === '-') return '-';
+    try {
+        // Si la date est déjà au format attendu (YYYY-MM-DD HH:MM:SS), la retourner telle quelle
+        if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}/)) {
+            // Remplacer le T par un espace si présent (format ISO)
+            return dateStr.replace('T', ' ').substring(0, 19);
+        }
+        // Sinon, essayer de parser la date
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr; // Si parsing échoue, retourner la valeur originale
+        
+        // Formater au format YYYY-MM-DD HH:MM:SS
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch (e) {
+        return dateStr; // En cas d'erreur, retourner la valeur originale
+    }
+}
 
 function voirDetails(id) {
     fetch(`/projet11/api/traitements/${id}`)
@@ -799,8 +913,8 @@ function voirDetails(id) {
                         <th>Écart (Réel - Prévu):</th>
                         <td>${data.ecart_temps ? (data.ecart_temps > 0 ? '+' : '') + data.ecart_temps.toFixed(3) + 'h' : '-'}</td>
                     </tr>
-                    <tr><th>Date Création:</th><td>${data.date_creation || '-'}</td></tr>
-                    <tr><th>Date Modification:</th><td>${data.date_modification || '-'}</td></tr>
+                    <tr><th>Date Création:</th><td>${formaterDate(data.date_creation)}</td></tr>
+                    <tr><th>Date Modification:</th><td>${formaterDate(data.date_modification)}</td></tr>
                 </table>
             `;
             
@@ -829,32 +943,40 @@ function fermerModalDetails() {
     document.body.classList.remove('modal-open');
 }
 
-function ouvrirModalModification(id) {
-    // Ouvrir le même modal que "Nouvelle fiche de production" avec l'ID du traitement
+function ouvrirModalModification(id, isReprise) {
+    // Ouvrir le même popup que "Nouveau traitement" : fiche préremplie, options (plein écran, etc.)
+    isReprise = !!isReprise;
     const modalModifier = document.getElementById('modalModifierTraitement');
     if (!modalModifier) {
-        alert('Erreur: Modal de modification non trouvé');
+        alert('Erreur: Modal non trouvé');
         return;
     }
     
     const iframe = document.getElementById('iframeModifierTraitement');
     if (!iframe) {
-        alert('Erreur: Iframe de modification non trouvé');
+        alert('Erreur: Iframe non trouvé');
         return;
     }
     
-    // Construire l'URL avec l'ID du traitement
+    const titreLabel = document.getElementById('modalModifierTraitementLabel');
+    if (titreLabel) {
+        titreLabel.innerHTML = isReprise
+            ? '<i class="fas fa-redo"></i> Reprise du traitement'
+            : '<i class="fas fa-edit"></i> Modifier le Traitement';
+    }
+    iframe.setAttribute('title', isReprise ? 'Reprise du traitement' : 'Modifier le Traitement');
+    
+    // Construire l'URL avec l'ID du traitement (même page que nouveau traitement, préremplie)
     const baseUrl = iframe.getAttribute('data-base-src') || '{{ url_for("projet11.nouveau_traitement", embed=1) }}';
     const separator = baseUrl.includes('?') ? '&' : '?';
     const newUrl = `${baseUrl}${separator}id=${id}&ts=${Date.now()}`;
     iframe.src = newUrl;
     
-    // Afficher le modal avec le style p12-modal
     document.body.classList.add('modal-open');
     modalModifier.classList.add('active');
     modalModifier.setAttribute('aria-hidden', 'false');
     
-    // Gérer le bouton "Ouvrir plein écran"
+    // Bouton "Ouvrir plein écran" (même option que pour nouveau traitement)
     const btnPleinEcran = document.getElementById('btnOuvrirPleinEcranModif');
     if (btnPleinEcran) {
         btnPleinEcran.onclick = function() {
@@ -863,12 +985,45 @@ function ouvrirModalModification(id) {
         };
     }
     
-    // Écouter les messages de l'iframe pour gérer la fermeture
-    window.addEventListener('message', function fermetureHandler(event) {
+    // Écouter les messages de l'iframe : annuler (fermer sans recharger) ou fiche_saved (sauvegarder filtres puis recharger)
+    window.addEventListener('message', function(event) {
         if (event.origin !== window.location.origin) return;
         if (event.data && event.data.action === 'annuler') {
+            var tid = event.data.traitementId;
+            var chronoSec = event.data.chronoTempsEcouleSec;
+            if (tid && chronoSec != null && chronoSec >= 0) {
+                fetch('/projet11/api/traitements/' + tid + '/chrono_affichage', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ temps_ecoule_sec: chronoSec })
+                }).catch(function() {}).finally(function() {
+                    fermerModalModification();
+                });
+            } else {
+                fermerModalModification();
+            }
+        }
+        if (event.data && event.data.action === 'fiche_saved') {
+            try {
+                var api = $('#tableTraitements').DataTable();
+                if (api) {
+                    var colVisible = [];
+                    var filterValues = [];
+                    api.columns().every(function() {
+                        colVisible.push(this.visible());
+                        var input = $('.table-filters input[data-col="' + this.index() + '"]');
+                        filterValues.push(input.length ? input.val() || '' : '');
+                    });
+                    var toutCocher = $('#colToggleAll').prop('checked');
+                    sessionStorage.setItem('projet11_liste_etat', JSON.stringify({
+                        colVisible: colVisible,
+                        filterValues: filterValues,
+                        toutCocher: toutCocher
+                    }));
+                }
+            } catch (e) { }
             fermerModalModification();
-            window.removeEventListener('message', fermetureHandler);
+            location.reload();
         }
     });
 }
@@ -887,8 +1042,7 @@ function fermerModalModification() {
     modalModifier.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
     
-    // Recharger la page pour mettre à jour la liste
-    window.location.reload();
+    // Ne pas recharger la page : conserver les filtres (colonnes, recherche, cases cochées, nombre de lignes affichées)
 }
 
 function sauvegarderModifications() {
@@ -962,8 +1116,16 @@ function supprimerTraitement(id) {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            alert('Traitement supprimÃ© avec succÃ¨s');
-            location.reload();
+            alert('Traitement supprimé avec succès');
+            var api = $('#tableTraitements').DataTable();
+            var found = false;
+            api.rows().every(function() {
+                if (!found && String(this.data()[0]) === String(id)) {
+                    api.row(this.node()).remove();
+                    found = true;
+                }
+            });
+            api.draw(false);
         } else {
             alert('Erreur: ' + result.error);
         }

@@ -4,6 +4,7 @@ from logic import projet1, projet2, projet3, projet4, projet5, projet6, projet8,
 from logic.projet7 import projet7_bp
 from routes.crystal_reports_routes import crystal_reports
 from routes.projet12_routes import projet12_bp
+from routes.projet13_routes import projet13_bp
 from routes.projet14_routes import projet14_bp
 from routes.projet15_routes import projet15_bp
 from routes.projet16_routes import projet16_bp
@@ -76,6 +77,8 @@ from routes.projet11_routes import projet11_bp
 app.register_blueprint(projet11_bp)
 print("Projet11 blueprint rechargé avec toutes les routes")
 app.register_blueprint(projet12_bp)
+app.register_blueprint(projet13_bp)
+print("Projet13 blueprint enregistré (Projet 13 - Suivi Production)")
 app.register_blueprint(projet14_bp)
 app.register_blueprint(projet15_bp)
 app.register_blueprint(projet16_bp)
@@ -107,6 +110,46 @@ print(f"Projet20 blueprint enregistre - {len(routes_projet20)} routes")
 # Enregistrement du projet 21
 app.register_blueprint(projet21_bp)
 print("Projet21 blueprint enregistre")
+
+# Initialisation de la synchronisation automatique pour Projet 21
+# Option 1 : Utiliser APScheduler (nécessite: pip install apscheduler)
+# Option 2 : Utiliser Task Scheduler Windows (voir PROJET21_AUTO_SYNC_TASK_SCHEDULER.md)
+projet21_scheduler = None
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+    from routes.projet21_auto_sync import run_auto_sync_and_verify, is_auto_sync_enabled
+    
+    projet21_scheduler = BackgroundScheduler()
+    projet21_scheduler.daemonic = False
+    
+    # Planifier la synchronisation automatique à 05:00 AM chaque jour
+    if is_auto_sync_enabled():
+        projet21_scheduler.add_job(
+            func=run_auto_sync_and_verify,
+            trigger=CronTrigger(hour=5, minute=0),
+            id='projet21_auto_sync',
+            name='Synchronisation automatique Projet 21',
+            replace_existing=True
+        )
+        print("✓ Synchronisation automatique Projet 21 planifiée à 05:00 AM (APScheduler)")
+    else:
+        print("⏸️ Synchronisation automatique Projet 21 désactivée")
+    
+    projet21_scheduler.start()
+    print("✓ Scheduler APScheduler démarré pour Projet 21")
+    
+    # Exposer le scheduler pour les routes
+    app.config['PROJET21_SCHEDULER'] = projet21_scheduler
+except ImportError:
+    print("⚠️ APScheduler non installé.")
+    print("   Option 1: Installer APScheduler: pip install apscheduler")
+    print("   Option 2: Utiliser Task Scheduler Windows (voir PROJET21_AUTO_SYNC_TASK_SCHEDULER.md)")
+    print("   La synchronisation automatique peut être gérée via Task Scheduler Windows.")
+except Exception as e:
+    print(f"⚠️ Erreur lors de l'initialisation du scheduler Projet 21: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Enregistrement du projet 22
 app.register_blueprint(projet22_bp)

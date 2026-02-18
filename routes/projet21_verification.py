@@ -15,7 +15,9 @@ SOURCE_CONFIG = {
 TARGET_CONFIG = {
     'server': '192.168.10.225',
     'database': 'novaprint_restored',
-    'trusted_connection': True
+    'trusted_connection': False,  # Utiliser l'authentification SQL Server pour Task Scheduler
+    'username': 'sa',
+    'password': 'bA8ALvct9QtX'
 }
 
 def get_connection(config, readonly=False):
@@ -82,6 +84,56 @@ def get_primary_keys(cursor, table_name):
             return [row[0]]
     return result
 
+def check_duplicate_pks(target_cursor, table_name):
+    """
+    Vérifie s'il y a des doublons de clé primaire dans la table cible.
+    Retourne {'has_duplicates': bool, 'duplicate_count': int, 'duplicate_pks': list}
+    """
+    try:
+        pk_columns = get_primary_keys(target_cursor, table_name)
+        if not pk_columns:
+            return {'has_duplicates': False, 'duplicate_count': 0, 'duplicate_pks': []}
+        
+        pk_list = ", ".join([f"[{pk}]" for pk in pk_columns])
+        
+        # Compter les occurrences de chaque PK
+        if len(pk_columns) == 1:
+            target_cursor.execute(f"""
+                SELECT [{pk_columns[0]}], COUNT(*) as cnt
+                FROM [{table_name}]
+                GROUP BY [{pk_columns[0]}]
+                HAVING COUNT(*) > 1
+            """)
+        else:
+            pk_group_by = ", ".join([f"[{pk}]" for pk in pk_columns])
+            target_cursor.execute(f"""
+                SELECT {pk_list}, COUNT(*) as cnt
+                FROM [{table_name}]
+                GROUP BY {pk_group_by}
+                HAVING COUNT(*) > 1
+            """)
+        
+        duplicates = []
+        total_duplicate_rows = 0
+        for row in target_cursor.fetchall():
+            if len(pk_columns) == 1:
+                pk_val = row[0]
+                count = row[1]
+            else:
+                pk_val = tuple(row[:-1])
+                count = row[-1]
+            duplicates.append((pk_val, count))
+            total_duplicate_rows += count - 1  # -1 car une occurrence est normale
+        
+        return {
+            'has_duplicates': len(duplicates) > 0,
+            'duplicate_count': len(duplicates),
+            'duplicate_rows': total_duplicate_rows,
+            'duplicate_pks': duplicates[:20]  # Limiter à 20 exemples
+        }
+    except Exception as e:
+        return {'error': str(e), 'has_duplicates': False, 'duplicate_count': 0, 'duplicate_pks': []}
+
 def compare_table_records(source_cursor, target_cursor, table_name):
     """Compare les enregistrements réels par clé primaire"""
     try:
@@ -123,7 +175,8 @@ def compare_table_records(source_cursor, target_cursor, table_name):
             'target_count': len(target_pks),
             'missing_count': len(missing),
             'extra_count': len(extra),
-            'missing_pks': list(missing)[:10] if missing else []  # Limiter à 10 exemples
+            'missing_pks': list(missing)[:10] if missing else [],  # Limiter à 10 exemples
+            'extra_pks': list(extra)[:10] if extra else []  # Limiter à 10 exemples
         }
     except Exception as e:
         return {'error': str(e)}
@@ -155,7 +208,8 @@ def verify_sync():
         'ecarts_critiques': [],  # Enregistrements manquants dans la cible
         'ecarts_normaux': [],    # Plus de données dans la cible (OK)
         'manquantes_cible': [],
-        'manquantes_source': []
+        'manquantes_source': [],
+        'doublons_pk': []  # Tables avec doublons de PK dans la cible (CRITIQUE)
     }
     
     output_lines = []
@@ -186,7 +240,13 @@ def verify_sync():
                     # Tous les enregistrements source sont présents
                     if extra_count > 0:
                         # Des données supplémentaires dans la cible (OK)
-                        results['ecarts_normaux'].append((table_name, source_count, target_count, extra_count))
+                        results['ecarts_normaux'].append((
+                            table_name,
+                            source_count,
+                            target_count,
+                            extra_count,
+                            comparison.get('extra_pks', [])
+                        ))
                     else:
                         # Parfaitement synchronisé
                         results['synchronisees'].append((table_name, source_count))
@@ -214,6 +274,35 @@ def verify_sync():
             target_count = target_cursor.fetchone()[0]
             results['manquantes_source'].append((table_name, target_count))
     
+    # Vérifier les doublons de PK dans toutes les tables cibles
+    output_lines.append("\n" + "=" * 80)
+    output_lines.append("🔍 VÉRIFICATION DES DOUBLONS DE CLÉ PRIMAIRE (CIBLE)")
+    output_lines.append("=" * 80)
+    
+    for table_name in sorted(target_tables):
+        try:
+            duplicate_check = check_duplicate_pks(target_cursor, table_name)
+            if 'error' in duplicate_check:
+                continue  # Ignorer les erreurs silencieusement
+            
+            if duplicate_check.get('has_duplicates', False):
+                dup_count = duplicate_check.get('duplicate_count', 0)
+                dup_rows = duplicate_check.get('duplicate_rows', 0)
+                dup_pks = duplicate_check.get('duplicate_pks', [])
+                results['doublons_pk'].append((
+                    table_name,
+                    dup_count,
+                    dup_rows,
+                    dup_pks
+                ))
+                output_lines.append(f"  ⚠️ {table_name}: {dup_count} PK dupliquées ({dup_rows} lignes en trop)")
+                if dup_pks:
+                    pk_examples = [str(pk[0]) if isinstance(pk[0], (int, str)) else str(pk[0])[:50] for pk in dup_pks[:5]]
+                    output_lines.append(f"    Exemples de PK dupliquées: {pk_examples}")
+        except Exception as e:
+            # Ignorer les erreurs silencieusement pour ne pas bloquer la vérification
+            pass
+    
     # Afficher les résultats
     output_lines.append(f"\n✓ TABLES SYNCHRONISÉES ({len(results['synchronisees'])}):")
     for table, count in sorted(results['synchronisees']):
@@ -236,12 +325,12 @@ def verify_sync():
         output_lines.append(f"\n🟢 DONNÉES SUPPLÉMENTAIRES DANS LA CIBLE ({len(results['ecarts_normaux'])}):")
         output_lines.append("  ✓ Ces tables ont des enregistrements supplémentaires dans la cible (données ajoutées localement)")
         for item in sorted(results['ecarts_normaux']):
-            if len(item) == 4:
-                table, source, target, extra = item
+            if len(item) >= 4:
+                table, source, target, extra = item[0], item[1], item[2], item[3]
                 output_lines.append(f"  {table}: Source={source}, Cible={target}, Supplément={extra} enregistrements")
-            else:
-                table, source, target = item
-                output_lines.append(f"  {table}: Source={source}, Cible={target}")
+                extra_pks = item[4] if len(item) >= 5 else []
+                if extra_pks:
+                    output_lines.append(f"    Exemples de clés présentes en cible mais absentes en source: {extra_pks[:5]}")
     
     if results['manquantes_cible']:
         output_lines.append(f"\n✗ TABLES MANQUANTES DANS LA CIBLE ({len(results['manquantes_cible'])}):")
@@ -253,11 +342,22 @@ def verify_sync():
         for table, count in sorted(results['manquantes_source']):
             output_lines.append(f"  {table}: {count} enregistrements")
     
+    if results['doublons_pk']:
+        output_lines.append(f"\n⚠️ TABLES AVEC DOUBLONS DE PK (CRITIQUE) ({len(results['doublons_pk'])}):")
+        output_lines.append("  ⚠️ Ces tables ont des doublons de clé primaire dans la cible (PROBLÈME CRITIQUE)")
+        for item in sorted(results['doublons_pk'], key=lambda x: x[2], reverse=True):
+            table, dup_count, dup_rows, dup_pks = item
+            output_lines.append(f"  {table}: {dup_count} PK dupliquées ({dup_rows} lignes en trop)")
+            if dup_pks:
+                pk_examples = [str(pk[0]) if isinstance(pk[0], (int, str)) else str(pk[0])[:50] for pk in dup_pks[:5]]
+                output_lines.append(f"    Exemples: {pk_examples}")
+    
     output_lines.append("\n" + "=" * 80)
     output_lines.append(f"RÉSUMÉ:")
     output_lines.append(f"  ✓ Tables parfaitement synchronisées: {len(results['synchronisees'])}")
     output_lines.append(f"  🔴 Tables avec enregistrements manquants (CRITIQUE): {len(results['ecarts_critiques'])}")
     output_lines.append(f"  🟢 Tables avec données supplémentaires (OK): {len(results['ecarts_normaux'])}")
+    output_lines.append(f"  ⚠️ Tables avec doublons de PK (CRITIQUE): {len(results['doublons_pk'])}")
     output_lines.append(f"  ✗ Tables manquantes dans cible: {len(results['manquantes_cible'])}")
     output_lines.append(f"  ℹ Tables spécifiques à la cible (conservées): {len(results['manquantes_source'])}")
     

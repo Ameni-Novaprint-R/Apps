@@ -1,0 +1,2440 @@
+
+{% extends "base.html" %}
+{% block title %}SUIVI PRODUCTION{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+<style>
+    .planningTable {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    .planningTable th, .planningTable td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    .planningTable th {
+        background-color: #f8f9fa;
+    }
+    .etat-vert { color: #28a745; }
+    .etat-rouge { color: #dc3545; }
+    .etat-orange { color: #ffc107; }
+    .etat-non-debute {
+        color: #6c757d;
+        font-weight: bold;
+    }
+    .etat-en-cours {
+        color: #ffc107;
+        font-weight: bold;
+    }
+    .etat-termine {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    /* Styles pour les filtres */
+    .filter-container {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .filter-section {
+        margin-bottom: 15px;
+    }
+    .filter-section h4 {
+        margin-bottom: 10px;
+        color: #003366;
+    }
+    .filter-buttons {
+        margin-bottom: 10px;
+    }
+    .filter-buttons button {
+        margin-right: 10px;
+        padding: 5px 10px;
+        border: 1px solid #003366;
+        background: white;
+        color: #003366;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+    .filter-buttons button:hover {
+        background: #003366;
+        color: white;
+    }
+    .filter-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .filter-checkboxes label {
+        display: flex;
+        align-items: center;
+        padding: 5px 10px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+    .filter-checkboxes label:hover {
+        background: #f0f0f0;
+    }
+    .filter-checkboxes input[type="checkbox"] {
+        margin-right: 5px;
+    }
+    .filter-count {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+    }
+    .updated {
+        background-color: #d4edda !important;
+        transition: background-color 1s ease;
+    }
+
+    /* Styles pour le popup de chargement */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        pointer-events: none;
+    }
+
+    .loading-spinner {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        pointer-events: auto;
+    }
+
+    .loading-spinner i {
+        font-size: 24px;
+        margin-bottom: 10px;
+        color: #007bff;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .loading-spinner p {
+        margin: 0;
+        font-weight: bold;
+        color: #333;
+    }
+
+    /* Styles pour l'autocomplétion des opérateurs */
+    .ui-autocomplete {
+        max-height: 200px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 5px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .ui-autocomplete li {
+        padding: 8px;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .ui-autocomplete li:hover {
+        background-color: #f0f0f0;
+    }
+
+    .operateur-input {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .operateur-input:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0,7,255,0.1);
+    }
+
+    .operateur-container {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .operateur-input {
+        width: 100%;
+    }
+    .operateur-select {
+        width: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<ul class="nav nav-tabs" id="projet13Tabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-production" data-bs-toggle="tab" data-bs-target="#tabProduction" type="button" role="tab">Production</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-dashboard" data-bs-toggle="tab" data-bs-target="#tabDashboard" type="button" role="tab">Tableau de bord</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-anomalies" data-bs-toggle="tab" data-bs-target="#tabAnomalies" type="button" role="tab">Anomalies</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-machines" data-bs-toggle="tab" data-bs-target="#tabMachines" type="button" role="tab">Machines en production</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-corriger-dossier" data-bs-toggle="tab" data-bs-target="#tabCorrigerDossier" type="button" role="tab">Correction dossier</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-null-dossier" data-bs-toggle="tab" data-bs-target="#tabNullDossier" type="button" role="tab">Recherche NULL</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-supprimer-dossier" data-bs-toggle="tab" data-bs-target="#tabSupprimerDossier" type="button" role="tab">Suppression dossier</button>
+  </li>
+</ul>
+<div class="tab-content" id="projet13TabsContent">
+  <div class="tab-pane fade show active" id="tabProduction" role="tabpanel">
+    <!-- Ancien contenu -->
+    <h2>SUIVI PRODUCTION</h2>
+
+    <div class="filter-container">
+        <div class="filter-section">
+            <h4>Services disponibles :</h4>
+            <div class="filter-buttons">
+                <button onclick="cocherDecocher('serviceFilters', true)">Tout cocher</button>
+                <button onclick="cocherDecocher('serviceFilters', false)">Tout décocher</button>
+                <button onclick="confirmerServices()" class="btn btn-primary">Confirmer</button>
+            </div>
+            <div id="serviceFilters" class="filter-checkboxes"></div>
+            <div class="filter-count" id="serviceCount"></div>
+        </div>
+        <div id="posteFilterContainer" class="filter-section" style="display: none;">
+            <h4>Machines disponibles :</h4>
+            <div class="filter-buttons">
+                <button onclick="cocherDecocher('posteFilters', true)">Tout cocher</button>
+                <button onclick="cocherDecocher('posteFilters', false)">Tout décocher</button>
+                <button onclick="confirmerPostes()" class="btn btn-primary">Confirmer</button>
+            </div>
+            <div id="posteFilters" class="filter-checkboxes"></div>
+            <div class="filter-count" id="posteCount"></div>
+        </div>
+        <div class="filter-section">
+            <h4>Options d'affichage :</h4>
+            <div class="filter-checkboxes">
+                <label>
+                    <input type="checkbox" id="showTerminated" onchange="toggleEnCours()"> Afficher uniquement les fiches en cours
+                </label>
+            </div>
+        </div>
+        <div class="filter-section">
+            <h4>Recherche :</h4>
+            <div class="input-group">
+                <input type="text" id="commandeFilter" class="form-control" placeholder="Rechercher une commande...">
+                <button class="btn btn-primary" type="button" onclick="rechercherCommande()">Chercher</button>
+                <button class="btn btn-outline-secondary" type="button" onclick="reinitialiserFiltres()">Réinitialiser</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <div class="counters" style="display: inline-block; margin-left: 20px;">
+        <span class="badge bg-secondary" style="margin-right: 10px;">Total: <span id="totalCount">0</span></span>
+        <span class="badge bg-primary" style="margin-right: 10px;">Non débuté: <span id="nonDebuteCount">0</span></span>
+        <span class="badge bg-warning" style="margin-right: 10px;">En cours: <span id="enCoursCount">0</span></span>
+        <span class="badge bg-success" style="margin-right: 10px;">Terminé: <span id="termineCount">0</span></span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table id="planningTable" class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>Commande</th>
+            <th>Client</th>
+            <th>Poste</th>
+            <th>Temps Prévu</th>
+            <th>Date/Heure Début</th>
+            <th>Date/Heure Fin</th>
+            <th>État</th>
+            <th>Opération</th>
+            <th>Opérateur</th>
+            <th>Nb Op.</th>
+            <th>Forme utilisée</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Menu flottant changement de poste -->
+    <div id="miniPosteSelector" style="position:absolute; display:none; background:white; border:1px solid #ccc; padding:10px; box-shadow:0 2px 10px rgba(0,0,0,0.2); z-index:10000;">
+      <select id="selectNewPosteInline"></select>
+      <button onclick="confirmerChangementPoste()">✅</button>
+      <button onclick="fermerMiniPoste()">❌</button>
+    </div>
+
+    <!-- Toast pour notification -->
+    <div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background-color:#333; color:#fff; padding:10px 20px; border-radius:5px; z-index:10001; font-size:14px;"></div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Planning Journalier</h5>
+            <p class="card-text">Gérez le planning quotidien des fiches de travail.</p>
+            <a href="/projet13/planning" class="btn btn-primary">Accéder au Planning</a>
+        </div>
+    </div>
+
+    <!-- Modale pour l'historique des sessions -->
+    <div id="historiqueModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:20000;">
+        <div style="background:white; margin:5% auto; padding:20px; border-radius:8px; max-width:800px; position:relative;">
+            <button onclick="closeHistoriqueModal()" style="position:absolute; top:10px; right:10px; font-size:20px; background:none; border:none;">&times;</button>
+            <h4>Historique des sessions</h4>
+            <div id="historiqueModalContent">Chargement...</div>
+        </div>
+    </div>
+    <!-- Overlay de chargement -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner"></i>
+            <p>Chargement en cours...</p>
+        </div>
+    </div>
+
+    <!-- Modale pour changement de poste -->
+    <div id="miniPosteModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:20000;">
+        <div style="background:white; margin:5% auto; padding:20px; border-radius:8px; max-width:400px; position:relative;">
+            <button onclick="fermerMiniPoste()" style="position:absolute; top:10px; right:10px; font-size:20px; background:none; border:none;">&times;</button>
+            <div id="miniPosteContent"></div>
+        </div>
+    </div>
+
+    <!-- Ajout de la modale pour la duplication de fiche -->
+    <div class="modal fade" id="modalDupliquerFiche" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Dupliquer la fiche</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="modalDupliquerFicheBody">
+            <!-- Contenu dynamique -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button type="button" class="btn btn-primary" id="btnConfirmerDuplication">Dupliquer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tabDashboard" role="tabpanel">
+    <div class="container mt-4">
+      <!-- Filtres dynamiques -->
+      <div class="row mb-3">
+        <div class="col-md-2">
+          <label for="filterService">Service</label>
+          <select id="filterService" class="form-select"></select>
+        </div>
+        <div class="col-md-2">
+          <label for="filterPoste">Poste</label>
+          <select id="filterPoste" class="form-select"></select>
+        </div>
+        <div class="col-md-2">
+          <label for="filterDateDebut">Début</label>
+          <input type="date" id="filterDateDebut" class="form-control">
+        </div>
+        <div class="col-md-2">
+          <label for="filterDateFin">Fin</label>
+          <input type="date" id="filterDateFin" class="form-control">
+        </div>
+        <div class="col-md-2">
+          <label for="filterEtat">État</label>
+          <select id="filterEtat" class="form-select">
+            <option value="">Tous</option>
+            <option value="en_cours">En cours</option>
+            <option value="terminee">Terminée</option>
+            <option value="bloquee">Bloquée</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary w-100" onclick="chargerDashboardAvance()">Filtrer</button>
+        </div>
+      </div>
+      <!-- KPI -->
+      <div class="row mb-4">
+        <div class="col">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">En cours</h5>
+              <p class="display-4" id="kpiEnCours">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Non débutées</h5>
+              <p class="display-4" id="kpiNonDebutees">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Terminées</h5>
+              <p class="display-4" id="kpiTerminees">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Bloquées</h5>
+              <p class="display-4" id="kpiBloquees">0</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Graphiques avancés -->
+      <div class="row mb-4">
+        <div class="col-md-6 mb-4">
+          <h6>Évolution des fiches terminées (7 jours)</h6>
+          <canvas id="chartEvolution"></canvas>
+        </div>
+        <div class="col-md-6 mb-4">
+          <h6>Répartition des temps par poste</h6>
+          <canvas id="chartTempsParPoste"></canvas>
+        </div>
+      </div>
+      <div class="row mb-4">
+        <div class="col-md-6 mb-4">
+          <h6>Répartition par poste/service</h6>
+          <canvas id="chartRepartition"></canvas>
+        </div>
+        <div class="col-md-6 mb-4">
+          <h6>Taux de retard/blocage par service</h6>
+          <canvas id="chartTauxParService"></canvas>
+        </div>
+      </div>
+      <!-- Fiches en retard -->
+      <div class="row">
+        <div class="col-12">
+          <h5>Fiches en retard</h5>
+          <table class="table table-bordered table-sm">
+            <thead><tr><th>ID</th><th>Commande</th><th>Poste</th><th>Réf. Fiche</th><th>Prévu</th><th>Réel</th></tr></thead>
+            <tbody id="tableFichesRetard"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tabAnomalies" role="tabpanel">
+    <div class="container mt-4">
+      <h4>Anomalies détectées</h4>
+      <div id="compteursAnomalies" class="mb-3"></div>
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label for="filtreServiceAnomalie">Filtrer par service :</label>
+          <select id="filtreServiceAnomalie" class="form-select">
+            <option value="">Tous</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="filtreCommandeAnomalie">Filtrer par numéro de dossier :</label>
+          <input type="text" id="filtreCommandeAnomalie" class="form-control" placeholder="Numéro de dossier...">
+        </div>
+      </div>
+      <button class="btn btn-outline-secondary mb-2" onclick="reinitialiserFiltresAnomalies()">Réinitialiser les filtres</button>
+      <table class="table table-bordered" id="tableAnomalies">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="anomalieCheckAll"></th>
+            <th>Type</th>
+            <th>Commande</th>
+            <th>Fiche</th>
+            <th>Service</th>
+            <th>Poste</th>
+            <th>Opérateur</th>
+            <th>Détails</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tabMachines" role="tabpanel">
+    <div class="container mt-4">
+      <h4>Machines actuellement en production</h4>
+      <div id="machinesEnProductionContent">Chargement...</div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tabCorrigerDossier" role="tabpanel">
+    <div class="container mt-4">
+      <h4>Correction automatique d'un dossier</h4>
+      <form id="formCorrigerDossier" method="post" action="/projet13/corriger_dossier">
+        <div class="mb-3">
+          <label for="numeroDossier" class="form-label">Numéro de dossier (partiel ou complet)</label>
+          <input type="text" class="form-control" id="numeroDossier" name="numero" placeholder="Ex: 2025" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Chercher et corriger</button>
+      </form>
+      <div id="resultatsCorrectionDossier"></div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tabNullDossier" role="tabpanel">
+    <div class="container mt-4">
+      <h4>Recherche de valeurs NULL dans un dossier</h4>
+      <iframe src="/projet13/nulls_dossier" style="width:100%;min-height:500px;border:none;"></iframe>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tabSupprimerDossier" role="tabpanel">
+    <div class="container mt-4">
+      <h4>Suppression complète d'un dossier</h4>
+      <iframe src="/projet13/supprimer_dossier" style="width:100%;min-height:400px;border:none;"></iframe>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.0.min.js" defer></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js" defer></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js" defer></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let allFiches = [];
+let globalFiches = [];
+let postesDuService = [];
+let currentFicheId = null;
+let currentFicheBtn = null;
+let dataTable = null;
+let isLoading = false;
+let servicesCache = null;
+let postesCache = null;
+let showTerminated = false;
+let formesListe = [];
+
+// Optimisation du cache
+const dataCache = {
+    fiches: null,
+    planning: null,
+    services: null,
+    lastUpdate: null,
+    cacheDuration: 5 * 60 * 1000 // 5 minutes
+};
+
+function updateCount(id) {
+  const countElement = document.getElementById(id + 'Count');
+  if (countElement) {
+    const total = document.querySelectorAll(`#${id} input[type='checkbox']`).length;
+    const checked = document.querySelectorAll(`#${id} input:checked`).length;
+    countElement.textContent = `${checked} sur ${total} sélectionnés`;
+  }
+}
+
+function genererCheckboxes(id, valeurs, onchange) {
+    const conteneur = document.getElementById(id);
+    if (!conteneur) {
+        console.error(`Conteneur ${id} non trouvé`);
+        return;
+    }
+    
+    conteneur.innerHTML = "";
+    
+    // Gérer les services
+    if (id === "serviceFilters") {
+        valeurs.forEach(service => {
+            const label = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.name = "services[]";
+            checkbox.value = service.id;
+            checkbox.checked = true;
+            checkbox.addEventListener("change", function() {
+                if (onchange) onchange();
+                updateCount(id);
+            });
+            
+            label.appendChild(checkbox);
+            label.append(` ${service.nom}`);
+            conteneur.appendChild(label);
+        });
+    }
+    // Gérer les postes
+    else if (id === "posteFilters") {
+        Object.entries(valeurs).forEach(([posteId, poste]) => {
+            const label = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.name = "postes[]";
+            checkbox.value = posteId;
+            checkbox.checked = true;
+            checkbox.addEventListener("change", function() {
+                if (onchange) onchange();
+                updateCount(id);
+            });
+            
+            label.appendChild(checkbox);
+            label.append(` ${poste.nom}`);
+            conteneur.appendChild(label);
+        });
+    }
+    
+    updateCount(id);
+}
+
+function cocherDecocher(id, cocher) {
+  document.querySelectorAll(`#${id} input[type='checkbox']`).forEach(cb => {
+    cb.checked = cocher;
+  });
+  updateCount(id);
+}
+
+function toutAfficher() {
+    // Cocher tous les services, postes et états
+    const serviceCheckboxes = document.querySelectorAll('input[name="services[]"]');
+    const posteCheckboxes = document.querySelectorAll('input[name="postes[]"]');
+    const etatCheckboxes = document.querySelectorAll('input[name="etat[]"]');
+    
+    serviceCheckboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    
+    posteCheckboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+
+    etatCheckboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+}
+
+function confirmerServices() {
+    const selectedServices = Array.from(document.querySelectorAll('#serviceFilters input:checked'))
+        .map(checkbox => checkbox.value);
+    
+    if (selectedServices.length === 0) {
+        showToast("Veuillez sélectionner au moins un service");
+        return;
+    }
+
+    // Afficher les machines pour les services sélectionnés
+    document.getElementById("posteFilterContainer").style.display = "block";
+    
+    // Filtrer les postes pour les services sélectionnés
+    const postesFiltres = {};
+    selectedServices.forEach(serviceId => {
+        const service = servicesCache.find(s => s.id === parseInt(serviceId));
+        if (service && service.postes) {
+            service.postes.forEach(poste => {
+                postesFiltres[poste.id] = poste;
+            });
+        }
+    });
+    
+    genererCheckboxes("posteFilters", postesFiltres);
+}
+
+function confirmerPostes() {
+    const selectedPostes = Array.from(document.querySelectorAll('#posteFilters input:checked'))
+        .map(checkbox => checkbox.value);
+    
+    if (selectedPostes.length === 0) {
+        showToast("Veuillez sélectionner au moins une machine");
+        return;
+    }
+
+    // Charger les fiches pour les postes sélectionnés
+    chargerDonnees();
+}
+
+function toggleEnCours() {
+    const showEnCours = document.getElementById('showTerminated').checked;
+    let fichesFiltrees;
+    if (showEnCours) {
+        fichesFiltrees = allFiches.filter(fiche => Number(fiche.codindav) === 2);
+    } else {
+        fichesFiltrees = allFiches;
+    }
+    globalFiches = fichesFiltrees;
+    updateInterface(fichesFiltrees);
+    updateCounters(fichesFiltrees);
+}
+
+function updateInterface(fiches) {
+    globalFiches = fiches;
+    
+    const tbody = document.querySelector('#planningTable tbody');
+    if (!tbody) return;
+
+    // Créer un fragment de document pour optimiser les performances
+    const fragment = document.createDocumentFragment();
+
+    fiches.forEach(fiche => {
+        console.log('Fiche:', fiche.id_fiche, 'codindav:', fiche.codindav, 'dte_deb:', fiche.dte_deb, 'dte_fin:', fiche.dte_fin);
+        const row = document.createElement('tr');
+        row.setAttribute('data-id-fiche', fiche.id_fiche);
+        
+        // Création des cellules avec les données de la fiche
+        const sessionOuverte = fiche.dte_deb && isDateFinNull(fiche.dte_fin);
+        const sessionCloturee = fiche.dte_deb && fiche.dte_fin && !isDateFinNull(fiche.dte_fin);
+        const boutonDebut = `<button onclick="setDebut(this)" ${![0,1,2].includes(Number(fiche.codindav)) ? 'disabled' : ''}>Début</button>`;
+        const boutonFin = `<button onclick="setFin(this)">Fin</button>`;
+        const boutonInterrompre = sessionOuverte && Number(fiche.codindav) === 2 ? `<button onclick="setInterrompu(this)">Interrompre</button>` : '';
+        const boutonReprendre = !sessionOuverte && sessionCloturee && Number(fiche.codindav) === 2 ? `<button onclick="setReprendre(this)">Reprendre</button>` : '';
+        const cells = [
+            fiche.commande || '-',
+            fiche.client || '-',
+            `${fiche.poste || '-'} <button class="btn btn-sm btn-outline-secondary" onclick="ouvrirMiniPoste(${fiche.id_fiche}, '${fiche.service}')">🔄</button>` +
+            ` <button class="btn btn-sm btn-outline-primary" onclick="ouvrirModalDupliquerFiche(${fiche.id_fiche})">Dupliquer</button>`,
+            formatTempsPrevu(fiche.temps_prev_dev),
+            `${formatDate(fiche.dte_deb, fiche.heur_deb)} ${boutonDebut} ${boutonReprendre} ${boutonInterrompre}`,
+            `${formatDate(fiche.dte_fin, fiche.heur_fin)} ${boutonFin}`,
+            `<span class="etat-codindav-${fiche.codindav}">${etatCodIndAv(fiche.codindav)}</span>`,
+            fiche.operations && fiche.operations.length === 1
+                ? fiche.operations[0].nom + `<input type='hidden' class='operation-id-hidden' value='${fiche.operations[0].id}'>`
+                : `<select onchange="updateOperation(this, ${fiche.id_fiche})">
+                    <option value="">Sélectionner une opération</option>
+                    ${fiche.operations ? fiche.operations.map(op => 
+                        `<option value="${op.id}" ${op.id == fiche.id_operation ? 'selected' : ''}>${op.nom}</option>`
+                    ).join('') : ''}
+                </select>`,
+            `<div class="operateur-container">
+                <input type="text" class="operateur-input form-control" data-id-fiche="${fiche.id_fiche}" data-current-value="${fiche.id_personne || ''}" value="${(fiche.operateur_nom ? fiche.operateur_nom : '') + (fiche.operateur_prenom ? ' ' + fiche.operateur_prenom : '')}" placeholder="Rechercher un opérateur...">
+            </div>`,
+            `<input type="number" min="0" value="${fiche.nb_op || 0}" style="width: 60px;">`,
+            `<input type="text" class="forme-input form-control" value="${fiche.remarque || ''}" placeholder="Nom de la forme...">`,
+            `<button class="btn btn-primary btn-sm" onclick="mettreAJourFiche(${fiche.id_fiche})">
+                <i class="fas fa-save"></i> Mettre à jour
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="showHistoriqueModal(${fiche.id_fiche})">
+                <i class="fas fa-history"></i> Historique
+            </button>`
+        ];
+
+        // Ajout des cellules à la ligne
+        cells.forEach(cellContent => {
+            const cell = document.createElement('td');
+            cell.innerHTML = cellContent;
+            row.appendChild(cell);
+        });
+
+        fragment.appendChild(row);
+    });
+
+    // Mettre à jour le DOM en une seule fois
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+
+    // Charger les opérateurs après la mise à jour de l'interface
+    chargerOperateurs();
+    chargerFormesEtAutocomplete();
+}
+
+function rechercherCommande() {
+    const searchInput = document.getElementById('commandeFilter')?.value.trim() || '';
+    const tbody = document.querySelector('#planningTable tbody');
+    if (!tbody) return;
+
+    // Filtrer les fiches
+    const fichesFiltrees = allFiches.filter(fiche => {
+        if (!searchInput) return true;
+        return fiche.commande && fiche.commande.includes(searchInput);
+    });
+
+    // Mettre à jour l'interface avec les fiches filtrées
+    globalFiches = fichesFiltrees;
+    updateInterface(fichesFiltrees);
+    updateCounters(fichesFiltrees);
+}
+
+async function chargerDonnees() {
+    try {
+        const selectedServices = Array.from(document.querySelectorAll('#serviceFilters input:checked')).map(opt => opt.value);
+        const selectedPostes = Array.from(document.querySelectorAll('#posteFilters input:checked')).map(opt => opt.value);
+        const showEnCours = document.getElementById('showTerminated').checked;
+        
+        let url = `/projet13/api/fiches_filtrees?hasDateFin=${!showEnCours}`;
+        
+        if (selectedServices.length > 0) {
+            url += `&services[]=${selectedServices.join('&services[]=')}`;
+        }
+        
+        if (selectedPostes.length > 0) {
+            url += `&postes[]=${selectedPostes.join('&postes[]=')}`;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('Erreur lors du chargement des données');
+        }
+
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        allFiches = data.fiches;
+        updateInterface(allFiches);
+        updateCounters(allFiches);
+
+    } catch (error) {
+        console.error('Erreur:', error);
+        showToast('Une erreur est survenue lors du chargement des données');
+    }
+}
+
+function isCacheValid(cacheKey) {
+    if (!dataCache[cacheKey] || !dataCache.lastUpdate) return false;
+    return (Date.now() - dataCache.lastUpdate) < dataCache.cacheDuration;
+}
+
+async function loadData(endpoint, cacheKey, params = {}) {
+    try {
+        const url = new URL(`/projet13/api/${endpoint}`, window.location.origin);
+        Object.entries(params).forEach(([key, value]) => {
+            if (value) url.searchParams.append(key, value);
+        });
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error loading data:', error);
+        return null;
+    }
+}
+
+async function chargerOperateurs() {
+    try {
+        const response = await fetch('/projet13/api/personnes?Archive=0');
+        
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+            return;
+        }
+
+        // Convertir les données pour l'autocomplétion
+        const operateurs = data.map(p => {
+            const nom = p.Nom || p.nom || '';
+            const prenom = p.Prenom || p.prenom || '';
+            const code = p.Code || p.code || '';
+            const id = p.ID || p.id || '';
+
+            return {
+                id: id,
+                label: `${nom} ${prenom} (${code})`,
+                displayText: `${nom} ${prenom} (${code})`,
+                nom: nom,
+                prenom: prenom,
+                Code: code
+            };
+        }).filter(op => op.nom && op.prenom);
+
+        // Initialiser l'autocomplétion pour tous les champs d'opérateur
+        $('.operateur-input').each(function() {
+            const $input = $(this);
+            
+            // Initialiser l'autocomplétion
+            $input.autocomplete({
+                source: operateurs,
+                minLength: 0,
+                select: function(event, ui) {
+                    $(this).val(ui.item.displayText);
+                    $(this).data('current-value', ui.item.id);
+                    this.setAttribute('data-current-value', ui.item.id);
+                    return false;
+                },
+                focus: function(event, ui) {
+                    $(this).val(ui.item.displayText);
+                    return false;
+                }
+            }).focus(function() {
+                $(this).autocomplete("search", "");
+            });
+
+            // Correction : synchroniser data-current-value sur blur
+            $input.on('blur', function() {
+                const val = $(this).val();
+                const op = operateurs.find(o => o.displayText === val);
+                if (op) {
+                    $(this).data('current-value', op.id);
+                    this.setAttribute('data-current-value', op.id);
+                } else {
+                    $(this).data('current-value', '');
+                    this.setAttribute('data-current-value', '');
+                }
+            });
+        });
+    } catch (error) {
+        showToast('Erreur lors du chargement des opérateurs');
+    }
+}
+
+function initialiserDataTable() {
+    // Ne pas initialiser si déjà initialisé
+    if ($.fn.DataTable.isDataTable('#planningTable')) {
+        dataTable.destroy();
+    }
+    
+    dataTable = $('#planningTable').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/fr-FR.json'
+        },
+        pageLength: 25,
+        order: [[0, 'desc']],
+        dom: 'Bfrtip',
+        buttons: ['excel'],
+        processing: true,
+        serverSide: false,
+        ajax: {
+            url: '/projet13/api/fiches_filtrees',
+            type: 'GET',
+            data: function(d) {
+                const selectedServices = Array.from(document.querySelectorAll('#serviceFilters input:checked')).map(cb => cb.value);
+                const selectedPostes = Array.from(document.querySelectorAll('#posteFilters input:checked')).map(cb => cb.value);
+                const showEnCours = document.getElementById('showTerminated') ? document.getElementById('showTerminated').checked : false;
+                
+                const params = {
+                    hasDateFin: showEnCours ? 'true' : 'false'
+                };
+                
+                if (selectedServices.length > 0) {
+                    selectedServices.forEach(s => {
+                        if (!params['services[]']) params['services[]'] = [];
+                        params['services[]'].push(s);
+                    });
+                }
+                
+                if (selectedPostes.length > 0) {
+                    selectedPostes.forEach(p => {
+                        if (!params['postes[]']) params['postes[]'] = [];
+                        params['postes[]'].push(p);
+                    });
+                }
+                
+                return params;
+            },
+            dataSrc: function(json) {
+                return json.fiches || [];
+            }
+        },
+        columns: [
+            { data: 'commande' },
+            { data: 'client' },
+            { 
+                data: 'poste',
+                render: function(data, type, row) {
+                    return `${data || '-'} <button class="btn btn-sm btn-outline-secondary" onclick="ouvrirMiniPoste(${row.id_fiche}, '${row.service}')">🔄</button>`;
+                }
+            },
+            { 
+                data: 'temps_prev_dev',
+                render: function(data) {
+                    return formatTempsPrevu(data);
+                }
+            },
+            { 
+                data: null,
+                render: function(data) {
+                    return `${formatDate(data.dte_deb, data.heur_deb)} <button onclick="setDebut(this)">Début</button>`;
+                }
+            },
+            { 
+                data: null,
+                render: function(data) {
+                    return `${formatDate(data.dte_fin, data.heur_fin)} <button onclick="setFin(this)">Fin</button>`;
+                }
+            },
+            { 
+                data: null,
+                render: function(data) {
+                    return `<span class="etat-codindav-${data.codindav}">${etatCodIndAv(data.codindav)}</span>`;
+                }
+            },
+            { 
+                data: 'operations',
+                render: function(data, type, row) {
+                    if (data && data.length === 1) {
+                        return data[0].nom + `<input type='hidden' class='operation-id-hidden' value='${data[0].id}'>`;
+                    }
+                    return `<select onchange="updateOperation(this, ${row.id_fiche})">
+                        <option value="">Sélectionner une opération</option>
+                        ${data ? data.map(op => 
+                            `<option value="${op.id}" ${op.id == row.id_operation ? 'selected' : ''}>${op.nom}</option>`
+                        ).join('') : ''}
+                    </select>`;
+                }
+            },
+            { 
+                data: null,
+                render: function(data) {
+                    return `<div class="operateur-container">
+                        <input type="text" class="operateur-input form-control" data-id-fiche="${data.id_fiche}" data-current-value="${data.id_personne || ''}" value="${(data.operateur_nom ? data.operateur_nom : '') + (data.operateur_prenom ? ' ' + data.operateur_prenom : '')}" placeholder="Rechercher un opérateur...">
+                        <input type="hidden" name="operateur_${data.id_fiche}" value="${data.id_personne || ''}">
+                    </div>`;
+                }
+            },
+            { 
+                data: 'nb_op',
+                render: function(data) {
+                    return `<input type="number" min="0" value="${data || 0}" style="width: 60px;">`;
+                }
+            },
+            { 
+                data: 'id_fiche',
+                render: function(data) {
+                    return `<button class="btn btn-primary btn-sm" onclick="mettreAJourFiche(${data})">
+                        <i class="fas fa-save"></i> Mettre à jour
+                    </button>`;
+                }
+            }
+        ],
+        drawCallback: function() {
+            chargerOperateurs();
+        }
+    });
+}
+
+function ouvrirMiniPoste(idFiche, service) {
+    // Récupérer les postes non archivés pour ce service
+    fetch(`/projet13/api/services_et_postes`)
+        .then(res => res.json())
+        .then(data => {
+            // Trouver le service correspondant
+            const serviceObj = data.services.find(s => s.nom === service);
+            if (!serviceObj) {
+                showToast("Service non trouvé");
+                return;
+            }
+            
+            // Mettre à jour le contenu du pop-up
+            const miniPosteContent = document.getElementById('miniPosteContent');
+            miniPosteContent.innerHTML = `
+                <div class="mini-poste-header">
+                    <h3>Changer de poste</h3>
+                    <p>Service: ${service}</p>
+                </div>
+                <div class="mini-poste-body">
+                    <select id="nouveauPosteSelect" class="form-select">
+                        <option value="">Sélectionner un poste</option>
+                        ${serviceObj.postes.map(poste => 
+                            `<option value="${poste.nom}">${poste.nom}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="mini-poste-footer" style="margin-top: 20px; text-align: right;">
+                    <button class="btn btn-secondary" onclick="fermerMiniPoste()">Annuler</button>
+                    <button class="btn btn-primary" onclick="confirmerChangementPoste(${idFiche})">Confirmer</button>
+                </div>
+            `;
+            
+            // Afficher le pop-up
+            document.getElementById('miniPosteModal').style.display = 'block';
+        })
+        .catch(error => {
+            console.error("Erreur lors du chargement des postes:", error);
+            showToast("Erreur lors du chargement des postes");
+        });
+}
+
+function fermerMiniPoste() {
+    document.getElementById('miniPosteModal').style.display = 'none';
+}
+
+function confirmerChangementPoste(idFiche) {
+    const nouveauPoste = document.getElementById("nouveauPosteSelect").value;
+    if (!nouveauPoste) {
+        showToast("Veuillez sélectionner un poste");
+        return;
+    }
+
+    fetch("/projet13/api/change_poste", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            id_fiche_travail: idFiche,
+            nouveau_poste: nouveauPoste
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast("Poste mis à jour avec succès");
+            fermerMiniPoste();
+            
+            // Mettre à jour uniquement la ligne concernée
+            const row = document.querySelector(`tr[data-id-fiche="${idFiche}"]`);
+            if (row) {
+                const posteCell = row.querySelector('td:nth-child(3)');
+                if (posteCell) {
+                    posteCell.innerHTML = `${nouveauPoste} <button class="btn btn-sm btn-outline-secondary" onclick="ouvrirMiniPoste(${idFiche}, '${getServiceByPoste(nouveauPoste)}')">🔄</button>`;
+                }
+            }
+            
+            // Recharger les données pour s'assurer que tout est à jour
+            chargerDonnees();
+        } else {
+            showToast(data.message || "Erreur lors du changement de poste");
+        }
+    })
+    .catch(error => {
+        console.error("Erreur:", error);
+        showToast("Erreur lors du changement de poste");
+    });
+}
+
+function getServiceByPoste(posteNom) {
+    if (!servicesCache) return "";
+    
+    for (const service of servicesCache) {
+        const poste = service.postes.find(p => p.nom === posteNom);
+        if (poste) {
+            return service.nom;
+        }
+    }
+    return "";
+}
+
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.style.display = "block";
+  setTimeout(() => {
+    toast.style.display = "none";
+  }, 3000);
+}
+
+function updateOperation(select, idFiche) {
+    const idOperation = select.value;
+    if (!idOperation) {
+        showToast("Veuillez sélectionner une opération");
+        return;
+    }
+
+    // Récupérer la ligne actuelle
+    const row = select.closest('tr');
+    const operateurInput = row.querySelector(`.operateur-input[data-id-fiche="${idFiche}"]`);
+    const nbOpInput = row.querySelector('input[type="number"]');
+
+    // S'assurer que nb_op a toujours une valeur (au minimum 0)
+    const nbOp = nbOpInput ? Math.max(0, parseInt(nbOpInput.value) || 0) : 0;
+
+    // Préparer les données en s'assurant qu'aucune valeur n'est null
+    const data = {
+        id_fiche_travail: parseInt(idFiche),
+        id_operation: parseInt(idOperation),
+        nb_op: nbOp // Toujours envoyer une valeur numérique
+    };
+
+    // Ajouter id_personne seulement s'il existe
+    const idOperateur = operateurInput ? operateurInput.dataset.currentValue : null;
+    if (idOperateur) {
+        data.id_personne = parseInt(idOperateur);
+    }
+
+    console.log('Données à envoyer:', data);
+
+    // Envoyer la mise à jour
+    fetch("/projet13/api/save_traitement", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast("Opération mise à jour avec succès");
+            row.classList.add('updated');
+            setTimeout(() => row.classList.remove('updated'), 1000);
+            if (data.total_tirages_avant !== undefined && data.total_tirages_apres !== undefined && data.total_tirages_avant !== null && data.total_tirages_apres !== null) {
+                showToast(`Tirages forme : ${data.total_tirages_avant} → ${data.total_tirages_apres}`);
+            }
+        } else {
+            showToast(data.message || "Erreur lors de la mise à jour de l'opération");
+        }
+    })
+    .catch(error => {
+        console.error("Erreur:", error);
+        showToast("Erreur lors de la mise à jour de l'opération");
+    });
+}
+
+async function mettreAJourFiche(ficheId) {
+    const row = document.querySelector(`tr[data-id-fiche="${ficheId}"]`);
+    if (!row) {
+        console.error('Ligne non trouvée pour la fiche:', ficheId);
+        return;
+    }
+
+    try {
+        // Récupération des valeurs avec vérification de leur existence
+        const operateurInput = row.querySelector(`.operateur-input[data-id-fiche="${ficheId}"]`);
+        let operationSelect = row.querySelector('select');
+        let idOperation;
+        if (operationSelect) {
+            idOperation = operationSelect.value;
+        } else {
+            // Cas opération unique : récupérer la valeur du champ caché
+            const hiddenOp = row.querySelector('.operation-id-hidden');
+            idOperation = hiddenOp ? hiddenOp.value : null;
+        }
+        const nbOpInput = row.querySelector('input[type="number"]');
+        const formeInput = row.querySelector('.forme-input');
+
+        if (!operateurInput || !idOperation || !nbOpInput) {
+            throw new Error('Veuillez sélectionner une opération et un opérateur');
+        }
+
+        // Récupération des autres valeurs
+        const idOperateur = operateurInput.dataset.currentValue;
+        const nbOp = parseInt(nbOpInput.value) || 0;
+        const nomForme = formeInput ? formeInput.value : '';
+
+        // Préparation des données
+        const data = {
+            id_fiche_travail: parseInt(ficheId),
+            id_personne: idOperateur ? parseInt(idOperateur) : null,
+            id_operation: parseInt(idOperation), // L'opération est obligatoire
+            nb_op: nbOp,
+            remarque: nomForme
+        };
+
+        console.log('Données à envoyer:', data);
+
+        // Envoi de la requête
+        const response = await fetch('/projet13/api/save_traitement', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Erreur lors de la mise à jour');
+        }
+
+        if (result.success) {
+            showToast('Mise à jour effectuée avec succès');
+            row.classList.add('updated');
+            setTimeout(() => row.classList.remove('updated'), 1000);
+            if (result.total_tirages_avant !== undefined && result.total_tirages_apres !== undefined && result.total_tirages_avant !== null && result.total_tirages_apres !== null) {
+                showToast(`Tirages forme : ${result.total_tirages_avant} → ${result.total_tirages_apres}`);
+            }
+        } else {
+            throw new Error(result.message || 'La mise à jour a échoué');
+        }
+
+    } catch (error) {
+        console.error('Erreur:', error);
+        showToast(error.message || 'Erreur lors de la mise à jour');
+    }
+}
+
+function updateCounters(fiches) {
+    if (!fiches) return;
+
+    const counters = {
+        total: fiches.length,
+        nonDebute: 0,
+        enCours: 0,
+        termine: 0
+    };
+
+    // Utiliser CodIndAv pour compter les statuts
+    for (let i = 0; i < fiches.length; i++) {
+        const fiche = fiches[i];
+        const codindav = Number(fiche.codindav);
+        switch(codindav) {
+            case 0:
+            case 1:
+                counters.nonDebute++;
+                break;
+            case 2:
+                counters.enCours++;
+                break;
+            case 3:
+            case 4:
+                counters.termine++;
+                break;
+        }
+    }
+
+    // Mise à jour optimisée des éléments HTML
+    const elements = {
+        totalCount: counters.total,
+        nonDebuteCount: counters.nonDebute,
+        enCoursCount: counters.enCours,
+        termineCount: counters.termine
+    };
+
+    Object.entries(elements).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    });
+}
+
+function updateOperateur(select, idFiche) {
+    // On ne fait plus de mise à jour automatique ici
+    // On laisse le bouton "Mettre à jour" gérer toutes les modifications
+    console.log('Opérateur sélectionné:', select.value);
+}
+
+async function updateFicheTime(id_fiche, type, value) {
+    try {
+        const response = await fetch('/projet13/api/update_operation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id_fiche: id_fiche,
+                type: type,
+                value: value
+            })
+        });
+        
+        if (!response.ok) throw new Error('Update failed');
+        
+        // Mise à jour optimisée du cache
+        if (dataCache.fiches) {
+            // Mettre à jour le cache local
+            updateLocalCache(id_fiche, type, value);
+        }
+    } catch (error) {
+        console.error('Error updating time:', error);
+        // Gérer l'erreur (afficher un message à l'utilisateur)
+    }
+}
+
+function updateLocalCache(id_fiche, type, value) {
+    Object.entries(dataCache.fiches).forEach(([service, postes]) => {
+        Object.entries(postes).forEach(([poste, fiches]) => {
+            const fiche = fiches.find(f => f.id_fiche === id_fiche);
+            if (fiche) {
+                if (type === 'debut') {
+                    fiche.dte_deb = value;
+                } else {
+                    fiche.dte_fin = value;
+                }
+            }
+        });
+    });
+}
+
+function updatePlanningUI(planning) {
+    // Mise à jour optimisée de l'interface de planning
+    const container = document.getElementById('planningContainer');
+    container.innerHTML = ''; // Clear existing content
+    
+    if (planning && planning.length > 0) {
+        planning.forEach(fiche => {
+            const ficheElement = createFicheElement(fiche);
+            container.appendChild(ficheElement);
+        });
+    }
+}
+
+function updateRowEtatEtActions(row, codindav, dte_deb, heur_deb, dte_fin, heur_fin) {
+    // Met à jour la cellule Etat
+    const etatCell = row.querySelector('td:nth-child(7)');
+    etatCell.innerHTML = `<span class="etat-codindav-${codindav}">${etatCodIndAv(codindav)}</span>`;
+    // Met à jour la cellule des boutons d'action (colonne 5)
+    const actionCell = row.querySelector('td:nth-child(5)');
+    // Formatage des dates
+    let dateDebutStr = dte_deb ? formatDate(dte_deb, heur_deb) : '-';
+    let dateFinStr = dte_fin ? formatDate(dte_fin, heur_fin) : '-';
+    // Logique des boutons selon codindav et session ouverte
+    const sessionOuverte = dte_deb && (!dte_fin || dte_fin === '0000-00-00' || dte_fin === '');
+    let boutonDebut = `<button onclick=\"setDebut(this)\" ${![0,1,2].includes(Number(codindav)) ? 'disabled' : ''}>Début</button>`;
+    let boutonFin = `<button onclick=\"setFin(this)\" ${[3,4].includes(Number(codindav)) ? 'disabled' : ''}>Fin</button>`;
+    let boutonInterrompre = sessionOuverte && Number(codindav) === 2 ? `<button onclick=\"setInterrompu(this)\">Interrompre</button>` : '';
+    let boutonReprendre = !sessionOuverte && Number(codindav) === 2 ? `<button onclick=\"setDebut(this)\">Reprendre</button>` : '';
+    if ([3,4].includes(Number(codindav))) {
+        boutonInterrompre = `<button onclick=\"setInterrompu(this)\" disabled>Interrompre</button>`;
+        boutonReprendre = `<button onclick=\"setDebut(this)\" disabled>Reprendre</button>`;
+    }
+    actionCell.innerHTML = `${dateDebutStr} ${boutonDebut} ${boutonReprendre} ${boutonInterrompre}`;
+    // Met à jour la cellule de fin (colonne 6)
+    const finCell = row.querySelector('td:nth-child(6)');
+    finCell.innerHTML = `${dateFinStr} ${boutonFin}`;
+}
+
+function setDebut(button) {
+    const row = button.closest('tr');
+    const idFiche = row.querySelector('td:last-child button').getAttribute('onclick').match(/\d+/)[0];
+    const operateurInput = row.querySelector('.operateur-input');
+    const idOperateur = operateurInput ? operateurInput.getAttribute('data-current-value') : null;
+    if (!idOperateur) {
+        showToast("Veuillez sélectionner un opérateur avant de démarrer.");
+        return;
+    }
+    fetch("/projet13/api/set_debut", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            id_fiche: idFiche,
+            date: new Date().toISOString(),
+            id_personne: idOperateur
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast("Début enregistré avec succès");
+            // MAJ dynamique de la ligne
+            const now = new Date();
+            updateRowEtatEtActions(row, 2, now, now.getHours() + now.getMinutes()/60, null, null);
+            // MAJ JS
+            let fiche = allFiches.find(f => f.id_fiche == idFiche);
+            if (fiche) {
+                fiche.codindav = 2;
+                fiche.dte_deb = now.toISOString();
+                fiche.heur_deb = now.getHours() + now.getMinutes()/60;
+                fiche.dte_fin = null;
+                fiche.heur_fin = null;
+            }
+            updateCounters(allFiches);
+        } else {
+            showToast("Erreur lors de l'enregistrement du début");
+        }
+    })
+    .catch(error => {
+        console.error("Erreur:", error);
+        showToast("Erreur lors de l'enregistrement du début");
+    });
+}
+
+function setInterrompu(button) {
+    const row = button.closest('tr');
+    const idFiche = row.querySelector('td:last-child button').getAttribute('onclick').match(/\d+/)[0];
+    const operateurInput = row.querySelector('.operateur-input');
+    const idOperateur = operateurInput ? operateurInput.getAttribute('data-current-value') : null;
+    const operationSelect = row.querySelector('select');
+    const idOperation = operationSelect ? operationSelect.value : null;
+    const nbOpInput = row.querySelector('input[type="number"]');
+    const nbOp = nbOpInput ? parseInt(nbOpInput.value) : null;
+    const formeInput = row.querySelector('.forme-input');
+    const nomForme = formeInput ? formeInput.value : '';
+    fetch("/projet13/api/set_interrompu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            id_fiche: idFiche,
+            date: new Date().toISOString(),
+            id_personne: idOperateur,
+            id_operation: idOperation,
+            nb_op: nbOp,
+            remarque: nomForme
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast("Fiche interrompue avec succès");
+            // MAJ dynamique de la ligne
+            const now = new Date();
+            updateRowEtatEtActions(row, 2, row.querySelector('td:nth-child(5)').textContent.trim(), null, now, now.getHours() + now.getMinutes()/60);
+            // MAJ JS
+            let fiche = allFiches.find(f => f.id_fiche == idFiche);
+            if (fiche) {
+                fiche.codindav = 2;
+                fiche.dte_fin = now.toISOString();
+                fiche.heur_fin = now.getHours() + now.getMinutes()/60;
+            }
+            updateCounters(allFiches);
+        } else {
+            showToast(data.message || "Erreur lors de l'interruption de la fiche");
+        }
+    })
+    .catch(error => {
+        console.error("Erreur:", error);
+        showToast("Erreur lors de l'interruption de la fiche");
+    });
+}
+
+function setFin(button) {
+    const row = button.closest('tr');
+    const idFiche = row.querySelector('td:last-child button').getAttribute('onclick').match(/\d+/)[0];
+    const operateurInput = row.querySelector('.operateur-input');
+    const idOperateur = operateurInput ? operateurInput.getAttribute('data-current-value') : null;
+    let operationSelect = row.querySelector('select');
+    let idOperation;
+    if (operationSelect) {
+        idOperation = operationSelect.value;
+    } else {
+        // Cas opération unique : récupérer la valeur du champ caché
+        const hiddenOp = row.querySelector('.operation-id-hidden');
+        idOperation = hiddenOp ? hiddenOp.value : null;
+    }
+    const nbOpInput = row.querySelector('input[type="number"]');
+    const nbOp = nbOpInput ? parseInt(nbOpInput.value) : null;
+    const formeInput = row.querySelector('.forme-input');
+    const nomForme = formeInput ? formeInput.value : '';
+    if (!idOperateur) {
+        showToast("Veuillez sélectionner votre nom dans la liste des opérateurs avant de terminer la fiche.");
+        return;
+    }
+    if (!idOperation) {
+        showToast("Veuillez choisir l'opération réalisée avant de terminer la fiche.");
+        return;
+    }
+    if (!nbOp || nbOp <= 0) {
+        showToast("Veuillez indiquer la quantité produite (supérieure à zéro) avant de terminer la fiche.");
+        return;
+    }
+    fetch("/projet13/api/set_fin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            id_fiche: idFiche,
+            date: new Date().toISOString(),
+            id_personne: idOperateur,
+            id_operation: idOperation,
+            nb_op: nbOp,
+            remarque: nomForme
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast("Fin enregistrée avec succès");
+            if (data.total_tirages_avant !== undefined && data.total_tirages_apres !== undefined && data.total_tirages_avant !== null && data.total_tirages_apres !== null) {
+                showToast(`Tirages forme : ${data.total_tirages_avant} → ${data.total_tirages_apres}`);
+            }
+            const now = new Date();
+            updateRowEtatEtActions(row, 3, row.querySelector('td:nth-child(5)').textContent.trim(), null, now, now.getHours() + now.getMinutes()/60);
+            let fiche = allFiches.find(f => f.id_fiche == idFiche);
+            if (fiche) {
+                fiche.codindav = 3;
+                fiche.dte_fin = now.toISOString();
+                fiche.heur_fin = now.getHours() + now.getMinutes()/60;
+            }
+            updateCounters(allFiches);
+        } else {
+            showToast("Erreur lors de l'enregistrement de la fin");
+        }
+    })
+    .catch(error => {
+        console.error("Erreur:", error);
+        showToast("Erreur lors de l'enregistrement de la fin");
+    });
+}
+
+function formatDate(dateStr, heure) {
+    if (!dateStr) return '-';
+    
+    // Convertir la date en objet Date
+    const date = new Date(dateStr);
+    
+    // Formater la date en français
+    const options = { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    
+    // Si l'heure est fournie, l'ajouter à la date
+    if (heure !== undefined && heure !== null) {
+        const heures = Math.floor(heure);
+        const minutes = Math.round((heure - heures) * 60);
+        date.setHours(heures, minutes);
+    }
+    
+    return date.toLocaleString('fr-FR', options);
+}
+
+function getEtatFiche(fiche) {
+    const hasDteFin = fiche.dte_fin && fiche.dte_fin !== '0000-00-00';
+    const hasDteDeb = fiche.dte_deb && fiche.dte_deb !== '0000-00-00';
+
+    if (!hasDteDeb && !hasDteFin) {
+        return 'non-debute';
+    } else if (hasDteDeb && !hasDteFin) {
+        return 'en-cours';
+    } else if (hasDteFin) {
+        return 'termine';
+    }
+    return 'non-debute';
+}
+
+function formatTempsPrevu(temps) {
+    if (!temps) return '-';
+    return parseFloat(temps).toFixed(2);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const boutonFichesEnCours = document.querySelector('[data-action="afficher-tout"]');
+    if (boutonFichesEnCours) {
+        boutonFichesEnCours.addEventListener('click', function() {
+            this.classList.toggle('active');
+            chargerDonnees();
+        });
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const etatFilters = document.querySelectorAll('#etatFilters input[type="checkbox"]');
+    etatFilters.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            console.log('Changement de filtre d\'état:', this.value, this.checked);
+            updateEtatCount();
+            chargerDonnees();
+        });
+    });
+    updateEtatCount();
+});
+
+function updateEtatCount() {
+    const countElement = document.getElementById('etatCount');
+    if (countElement) {
+        const total = document.querySelectorAll('#etatFilters input[type="checkbox"]').length;
+        const checked = document.querySelectorAll('#etatFilters input:checked').length;
+        countElement.textContent = `${checked} sur ${total} sélectionnés`;
+    }
+}
+
+function showLoading(message = 'Chargement en cours...') {
+    const overlay = document.getElementById('loadingOverlay');
+    const messageElement = overlay.querySelector('p');
+    messageElement.textContent = message;
+    overlay.style.display = 'flex';
+    overlay.style.pointerEvents = 'auto';
+    document.body.style.overflow = 'hidden';
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'none';
+    overlay.style.pointerEvents = 'none';
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        showLoading('Chargement des services...');
+        
+        const response = await fetch('/projet13/api/services_et_postes');
+        const data = await response.json();
+        
+        if (data) {
+            servicesCache = data.services || [];
+            postesCache = data.postes || {};
+
+            genererCheckboxes("serviceFilters", servicesCache);
+            
+            cocherDecocher('serviceFilters', true);
+
+            const showTerminated = document.getElementById('showTerminated');
+            if (showTerminated) {
+                showTerminated.checked = false;
+            }
+            
+            // Charger les données après l'initialisation des filtres
+            await chargerDonnees();
+        }
+    } catch (error) {
+        console.error("Erreur lors du chargement des services:", error);
+        showToast("Erreur lors du chargement des services");
+    } finally {
+        hideLoading();
+    }
+});
+
+// Charger les données quand l'onglet Production est affiché
+document.addEventListener('DOMContentLoaded', function() {
+    const tabProduction = document.getElementById('tab-production');
+    if (tabProduction) {
+        tabProduction.addEventListener('shown.bs.tab', function() {
+            chargerDonnees();
+        });
+    }
+});
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function reinitialiserFiltres() {
+    document.getElementById('commandeFilter').value = '';
+    
+    document.querySelectorAll('#etatFilters input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    
+    document.querySelectorAll('#serviceFilters input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    
+    document.querySelectorAll('#posteFilters input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    
+    updateCount('serviceFilters');
+    updateCount('posteFilters');
+    updateCount('etatFilters');
+    
+    chargerDonnees();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const commandeFilter = document.getElementById('commandeFilter');
+    if (commandeFilter) {
+        commandeFilter.addEventListener('input', debounce(() => {
+            chargerDonnees();
+        }, 300));
+    }
+
+    const etatFilters = document.querySelectorAll('#etatFilters input[type="checkbox"]');
+    etatFilters.forEach(checkbox => {
+        checkbox.addEventListener('change', debounce(() => {
+            updateCount('etatFilters');
+            chargerDonnees();
+        }, 300));
+    });
+
+    const serviceFilters = document.querySelectorAll('#serviceFilters input[type="checkbox"]');
+    serviceFilters.forEach(checkbox => {
+        checkbox.addEventListener('change', debounce(() => {
+            updateCount('serviceFilters');
+            chargerDonnees();
+        }, 300));
+    });
+
+    const posteFilters = document.querySelectorAll('#posteFilters input[type="checkbox"]');
+    posteFilters.forEach(checkbox => {
+        checkbox.addEventListener('change', debounce(() => {
+            updateCount('posteFilters');
+            chargerDonnees();
+        }, 300));
+    });
+});
+
+function etatCodIndAv(codindav) {
+    switch (Number(codindav)) {
+        case 0: return 'Bloqué (opération précédente non terminée)';
+        case 1: return 'Prêt à commencer';
+        case 2: return 'En cours ou interrompue';
+        case 3: return 'Terminé';
+        case 4: return 'Terminé et facturé';
+        default: return 'Inconnu';
+    }
+}
+
+// Afficher le popup de chargement dès le début
+window.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+});
+
+// Masquer le popup de chargement à la fin du chargement initial
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }, 300); // petit délai pour l'effet visuel
+});
+
+async function chargerFormesEtAutocomplete() {
+    try {
+        const response = await fetch('/projet13/api/formes');
+        const data = await response.json();
+        formesListe = Array.isArray(data) ? data.map(f => f.NOM) : [];
+    } catch (e) {
+        formesListe = [];
+    }
+    initialiserAutocompleteFormes();
+}
+
+function initialiserAutocompleteFormes() {
+    // On ne fait rien si aucun input n'est présent
+    if (!$('.forme-input').length) return;
+    // On filtre la liste pour ne garder que des chaînes non vides
+    const sourceFormes = Array.isArray(formesListe) ? formesListe.filter(f => typeof f === 'string' && f.trim() !== '') : [];
+    $('.forme-input').each(function() {
+        // Détruire l'autocomplete existant avant de le réinitialiser (évite les bugs)
+        if ($(this).data('ui-autocomplete')) {
+            $(this).autocomplete('destroy');
+        }
+        $(this).autocomplete({
+            source: sourceFormes,
+            minLength: 0
+        }).focus(function() {
+            $(this).autocomplete('search', '');
+        });
+    });
+}
+
+function isDateFinNull(dte_fin) {
+    if (!dte_fin) return true;
+    const val = dte_fin.toLowerCase();
+    return (
+        val === '0000-00-00' ||
+        val === ''
+    );
+}
+
+// Ajout de la fonction setReprendre
+function setReprendre(button) {
+    const row = button.closest('tr');
+    const idFiche = row.querySelector('td:last-child button').getAttribute('onclick').match(/\d+/)[0];
+    const operateurInput = row.querySelector('.operateur-input');
+    const idOperateur = operateurInput ? operateurInput.getAttribute('data-current-value') : null;
+    if (!idOperateur) {
+        showToast("Veuillez sélectionner un opérateur avant de reprendre.");
+        return;
+    }
+    fetch("/projet13/api/reprendre", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            id_fiche: idFiche,
+            date: new Date().toISOString(),
+            id_personne: idOperateur
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast("Nouvelle session de traitement créée (reprise)");
+            chargerDonnees();
+        } else {
+            showToast(data.message || "Erreur lors de la reprise");
+        }
+    })
+    .catch(error => {
+        console.error("Erreur:", error);
+        showToast("Erreur lors de la reprise");
+    });
+}
+
+function showHistoriqueModal(idFiche) {
+    const modal = document.getElementById('historiqueModal');
+    const content = document.getElementById('historiqueModalContent');
+    content.innerHTML = 'Chargement...';
+    modal.style.display = 'block';
+    fetch(`/projet13/api/historique_sessions/${idFiche}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                content.innerHTML = '<div class="text-danger">Erreur lors du chargement de l\'historique</div>';
+                return;
+            }
+            if (!data.sessions.length) {
+                content.innerHTML = '<div>Aucune session trouvée pour cette fiche.</div>';
+                return;
+            }
+            let html = `<table class="table table-bordered table-sm"><thead><tr>
+                <th>#</th><th>Début</th><th>Fin</th><th>Opérateur</th><th>Opération</th><th>Nb Op.</th><th>Remarques</th>
+            </tr></thead><tbody>`;
+            data.sessions.forEach((s, i) => {
+                html += `<tr>
+                    <td>${i+1}</td>
+                    <td>${formatDate(s.dte_deb, s.heur_deb)}</td>
+                    <td>${s.dte_fin ? formatDate(s.dte_fin, s.heur_fin) : '-'}</td>
+                    <td>${s.operateur_nom || ''} ${s.operateur_prenom || ''} ${s.operateur_code ? '('+s.operateur_code+')' : ''}</td>
+                    <td>${s.operation_nom || ''}</td>
+                    <td>${s.nb_op || ''}</td>
+                    <td>${s.remarques || ''}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            content.innerHTML = html;
+        })
+        .catch(() => {
+            content.innerHTML = '<div class="text-danger">Erreur lors du chargement de l\'historique</div>';
+        });
+}
+
+function closeHistoriqueModal() {
+    document.getElementById('historiqueModal').style.display = 'none';
+}
+
+function ouvrirModalDupliquerFiche(idFiche) {
+    fetch(`/projet13/api/postes_du_service_fiche/${idFiche}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                showToast(data.message || "Erreur lors du chargement des postes");
+                return;
+            }
+            let options = '';
+            data.postes.forEach(poste => {
+                options += `<option value="${poste.id}">${poste.nom}</option>`;
+            });
+            const body = document.getElementById('modalDupliquerFicheBody');
+            body.innerHTML = `
+                <label for="selectPosteDuplication">Sélectionner le poste cible :</label>
+                <select id="selectPosteDuplication" class="form-select">
+                    ${options}
+                </select>
+            `;
+            const modal = new bootstrap.Modal(document.getElementById('modalDupliquerFiche'));
+            modal.show();
+            document.getElementById('btnConfirmerDuplication').onclick = function() {
+                const idPoste = document.getElementById('selectPosteDuplication').value;
+                if (!idPoste) {
+                    showToast('Veuillez sélectionner un poste cible.');
+                    return;
+                }
+                fetch('/projet13/api/dupliquer_fiche', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_fiche: idFiche, id_poste: idPoste })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Fiche dupliquée avec succès !');
+                        modal.hide();
+                        chargerDonnees();
+                    } else {
+                        showToast(data.message || 'Erreur lors de la duplication.');
+                    }
+                });
+            };
+        });
+}
+
+// Je supprime tout appel ou référence à chargerDashboard dans ce fichier. Seul chargerDashboardAvance doit être utilisé pour le dashboard avancé.
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('tab-dashboard').addEventListener('shown.bs.tab', chargerDashboardAvance);
+});
+
+// Chargement des services et postes pour les filtres
+async function chargerFiltresDashboard() {
+  const res = await fetch('/projet13/api/services_et_postes');
+  const data = await res.json();
+  const serviceSelect = document.getElementById('filterService');
+  const posteSelect = document.getElementById('filterPoste');
+  serviceSelect.innerHTML = '<option value="">Tous</option>';
+  posteSelect.innerHTML = '<option value="">Tous</option>';
+  data.services.forEach(s => {
+    serviceSelect.innerHTML += `<option value="${s.id}">${s.nom}</option>`;
+    s.postes.forEach(p => {
+      posteSelect.innerHTML += `<option value="${p.id}" data-service="${s.id}">${p.nom}</option>`;
+    });
+  });
+  // Filtrage dynamique des postes selon le service
+  serviceSelect.addEventListener('change', function() {
+    const val = this.value;
+    posteSelect.innerHTML = '<option value="">Tous</option>';
+    data.services.filter(s => !val || s.id == val).forEach(s => {
+      s.postes.forEach(p => {
+        posteSelect.innerHTML += `<option value="${p.id}" data-service="${s.id}">${p.nom}</option>`;
+      });
+    });
+  });
+}
+
+// Fonction principale de chargement du dashboard avancé
+async function chargerDashboardAvance() {
+  // Récupération des filtres
+  const service = document.getElementById('filterService').value;
+  const poste = document.getElementById('filterPoste').value;
+  const dateDebut = document.getElementById('filterDateDebut').value;
+  const dateFin = document.getElementById('filterDateFin').value;
+  const etat = document.getElementById('filterEtat').value;
+  const params = [];
+  if (service) params.push(`service=${service}`);
+  if (poste) params.push(`poste=${poste}`);
+  if (dateDebut) params.push(`date_debut=${dateDebut}`);
+  if (dateFin) params.push(`date_fin=${dateFin}`);
+  if (etat) params.push(`etat=${etat}`);
+  const url = '/projet13/api/dashboard_avance' + (params.length ? '?' + params.join('&') : '');
+  const res = await fetch(url);
+  const data = await res.json();
+  // KPI
+  document.getElementById('kpiEnCours').textContent = data.kpi.en_cours || 0;
+  document.getElementById('kpiNonDebutees').textContent = data.kpi.non_debutees || 0;
+  document.getElementById('kpiTerminees').textContent = data.kpi.terminees || 0;
+  document.getElementById('kpiBloquees').textContent = data.kpi.bloquees || 0;
+  // Graphique évolution
+  const ctxEvo = document.getElementById('chartEvolution').getContext('2d');
+  if(window.chartEvolution && typeof window.chartEvolution.destroy === 'function') window.chartEvolution.destroy();
+  window.chartEvolution = new Chart(ctxEvo, {
+    type: 'line',
+    data: {
+      labels: data.evolution.map(e => e.jour),
+      datasets: [{ label: 'Fiches terminées', data: data.evolution.map(e => e.nb), borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
+  });
+  // Graphique temps par poste
+  const ctxTemps = document.getElementById('chartTempsParPoste').getContext('2d');
+  if(window.chartTempsParPoste && typeof window.chartTempsParPoste.destroy === 'function') window.chartTempsParPoste.destroy();
+  window.chartTempsParPoste = new Chart(ctxTemps, {
+    type: 'bar',
+    data: {
+      labels: data.temps_par_poste.map(e => e.poste),
+      datasets: [{ label: 'Temps total (h)', data: data.temps_par_poste.map(e => e.temps_total), backgroundColor: '#17a2b8' }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+  // Graphique répartition par poste/service
+  const ctxRep = document.getElementById('chartRepartition').getContext('2d');
+  if(window.chartRepartition && typeof window.chartRepartition.destroy === 'function') window.chartRepartition.destroy();
+  window.chartRepartition = new Chart(ctxRep, {
+    type: 'bar',
+    data: {
+      labels: data.repartition.map(e => e.poste + ' (' + e.service + ')'),
+      datasets: [
+        { label: 'En cours', data: data.repartition.map(e => e.en_cours), backgroundColor: '#ffc107' },
+        { label: 'Terminées', data: data.repartition.map(e => e.terminees), backgroundColor: '#28a745' },
+        { label: 'Bloquées', data: data.repartition.map(e => e.bloquees), backgroundColor: '#dc3545' }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
+  });
+  // Graphique taux de retard/blocage par service
+  const ctxTaux = document.getElementById('chartTauxParService').getContext('2d');
+  if(window.chartTauxParService && typeof window.chartTauxParService.destroy === 'function') window.chartTauxParService.destroy();
+  window.chartTauxParService = new Chart(ctxTaux, {
+    type: 'bar',
+    data: {
+      labels: data.taux_par_service.map(e => e.service),
+      datasets: [
+        { label: 'Retards (%)', data: data.taux_par_service.map(e => e.total ? (100 * e.nb_retards / e.total).toFixed(1) : 0), backgroundColor: '#fd7e14' },
+        { label: 'Bloquées (%)', data: data.taux_par_service.map(e => e.total ? (100 * e.nb_bloquees / e.total).toFixed(1) : 0), backgroundColor: '#6c757d' }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, max: 100 } } }
+  });
+  // Fiches en retard (optionnel, tu peux lier à l'API classique si besoin)
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  if(document.getElementById('tab-dashboard')) {
+    chargerFiltresDashboard();
+    document.getElementById('tab-dashboard').addEventListener('shown.bs.tab', chargerDashboardAvance);
+  }
+});
+
+let anomaliesCache = [];
+async function chargerAnomalies() {
+    const serviceId = document.getElementById('filtreServiceAnomalie')?.value || '';
+    let url = '/projet13/api/anomalies';
+    if (serviceId) url += '?service=' + encodeURIComponent(serviceId);
+    const res = await fetch(url);
+    const data = await res.json();
+    anomaliesCache = data.anomalies || [];
+    afficherCompteursAnomalies(anomaliesCache);
+    appliquerFiltreCommandeAnomalie();
+}
+
+function afficherCompteursAnomalies(anomalies) {
+    const div = document.getElementById('compteursAnomalies');
+    if (!div) return;
+    const compteurs = {};
+    anomalies.forEach(a => {
+        compteurs[a.type] = (compteurs[a.type] || 0) + 1;
+    });
+    div.innerHTML = Object.entries(compteurs).map(([type, count]) =>
+        `<span class="badge bg-secondary me-2">${type} : ${count}</span>`
+    ).join(' ');
+}
+
+function appliquerFiltreCommandeAnomalie() {
+    const numero = document.getElementById('filtreCommandeAnomalie')?.value.trim().toLowerCase() || '';
+    const tbody = document.querySelector('#tableAnomalies tbody');
+    tbody.innerHTML = '';
+    anomaliesCache.filter(a => !numero || (a.numero_commande && a.numero_commande.toLowerCase().includes(numero))).forEach(a => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="checkbox" class="anomalieCheck" value="${a.id_traitement}"></td>
+            <td>${a.type}</td>
+            <td>${a.numero_commande || ''}</td>
+            <td>${a.ref_fiche || ''}</td>
+            <td>${a.service || ''}</td>
+            <td>${a.poste || ''}</td>
+            <td>${a.operateur || ''}</td>
+            <td>${a.details || ''}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="corrigerAnomalie(${a.id_traitement})">Corriger</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    // Réinitialise la case à cocher "tout sélectionner"
+    const checkAll = document.getElementById('anomalieCheckAll');
+    if (checkAll) checkAll.checked = false;
+}
+
+function corrigerSelectionAnomalies() {
+    const checkboxes = document.querySelectorAll('.anomalieCheck:checked');
+    if (!checkboxes.length) {
+        showToast('Aucune anomalie sélectionnée.');
+        return;
+    }
+    const ids = Array.from(checkboxes).map(cb => cb.value);
+    const aCorriger = anomaliesCache.filter(a => ids.includes(a.id_traitement.toString()));
+    if (!aCorriger.length) {
+        showToast('Aucune anomalie sélectionnée.');
+        return;
+    }
+    // Compter les types
+    const nbSessions = aCorriger.filter(a => a.type === 'Session ouverte sans date de fin').length;
+    const nbDurees = aCorriger.filter(a => a.type === 'Durée incohérente').length;
+    const nbQuantites = aCorriger.filter(a => a.type === 'Quantité produite nulle ou négative').length;
+    const nbOpOp = aCorriger.filter(a => a.type === 'Fiche sans opérateur ou opération').length;
+    if (!nbSessions && !nbDurees && !nbQuantites && !nbOpOp) {
+        showToast('Aucune anomalie sélectionnée pouvant être corrigée automatiquement.');
+        return;
+    }
+    if (!confirm(`Corriger${nbSessions ? ' ' + nbSessions + ' session(s) ouverte(s)' : ''}${nbSessions && (nbDurees || nbQuantites || nbOpOp) ? ' et' : ''}${nbDurees ? ' ' + nbDurees + ' durée(s) incohérente(s)' : ''}${(nbSessions || nbDurees) && (nbQuantites || nbOpOp) ? ' et' : ''}${nbQuantites ? ' ' + nbQuantites + ' quantité(s) nulle(s) ou négative(s)' : ''}${(nbSessions || nbDurees || nbQuantites) && nbOpOp ? ' et' : ''}${nbOpOp ? ' ' + nbOpOp + ' fiche(s) sans opérateur/opération' : ''} ?`)) return;
+    const promesses = aCorriger.map(a => {
+        if (a.type === 'Session ouverte sans date de fin') {
+            return fetch('/projet13/api/cloturer_session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_traitement: a.id_traitement })
+            });
+        } else if (a.type === 'Durée incohérente') {
+            return fetch('/projet13/api/corriger_duree_incoherente', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_traitement: a.id_traitement })
+            });
+        } else if (a.type === 'Quantité produite nulle ou négative') {
+            return fetch('/projet13/api/corriger_quantite_1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_traitement: a.id_traitement })
+            });
+        } else if (a.type === 'Fiche sans opérateur ou opération') {
+            return fetch('/projet13/api/corriger_operateur_defaut', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_traitement: a.id_traitement, id_poste: a.poste_id })
+            });
+        } else {
+            return Promise.resolve();
+        }
+    });
+    Promise.all(promesses).then(() => {
+        showToast('Corrections automatiques effectuées');
+        chargerAnomalies();
+    });
+}
+
+document.getElementById('anomalieCheckAll').addEventListener('change', function() {
+    document.querySelectorAll('.anomalieCheck').forEach(cb => cb.checked = this.checked);
+});
+
+// Chargement des services pour le filtre
+async function chargerServicesAnomalie() {
+    const select = document.getElementById('filtreServiceAnomalie');
+    if (!select) return;
+    const res = await fetch('/projet13/api/services_et_postes');
+    const data = await res.json();
+    select.innerHTML = '<option value="">Tous</option>';
+    (data.services || []).forEach(s => {
+        select.innerHTML += `<option value="${s.id}">${s.nom}</option>`;
+    });
+}
+document.addEventListener('DOMContentLoaded', function() {
+    if(document.getElementById('filtreServiceAnomalie')) {
+        chargerServicesAnomalie();
+        document.getElementById('filtreServiceAnomalie').addEventListener('change', chargerAnomalies);
+    }
+});
+
+function corrigerAnomalie(idTraitement) {
+    // On va chercher la ligne correspondante pour connaître le type d'anomalie
+    const row = Array.from(document.querySelectorAll('#tableAnomalies tbody tr'))
+        .find(tr => tr.querySelector('button') && tr.querySelector('button').onclick.toString().includes(idTraitement));
+    const type = row ? row.children[1].textContent : row ? row.children[0].textContent : '';
+
+    if (type === 'Session ouverte sans date de fin') {
+        if (!confirm('Clôturer cette session maintenant ?')) return;
+        fetch('/projet13/api/cloturer_session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_traitement: idTraitement })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Session clôturée avec succès');
+                chargerAnomalies();
+            } else {
+                showToast(data.message || 'Erreur lors de la clôture');
+            }
+        });
+    } else if (type === 'Durée incohérente') {
+        // Pré-remplir la modale avec les valeurs existantes si possible
+        const anomalie = anomaliesCache.find(a => a.id_traitement == idTraitement);
+        document.getElementById('correctionDureeIdTraitement').value = idTraitement;
+        // On tente de pré-remplir les champs si on a les infos
+        let debut = '', fin = '';
+        if (anomalie) {
+            if (anomalie.dte_deb) {
+                debut = formatDatetimeLocal(anomalie.dte_deb);
+            }
+            if (anomalie.dte_fin) {
+                fin = formatDatetimeLocal(anomalie.dte_fin);
+            }
+        }
+        document.getElementById('correctionDureeDebut').value = debut;
+        document.getElementById('correctionDureeFin').value = fin;
+        // Afficher la modale
+        const modal = new bootstrap.Modal(document.getElementById('modalCorrectionDuree'));
+        modal.show();
+        // Handler du bouton Valider
+        document.getElementById('btnValiderCorrectionDuree').onclick = function() {
+            const idTraitement = document.getElementById('correctionDureeIdTraitement').value;
+            const debutVal = document.getElementById('correctionDureeDebut').value;
+            const finVal = document.getElementById('correctionDureeFin').value;
+            if (!debutVal && !finVal) {
+                showToast('Veuillez saisir au moins une date.');
+                return;
+            }
+            const body = { id_traitement: idTraitement };
+            if (debutVal) {
+                const [date, time] = debutVal.split('T');
+                const [h, m] = time.split(':');
+                body.nouvelle_date_deb = date + ' ' + h + ':' + m + ':00';
+                body.nouvelle_heure_deb = Number(h) + Number(m)/60;
+            }
+            if (finVal) {
+                const [date, time] = finVal.split('T');
+                const [h, m] = time.split(':');
+                body.nouvelle_date_fin = date + ' ' + h + ':' + m + ':00';
+                body.nouvelle_heure_fin = Number(h) + Number(m)/60;
+            }
+            fetch('/projet13/api/corriger_duree', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Date(s) corrigée(s) avec succès');
+                    fermerModalCorrectionDuree();
+                    chargerAnomalies();
+                } else {
+                    showToast(data.message || 'Erreur lors de la correction');
+                }
+            });
+        };
+    } else if (type === 'Quantité produite nulle ou négative') {
+        const val = prompt('Veuillez saisir la quantité réelle produite :');
+        if (!val || isNaN(val) || Number(val) <= 0) {
+            showToast('Quantité invalide.');
+            return;
+        }
+        fetch('/projet13/api/corriger_quantite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_traitement: idTraitement, nb_op: Number(val) })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Quantité mise à jour.');
+                chargerAnomalies();
+            } else {
+                showToast(data.message || 'Erreur lors de la correction');
+            }
+        });
+    } else if (type === 'Fiche sans opérateur ou opération') {
+        const anomalie = anomaliesCache.find(a => a.id_traitement == idTraitement);
+        if (!anomalie) return;
+        if (!confirm("Assigner automatiquement l'opérateur 'CHAABANE FRIDA' et la première opération disponible ?")) return;
+        fetch('/projet13/api/corriger_operateur_defaut', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_traitement: idTraitement, id_poste: anomalie.poste_id })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Opérateur et opération assignés par défaut.');
+                chargerAnomalies();
+            } else {
+                showToast(data.message || 'Erreur lors de la correction');
+            }
+        });
+    } else {
+        showToast('Correction automatique non disponible pour ce type d\'anomalie.');
+    }
+}
+
+function fermerModalCorrectionOpOp() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCorrectionOpOp'));
+    if (modal) modal.hide();
+}
+
+function reinitialiserFiltresAnomalies() {
+    document.getElementById('filtreServiceAnomalie').value = '';
+    document.getElementById('filtreCommandeAnomalie').value = '';
+    chargerAnomalies();
+}
+
+function fermerModalCorrectionDuree() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCorrectionDuree'));
+    if (modal) modal.hide();
+}
+
+function formatDatetimeLocal(dateStr) {
+    // Prend une date SQL (YYYY-MM-DD HH:MM:SS) et retourne YYYY-MM-DDTHH:MM pour input type datetime-local
+    if (!dateStr) return '';
+    const d = new Date(dateStr.replace(' ', 'T'));
+    const pad = n => n.toString().padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+async function chargerMachinesEnProduction() {
+  const content = document.getElementById('machinesEnProductionContent');
+  content.innerHTML = 'Chargement...';
+  try {
+    const res = await fetch('/projet13/api/machines_en_production');
+    const data = await res.json();
+    if (!data.machines || !data.machines.length) {
+      content.innerHTML = '<div class="text-center">Aucune machine en production actuellement.</div>';
+      return;
+    }
+    let html = `<table class="table table-bordered table-striped"><thead><tr>
+      <th>Machine</th><th>Service</th><th>Client</th><th>Commande</th><th>Fiche</th><th>Date/Heure début</th><th>Opérateur</th>
+    </tr></thead><tbody>`;
+    data.machines.forEach(m => {
+      html += `<tr><td>${m.poste}</td><td>${m.service}</td><td>${m.client || ''}</td><td>${m.numero_commande}</td><td>${m.RefFiche}</td><td>${m.DteDeb} ${m.HeurDeb}</td><td>${m.operateur_nom || ''} ${m.operateur_prenom || ''}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="text-danger">Erreur lors du chargement des machines.</div>';
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const tabMachines = document.getElementById('tab-machines');
+  if (tabMachines) {
+    tabMachines.addEventListener('shown.bs.tab', chargerMachinesEnProduction);
+  }
+});
+</script>
+<!-- Modale correction opérateur/opération -->
+<div class="modal" tabindex="-1" id="modalCorrectionOpOp">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Assigner opérateur et opération</h5>
+        <button type="button" class="btn-close" onclick="fermerModalCorrectionOpOp()"></button>
+      </div>
+      <div class="modal-body" id="modalCorrectionOpOpBody">
+        <!-- Contenu dynamique -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fermerModalCorrectionOpOp()">Annuler</button>
+        <button type="button" class="btn btn-primary" id="btnValiderCorrectionOpOp">Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modale correction durée incohérente -->
+<div class="modal" tabindex="-1" id="modalCorrectionDuree">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Correction de la durée incohérente</h5>
+        <button type="button" class="btn-close" onclick="fermerModalCorrectionDuree()"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formCorrectionDuree">
+          <input type="hidden" id="correctionDureeIdTraitement">
+          <div class="mb-3">
+            <label for="correctionDureeDebut" class="form-label">Nouvelle date et heure de début</label>
+            <input type="datetime-local" class="form-control" id="correctionDureeDebut">
+          </div>
+          <div class="mb-3">
+            <label for="correctionDureeFin" class="form-label">Nouvelle date et heure de fin</label>
+            <input type="datetime-local" class="form-control" id="correctionDureeFin">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fermerModalCorrectionDuree()">Annuler</button>
+        <button type="button" class="btn btn-primary" id="btnValiderCorrectionDuree">Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tab-pane fade" id="tabCorrigerDossier" role="tabpanel">
+  <div class="container mt-4">
+    <h4>Correction automatique d'un dossier</h4>
+    <form id="formCorrigerDossier" method="post" action="/projet13/corriger_dossier">
+      <div class="mb-3">
+        <label for="numeroDossier" class="form-label">Numéro de dossier (partiel ou complet)</label>
+        <input type="text" class="form-control" id="numeroDossier" name="numero" placeholder="Ex: 2025" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Chercher et corriger</button>
+    </form>
+    <div id="resultatsCorrectionDossier"></div>
+  </div>
+</div>
+<div class="tab-pane fade" id="tabNullDossier" role="tabpanel">
+  <div class="container mt-4">
+    <h4>Recherche de valeurs NULL dans un dossier</h4>
+    <iframe src="/projet13/nulls_dossier" style="width:100%;min-height:500px;border:none;"></iframe>
+  </div>
+</div>
+<div class="tab-pane fade" id="tabSupprimerDossier" role="tabpanel">
+  <div class="container mt-4">
+    <h4>Suppression complète d'un dossier</h4>
+    <iframe src="/projet13/supprimer_dossier" style="width:100%;min-height:400px;border:none;"></iframe>
+  </div>
+</div>
+{% endblock %}
+

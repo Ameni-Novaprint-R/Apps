@@ -612,7 +612,8 @@ def get_traitement_by_id(traitement_id):
                     TpsReel,
                     PostesReel,
                     DateCreation,
-                    DateModification
+                    DateModification,
+                    TempsEcouleAffichageSec
                 FROM WEB_TRAITEMENTS
                 WHERE ID = ?
             """, (traitement_id,))
@@ -647,7 +648,8 @@ def get_traitement_by_id(traitement_id):
                             TpsReel,
                             PostesReel,
                             DateCreation,
-                            DateModification
+                            DateModification,
+                            TempsEcouleAffichageSec
                         FROM WEB_TRAITEMENTS
                         WHERE ID = ?
                     """, (traitement_id,))
@@ -727,7 +729,8 @@ def get_traitement_by_id(traitement_id):
             "ecart_temps": ecart,
             "postes_reel": row.PostesReel,
             "date_creation": date_creation_str,
-            "date_modification": date_modification_str
+            "date_modification": date_modification_str,
+            "temps_ecoule_affichage_sec": getattr(row, 'TempsEcouleAffichageSec', None)
         }
 
 
@@ -1177,7 +1180,7 @@ def update_traitement(traitement_id, data):
             print(f"[DEBUG update_traitement] Mise à jour traitement {traitement_id}")
             print(f"[DEBUG update_traitement] Données: dte_deb={dte_deb}, dte_fin={dte_fin}, nb_op={nb_op}, pdt_c={pdt_c}, pdt_nnc={pdt_nnc}, pdt_anc={pdt_anc}")
             
-            cursor.execute("""
+            sql_update = """
                 UPDATE WEB_TRAITEMENTS
                 SET 
                     DteDeb = ?,
@@ -1191,7 +1194,8 @@ def update_traitement(traitement_id, data):
                     TpsReel = ?,
                     DateModification = GETDATE()
                 WHERE ID = ?
-            """, (
+            """
+            params = (
                 dte_deb,
                 dte_fin,
                 nb_op,
@@ -1202,7 +1206,21 @@ def update_traitement(traitement_id, data):
                 data.get('postes_reel'),
                 tps_reel,
                 traitement_id
-            ))
+            )
+            try:
+                if dte_fin is not None:
+                    cursor.execute("""
+                        UPDATE WEB_TRAITEMENTS
+                        SET DteDeb = ?, DteFin = ?, NbOp = ?, PdtC = ?, PdtNNC = ?, PdtANC = ?,
+                            NbPers = ?, PostesReel = ?, TpsReel = ?, TempsEcouleAffichageSec = NULL,
+                            DateModification = GETDATE()
+                        WHERE ID = ?
+                    """, (dte_deb, dte_fin, nb_op, pdt_c, pdt_nnc, pdt_anc, nb_pers,
+                          data.get('postes_reel'), tps_reel, traitement_id))
+                else:
+                    cursor.execute(sql_update, params)
+            except Exception:
+                cursor.execute(sql_update, params)
             
             rows_affected = cursor.rowcount
             print(f"[DEBUG update_traitement] UPDATE exécuté, lignes affectées: {rows_affected}")
@@ -1242,6 +1260,28 @@ def update_traitement(traitement_id, data):
         import traceback
         traceback.print_exc()
         raise Exception(f"Erreur lors de la mise à jour du traitement: {error_msg}")
+
+
+def update_chrono_affichage(traitement_id, temps_ecoule_sec):
+    """
+    Met à jour le temps affiché du chronomètre (quand l'utilisateur a mis en pause puis fermé).
+    Utilisé pour réafficher le même temps à la réouverture (Reprise/Modification).
+    Ne met à jour que si la colonne TempsEcouleAffichageSec existe et si le traitement est en cours.
+    """
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                UPDATE WEB_TRAITEMENTS
+                SET TempsEcouleAffichageSec = ?, DateModification = GETDATE()
+                WHERE ID = ? AND DteFin IS NULL
+            """, (max(0, int(temps_ecoule_sec)), traitement_id))
+            cursor.connection.commit()
+            return True
+    except Exception as e:
+        if 'TempsEcouleAffichageSec' in str(e) or 'invalid column' in str(e).lower():
+            return True
+        print(f"Erreur update_chrono_affichage: {e}")
+        return False
 
 
 def delete_traitement(traitement_id):

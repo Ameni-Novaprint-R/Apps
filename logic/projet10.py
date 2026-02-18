@@ -14,16 +14,94 @@ from db import (
     get_comparaison_periodes,
     get_comparaison_machines,
     get_machines_impression,
-    get_traitement_data_for_controle
+    get_machines_decoupe,
+    get_traitement_data_for_controle,
+    get_db_cursor
 )
+from logic.auth import get_user_sections, is_super_user, has_action_access
 
 # Déclaration du blueprint
 bp = Blueprint("projet10", __name__, url_prefix="/projet10")
 
 @bp.route("/")
 def index():
-    """Page principale du contrôle qualité"""
-    return render_template("projet10.html")
+    """Page principale du Projet 10 - affiche uniquement les sections autorisées"""
+    try:
+        # Récupérer les sections autorisées pour le Projet 10 (NumProj = 10)
+        authorized_sections = get_user_sections(10)
+        
+        # Créer un dictionnaire pour faciliter la vérification dans le template
+        sections_dict = {s['id']: s['nom'] for s in authorized_sections}
+        
+        # Créer un set des IDs des sections autorisées pour vérification rapide
+        authorized_section_ids = {s['id'] for s in authorized_sections}
+        
+        # Récupérer tous les IDs des sections du Projet 10 pour faire le mapping nom -> ID
+        all_sections_map = {}  # {nom_lower: id}
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT WS.ID, WS.Nom
+                    FROM WEB_SECTIONS WS
+                    INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                    WHERE WP.NumProj = 10 OR WP.ID = 10
+                """)
+                for row in cursor.fetchall():
+                    all_sections_map[row.Nom.lower()] = row.ID
+        except Exception as e:
+            print(f"Erreur lors de la récupération des IDs de sections: {e}")
+        
+        # Déterminer quelles sections afficher basé sur les sections autorisées
+        show_liste_controles = False
+        show_nouveau_controle = False
+        show_statistiques = False
+        
+        if is_super_user():
+            # Super-utilisateur : toutes les sections
+            show_liste_controles = True
+            show_nouveau_controle = True
+            show_statistiques = True
+        else:
+            # Vérifier chaque section autorisée par son nom pour déterminer quelle carte afficher
+            for section in authorized_sections:
+                section_nom_lower = section['nom'].lower()
+                section_id = section['id']
+                
+                # Section "Liste des contrôles" - vérifier par nom ET par ID si disponible
+                if (section_id in authorized_section_ids and 
+                    (('liste' in section_nom_lower and 'contr' in section_nom_lower) or
+                     section_id == all_sections_map.get('liste des contrôles', -1))):
+                    show_liste_controles = True
+                
+                # Section "Nouveau contrôle"
+                if (section_id in authorized_section_ids and 
+                    (('nouveau' in section_nom_lower and 'contr' in section_nom_lower) or
+                     section_id == all_sections_map.get('nouveau contrôle', -1))):
+                    show_nouveau_controle = True
+                
+                # Section "Statistiques"
+                if (section_id in authorized_section_ids and 
+                    (('statistiques' in section_nom_lower or 'stats' in section_nom_lower) or
+                     section_id == all_sections_map.get('statistiques', -1))):
+                    show_statistiques = True
+        
+        return render_template('projet10.html',
+                             authorized_sections=sections_dict,
+                             show_liste_controles=show_liste_controles,
+                             show_nouveau_controle=show_nouveau_controle,
+                             show_statistiques=show_statistiques,
+                             has_action_access=has_action_access)
+    except Exception as e:
+        print(f"Erreur dans projet10.index: {e}")
+        import traceback
+        traceback.print_exc()
+        # En cas d'erreur, afficher toutes les sections pour éviter de casser l'interface
+        return render_template('projet10.html',
+                             authorized_sections={},
+                             show_liste_controles=True,
+                             show_nouveau_controle=True,
+                             show_statistiques=True,
+                             has_action_access=has_action_access)
 
 # ---------------------------
 # PAGE STATS SEPAREE
@@ -183,9 +261,20 @@ def api_comparaison_machines():
 
 @bp.route("/api/machines-disponibles")
 def api_machines_disponibles():
-    """API pour récupérer la liste des machines d'impression depuis GP_POSTES (centre de coût 6)"""
+    """API pour récupérer la liste des machines d'impression (GP_SERVICES.ID = 1)"""
     try:
         machines = get_machines_impression()
+        # Retourner seulement les noms pour la compatibilité avec le frontend
+        noms_machines = [m["nom"] for m in machines]
+        return jsonify(noms_machines)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@bp.route("/api/machines-decoupe-disponibles")
+def api_machines_decoupe_disponibles():
+    """API pour récupérer la liste des machines de découpe (GP_SERVICES.ID = 5)"""
+    try:
+        machines = get_machines_decoupe()
         # Retourner seulement les noms pour la compatibilité avec le frontend
         noms_machines = [m["nom"] for m in machines]
         return jsonify(noms_machines)

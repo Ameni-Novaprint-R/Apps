@@ -6,11 +6,20 @@
 <h1 class="fade-in">Projet 21 – Mise à jour Base de Données</h1>
 <p class="subtitle">Synchronisation sécurisée Novaprint → novaprint_restored</p>
 
-<div class="info-boxes" style="display: flex; gap: 20px; margin: 20px 0;">
+<div class="info-boxes" style="display: flex; gap: 20px; margin: 20px 0; align-items: stretch;">
     <div class="info-box" style="flex: 1; background: #f8f9fa; border-left: 4px solid #2a5298; padding: 15px; border-radius: 4px;">
         <h3 style="color: #1e3c72; margin-bottom: 8px;">Source (Lecture seule)</h3>
         <p>Serveur: SageSRV\Graphisoft</p>
         <p>Base: Novaprint</p>
+    </div>
+    
+    <div style="flex: 1; background: #f8f9fa; border-left: 4px solid #17a2b8; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; justify-content: center;">
+        <h3 style="color: #1e3c72; margin-bottom: 8px; margin-top: 0;">⏰ Synchronisation Automatique</h3>
+        <p style="margin: 5px 0;">Planifiée chaque jour à 05:00 AM</p>
+        <label style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+            <input type="checkbox" id="autoSyncToggle" onchange="toggleAutoSync()" style="width: 20px; height: 20px; cursor: pointer;">
+            <span id="autoSyncStatus" style="font-weight: bold;">Chargement...</span>
+        </label>
     </div>
     
     <div class="info-box" style="flex: 1; background: #f8f9fa; border-left: 4px solid #28a745; padding: 15px; border-radius: 4px;">
@@ -27,10 +36,14 @@
     <button id="verifyBtn" onclick="verifySync()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #007bff, #0056b3); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
         🔍 Vérifier Synchronisation
     </button>
+    <button id="autoSyncVerifyBtn" onclick="showAutoSyncVerify()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #17a2b8, #138496); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+        ⏰ Vérifier Synchronisation Automatique
+    </button>
     <button id="analyseSchemaBtn" onclick="analyseSchemaPapiers()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #6f42c1, #5a32a3); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
         📊 Analyser Schéma PAPIERS
     </button>
 </div>
+
 
 <div id="progressContainer" style="display: none; margin-top: 20px;">
     <div style="background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
@@ -68,7 +81,7 @@
 </div>
 
 <div id="verifyContainer" style="display: none; margin-top: 20px; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa;">
-    <h3 style="margin-top: 0;">Résultats de la vérification</h3>
+    <h3 style="margin-top: 0;">🔍 Résultats de la vérification manuelle</h3>
     <pre id="verifyOutput" style="font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; max-height: 500px; overflow-y: auto; background: white; padding: 15px; border-radius: 4px;"></pre>
 
     <div id="missingRowsSection" style="display:none; margin-top: 15px;">
@@ -93,6 +106,151 @@
             <table id="missingRowsTable" class="novaprint-table"></table>
         </div>
     </div>
+
+    <div id="extraRowsSection" style="display:none; margin-top: 20px;">
+        <h3 style="margin-top: 0;">Lignes manquantes dans la source (détails)</h3>
+        <p style="margin-top: -8px; color:#555; font-size: 12px;">
+            Ces lignes existent dans la <b>CIBLE</b> mais pas dans la <b>SOURCE</b> (données locales / tables web / ajouts).
+        </p>
+        <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+            <label style="font-weight: bold;">Table :</label>
+            <select id="extraTableSelect" style="min-width: 260px;"></select>
+            <label style="font-weight: bold;">Lignes / page :</label>
+            <select id="extraLimit" style="width: 110px;">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+            <button class="btn-action" onclick="loadExtraRows(0)">Charger</button>
+            <button class="btn-action" onclick="prevExtraPage()">◀ Précédent</button>
+            <button class="btn-action" onclick="nextExtraPage()">Suivant ▶</button>
+            <span id="extraPagingInfo" style="color:#555; font-size: 12px;"></span>
+        </div>
+        <div id="extraRowsError" style="display:none; color:#b00020; font-weight: bold; margin-bottom: 10px;"></div>
+        <div class="table-wrapper">
+            <table id="extraRowsTable" class="novaprint-table"></table>
+        </div>
+    </div>
+
+    <div id="duplicatePksSection" style="display:none; margin-top: 20px;">
+        <h3 style="margin-top: 0; color: #b00020;">⚠️ Doublons de clé primaire (CRITIQUE)</h3>
+        <p style="margin-top: -8px; color:#555; font-size: 12px;">
+            Ces tables ont des <b>doublons de clé primaire</b> dans la CIBLE. C'est un problème critique car une PK doit être unique.
+        </p>
+        <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+            <label style="font-weight: bold;">Table :</label>
+            <select id="duplicateTableSelect" style="min-width: 260px;"></select>
+            <label style="font-weight: bold;">PK dupliquées / page :</label>
+            <select id="duplicateLimit" style="width: 110px;">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            <button class="btn-action" onclick="loadDuplicatePks(0)">Charger</button>
+            <button class="btn-action" onclick="prevDuplicatePage()">◀ Précédent</button>
+            <button class="btn-action" onclick="nextDuplicatePage()">Suivant ▶</button>
+            <span id="duplicatePagingInfo" style="color:#555; font-size: 12px;"></span>
+        </div>
+        <div id="duplicatePksError" style="display:none; color:#b00020; font-weight: bold; margin-bottom: 10px;"></div>
+        <div class="table-wrapper">
+            <table id="duplicatePksTable" class="novaprint-table"></table>
+        </div>
+    </div>
+</div>
+
+<div id="autoSyncVerifyContainer" style="display: none; margin-top: 20px; border: 1px solid #17a2b8; border-radius: 8px; padding: 15px; background: #f8f9fa;">
+    <h3 style="margin-top: 0; color: #17a2b8;">⏰ Vérification Synchronisation Automatique</h3>
+    <p style="margin-top: -8px; color:#555; font-size: 12px;">
+        Dernier résultat de la synchronisation automatique (exécutée à 05:00 AM)
+    </p>
+    <div id="autoSyncVerifyLoading" style="text-align: center; padding: 20px;">
+        <p>Chargement du dernier résultat...</p>
+    </div>
+    <div id="autoSyncVerifyContent" style="display: none;">
+            <div id="autoSyncVerifyTimestamp" style="margin-bottom: 10px; color: #666; font-size: 12px;"></div>
+            <pre id="autoSyncVerifyOutput" style="font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; max-height: 500px; overflow-y: auto; background: white; padding: 15px; border-radius: 4px;"></pre>
+
+            <div id="autoSyncMissingRowsSection" style="display:none; margin-top: 15px;">
+                <h3 style="margin-top: 0;">Lignes manquantes (détails)</h3>
+                <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+                    <label style="font-weight: bold;">Table :</label>
+                    <select id="autoSyncMissingTableSelect" style="min-width: 260px;"></select>
+                    <label style="font-weight: bold;">Lignes / page :</label>
+                    <select id="autoSyncMissingLimit" style="width: 110px;">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                    <button class="btn-action" onclick="loadAutoSyncMissingRows(0)">Charger</button>
+                    <button class="btn-action" onclick="prevAutoSyncMissingPage()">◀ Précédent</button>
+                    <button class="btn-action" onclick="nextAutoSyncMissingPage()">Suivant ▶</button>
+                    <span id="autoSyncMissingPagingInfo" style="color:#555; font-size: 12px;"></span>
+                </div>
+                <div id="autoSyncMissingRowsError" style="display:none; color:#b00020; font-weight: bold; margin-bottom: 10px;"></div>
+                <div class="table-wrapper">
+                    <table id="autoSyncMissingRowsTable" class="novaprint-table"></table>
+                </div>
+            </div>
+
+            <div id="autoSyncExtraRowsSection" style="display:none; margin-top: 20px;">
+                <h3 style="margin-top: 0;">Lignes manquantes dans la source (détails)</h3>
+                <p style="margin-top: -8px; color:#555; font-size: 12px;">
+                    Ces lignes existent dans la <b>CIBLE</b> mais pas dans la <b>SOURCE</b> (données locales / tables web / ajouts).
+                </p>
+                <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+                    <label style="font-weight: bold;">Table :</label>
+                    <select id="autoSyncExtraTableSelect" style="min-width: 260px;"></select>
+                    <label style="font-weight: bold;">Lignes / page :</label>
+                    <select id="autoSyncExtraLimit" style="width: 110px;">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                    <button class="btn-action" onclick="loadAutoSyncExtraRows(0)">Charger</button>
+                    <button class="btn-action" onclick="prevAutoSyncExtraPage()">◀ Précédent</button>
+                    <button class="btn-action" onclick="nextAutoSyncExtraPage()">Suivant ▶</button>
+                    <span id="autoSyncExtraPagingInfo" style="color:#555; font-size: 12px;"></span>
+                </div>
+                <div id="autoSyncExtraRowsError" style="display:none; color:#b00020; font-weight: bold; margin-bottom: 10px;"></div>
+                <div class="table-wrapper">
+                    <table id="autoSyncExtraRowsTable" class="novaprint-table"></table>
+                </div>
+            </div>
+
+            <div id="autoSyncDuplicatePksSection" style="display:none; margin-top: 20px;">
+                <h3 style="margin-top: 0; color: #b00020;">⚠️ Doublons de clé primaire (CRITIQUE)</h3>
+                <p style="margin-top: -8px; color:#555; font-size: 12px;">
+                    Ces tables ont des <b>doublons de clé primaire</b> dans la CIBLE. C'est un problème critique car une PK doit être unique.
+                </p>
+                <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+                    <label style="font-weight: bold;">Table :</label>
+                    <select id="autoSyncDuplicateTableSelect" style="min-width: 260px;"></select>
+                    <label style="font-weight: bold;">PK dupliquées / page :</label>
+                    <select id="autoSyncDuplicateLimit" style="width: 110px;">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <button class="btn-action" onclick="loadAutoSyncDuplicatePks(0)">Charger</button>
+                    <button class="btn-action" onclick="prevAutoSyncDuplicatePage()">◀ Précédent</button>
+                    <button class="btn-action" onclick="nextAutoSyncDuplicatePage()">Suivant ▶</button>
+                    <span id="autoSyncDuplicatePagingInfo" style="color:#555; font-size: 12px;"></span>
+                </div>
+                <div id="autoSyncDuplicatePksError" style="display:none; color:#b00020; font-weight: bold; margin-bottom: 10px;"></div>
+                <div class="table-wrapper">
+                    <table id="autoSyncDuplicatePksTable" class="novaprint-table"></table>
+                </div>
+            </div>
+    </div>
+    <div id="autoSyncVerifyNoResult" style="display: none; text-align: center; padding: 40px; color: #666;">
+        <!-- Le contenu sera rempli dynamiquement par JavaScript -->
+    </div>
+</div>
 
     <div id="compareRowsSection" style="display:none; margin-top: 20px;">
         <h3 style="margin-top: 0;">Comparaison SOURCE vs CIBLE (ligne par ligne)</h3>
@@ -126,7 +284,14 @@
 let polling = null;
 let verifyDetails = null;
 let missingOffset = 0;
+let extraOffset = 0;
+let duplicateOffset = 0;
 let compareOffset = 0;
+
+let autoSyncVerifyDetails = null;
+let autoSyncMissingOffset = 0;
+let autoSyncExtraOffset = 0;
+let autoSyncDuplicateOffset = 0;
 
 function startSync() {
     document.getElementById('syncBtn').disabled = true;
@@ -166,7 +331,12 @@ function checkStatus() {
 function verifySync() {
     document.getElementById('verifyBtn').disabled = true;
     document.getElementById('verifyBtn').style.background = '#6c757d';
+    
+    // Afficher uniquement la section de vérification manuelle
     document.getElementById('verifyContainer').style.display = 'block';
+    // Masquer la section de synchronisation automatique
+    document.getElementById('autoSyncVerifyContainer').style.display = 'none';
+    
     document.getElementById('verifyOutput').textContent = 'Vérification en cours...';
     
     fetch('/projet21/verify', { method: 'POST' })
@@ -176,9 +346,13 @@ function verifySync() {
                 document.getElementById('verifyOutput').textContent = data.output;
                 verifyDetails = data.details || null;
                 setupMissingRowsUI(verifyDetails);
+                setupExtraRowsUI(verifyDetails);
+                setupDuplicatePksUI(verifyDetails);
             } else {
                 document.getElementById('verifyOutput').textContent = 'Erreur: ' + data.error;
                 setupMissingRowsUI(null);
+                setupExtraRowsUI(null);
+                setupDuplicatePksUI(null);
             }
             document.getElementById('verifyBtn').disabled = false;
             document.getElementById('verifyBtn').style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
@@ -188,6 +362,8 @@ function verifySync() {
             document.getElementById('verifyBtn').disabled = false;
             document.getElementById('verifyBtn').style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
             setupMissingRowsUI(null);
+            setupExtraRowsUI(null);
+            setupDuplicatePksUI(null);
         });
 }
 
@@ -249,6 +425,361 @@ function setupMissingRowsUI(details) {
         cmpSelect.appendChild(opt);
     }
     cmpSection.style.display = 'block';
+}
+
+function setupExtraRowsUI(details) {
+    const section = document.getElementById('extraRowsSection');
+    const select = document.getElementById('extraTableSelect');
+    const tableEl = document.getElementById('extraRowsTable');
+    const errEl = document.getElementById('extraRowsError');
+    const infoEl = document.getElementById('extraPagingInfo');
+
+    tableEl.innerHTML = '';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    infoEl.textContent = '';
+    select.innerHTML = '';
+    extraOffset = 0;
+
+    if (!details || !details.ecarts_normaux || details.ecarts_normaux.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    // ecarts_normaux: (table, source_count, target_count, extra_count, extra_pks_sample?)
+    const items = details.ecarts_normaux
+        .filter(x => Array.isArray(x) && x.length >= 4)
+        .sort((a, b) => (b[3] || 0) - (a[3] || 0));
+
+    for (const it of items) {
+        const tableName = it[0];
+        const extraCount = it[3];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (extra: ${extraCount})`;
+        select.appendChild(opt);
+    }
+
+    section.style.display = 'block';
+}
+
+function setupDuplicatePksUI(details) {
+    const section = document.getElementById('duplicatePksSection');
+    const select = document.getElementById('duplicateTableSelect');
+    const tableEl = document.getElementById('duplicatePksTable');
+    const errEl = document.getElementById('duplicatePksError');
+    const infoEl = document.getElementById('duplicatePagingInfo');
+
+    tableEl.innerHTML = '';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    infoEl.textContent = '';
+    select.innerHTML = '';
+    duplicateOffset = 0;
+
+    if (!details || !details.doublons_pk || details.doublons_pk.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    // doublons_pk: (table, duplicate_count, duplicate_rows, duplicate_pks)
+    const items = details.doublons_pk
+        .filter(x => Array.isArray(x) && x.length >= 3)
+        .sort((a, b) => (b[2] || 0) - (a[2] || 0)); // Trier par nombre de lignes en trop
+
+    for (const it of items) {
+        const tableName = it[0];
+        const dupCount = it[1];
+        const dupRows = it[2];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (${dupCount} PK dupliquées, ${dupRows} lignes en trop)`;
+        select.appendChild(opt);
+    }
+
+    section.style.display = 'block';
+}
+
+function prevDuplicatePage() {
+    const limit = parseInt(document.getElementById('duplicateLimit').value || '20', 10);
+    const newOffset = Math.max(0, (duplicateOffset || 0) - limit);
+    loadDuplicatePks(newOffset);
+}
+
+function nextDuplicatePage() {
+    const limit = parseInt(document.getElementById('duplicateLimit').value || '20', 10);
+    const newOffset = (duplicateOffset || 0) + limit;
+    loadDuplicatePks(newOffset);
+}
+
+function loadDuplicatePks(offset) {
+    const select = document.getElementById('duplicateTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('duplicateLimit').value || '20', 10);
+    const tableEl = document.getElementById('duplicatePksTable');
+    const errEl = document.getElementById('duplicatePksError');
+    const infoEl = document.getElementById('duplicatePagingInfo');
+
+    if (!tableName) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'Veuillez sélectionner une table';
+        tableEl.innerHTML = '';
+        infoEl.textContent = '';
+        return;
+    }
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/duplicate-pks?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            duplicateOffset = data.offset || 0;
+            const total = data.total_duplicates || 0;
+            const totalRows = data.total_duplicate_rows || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            
+            // Compter le nombre de PK uniques affichées (en comptant les groupes de doublons)
+            const uniquePksShown = new Set();
+            for (const row of rows) {
+                // Construire la PK à partir des colonnes PK
+                const pkCols = data.pk_columns || [];
+                if (pkCols.length === 1) {
+                    uniquePksShown.add(String(row[pkCols[0]]));
+                } else {
+                    const pkVal = pkCols.map(c => String(row[c] || '')).join('|');
+                    uniquePksShown.add(pkVal);
+                }
+            }
+            const pksShown = uniquePksShown.size;
+            const start = Math.min(total, duplicateOffset + 1);
+            const end = Math.min(total, duplicateOffset + pksShown);
+
+            infoEl.textContent = total > 0 
+                ? `Affichage ${start}-${end} / ${total} PK dupliquées (${totalRows} lignes en trop au total)` 
+                : 'Aucune PK dupliquée';
+
+            let html = '';
+            html += '<thead><tr>';
+            html += '<th style="background:#ffc7ce;">Occurrences</th>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                const dupCount = row.__duplicate_count || 1;
+                html += '<tr>';
+                html += `<td style="background:#ffc7ce; font-weight:bold; color:#b00020;">${dupCount}x</td>`;
+                for (const c of cols) {
+                    const v = row[c];
+                    html += `<td>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
+}
+
+function prevExtraPage() {
+    const limit = parseInt(document.getElementById('extraLimit').value || '50', 10);
+    const newOffset = Math.max(0, (extraOffset || 0) - limit);
+    loadExtraRows(newOffset);
+}
+
+function nextExtraPage() {
+    const limit = parseInt(document.getElementById('extraLimit').value || '50', 10);
+    const newOffset = (extraOffset || 0) + limit;
+    loadExtraRows(newOffset);
+}
+
+function loadExtraRows(offset) {
+    const select = document.getElementById('extraTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('extraLimit').value || '50', 10);
+    const tableEl = document.getElementById('extraRowsTable');
+    const errEl = document.getElementById('extraRowsError');
+    const infoEl = document.getElementById('extraPagingInfo');
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/extra-rows?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            extraOffset = data.offset || 0;
+            const total = data.total_extra || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            const start = Math.min(total, extraOffset + 1);
+            const end = Math.min(total, extraOffset + rows.length);
+
+            infoEl.textContent = total > 0 ? `Affichage ${start}-${end} / ${total}` : 'Aucune ligne';
+
+            let html = '';
+            html += '<thead><tr>';
+            html += '<th>Table</th>';
+            html += '<th>Note</th>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                html += '<tr>';
+                html += `<td style="font-weight:bold;">${escapeHtml(data.table)}</td>`;
+                html += `<td>${escapeHtml(row.__note || '')}</td>`;
+                for (const c of cols) {
+                    const v = row[c];
+                    html += `<td>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
+}
+
+function setupDuplicatePksUI(details) {
+    const section = document.getElementById('duplicatePksSection');
+    const select = document.getElementById('duplicateTableSelect');
+    const tableEl = document.getElementById('duplicatePksTable');
+    const errEl = document.getElementById('duplicatePksError');
+    const infoEl = document.getElementById('duplicatePagingInfo');
+
+    tableEl.innerHTML = '';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    infoEl.textContent = '';
+    select.innerHTML = '';
+    duplicateOffset = 0;
+
+    if (!details || !details.doublons_pk || details.doublons_pk.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    // doublons_pk: (table, duplicate_count, duplicate_rows, duplicate_pks)
+    const items = details.doublons_pk
+        .filter(x => Array.isArray(x) && x.length >= 3)
+        .sort((a, b) => (b[2] || 0) - (a[2] || 0)); // Trier par nombre de lignes en trop
+
+    for (const it of items) {
+        const tableName = it[0];
+        const dupCount = it[1];
+        const dupRows = it[2];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (${dupCount} PK dupliquées, ${dupRows} lignes en trop)`;
+        select.appendChild(opt);
+    }
+
+    section.style.display = 'block';
+}
+
+function prevDuplicatePage() {
+    const limit = parseInt(document.getElementById('duplicateLimit').value || '20', 10);
+    const newOffset = Math.max(0, (duplicateOffset || 0) - limit);
+    loadDuplicatePks(newOffset);
+}
+
+function nextDuplicatePage() {
+    const limit = parseInt(document.getElementById('duplicateLimit').value || '20', 10);
+    const newOffset = (duplicateOffset || 0) + limit;
+    loadDuplicatePks(newOffset);
+}
+
+function loadDuplicatePks(offset) {
+    const select = document.getElementById('duplicateTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('duplicateLimit').value || '20', 10);
+    const tableEl = document.getElementById('duplicatePksTable');
+    const errEl = document.getElementById('duplicatePksError');
+    const infoEl = document.getElementById('duplicatePagingInfo');
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/duplicate-pks?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            duplicateOffset = data.offset || 0;
+            const total = data.total_duplicates || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            const start = Math.min(total, duplicateOffset + 1);
+            const end = Math.min(total, duplicateOffset + rows.length);
+
+            infoEl.textContent = total > 0 ? `Affichage ${start}-${end} / ${total} PK dupliquées (${data.total_duplicate_rows || 0} lignes en trop)` : 'Aucune PK dupliquée';
+
+            let html = '';
+            html += '<thead><tr>';
+            html += '<th style="background:#ffc7ce;">Occurrences</th>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                html += '<tr>';
+                const dupCount = row.__duplicate_count || 1;
+                html += `<td style="background:#ffc7ce; font-weight:bold; color:#b00020;">${dupCount}x</td>`;
+                for (const c of cols) {
+                    const v = row[c];
+                    html += `<td>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
 }
 
 function prevMissingPage() {
@@ -430,6 +961,703 @@ function escapeHtml(str) {
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+}
+
+// ==================== GESTION SYNCHRONISATION AUTOMATIQUE ====================
+
+// Charger le statut de la synchronisation automatique au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    loadAutoSyncStatus();
+    // Ne pas charger automatiquement le résultat, seulement au clic sur le bouton
+    // loadLastAutoSyncResult();
+});
+
+function showAutoSyncVerify() {
+    console.log('🔄 Début de showAutoSyncVerify()');
+    
+    // Afficher la section de vérification automatique
+    const container = document.getElementById('autoSyncVerifyContainer');
+    const loading = document.getElementById('autoSyncVerifyLoading');
+    const content = document.getElementById('autoSyncVerifyContent');
+    const noResult = document.getElementById('autoSyncVerifyNoResult');
+    
+    if (!container) {
+        console.error('❌ Container autoSyncVerifyContainer non trouvé!');
+        alert('Erreur: Section non trouvée dans la page');
+        return;
+    }
+    
+    // Masquer la section de vérification manuelle si elle est affichée
+    const verifyContainer = document.getElementById('verifyContainer');
+    if (verifyContainer) {
+        verifyContainer.style.display = 'none';
+    }
+    
+    // Afficher le container et le loading
+    container.style.display = 'block';
+    container.style.visibility = 'visible';
+    container.style.opacity = '1';
+    container.style.height = 'auto';
+    container.style.overflow = 'visible';
+    
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    noResult.style.display = 'none';
+    
+    console.log('✅ Container affiché:', {
+        display: container.style.display,
+        offsetHeight: container.offsetHeight,
+        visible: container.offsetHeight > 0
+    });
+    
+    // Charger le résultat
+    loadLastAutoSyncResult();
+    
+    // Vérifier d'abord le statut de la synchronisation automatique
+    checkAutoSyncStatus().then(() => {
+        // Puis charger le résultat
+        loadLastAutoSyncResult();
+    });
+    
+    // Scroll vers la section immédiatement
+    setTimeout(() => {
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+}
+
+function checkAutoSyncStatus() {
+    return fetch('/projet21/auto-sync/status')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const status = data.status;
+                console.log('📊 Statut synchronisation automatique:', status);
+                
+                // Vérifier si elle est activée
+                if (!status.enabled) {
+                    console.warn('⚠️ Synchronisation automatique désactivée');
+                    alert('⚠️ La synchronisation automatique est désactivée dans la configuration.\n\nPour l\'activer, utilisez le toggle dans l\'interface ou modifiez le fichier de configuration.');
+                    return;
+                }
+                
+                // Vérifier que le script Task Scheduler existe
+                if (!status.scheduler.script_exists) {
+                    console.warn('⚠️ Script de synchronisation non trouvé');
+                    alert('⚠️ Le script projet21_auto_sync_task.py n\'est pas trouvé.\n\nChemin attendu: ' + status.scheduler.script_path + '\n\nVérifiez que le fichier existe pour que Task Scheduler puisse l\'exécuter.');
+                    return;
+                }
+                
+                console.log('✅ Synchronisation automatique configurée (Task Scheduler Windows):', {
+                    enabled: status.enabled,
+                    script_exists: status.scheduler.script_exists,
+                    last_run: status.last_result_timestamp,
+                    next_run: status.next_scheduled_run,
+                    hours_since_last_run: status.hours_since_last_run
+                });
+                
+                // Afficher un message si la dernière exécution est ancienne
+                if (status.hours_since_last_run !== null && status.hours_since_last_run !== undefined) {
+                    const hoursSinceLastRun = status.hours_since_last_run;
+                    
+                    if (hoursSinceLastRun > 30) {
+                        console.warn(`⚠️ Dernière synchronisation il y a ${Math.round(hoursSinceLastRun)} heures`);
+                        
+                        if (status.next_scheduled_run) {
+                            const nextRun = new Date(status.next_scheduled_run);
+                            console.log(`📅 Prochaine exécution prévue: ${nextRun.toLocaleString('fr-FR')}`);
+                            
+                            // Alerte si la dernière exécution est très ancienne (> 48h)
+                            if (hoursSinceLastRun > 48) {
+                                alert(`⚠️ Attention: La dernière synchronisation automatique date de ${Math.round(hoursSinceLastRun)} heures.\n\nVérifiez que:\n1. La tâche "Projet21 - Synchronisation Automatique" est activée dans le Planificateur de tâches Windows\n2. Le serveur était allumé à 05:00 AM\n3. Le script projet21_auto_sync_task.py est accessible\n\nProchaine exécution prévue: ${nextRun.toLocaleString('fr-FR')}`);
+                            }
+                        }
+                    } else {
+                        console.log(`✅ Dernière synchronisation il y a ${Math.round(hoursSinceLastRun)} heures (OK)`);
+                    }
+                } else if (!status.last_result_file_exists) {
+                    console.warn('⚠️ Aucun résultat de synchronisation trouvé');
+                    alert('⚠️ Aucun résultat de synchronisation automatique trouvé.\n\nVérifiez que:\n1. La tâche "Projet21 - Synchronisation Automatique" est configurée dans le Planificateur de tâches Windows\n2. La tâche est activée\n3. Le script a été exécuté au moins une fois\n\nVous pouvez tester manuellement en exécutant la tâche depuis le Planificateur de tâches.');
+                }
+            } else {
+                console.error('Erreur lors de la vérification du statut:', data.error);
+                alert('Erreur lors de la vérification du statut: ' + (data.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(err => {
+            console.error('Erreur lors de la vérification du statut:', err);
+            alert('Erreur réseau lors de la vérification du statut: ' + err.message);
+        });
+}
+
+function loadAutoSyncStatus() {
+    fetch('/projet21/auto-sync/config')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const enabled = data.config.enabled;
+                document.getElementById('autoSyncToggle').checked = enabled;
+                document.getElementById('autoSyncStatus').textContent = enabled 
+                    ? '✅ Activée (05:00 AM)' 
+                    : '⏸️ Désactivée';
+            }
+        })
+        .catch(err => {
+            console.error('Erreur lors du chargement du statut:', err);
+            document.getElementById('autoSyncStatus').textContent = '❌ Erreur';
+        });
+}
+
+function toggleAutoSync() {
+    const enabled = document.getElementById('autoSyncToggle').checked;
+    
+    fetch('/projet21/auto-sync/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ enabled: enabled })
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('autoSyncStatus').textContent = enabled 
+                    ? '✅ Activée (05:00 AM)' 
+                    : '⏸️ Désactivée';
+                alert(data.message);
+            } else {
+                alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+                document.getElementById('autoSyncToggle').checked = !enabled;
+            }
+        })
+        .catch(err => {
+            console.error('Erreur:', err);
+            alert('Erreur lors de la modification de la configuration');
+            document.getElementById('autoSyncToggle').checked = !enabled;
+        });
+}
+
+function loadLastAutoSyncResult() {
+    const container = document.getElementById('autoSyncVerifyContainer');
+    const loading = document.getElementById('autoSyncVerifyLoading');
+    const content = document.getElementById('autoSyncVerifyContent');
+    const noResult = document.getElementById('autoSyncVerifyNoResult');
+    
+    // S'assurer que le container est visible
+    if (!container) {
+        console.error('Container autoSyncVerifyContainer non trouvé!');
+        return;
+    }
+    
+    // Toujours afficher le container et réinitialiser l'état
+    container.style.display = 'block';
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    noResult.style.display = 'none';
+    
+    fetch('/projet21/auto-sync/last-result')
+        .then(r => r.json())
+        .then(data => {
+            console.log('📥 Données reçues:', data);
+            
+            // Masquer le loading
+            loading.style.display = 'none';
+            
+            if (!data.success) {
+                // Afficher un message d'erreur
+                container.style.display = 'block';
+                noResult.style.display = 'block';
+                content.style.display = 'none';
+                noResult.innerHTML = `<p style="color: #b00020;">Erreur: ${data.error || 'Erreur inconnue'}</p>`;
+                return;
+            }
+            
+            if (!data.has_result) {
+                // Afficher un message indiquant qu'aucun résultat n'est disponible
+                container.style.display = 'block';
+                noResult.style.display = 'block';
+                content.style.display = 'none';
+                noResult.innerHTML = `
+                    <p style="font-size: 16px;">Aucun résultat de synchronisation automatique disponible.</p>
+                    <p style="font-size: 12px; margin-top: 10px;">
+                        La synchronisation automatique n'a pas encore été exécutée ou n'a détecté aucun problème (résultat non sauvegardé car tout est OK).
+                    </p>
+                    <p style="font-size: 12px; margin-top: 10px; color: #666;">
+                        La prochaine synchronisation automatique est planifiée à 05:00 AM.
+                    </p>
+                `;
+                return;
+            }
+            
+            // Afficher le résultat
+            console.log('🔄 Affichage des résultats...');
+            
+            // S'assurer que le container est visible
+            container.style.display = 'block';
+            container.style.visibility = 'visible';
+            
+            // Masquer noResult et loading
+            noResult.style.display = 'none';
+            loading.style.display = 'none';
+            
+            // FORCER l'affichage du content AVANT de remplir les données
+            if (!content) {
+                console.error('❌ Élément content non trouvé!');
+                noResult.style.display = 'block';
+                noResult.innerHTML = '<p style="color: #b00020;">Erreur: Élément de contenu non trouvé dans la page</p>';
+                return;
+            }
+            
+            // Afficher le content d'abord
+            content.style.display = 'block';
+            content.style.visibility = 'visible';
+            content.style.opacity = '1';
+            
+            // Timestamp
+            const timestampEl = document.getElementById('autoSyncVerifyTimestamp');
+            if (timestampEl && data.timestamp) {
+                const date = new Date(data.timestamp);
+                timestampEl.textContent = `Dernière exécution: ${date.toLocaleString('fr-FR')}`;
+                console.log('✅ Timestamp défini:', timestampEl.textContent);
+            }
+            
+            // Output - CRITIQUE: remplir le contenu
+            const outputEl = document.getElementById('autoSyncVerifyOutput');
+            if (outputEl) {
+                outputEl.textContent = data.output || '';
+                console.log('✅ Output défini, longueur:', outputEl.textContent.length);
+                
+                // Vérifier que le texte est bien là
+                if (outputEl.textContent.length === 0 && data.output && data.output.length > 0) {
+                    console.warn('⚠️ Output vide malgré données présentes, tentative de réassignation...');
+                    outputEl.innerHTML = ''; // Vider
+                    outputEl.textContent = data.output; // Réassigner
+                }
+            } else {
+                console.error('❌ Élément autoSyncVerifyOutput non trouvé!');
+            }
+            
+            // Détails
+            autoSyncVerifyDetails = data.details || null;
+            
+            console.log('✅ Données chargées:', {
+                hasDetails: !!autoSyncVerifyDetails,
+                detailsKeys: autoSyncVerifyDetails ? Object.keys(autoSyncVerifyDetails) : [],
+                ecarts_critiques: autoSyncVerifyDetails?.ecarts_critiques?.length || 0,
+                ecarts_normaux: autoSyncVerifyDetails?.ecarts_normaux?.length || 0,
+                doublons_pk: autoSyncVerifyDetails?.doublons_pk?.length || 0,
+                outputLength: data.output ? data.output.length : 0
+            });
+            
+            if (autoSyncVerifyDetails) {
+                try {
+                    setupAutoSyncMissingRowsUI(autoSyncVerifyDetails);
+                    setupAutoSyncExtraRowsUI(autoSyncVerifyDetails);
+                    setupAutoSyncDuplicatePksUI(autoSyncVerifyDetails);
+                    console.log('✅ Sections détaillées configurées');
+                } catch (err) {
+                    console.error('❌ Erreur lors de la configuration des sections:', err);
+                    console.error('Stack:', err.stack);
+                }
+            } else {
+                console.warn('⚠️ Aucun détail disponible dans les données');
+            }
+            
+            // Vérifier l'état final après un court délai
+            setTimeout(() => {
+                const finalState = {
+                    containerDisplay: window.getComputedStyle(container).display,
+                    contentDisplay: window.getComputedStyle(content).display,
+                    containerHeight: container.offsetHeight,
+                    contentHeight: content.offsetHeight,
+                    outputTextLength: outputEl ? outputEl.textContent.length : 0,
+                    contentVisible: content.offsetHeight > 0,
+                    timestampText: timestampEl ? timestampEl.textContent : 'N/A'
+                };
+                console.log('🔍 État final:', finalState);
+                
+                // Si le content n'est toujours pas visible, forcer avec !important via classe CSS
+                if (!finalState.contentVisible || finalState.contentHeight === 0) {
+                    console.error('❌ PROBLÈME: Content n\'est pas visible, application de style forcé...');
+                    content.classList.add('force-display');
+                    const style = document.createElement('style');
+                    style.textContent = '#autoSyncVerifyContent { display: block !important; visibility: visible !important; opacity: 1 !important; }';
+                    document.head.appendChild(style);
+                }
+                
+                // Scroll vers la section
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        })
+        .catch(err => {
+            loading.style.display = 'none';
+            // Afficher un message d'erreur réseau
+            container.style.display = 'block';
+            noResult.style.display = 'block';
+            noResult.innerHTML = `<p style="color: #b00020;">Erreur réseau: ${err.message}</p>`;
+            console.error('Erreur lors du chargement du résultat:', err);
+        });
+}
+
+// Fonctions pour gérer les sections détaillées (similaires aux fonctions de vérification manuelle)
+function setupAutoSyncMissingRowsUI(details) {
+    const section = document.getElementById('autoSyncMissingRowsSection');
+    const select = document.getElementById('autoSyncMissingTableSelect');
+    const tableEl = document.getElementById('autoSyncMissingRowsTable');
+    const errEl = document.getElementById('autoSyncMissingRowsError');
+    const infoEl = document.getElementById('autoSyncMissingPagingInfo');
+
+    tableEl.innerHTML = '';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    infoEl.textContent = '';
+    select.innerHTML = '';
+    autoSyncMissingOffset = 0;
+
+    if (!details || !details.ecarts_critiques || details.ecarts_critiques.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    const items = details.ecarts_critiques
+        .filter(x => Array.isArray(x) && x.length >= 4)
+        .sort((a, b) => (b[3] || 0) - (a[3] || 0));
+
+    for (const it of items) {
+        const tableName = it[0];
+        const missingCount = it[3];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (PK manquantes: ${missingCount})`;
+        select.appendChild(opt);
+    }
+
+    section.style.display = 'block';
+    if (items.length > 0) {
+        loadAutoSyncMissingRows(0);
+    }
+}
+
+function prevAutoSyncMissingPage() {
+    const limit = parseInt(document.getElementById('autoSyncMissingLimit').value || '50', 10);
+    const newOffset = Math.max(0, (autoSyncMissingOffset || 0) - limit);
+    loadAutoSyncMissingRows(newOffset);
+}
+
+function nextAutoSyncMissingPage() {
+    const limit = parseInt(document.getElementById('autoSyncMissingLimit').value || '50', 10);
+    const newOffset = (autoSyncMissingOffset || 0) + limit;
+    loadAutoSyncMissingRows(newOffset);
+}
+
+function loadAutoSyncMissingRows(offset) {
+    const select = document.getElementById('autoSyncMissingTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('autoSyncMissingLimit').value || '50', 10);
+    const tableEl = document.getElementById('autoSyncMissingRowsTable');
+    const errEl = document.getElementById('autoSyncMissingRowsError');
+    const infoEl = document.getElementById('autoSyncMissingPagingInfo');
+
+    if (!tableName) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'Veuillez sélectionner une table';
+        tableEl.innerHTML = '';
+        infoEl.textContent = '';
+        return;
+    }
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/missing-rows?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            autoSyncMissingOffset = data.offset || 0;
+            const total = data.total_missing || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            const start = Math.min(total, autoSyncMissingOffset + 1);
+            const end = Math.min(total, autoSyncMissingOffset + rows.length);
+
+            infoEl.textContent = total > 0 ? `Affichage ${start}-${end} / ${total}` : 'Aucune ligne manquante';
+
+            let html = '';
+            html += '<thead><tr>';
+            html += '<th>Table</th>';
+            html += '<th>Cause</th>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                html += '<tr>';
+                html += `<td style="font-weight:bold;">${escapeHtml(data.table)}</td>`;
+                html += `<td>${escapeHtml(row.__diagnostic || '')}</td>`;
+                for (const c of cols) {
+                    const v = row[c];
+                    html += `<td>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
+}
+
+function setupAutoSyncExtraRowsUI(details) {
+    const section = document.getElementById('autoSyncExtraRowsSection');
+    const select = document.getElementById('autoSyncExtraTableSelect');
+    const tableEl = document.getElementById('autoSyncExtraRowsTable');
+    const errEl = document.getElementById('autoSyncExtraRowsError');
+    const infoEl = document.getElementById('autoSyncExtraPagingInfo');
+
+    tableEl.innerHTML = '';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    infoEl.textContent = '';
+    select.innerHTML = '';
+    autoSyncExtraOffset = 0;
+
+    if (!details || !details.ecarts_normaux || details.ecarts_normaux.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    const items = details.ecarts_normaux
+        .filter(x => Array.isArray(x) && x.length >= 4)
+        .sort((a, b) => (b[3] || 0) - (a[3] || 0));
+
+    for (const it of items) {
+        const tableName = it[0];
+        const extraCount = it[3];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (extra: ${extraCount})`;
+        select.appendChild(opt);
+    }
+
+    section.style.display = 'block';
+}
+
+function prevAutoSyncExtraPage() {
+    const limit = parseInt(document.getElementById('autoSyncExtraLimit').value || '50', 10);
+    const newOffset = Math.max(0, (autoSyncExtraOffset || 0) - limit);
+    loadAutoSyncExtraRows(newOffset);
+}
+
+function nextAutoSyncExtraPage() {
+    const limit = parseInt(document.getElementById('autoSyncExtraLimit').value || '50', 10);
+    const newOffset = (autoSyncExtraOffset || 0) + limit;
+    loadAutoSyncExtraRows(newOffset);
+}
+
+function loadAutoSyncExtraRows(offset) {
+    const select = document.getElementById('autoSyncExtraTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('autoSyncExtraLimit').value || '50', 10);
+    const tableEl = document.getElementById('autoSyncExtraRowsTable');
+    const errEl = document.getElementById('autoSyncExtraRowsError');
+    const infoEl = document.getElementById('autoSyncExtraPagingInfo');
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/extra-rows?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            autoSyncExtraOffset = data.offset || 0;
+            const total = data.total_extra || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            const start = Math.min(total, autoSyncExtraOffset + 1);
+            const end = Math.min(total, autoSyncExtraOffset + rows.length);
+
+            infoEl.textContent = total > 0 ? `Affichage ${start}-${end} / ${total}` : 'Aucune ligne';
+
+            let html = '';
+            html += '<thead><tr>';
+            html += '<th>Table</th>';
+            html += '<th>Note</th>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                html += '<tr>';
+                html += `<td style="font-weight:bold;">${escapeHtml(data.table)}</td>`;
+                html += `<td>${escapeHtml(row.__note || '')}</td>`;
+                for (const c of cols) {
+                    const v = row[c];
+                    html += `<td>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
+}
+
+function setupAutoSyncDuplicatePksUI(details) {
+    const section = document.getElementById('autoSyncDuplicatePksSection');
+    const select = document.getElementById('autoSyncDuplicateTableSelect');
+    const tableEl = document.getElementById('autoSyncDuplicatePksTable');
+    const errEl = document.getElementById('autoSyncDuplicatePksError');
+    const infoEl = document.getElementById('autoSyncDuplicatePagingInfo');
+
+    tableEl.innerHTML = '';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    infoEl.textContent = '';
+    select.innerHTML = '';
+    autoSyncDuplicateOffset = 0;
+
+    if (!details || !details.doublons_pk || details.doublons_pk.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    const items = details.doublons_pk
+        .filter(x => Array.isArray(x) && x.length >= 3)
+        .sort((a, b) => (b[2] || 0) - (a[2] || 0));
+
+    for (const it of items) {
+        const tableName = it[0];
+        const dupCount = it[1];
+        const dupRows = it[2];
+        const opt = document.createElement('option');
+        opt.value = tableName;
+        opt.textContent = `${tableName} (${dupCount} PK dupliquées, ${dupRows} lignes en trop)`;
+        select.appendChild(opt);
+    }
+
+    section.style.display = 'block';
+}
+
+function prevAutoSyncDuplicatePage() {
+    const limit = parseInt(document.getElementById('autoSyncDuplicateLimit').value || '20', 10);
+    const newOffset = Math.max(0, (autoSyncDuplicateOffset || 0) - limit);
+    loadAutoSyncDuplicatePks(newOffset);
+}
+
+function nextAutoSyncDuplicatePage() {
+    const limit = parseInt(document.getElementById('autoSyncDuplicateLimit').value || '20', 10);
+    const newOffset = (autoSyncDuplicateOffset || 0) + limit;
+    loadAutoSyncDuplicatePks(newOffset);
+}
+
+function loadAutoSyncDuplicatePks(offset) {
+    const select = document.getElementById('autoSyncDuplicateTableSelect');
+    const tableName = select.value;
+    const limit = parseInt(document.getElementById('autoSyncDuplicateLimit').value || '20', 10);
+    const tableEl = document.getElementById('autoSyncDuplicatePksTable');
+    const errEl = document.getElementById('autoSyncDuplicatePksError');
+    const infoEl = document.getElementById('autoSyncDuplicatePagingInfo');
+
+    if (!tableName) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'Veuillez sélectionner une table';
+        tableEl.innerHTML = '';
+        infoEl.textContent = '';
+        return;
+    }
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    tableEl.innerHTML = `<tr><td>Chargement...</td></tr>`;
+
+    fetch(`/projet21/duplicate-pks?table=${encodeURIComponent(tableName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                tableEl.innerHTML = '';
+                errEl.style.display = 'block';
+                errEl.textContent = data.error || 'Erreur inconnue';
+                infoEl.textContent = '';
+                return;
+            }
+
+            autoSyncDuplicateOffset = data.offset || 0;
+            const total = data.total_duplicates || 0;
+            const totalRows = data.total_duplicate_rows || 0;
+            const cols = data.columns || [];
+            const rows = data.rows || [];
+            
+            const uniquePksShown = new Set();
+            for (const row of rows) {
+                const pkCols = data.pk_columns || [];
+                if (pkCols.length === 1) {
+                    uniquePksShown.add(String(row[pkCols[0]]));
+                } else {
+                    const pkVal = pkCols.map(c => String(row[c] || '')).join('|');
+                    uniquePksShown.add(pkVal);
+                }
+            }
+            const pksShown = uniquePksShown.size;
+            const start = Math.min(total, autoSyncDuplicateOffset + 1);
+            const end = Math.min(total, autoSyncDuplicateOffset + pksShown);
+
+            infoEl.textContent = total > 0 
+                ? `Affichage ${start}-${end} / ${total} PK dupliquées (${totalRows} lignes en trop au total)` 
+                : 'Aucune PK dupliquée';
+
+            let html = '';
+            html += '<thead><tr>';
+            html += '<th style="background:#ffc7ce;">Occurrences</th>';
+            for (const c of cols) {
+                html += `<th>${escapeHtml(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                const dupCount = row.__duplicate_count || 1;
+                html += '<tr>';
+                html += `<td style="background:#ffc7ce; font-weight:bold; color:#b00020;">${dupCount}x</td>`;
+                for (const c of cols) {
+                    const v = row[c];
+                    html += `<td>${escapeHtml(v === null || v === undefined ? '' : String(v))}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            tableEl.innerHTML = html;
+        })
+        .catch(err => {
+            tableEl.innerHTML = '';
+            errEl.style.display = 'block';
+            errEl.textContent = err.message || 'Erreur réseau';
+            infoEl.textContent = '';
+        });
 }
 
 let schemaReport = null;

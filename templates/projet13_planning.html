@@ -1,0 +1,604 @@
+{% extends "base.html" %}
+{% block title %}Planning Journalier - Projet 13{% endblock %}
+
+{% block head %}
+<style>
+    .planning-page { max-width: 1400px; margin: 0 auto; padding: 1rem; }
+    .planning-title { font-size: 1.75rem; font-weight: 600; margin-bottom: 1rem; color: #2c3e50; }
+    .planning-note {
+        background: #e7f3ff;
+        border-left: 4px solid #2196f3;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.25rem;
+        border-radius: 4px;
+        font-size: 0.95rem;
+    }
+    .planning-actions { margin-bottom: 1.25rem; }
+    .planning-actions .btn { margin-right: 0.5rem; }
+    .planning-stats { display: flex; gap: 2rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .planning-stat { text-align: center; }
+    .planning-stat-value { font-size: 2rem; font-weight: 700; color: #2196f3; display: block; }
+    .planning-stat-label { font-size: 0.9rem; color: #666; }
+    .planning-layout { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+    @media (max-width: 992px) { .planning-layout { grid-template-columns: 1fr; } }
+    .planning-calendar-zone {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        min-height: 400px;
+        padding: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        text-align: center;
+    }
+    .planning-sidebar {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .planning-sidebar-title {
+        background: #f8f9fa;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        border-bottom: 1px solid #dee2e6;
+        font-size: 1rem;
+    }
+    .planning-sidebar-filters { padding: 1rem; border-bottom: 1px solid #eee; }
+    .planning-sidebar-filters .form-control,
+    .planning-sidebar-filters .form-select { margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .planning-sidebar-list { max-height: 500px; overflow-y: auto; padding: 0.5rem; }
+    .fiche-non-planifiee {
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid #eee;
+        font-size: 0.85rem;
+        transition: background 0.15s;
+    }
+    .fiche-non-planifiee:hover { background: #f8f9fa; }
+    .fiche-non-planifiee:last-child { border-bottom: none; }
+    .fiche-num { color: #2196f3; font-weight: 600; }
+    .fiche-duree { color: #28a745; font-weight: 500; }
+    .fiche-poste { color: #6c757d; font-size: 0.8rem; }
+    .btn-modifier-poste { font-size: 0.75rem; padding: 0.2rem 0.5rem; margin-top: 0.25rem; cursor: pointer; }
+    /* Popup Filtres (modal style Prinect) */
+    .planning-filtres-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 1060;
+        align-items: center;
+        justify-content: center;
+    }
+    .planning-filtres-backdrop.ouvert { display: flex; }
+    .planning-filtres-popup {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+        width: 90%;
+        max-width: 560px;
+        max-height: 85vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .planning-filtres-popup .modal-header-custom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #dee2e6;
+        flex-shrink: 0;
+    }
+    .planning-filtres-popup .modal-header-custom h5 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .planning-filtres-popup .btn-close-custom {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        color: #6c757d;
+        padding: 0 0.25rem;
+    }
+    .planning-filtres-popup .btn-close-custom:hover { color: #000; }
+    .planning-filtres-popup .modal-body-custom {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        padding: 1.25rem;
+        overflow: auto;
+        flex: 1;
+    }
+    @media (max-width: 576px) {
+        .planning-filtres-popup .modal-body-custom { grid-template-columns: 1fr; }
+    }
+    .planning-filtres-col h6 {
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }
+    .planning-filtres-services,
+    .planning-filtres-postes {
+        max-height: 280px;
+        overflow-y: auto;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        padding: 0.5rem;
+    }
+    .planning-filtres-services label,
+    .planning-filtres-postes label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+    .planning-filtres-postes .tout-cocher { margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eee; }
+    .planning-filtres-popup .modal-footer-custom {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #dee2e6;
+        flex-shrink: 0;
+    }
+    /* Modal Modifier le poste */
+    .planning-modal-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 1050;
+        align-items: center;
+        justify-content: center;
+    }
+    .planning-modal-backdrop.ouvert { display: flex; }
+    .planning-modal {
+        background: #fff;
+        border-radius: 8px;
+        padding: 1.25rem;
+        min-width: 320px;
+        max-width: 90vw;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .planning-modal h5 { margin-bottom: 1rem; }
+    .planning-modal .form-select { margin-bottom: 1rem; }
+    .planning-modal .btn { margin-right: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="planning-page">
+    <h1 class="planning-title">Planning Journalier - Tous les postes</h1>
+
+    <div class="planning-note">
+        <strong>Note :</strong> La planification respecte automatiquement la plage horaire 6h-22h. Si la durée prévue dépasse la journée, le reste sera reporté au lendemain à partir de 6h.
+    </div>
+
+    <div class="planning-actions">
+        <button type="button" class="btn btn-primary" id="btnFiltres">Filtres</button>
+        <button type="button" class="btn btn-warning" id="btnTransfererToutes">Transférer toutes les fiches</button>
+    </div>
+
+    <!-- Popup Filtres (modal style Prinect) -->
+    <div class="planning-filtres-backdrop" id="popupFiltres">
+        <div class="planning-filtres-popup" onclick="event.stopPropagation()">
+            <div class="modal-header-custom">
+                <h5>Filtres</h5>
+                <button type="button" class="btn-close-custom" id="btnFermerFiltresX" aria-label="Fermer">&times;</button>
+            </div>
+            <div class="modal-body-custom">
+                <div class="planning-filtres-col">
+                    <h6>Services</h6>
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="filtreToutCocherServices">Tout cocher</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="filtreToutDecocherServices">Tout décocher</button>
+                    </div>
+                    <div class="planning-filtres-services" id="filtresServicesListe"></div>
+                </div>
+                <div class="planning-filtres-col" id="filtresPostesCol">
+                    <h6>Postes</h6>
+                    <div class="planning-filtres-postes" id="filtresPostesBloc">
+                        <div class="mb-2" id="filtresPostesBoutons" style="display: none;">
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="filtreToutCocherPostesBtn">Tout cocher</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="filtreToutDecocherPostesBtn">Tout décocher</button>
+                        </div>
+                        <div id="filtresPostesListe"></div>
+                        <p class="text-muted small mt-2 mb-0" id="filtresPostesMessage">Sélectionnez un ou plusieurs services pour afficher les postes.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" id="btnFiltresFermer">Fermer</button>
+                <button type="button" class="btn btn-primary" id="btnFiltresAppliquer">Appliquer</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="planning-stats">
+        <div class="planning-stat">
+            <span class="planning-stat-value" id="statTotal">0</span>
+            <span class="planning-stat-label">Fiches totales</span>
+        </div>
+        <div class="planning-stat">
+            <span class="planning-stat-value" id="statPlanifiees">0</span>
+            <span class="planning-stat-label">Fiches planifiées</span>
+        </div>
+        <div class="planning-stat">
+            <span class="planning-stat-value" id="statNonPlanifiees">0</span>
+            <span class="planning-stat-label">Fiches non planifiées</span>
+        </div>
+    </div>
+
+    <div class="planning-layout">
+        <div class="planning-calendar-zone" id="zoneCalendrier">
+            Veuillez sélectionner au moins un poste pour afficher les calendriers
+        </div>
+
+        <aside class="planning-sidebar">
+            <div class="planning-sidebar-title">Fiches non planifiées</div>
+            <div class="planning-sidebar-filters">
+                <input type="text" class="form-control" id="filterCommande" placeholder="Filtrer par commande...">
+                <input type="text" class="form-control" id="filterClient" placeholder="Filtrer par client...">
+                <select class="form-select" id="filterPoste">
+                    <option value="">Tous les postes</option>
+                </select>
+            </div>
+            <div class="planning-sidebar-list" id="listeFichesNonPlanifiees">
+                <div class="text-muted text-center py-3">Chargement...</div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- Modal Modifier le poste (reste sur la page Planning) -->
+<div class="planning-modal-backdrop" id="modalModifierPoste">
+    <div class="planning-modal">
+        <h5>Modifier le poste</h5>
+        <p class="small text-muted mb-2">Fiche : <span id="modalFicheRef"></span></p>
+        <select class="form-select" id="modalSelectPoste"></select>
+        <div>
+            <button type="button" class="btn btn-primary" id="modalBtnValider">Valider</button>
+            <button type="button" class="btn btn-secondary" id="modalBtnAnnuler">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var baseUrl = window.location.pathname.replace(/\/planning.*$/, '') || '/projet13';
+    if (baseUrl.indexOf('/projet13') === -1) baseUrl = '/projet13';
+
+    function urlApi(path) {
+        return baseUrl + path;
+    }
+
+    function fetchSafe(url, opts) {
+        opts = opts || {};
+        return fetch(url, { credentials: 'same-origin', ...opts }).then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            var ct = r.headers.get('content-type');
+            if (ct && ct.indexOf('application/json') !== -1) return r.json();
+            return r.text();
+        }).catch(function(e) {
+            console.warn('Fetch failed:', url, e);
+            throw e;
+        });
+    }
+
+    function chargerStats() {
+        fetchSafe(urlApi('/api/planning/stats')).then(function(d) {
+            document.getElementById('statTotal').textContent = d.total != null ? d.total : 0;
+            document.getElementById('statPlanifiees').textContent = d.planifiees != null ? d.planifiees : 0;
+            document.getElementById('statNonPlanifiees').textContent = d.non_planifiees != null ? d.non_planifiees : 0;
+        }).catch(function() {
+            document.getElementById('statTotal').textContent = '0';
+            document.getElementById('statPlanifiees').textContent = '0';
+            document.getElementById('statNonPlanifiees').textContent = '0';
+        });
+    }
+
+    var listPostesPourModal = [];
+    var cacheServicesEtPostes = { services: [], postes: {} };
+    var filtresAppliques = { services: [], postes: [] };
+
+    function chargerPostes() {
+        return fetchSafe(urlApi('/api/services_et_postes')).then(function(d) {
+            var postes = d.postes || {};
+            var services = d.services || [];
+            cacheServicesEtPostes = { services: services, postes: postes };
+            var sel = document.getElementById('filterPoste');
+            sel.innerHTML = '<option value="">Tous les postes</option>';
+            listPostesPourModal = [];
+            var seen = {};
+            for (var pid in postes) {
+                var p = postes[pid];
+                if (p && p.nom && !seen[p.id]) {
+                    seen[p.id] = true;
+                    listPostesPourModal.push({ id: p.id, nom: p.nom });
+                    var opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.nom;
+                    sel.appendChild(opt);
+                }
+            }
+            return d;
+        }).catch(function() {});
+    }
+
+    function ouvrirPopupFiltres() {
+        var s = cacheServicesEtPostes.services;
+        var p = cacheServicesEtPostes.postes;
+        if (s.length === 0 && Object.keys(p).length === 0) {
+            chargerPostes().then(function() {
+                s = cacheServicesEtPostes.services;
+                p = cacheServicesEtPostes.postes;
+                remplirPopupFiltres(s, p);
+            });
+            return;
+        }
+        remplirPopupFiltres(s, p);
+    }
+
+    /** Comportement Prinect : les postes affichés sont uniquement ceux des services cochés. Aucun service coché = aucune liste de postes (message invitant à sélectionner des services). */
+    function getPostesPourFiltres() {
+        var servicesChecked = [];
+        document.querySelectorAll('.filtre-service:checked').forEach(function(cb) {
+            servicesChecked.push(parseInt(cb.value, 10));
+        });
+        if (servicesChecked.length === 0) {
+            return [];
+        }
+        var list = [];
+        var seen = {};
+        cacheServicesEtPostes.services.forEach(function(svc) {
+            if (servicesChecked.indexOf(svc.id) !== -1 && svc.postes) {
+                svc.postes.forEach(function(post) {
+                    if (post && post.nom && !seen[post.id]) {
+                        seen[post.id] = true;
+                        list.push(post);
+                    }
+                });
+            }
+        });
+        return list;
+    }
+
+    /** Met à jour la liste des postes dans le popup (comme Prinect : visible seulement si au moins un service coché). */
+    function remplirPostesFiltres() {
+        var contPostes = document.getElementById('filtresPostesListe');
+        var msgEl = document.getElementById('filtresPostesMessage');
+        var btnsEl = document.getElementById('filtresPostesBoutons');
+        var postesVisibles = getPostesPourFiltres();
+
+        var postesCochesAvant = [];
+        contPostes.querySelectorAll('.filtre-poste:checked').forEach(function(cb) {
+            postesCochesAvant.push(parseInt(cb.value, 10));
+        });
+
+        contPostes.innerHTML = '';
+
+        if (postesVisibles.length === 0) {
+            if (msgEl) msgEl.style.display = 'block';
+            if (btnsEl) btnsEl.style.display = 'none';
+            return;
+        }
+
+        if (msgEl) msgEl.style.display = 'none';
+        if (btnsEl) btnsEl.style.display = 'block';
+
+        postesVisibles.forEach(function(post) {
+            var wasChecked = filtresAppliques.postes.length === 0 || filtresAppliques.postes.indexOf(post.id) !== -1;
+            var label = document.createElement('label');
+            label.className = 'd-block';
+            label.innerHTML = '<input type="checkbox" class="form-check-input me-2 filtre-poste" value="' + post.id + '"> ' + (post.nom || '');
+            label.querySelector('input').checked = wasChecked;
+            contPostes.appendChild(label);
+        });
+
+        document.getElementById('filtreToutCocherPostesBtn').onclick = function() {
+            contPostes.querySelectorAll('.filtre-poste').forEach(function(cb) { cb.checked = true; });
+        };
+        document.getElementById('filtreToutDecocherPostesBtn').onclick = function() {
+            contPostes.querySelectorAll('.filtre-poste').forEach(function(cb) { cb.checked = false; });
+        };
+    }
+
+    function remplirPopupFiltres(s, p) {
+        var contServices = document.getElementById('filtresServicesListe');
+        var contPostes = document.getElementById('filtresPostesListe');
+        contServices.innerHTML = '';
+        contPostes.innerHTML = '';
+
+        s.forEach(function(svc) {
+            var label = document.createElement('label');
+            label.className = 'd-block';
+            var checked = filtresAppliques.services.indexOf(svc.id) !== -1;
+            label.innerHTML = '<input type="checkbox" class="form-check-input me-2 filtre-service" value="' + svc.id + '"> ' + (svc.nom || '');
+            label.querySelector('input').checked = checked;
+            label.querySelector('input').addEventListener('change', function() {
+                remplirPostesFiltres();
+            });
+            contServices.appendChild(label);
+        });
+
+        document.getElementById('filtreToutCocherServices').onclick = function() {
+            contServices.querySelectorAll('.filtre-service').forEach(function(cb) { cb.checked = true; });
+            remplirPostesFiltres();
+        };
+        document.getElementById('filtreToutDecocherServices').onclick = function() {
+            contServices.querySelectorAll('.filtre-service').forEach(function(cb) { cb.checked = false; });
+            remplirPostesFiltres();
+        };
+
+        remplirPostesFiltres();
+        document.getElementById('popupFiltres').classList.add('ouvert');
+    }
+
+    function fermerPopupFiltres() {
+        document.getElementById('popupFiltres').classList.remove('ouvert');
+    }
+
+    function appliquerFiltres() {
+        var services = [];
+        var postes = [];
+        document.querySelectorAll('.filtre-service:checked').forEach(function(cb) { services.push(parseInt(cb.value, 10)); });
+        var postesCoches = document.querySelectorAll('.filtre-poste:checked');
+        var postesTotal = document.querySelectorAll('.filtre-poste').length;
+        if (postesCoches.length === postesTotal && postesTotal > 0) {
+            postes = [];
+        } else {
+            postesCoches.forEach(function(cb) { postes.push(parseInt(cb.value, 10)); });
+        }
+        if (services.length > 0 && postes.length === 0) {
+            var seen = {};
+            cacheServicesEtPostes.services.forEach(function(s) {
+                if (services.indexOf(s.id) !== -1 && s.postes) {
+                    s.postes.forEach(function(p) {
+                        if (!seen[p.id]) { seen[p.id] = true; postes.push(p.id); }
+                    });
+                }
+            });
+        }
+        filtresAppliques = { services: services, postes: postes };
+        fermerPopupFiltres();
+        var zoneCal = document.getElementById('zoneCalendrier');
+        if (postes.length > 0) {
+            zoneCal.textContent = 'Calendrier (postes sélectionnés : ' + postes.length + '). Affichage des créneaux à venir.';
+        } else {
+            zoneCal.textContent = 'Veuillez sélectionner au moins un poste pour afficher les calendriers';
+        }
+        chargerFichesNonPlanifiees();
+    }
+
+    function chargerFichesNonPlanifiees() {
+        var commande = document.getElementById('filterCommande').value.trim();
+        var client = document.getElementById('filterClient').value.trim();
+        var poste = document.getElementById('filterPoste').value;
+        var listEl = document.getElementById('listeFichesNonPlanifiees');
+        listEl.innerHTML = '<div class="text-muted text-center py-2">Chargement...</div>';
+
+        var params = [];
+        if (commande) params.push('commande=' + encodeURIComponent(commande));
+        if (client) params.push('client=' + encodeURIComponent(client));
+        if (poste) params.push('poste=' + encodeURIComponent(poste));
+        var qs = params.length ? '?' + params.join('&') : '';
+
+        fetchSafe(urlApi('/api/planning/fiches_non_planifiees' + qs)).then(function(d) {
+            var fiches = (d && d.fiches) ? d.fiches : (Array.isArray(d) ? d : []);
+            var postesIds = filtresAppliques.postes;
+            if (postesIds.length > 0) {
+                var nomsPostes = {};
+                listPostesPourModal.forEach(function(p) {
+                    if (postesIds.indexOf(p.id) !== -1) nomsPostes[p.nom] = true;
+                });
+                fiches = fiches.filter(function(f) { return f.poste && nomsPostes[f.poste]; });
+            }
+            if (fiches.length === 0) {
+                listEl.innerHTML = '<div class="text-muted text-center py-3">Aucune fiche non planifiée</div>';
+                return;
+            }
+            listEl.innerHTML = fiches.map(function(f) {
+                var duree = (f.temps_prev_h != null) ? f.temps_prev_h + 'h' : '-';
+                var ref = (f.commande || f.ref_fiche || f.id_fiche) + '';
+                return '<div class="fiche-non-planifiee">' +
+                    '<span class="fiche-num">' + ref + '</span><br>' +
+                    '<span class="fiche-poste">' + (f.poste || '') + '</span><br>' +
+                    '<span class="fiche-duree">' + duree + '</span> ' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary btn-modifier-poste" data-id-fiche="' + (f.id_fiche || '') + '" data-ref="' + ref.replace(/"/g, '&quot;') + '">Modifier le poste</button>' +
+                    '</div>';
+            }).join('');
+            listEl.querySelectorAll('.btn-modifier-poste').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    ouvrirModalModifierPoste(this.getAttribute('data-id-fiche'), this.getAttribute('data-ref'));
+                });
+            });
+        }).catch(function() {
+            listEl.innerHTML = '<div class="text-danger text-center py-3">Erreur de chargement</div>';
+        });
+    }
+
+    var modalIdFiche = null;
+
+    function ouvrirModalModifierPoste(idFiche, ref) {
+        modalIdFiche = idFiche;
+        document.getElementById('modalFicheRef').textContent = ref || idFiche;
+        var sel = document.getElementById('modalSelectPoste');
+        sel.innerHTML = listPostesPourModal.map(function(p) {
+            return '<option value="' + (p.nom || '').replace(/"/g, '&quot;') + '">' + (p.nom || '') + '</option>';
+        }).join('');
+        document.getElementById('modalModifierPoste').classList.add('ouvert');
+    }
+
+    function fermerModalModifierPoste() {
+        modalIdFiche = null;
+        document.getElementById('modalModifierPoste').classList.remove('ouvert');
+    }
+
+    function validerModifierPoste() {
+        if (!modalIdFiche) return;
+        var nomPoste = document.getElementById('modalSelectPoste').value;
+        if (!nomPoste) return;
+        fetch(urlApi('/api/change_poste'), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_fiche_travail: parseInt(modalIdFiche, 10), nouveau_poste: nomPoste })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            fermerModalModifierPoste();
+            chargerStats();
+            chargerFichesNonPlanifiees();
+        }).catch(function() {
+            alert('Erreur lors du changement de poste.');
+        });
+    }
+
+    var filterTimeout;
+    function initFilters() {
+        document.getElementById('filterCommande').addEventListener('input', function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(chargerFichesNonPlanifiees, 300);
+        });
+        document.getElementById('filterClient').addEventListener('input', function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(chargerFichesNonPlanifiees, 300);
+        });
+        document.getElementById('filterPoste').addEventListener('change', chargerFichesNonPlanifiees);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        chargerStats();
+        chargerPostes().then(function() {
+            chargerFichesNonPlanifiees();
+        }).catch(function() {
+            chargerFichesNonPlanifiees();
+        });
+        initFilters();
+
+        document.getElementById('btnFiltres').addEventListener('click', ouvrirPopupFiltres);
+        document.getElementById('btnFermerFiltresX').addEventListener('click', fermerPopupFiltres);
+        document.getElementById('btnFiltresFermer').addEventListener('click', fermerPopupFiltres);
+        document.getElementById('btnFiltresAppliquer').addEventListener('click', appliquerFiltres);
+        document.getElementById('popupFiltres').addEventListener('click', function(e) {
+            if (e.target === this) fermerPopupFiltres();
+        });
+
+        document.getElementById('btnTransfererToutes').addEventListener('click', function() {
+            alert('Fonction « Transférer toutes les fiches » : à configurer selon vos besoins.');
+        });
+
+        document.getElementById('modalBtnAnnuler').addEventListener('click', fermerModalModifierPoste);
+        document.getElementById('modalBtnValider').addEventListener('click', validerModifierPoste);
+        document.getElementById('modalModifierPoste').addEventListener('click', function(e) {
+            if (e.target === this) fermerModalModifierPoste();
+        });
+    });
+})();
+</script>
+{% endblock %}

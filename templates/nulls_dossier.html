@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Recherche NULL - Projet 13{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Recherche de valeurs NULL dans un dossier</h2>
+    
+    <form method="POST" class="mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="numero" class="form-label">Numéro de dossier (partiel ou complet)</label>
+                    <input type="text" class="form-control" id="numero" name="numero" 
+                           value="{{ numero }}" placeholder="Ex: 2025" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary d-block">Rechercher les NULL</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    {% if rapport %}
+        <div class="alert alert-info">
+            <strong>{{ rapport|length }}</strong> valeur(s) NULL trouvée(s)
+        </div>
+        
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Table</th>
+                    <th>ID</th>
+                    <th>Colonne</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in rapport %}
+                <tr>
+                    <td>{{ item.table }}</td>
+                    <td>{{ item.id }}</td>
+                    <td>{{ item.colonne }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% elif numero %}
+        <div class="alert alert-warning">
+            Aucune valeur NULL trouvée pour le dossier contenant "{{ numero }}"
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

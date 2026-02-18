@@ -201,8 +201,7 @@ def liste_traitements():
                     SELECT WS.ID
                     FROM WEB_SECTIONS WS
                     INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
-                    WHERE WP.NumProj = 11
-                    AND (WS.Nom LIKE '%liste%' OR WS.Nom LIKE '%traitements%')
+                    WHERE WP.NumProj = 11 AND WS.Nom = 'Liste des Traitements'
                 """)
                 row = cursor.fetchone()
                 if row:
@@ -217,8 +216,22 @@ def liste_traitements():
             return redirect(url_for('projet11.index'))
         
         traitements = projet11.get_all_traitements()
+        # ID de l'action REPRISE (section Liste des Traitements) pour afficher le bouton
+        reprise_action_id = None
+        if section_id:
+            try:
+                with get_db_cursor() as cur:
+                    cur.execute("""
+                        SELECT ID FROM WEB_ACTIONS
+                        WHERE ID_Section = ? AND Action = 'REPRISE'
+                    """, (section_id,))
+                    r = cur.fetchone()
+                    if r:
+                        reprise_action_id = r.ID
+            except Exception:
+                pass
         from flask import make_response
-        resp = make_response(render_template('projet11_liste.html', traitements=traitements))
+        resp = make_response(render_template('projet11_liste.html', traitements=traitements, reprise_action_id=reprise_action_id))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
         resp.headers['Expires'] = '0'
@@ -654,6 +667,22 @@ def api_update_traitement(traitement_id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Erreur serveur lors de la mise à jour: {error_msg}"}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/chrono_affichage', methods=['PATCH', 'PUT'])
+def api_update_chrono_affichage(traitement_id):
+    """Enregistre le temps affiché du chronomètre (pause/fermeture) pour réafficher à l'identique à la réouverture."""
+    try:
+        data = request.get_json() or {}
+        temps_sec = data.get('temps_ecoule_sec')
+        if temps_sec is None:
+            return jsonify({"error": "temps_ecoule_sec requis"}), 400
+        success = projet11.update_chrono_affichage(traitement_id, temps_sec)
+        if success:
+            return jsonify({"success": True})
+        return jsonify({"error": "Mise à jour impossible"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @projet11_bp.route('/projet11/api/traitements/<int:traitement_id>', methods=['DELETE'])

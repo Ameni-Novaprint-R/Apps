@@ -285,9 +285,17 @@
                             <!-- Chronomètre : mode "en cours" (compteur qui tourne) -->
                             <div class="alert alert-info" id="chronoBox" style="display: none;">
                                 <div id="chronoBoxEnCours">
-                                    <h5><i class="fas fa-stopwatch"></i> Chronomètre de Production</h5>
+                                    <div class="d-flex justify-content-between align-items-center mb-2" style="position: relative;">
+                                        <h5 class="mb-0" style="position: absolute; left: 50%; transform: translateX(-50%); width: 100%; text-align: center; z-index: 1; pointer-events: none;"><i class="fas fa-stopwatch"></i> Chronomètre de Production</h5>
+                                        <button type="button" class="btn btn-warning btn-sm" id="btnPauseChrono" onclick="togglePauseChrono()" style="display: none; margin-left: auto; position: relative; z-index: 2;">
+                                            <i class="fas fa-pause"></i> Pause
+                                        </button>
+                                    </div>
                                     <div class="chrono-display" id="chronoDisplay">00:00:00</div>
                                     <small>Démarré à: <span id="chronoStart"></span></small>
+                                    <div id="chronoPauseIndicator" style="display: none; margin-top: 10px;">
+                                        <span class="badge bg-warning text-dark"><i class="fas fa-pause"></i> En pause</span>
+                                    </div>
                                 </div>
                                 <!-- Mode "terminé" : affichage du temps réel enregistré (TpsReel) -->
                                 <div id="chronoBoxTermine" style="display: none;">
@@ -363,7 +371,7 @@
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <label for="pdt_nnc" class="form-label">
-                        <strong>Non conformes (bonnes feuilles)</strong>
+                        <strong>Non conformes (feuille de demarrage)</strong>
                                     </label>
                                     <input type="number" class="form-control" id="pdt_nnc" name="pdt_nnc" min="0" value="0">
                                 </div>
@@ -384,7 +392,7 @@
                             <hr>
 
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="button" class="btn btn-secondary" onclick="annulerFormulaire()">
+                                <button type="button" class="btn btn-secondary" id="btnAnnuler" onclick="annulerFormulaire()">
                                     <i class="fas fa-times"></i> Annuler
                                 </button>
                                 <button type="submit" class="btn btn-success btn-lg" id="btnEnregistrer">
@@ -405,6 +413,9 @@
 // ============================================================================
 let chronoStart = null;
 let chronoInterval = null;
+let chronoIsPaused = false;
+let chronoPausedTime = null; // Temps écoulé avant la pause (en millisecondes)
+let chronoTotalElapsed = 0; // Temps total écoulé (pour gérer les pauses multiples)
 let currentNumeroCommande = null;
 let currentService = null;
 let currentFicheId = null;
@@ -486,22 +497,42 @@ function restaurerChronoDepuisFormulaire() {
     chronoStart = parsed;
     if (chronoInterval) {
         clearInterval(chronoInterval);
+        chronoInterval = null;
+        chronoIsPaused = false;
+        chronoPausedTime = null;
+        chronoTotalElapsed = 0;
+        $('#btnPauseChrono').hide();
+        $('#chronoPauseIndicator').hide();
+        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
     }
     $('#chronoBox').css('display', 'block');
+    $('#btnPauseChrono').css('display', 'block');
     $('#chronoStart').text(parsed.toLocaleString('fr-FR', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
     }));
+    
+    // Réinitialiser les variables de pause
+    chronoIsPaused = false;
+    chronoPausedTime = null;
+    chronoTotalElapsed = 0;
+    $('#chronoPauseIndicator').hide();
+    $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
+    
     chronoInterval = setInterval(() => {
-        const now = new Date();
-        const diff = now - chronoStart;
-        const heures = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        const secondes = Math.floor((diff % 60000) / 1000);
-        $('#chronoDisplay').text(
-            `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secondes.toString().padStart(2, '0')}`
-        );
+        if (!chronoIsPaused) {
+            const now = new Date();
+            const diff = now - chronoStart;
+            const totalTime = chronoTotalElapsed + diff;
+            
+            const heures = Math.floor(totalTime / 3600000);
+            const minutes = Math.floor((totalTime % 3600000) / 60000);
+            const secondes = Math.floor((totalTime % 60000) / 1000);
+            $('#chronoDisplay').text(
+                `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secondes.toString().padStart(2, '0')}`
+            );
+        }
     }, 1000);
     return true;
 }
@@ -537,6 +568,12 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('[DEBUG] DOMContentLoaded - traitementDataFromServer:', traitementDataFromServer);
     console.log('[DEBUG] DOMContentLoaded - estModeEmbed:', estModeEmbed);
     
+    // En Reprise ou Modifier : masquer le bouton Annuler (éviter de supprimer la fiche par erreur)
+    if (traitementIdFromUrl) {
+        var btnAnnuler = document.getElementById('btnAnnuler');
+        if (btnAnnuler) btnAnnuler.style.display = 'none';
+    }
+
     // Si on est en mode modification, charger les données du traitement
     if (traitementIdFromUrl && traitementDataFromServer) {
         console.log('[DEBUG] Mode modification détecté, ID:', traitementIdFromUrl);
@@ -786,35 +823,67 @@ function remplirChampsTraitement(data) {
                     
                     // IMPORTANT: Ne démarrer le chronomètre QUE si le traitement est EN COURS (pas de date de fin)
                     if (!data.dte_fin) {
-                        // Traitement en cours - démarrer le chronomètre
-                        chronoStart = dteDeb;
+                        var tempsAfficheSec = data.temps_ecoule_affichage_sec != null && data.temps_ecoule_affichage_sec > 0
+                            ? parseInt(data.temps_ecoule_affichage_sec, 10) : 0;
+                        chronoIsPaused = false;
+                        chronoPausedTime = null;
+                        chronoTotalElapsed = tempsAfficheSec * 1000;
                         $('#chronoBox').css('display', 'block');
+                        $('#btnPauseChrono').css('display', 'block');
+                        $('#chronoPauseIndicator').hide();
+                        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
                         $('#chronoStart').text(dteDeb.toLocaleString('fr-FR', {
                             hour: '2-digit',
                             minute: '2-digit',
                             second: '2-digit'
                         }));
-                        
-                        // Démarrer le chronomètre
                         if (chronoInterval) {
                             clearInterval(chronoInterval);
+                            chronoInterval = null;
                         }
-                        chronoInterval = setInterval(() => {
-                            const now = new Date();
-                            const diff = now - chronoStart;
-                            const heures = Math.floor(diff / 3600000);
-                            const minutes = Math.floor((diff % 3600000) / 60000);
-                            const secondes = Math.floor((diff % 60000) / 1000);
+                        // Si un temps "pause" était enregistré : afficher ce temps (identique à la fermeture), en jaune comme à l'état pause
+                        if (tempsAfficheSec > 0) {
+                            chronoStart = null;
+                            var h = Math.floor(tempsAfficheSec / 3600);
+                            var m = Math.floor((tempsAfficheSec % 3600) / 60);
+                            var s = tempsAfficheSec % 60;
                             $('#chronoDisplay').text(
-                                `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secondes.toString().padStart(2, '0')}`
+                                (h + '').padStart(2, '0') + ':' + (m + '').padStart(2, '0') + ':' + (s + '').padStart(2, '0')
                             );
-                        }, 1000);
+                            $('#btnPauseChrono').html('<i class="fas fa-play"></i> Reprendre');
+                            $('#btnPauseChrono').removeClass('btn-warning').addClass('btn-success');
+                            $('#chronoBox').removeClass('alert-info').addClass('alert-warning');
+                            $('#chronoPauseIndicator').show();
+                            chronoIsPaused = true;
+                        } else {
+                            chronoStart = dteDeb;
+                            chronoInterval = setInterval(function() {
+                                if (!chronoIsPaused) {
+                                    var now = new Date();
+                                    var diff = now - chronoStart;
+                                    var totalTime = chronoTotalElapsed + diff;
+                                    var heures = Math.floor(totalTime / 3600000);
+                                    var minutes = Math.floor((totalTime % 3600000) / 60000);
+                                    var secondes = Math.floor((totalTime % 60000) / 1000);
+                                    $('#chronoDisplay').text(
+                                        (heures + '').padStart(2, '0') + ':' + (minutes + '').padStart(2, '0') + ':' + (secondes + '').padStart(2, '0')
+                                    );
+                                }
+                            }, 1000);
+                        }
                     } else {
                         // Traitement terminé : afficher le chronomètre avec TpsReel (temps réel enregistré)
                         console.log('[DEBUG] Traitement terminé - affichage du temps réel enregistré');
                         chronoStart = null;
                         if (chronoInterval) {
                             clearInterval(chronoInterval);
+        chronoInterval = null;
+        chronoIsPaused = false;
+        chronoPausedTime = null;
+        chronoTotalElapsed = 0;
+        $('#btnPauseChrono').hide();
+        $('#chronoPauseIndicator').hide();
+        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
                             chronoInterval = null;
                         }
                         $('#chronoBox').css('display', 'block');
@@ -1488,13 +1557,73 @@ function genererChampsOperateurs(nbPersonnes) {
         }
     });
     
-    // Événement sur le premier opérateur pour démarrer le chronomètre
+    // Fonction pour mettre à jour le titre de la page avec le nom et prénom de l'opérateur
+    function mettreAJourTitrePageOperateur() {
+        const champOperateur = document.getElementById('operateur_1');
+        if (!champOperateur) return;
+        
+        const valeur = champOperateur.value.trim();
+        const titreParDefaut = 'Nouveau Traitement - Projet 11';
+        
+        // Extraire le nom et prénom depuis le format : "Nom Prenom (Matricule: XXX)"
+        // Format attendu : "Nom Prenom" ou "Nom Prenom (Matricule: XXX)"
+        let nouveauTitre = titreParDefaut;
+        
+        if (valeur) {
+            const matchComplet = valeur.match(/^(.+?)\s*\(Matricule:\s*(\d+)\)$/);
+            let nomPrenom = '';
+            let matricule = '';
+            
+            if (matchComplet) {
+                // Format avec matricule : "Nom Prenom (Matricule: XXX)"
+                nomPrenom = matchComplet[1].trim();
+                matricule = matchComplet[2];
+            } else {
+                // Format simple : "Nom Prenom"
+                nomPrenom = valeur;
+            }
+            
+            // Option A : juste "Nom Prenom" (comme demandé)
+            // Mais on peut aussi inclure le matricule si présent
+            if (nomPrenom) {
+                if (matricule) {
+                    nouveauTitre = `${nomPrenom} (Matricule: ${matricule})`;
+                } else {
+                    nouveauTitre = nomPrenom;
+                }
+            }
+        }
+        
+        // Mettre à jour le titre de la page actuelle
+        document.title = nouveauTitre;
+        
+        // Essayer de mettre à jour aussi le titre de la page parente si on est dans un iframe
+        // (pour le mode modal/embed)
+        try {
+            if (window.parent && window.parent !== window) {
+                // On est dans un iframe, essayer de mettre à jour le titre de la page parente
+                window.parent.document.title = nouveauTitre;
+            }
+        } catch (e) {
+            // Erreur d'accès cross-origin ou autre - ignorer silencieusement
+            // C'est normal si l'iframe est sur un domaine différent ou si le navigateur bloque l'accès
+        }
+    }
+    
+    // Événement sur le premier opérateur pour démarrer le chronomètre et mettre à jour le titre
     $('#operateur_1').on('input change', function() {
         const matricule = $(this).attr('data-matricule');
         if ($(this).val() && matricule && currentService && currentNumeroCommande) {
             demarrerChrono();
         }
+        // Mettre à jour le titre de la page avec le nom et prénom de l'opérateur
+        mettreAJourTitrePageOperateur();
     });
+    
+    // Mettre à jour le titre au chargement si un opérateur est déjà sélectionné
+    if (champOperateur && champOperateur.value) {
+        mettreAJourTitrePageOperateur();
+    }
 }
 
 // Le nombre de personnes ne change plus le nombre de champs opérateurs
@@ -1615,18 +1744,29 @@ function demarrerChrono() {
     }));
 
     $('#chronoBox').css('display', 'block');
+    $('#btnPauseChrono').css('display', 'block');
+    
+    // Réinitialiser les variables de pause
+    chronoIsPaused = false;
+    chronoPausedTime = null;
+    chronoTotalElapsed = 0;
+    $('#chronoPauseIndicator').hide();
+    $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
 
     chronoInterval = setInterval(() => {
-        const now = new Date();
-        const diff = now - chronoStart;
+        if (!chronoIsPaused) {
+            const now = new Date();
+            const diff = now - chronoStart;
+            const totalTime = chronoTotalElapsed + diff;
 
-        const heures = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        const secondes = Math.floor((diff % 60000) / 1000);
+            const heures = Math.floor(totalTime / 3600000);
+            const minutes = Math.floor((totalTime % 3600000) / 60000);
+            const secondes = Math.floor((totalTime % 60000) / 1000);
 
-        $('#chronoDisplay').text(
-            `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secondes.toString().padStart(2, '0')}`
-        );
+            $('#chronoDisplay').text(
+                `${heures.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secondes.toString().padStart(2, '0')}`
+            );
+        }
     }, 1000);
 
     const pdtC = parseInt($('#pdt_c').val(), 10);
@@ -1674,9 +1814,79 @@ function demarrerChrono() {
     });
 }
 
+// Fonction globale pour mettre en pause / reprendre le chronomètre
+window.togglePauseChrono = function() {
+    // Cas : affichage gelé (réouverture après pause) -> clic "Reprendre" pour relancer le chrono
+    if (chronoIsPaused && chronoStart == null) {
+        chronoStart = new Date();
+        chronoIsPaused = false;
+        $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
+        $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
+        $('#chronoPauseIndicator').hide();
+        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
+        chronoInterval = setInterval(function() {
+            if (!chronoIsPaused) {
+                var now = new Date();
+                var diff = now - chronoStart;
+                var totalTime = chronoTotalElapsed + diff;
+                var heures = Math.floor(totalTime / 3600000);
+                var minutes = Math.floor((totalTime % 3600000) / 60000);
+                var secondes = Math.floor((totalTime % 60000) / 1000);
+                $('#chronoDisplay').text(
+                    (heures + '').padStart(2, '0') + ':' + (minutes + '').padStart(2, '0') + ':' + (secondes + '').padStart(2, '0')
+                );
+            }
+        }, 1000);
+        return;
+    }
+    if (!chronoStart && !chronoTotalElapsed) {
+        return;
+    }
+
+    if (chronoIsPaused) {
+        // Reprendre le chronomètre
+        var now = new Date();
+        var diffAvantPause = chronoPausedTime ? (chronoPausedTime - chronoStart) : 0;
+        chronoTotalElapsed += diffAvantPause;
+        chronoStart = now;
+        chronoIsPaused = false;
+        chronoPausedTime = null;
+
+        $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
+        $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
+        $('#chronoPauseIndicator').hide();
+        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
+    } else {
+        // Mettre en pause : enregistrer le temps affiché côté serveur pour réouverture
+        chronoPausedTime = new Date();
+        chronoIsPaused = true;
+        var totalSec = Math.floor((chronoTotalElapsed + (chronoPausedTime - chronoStart)) / 1000);
+        var tid = currentTraitementId || traitementIdFromUrl;
+        if (tid && estModeEmbed) {
+            fetch('/projet11/api/traitements/' + tid + '/chrono_affichage', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ temps_ecoule_sec: totalSec })
+            }).catch(function() {});
+        }
+
+        $('#btnPauseChrono').html('<i class="fas fa-play"></i> Reprendre');
+        $('#btnPauseChrono').removeClass('btn-warning').addClass('btn-success');
+        $('#chronoPauseIndicator').show();
+        $('#chronoBox').removeClass('alert-info').addClass('alert-warning');
+    }
+};
+
 function stopChrono() {
     if (chronoInterval) {
         clearInterval(chronoInterval);
+        chronoInterval = null;
+        chronoIsPaused = false;
+        chronoPausedTime = null;
+        chronoTotalElapsed = 0;
+        $('#btnPauseChrono').hide();
+        $('#chronoPauseIndicator').hide();
+        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
         chronoInterval = null;
     }
     chronoStart = null;
@@ -1894,9 +2104,13 @@ $('#formNouveauTraitement').on('submit', function(e) {
             const messageAction = idToUse ? 'modifié' : 'enregistré';
             alert(`✅ Traitement ${messageAction} avec succès!\n\nID: ${traitementId}\nDurée: ${dureeHeures}h (${dureeMinutes} min)\nTotal produit: ${totalProduite.toLocaleString('fr-FR')}`);
             if (estModeEmbed) {
-                // En mode embed, fermer le modal et recharger la page parente
+                // En mode embed : demander au parent de fermer et rafraîchir en conservant les filtres
                 if (window.parent && window.parent !== window) {
-                    window.parent.location.reload();
+                    try {
+                        window.parent.postMessage({ action: 'fiche_saved' }, window.location.origin);
+                    } catch (e) {
+                        window.parent.location.reload();
+                    }
                 } else {
                     window.location.reload();
                 }
@@ -2033,13 +2247,24 @@ function annulerFormulaire() {
         });
     }
     
-    // Envoyer un message au parent pour fermer le popup sans sauvegarder
+    // Envoyer au parent : fermer le popup et (optionnel) enregistrer le temps chrono pour réouverture
+    var chronoSec = null;
+    if (chronoStart || chronoTotalElapsed > 0) {
+        if (chronoIsPaused && chronoTotalElapsed > 0) {
+            chronoSec = Math.floor(chronoTotalElapsed / 1000);
+        } else if (chronoStart && !chronoIsPaused) {
+            chronoSec = Math.floor((chronoTotalElapsed + (new Date() - chronoStart)) / 1000);
+        }
+    }
     if (window.parent && window.parent !== window) {
         try {
-            window.parent.postMessage({ action: 'annuler' }, window.location.origin);
+            window.parent.postMessage({
+                action: 'annuler',
+                traitementId: idToUse || null,
+                chronoTempsEcouleSec: chronoSec
+            }, window.location.origin);
         } catch (err) {
             console.error('postMessage annuler:', err);
-            // Fallback : fermer directement si on n'est pas dans un iframe
             window.history.back();
         }
     } else {

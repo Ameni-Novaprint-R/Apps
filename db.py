@@ -241,20 +241,53 @@ def get_commandes_avec_suivi():
                     ELSE 'Non livré'
                 END AS StatutDelai,
                 CASE 
-                    WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' THEN
-                        DATEDIFF(day, C.DteLivPrev, L.DteLiv)
-                    WHEN C.DteLivPrev < GETDATE() THEN
-                        DATEDIFF(day, C.DteLivPrev, GETDATE())
-                    ELSE 0
-                END AS EcartJours,
-                CASE 
                     WHEN EXISTS (
                         SELECT 1 
                         FROM WEB_TRAITEMENTS WT 
                         WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(C.Numero))
                     ) THEN 'encours'
                     ELSE '-'
-                END AS StatutDossier
+                END AS StatutDossier,
+                CASE 
+                    WHEN L.DteLiv IS NOT NULL AND L.DteLiv <> '9999-12-31 00:00:00.000' AND L.DteLiv > '1900-01-01' AND L.DteLiv < '2100-01-01' THEN
+                        DATEDIFF(day, C.DteLivPrev, L.DteLiv)
+                    WHEN C.DteLivPrev < GETDATE() THEN
+                        DATEDIFF(day, C.DteLivPrev, GETDATE())
+                    ELSE 0
+                END AS EcartJours,
+                ISNULL((
+                    SELECT SUM(GFI.TpsPrevDev)
+                    FROM GP_FICHTRA_INT GFI
+                    INNER JOIN GP_FICHES_TRAVAIL GFT ON GFI.ID_FICHTRA = GFT.ID
+                    WHERE GFT.ID_COMMANDE = C.ID
+                    AND GFI.TpsPrevDev IS NOT NULL
+                ), 0) AS TempsTotalPrevu,
+                -- Poste de production (dernier ID dans WEB_TRAITEMENTS pour cette commande)
+                (SELECT TOP 1 WT.PostesReel
+                 FROM WEB_TRAITEMENTS WT
+                 WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(C.Numero))
+                 ORDER BY WT.ID DESC) AS PosteProduction,
+                -- Date poste (DteDeb du dernier traitement)
+                (SELECT TOP 1 WT.DteDeb
+                 FROM WEB_TRAITEMENTS WT
+                 WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(C.Numero))
+                 ORDER BY WT.ID DESC) AS DatePoste,
+                -- Indicateur si la production est en cours (DteFin NULL pour le dernier traitement)
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM WEB_TRAITEMENTS WT 
+                        WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(C.Numero))
+                        AND WT.DteFin IS NULL
+                        AND WT.ID = (
+                            SELECT TOP 1 WT2.ID
+                            FROM WEB_TRAITEMENTS WT2
+                            WHERE LTRIM(RTRIM(WT2.Numero_COMMANDES)) = LTRIM(RTRIM(C.Numero))
+                            ORDER BY WT2.ID DESC
+                        )
+                    ) THEN 1
+                    ELSE 0
+                END AS ProductionEnCours
             FROM COMMANDES C
             INNER JOIN SOCIETES S ON C.ID_SOCIETE = S.ID
             LEFT JOIN LIVRAISONS_CMDE L ON C.ID = L.ID_COMMANDE 
@@ -272,6 +305,11 @@ def get_commandes_avec_suivi():
                 if date_str and date_str != '9999-12-31' and date_str >= '1900-01-01' and date_str < '2100-01-01':
                     date_reelle = date_str
             
+            # Formater la date poste
+            date_poste = None
+            if row.DatePoste:
+                date_poste = row.DatePoste.strftime('%Y-%m-%d %H:%M:%S') if hasattr(row.DatePoste, 'strftime') else str(row.DatePoste)
+            
             commandes.append({
                 "numero": row.Numero,
                 "date_prevue": row.DteLivPrev.strftime('%Y-%m-%d') if row.DteLivPrev else None,
@@ -282,7 +320,11 @@ def get_commandes_avec_suivi():
                 "etat_liv": row.EtatLiv,
                 "statut_delai": row.StatutDelai,
                 "ecart_jours": row.EcartJours,
-                "statut_dossier": row.StatutDossier
+                "statut_dossier": row.StatutDossier,
+                "temps_total_prevu": float(row.TempsTotalPrevu) if row.TempsTotalPrevu else 0.0,
+                "poste_production": row.PosteProduction if row.PosteProduction else None,
+                "date_poste": date_poste,
+                "production_en_cours": bool(row.ProductionEnCours)
             })
     return commandes
 
@@ -441,19 +483,31 @@ def get_alertes_retard():
 # PROJET 10 - CONTRÔLE QUALITÉ
 # ---------------------------
 def get_numeros_commandes_disponibles():
-    """Récupère tous les numéros de commandes disponibles pour le contrôle qualité"""
+    """Récupère tous les numéros de commandes disponibles pour le contrôle qualité avec client et référence"""
     with get_db_cursor() as cursor:
         cursor.execute("""
-            SELECT DISTINCT Numero
-            FROM COMMANDES
-            WHERE Numero IS NOT NULL 
-            AND Numero <> ''
-            ORDER BY Numero
+            SELECT DISTINCT
+                C.Numero,
+                C.Reference,
+                S.RaiSocTri,
+                C.QteComm,
+                C.ID
+            FROM COMMANDES C
+            LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
+            WHERE C.Numero IS NOT NULL 
+            AND C.Numero <> ''
+            ORDER BY C.Numero DESC
         """)
-        numeros = []
+        commandes = []
         for row in cursor.fetchall():
-            numeros.append(row.Numero.strip())
-        return numeros
+            commandes.append({
+                "numero": (row.Numero or '').strip(),
+                "reference": (row.Reference or '').strip(),
+                "client": (row.RaiSocTri or '').strip(),
+                "qte_commande": row.QteComm or 0,
+                "id_commande": row.ID
+            })
+        return commandes
 
 # ---------------------------
 # CONTRÔLE QUALITÉ
@@ -1115,12 +1169,31 @@ def get_comparaison_periodes(date_debut1, date_fin1, date_debut2, date_fin2):
         }
 
 def get_machines_impression():
-    """Récupère la liste des machines d'impression depuis GP_POSTES (centre de coût 6)"""
+    """Récupère la liste des machines d'impression depuis GP_POSTES (GP_SERVICES.ID = 1)"""
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT DISTINCT P.Nom, P.ID
             FROM GP_POSTES P
-            WHERE P.ID_CENTRE_COUT = 6
+            WHERE P.ID_SERVICE = 1
+              AND P.Nom IS NOT NULL 
+              AND P.Nom != ''
+            ORDER BY P.Nom
+        """)
+        machines = []
+        for row in cursor.fetchall():
+            machines.append({
+                "nom": row.Nom,
+                "id": row.ID
+            })
+        return machines
+
+def get_machines_decoupe():
+    """Récupère la liste des machines de découpe depuis GP_POSTES (GP_SERVICES.ID = 5)"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT DISTINCT P.Nom, P.ID
+            FROM GP_POSTES P
+            WHERE P.ID_SERVICE = 5
               AND P.Nom IS NOT NULL 
               AND P.Nom != ''
             ORDER BY P.Nom

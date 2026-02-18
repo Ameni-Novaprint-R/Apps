@@ -28,7 +28,9 @@ SOURCE_CONFIG = {
 TARGET_CONFIG = {
     'server': '192.168.10.225',
     'database': 'novaprint_restored',
-    'trusted_connection': True
+    'trusted_connection': False,  # Utiliser l'authentification SQL Server pour Task Scheduler
+    'username': 'sa',
+    'password': 'bA8ALvct9QtX'
 }
 
 sync_status = {'running': False, 'message': '', 'progress': 0, 'details': [], 'code_version': PROJET21_CODE_VERSION}
@@ -127,10 +129,18 @@ def extract_fk_info(error_msg):
     return None, None
 
 def check_fk_exists(cursor, ref_table, ref_column, value):
-    """Vérifie si une valeur existe dans la table référencée"""
+    """
+    Vérifie si une valeur existe dans la table référencée.
+    Gère spécialement la valeur 0 pour garantir qu'elle est toujours vérifiée correctement.
+    """
     try:
-        cursor.execute(f"SELECT COUNT(*) FROM [{ref_table}] WHERE [{ref_column}] = ?", (value,))
-        return cursor.fetchone()[0] > 0
+        # Pour la valeur 0, vérifier explicitement (car 0 peut être valide même si non présent dans un DISTINCT)
+        if value == 0:
+            cursor.execute(f"SELECT COUNT(*) FROM [{ref_table}] WHERE [{ref_column}] = 0")
+            return cursor.fetchone()[0] > 0
+        else:
+            cursor.execute(f"SELECT COUNT(*) FROM [{ref_table}] WHERE [{ref_column}] = ?", (value,))
+            return cursor.fetchone()[0] > 0
     except:
         return False
 
@@ -334,6 +344,299 @@ def compare_rows_for_update(source_row_dict, target_row_dict, exclude_cols=None)
     
     return len(diff_cols) > 0, diff_cols, update_values
 
+def auto_realign_table_ids(source_cursor, target_cursor, target_conn, table_name, sync_status):
+    """
+    Réaligne automatiquement les IDs d'une table si nécessaire.
+    
+    Pour PAPIERS_ARTICLES et PAPIERS_IMPRIMEURS uniquement.
+    Compare les données par clé alternative (toutes colonnes sauf ID) et réaligne les IDs
+    si des décalages sont détectés.
+    
+    Retourne True si un réalignement a été effectué, False sinon.
+    """
+    
+    # Tables supportées pour le réalignement automatique
+    SUPPORTED_TABLES = {
+        'PAPIERS_ARTICLES': {
+            'fk_tables': ['PAPIERS_TARIF_FMT'],  # Tables avec FK vers cette table
+            'fk_columns': {'PAPIERS_TARIF_FMT': 'ID_ARTICLE'}  # Colonne FK dans chaque table enfant
+        },
+        'PAPIERS_IMPRIMEURS': {
+            'fk_tables': ['PAPIERS_TARIF_FMT', 'PAPIERS_TARIF_GRAM'],
+            'fk_columns': {
+                'PAPIERS_TARIF_FMT': 'ID_PAPIMPRIM',
+                'PAPIERS_TARIF_GRAM': 'ID_PAPIMPRIM'
+            }
+        }
+    }
+    
+    if table_name not in SUPPORTED_TABLES:
+        return False  # Table non supportée pour le réalignement automatique
+    
+    table_config = SUPPORTED_TABLES[table_name]
+    
+    try:
+        sync_status['details'].append(f"🔍 Vérification du réalignement automatique pour {table_name}...")
+        
+        # 1. Vérifier que les deux tables existent
+        source_cursor.execute("""
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE'
+        """, (table_name,))
+        source_exists = source_cursor.fetchone()[0] > 0
+        
+        target_cursor.execute("""
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE'
+        """, (table_name,))
+        target_exists = target_cursor.fetchone()[0] > 0
+        
+        if not source_exists or not target_exists:
+            sync_status['details'].append(f"  ⚠ {table_name}: Table absente, réalignement ignoré")
+            return False
+        
+        # 2. Récupérer toutes les colonnes (sauf ID) pour la correspondance
+        source_cursor.execute("""
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = ?
+            AND COLUMN_NAME != 'ID'
+            ORDER BY ORDINAL_POSITION
+        """, (table_name,))
+        source_columns = [row[0] for row in source_cursor.fetchall()]
+        
+        target_cursor.execute("""
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = ?
+            AND COLUMN_NAME != 'ID'
+            ORDER BY ORDINAL_POSITION
+        """, (table_name,))
+        target_columns = [row[0] for row in target_cursor.fetchall()]
+        
+        # Utiliser uniquement les colonnes communes
+        common_columns = [col for col in source_columns if col in target_columns]
+        
+        if not common_columns:
+            sync_status['details'].append(f"  ⚠ {table_name}: Aucune colonne commune pour correspondance")
+            return False
+        
+        # 3. Lire les données source et cible avec toutes les colonnes (sauf ID)
+        columns_str = ', '.join([f'[{col}]' for col in common_columns])
+        
+        source_cursor.execute(f"SELECT ID, {columns_str} FROM [{table_name}]")
+        source_rows = source_cursor.fetchall()
+        source_data = {}  # {tuple(colonnes): ID_source}
+        for row in source_rows:
+            key = tuple(row[1:])  # Toutes les colonnes sauf ID
+            source_data[key] = row[0]  # ID source
+        
+        target_cursor.execute(f"SELECT ID, {columns_str} FROM [{table_name}]")
+        target_rows = target_cursor.fetchall()
+        
+        # 4. Créer le mapping des IDs décalés
+        id_mapping = []  # [(ancien_ID_cible, nouveau_ID_source)]
+        target_ids_by_key = {}  # {tuple(colonnes): ID_cible}
+        
+        for row in target_rows:
+            target_id = row[0]
+            key = tuple(row[1:])
+            target_ids_by_key[key] = target_id
+            
+            if key in source_data:
+                source_id = source_data[key]
+                if target_id != source_id:
+                    id_mapping.append((target_id, source_id))
+        
+        if not id_mapping:
+            sync_status['details'].append(f"  ✓ {table_name}: Aucun décalage d'ID détecté")
+            return False
+        
+        sync_status['details'].append(f"  🔄 {table_name}: {len(id_mapping)} IDs à réaligner détectés")
+        
+        # 5. Vérifier les conflits (nouveaux IDs qui existent déjà hors mapping)
+        conflict_count = 0
+        new_ids = {new_id for _, new_id in id_mapping}
+        old_ids = {old_id for old_id, _ in id_mapping}
+        
+        target_cursor.execute(f"SELECT ID FROM [{table_name}]")
+        existing_ids = {row[0] for row in target_cursor.fetchall()}
+        
+        conflicts = new_ids & (existing_ids - old_ids)
+        if conflicts:
+            sync_status['details'].append(f"  ⚠ {table_name}: {len(conflicts)} conflits d'IDs détectés - réalignement partiel uniquement")
+            # Filtrer le mapping pour exclure les conflits
+            id_mapping = [(old_id, new_id) for old_id, new_id in id_mapping if new_id not in conflicts]
+            if not id_mapping:
+                sync_status['details'].append(f"  ✗ {table_name}: Impossible de réaligner (tous les IDs sont en conflit)")
+                return False
+        
+        # 6. Démarrer la transaction
+        target_conn.autocommit = False
+        
+        try:
+            # 6a. Désactiver temporairement les FK entrantes
+            fk_disabled = []
+            for fk_table in table_config['fk_tables']:
+                fk_col = table_config['fk_columns'][fk_table]
+                
+                # Trouver le nom de la contrainte FK
+                target_cursor.execute("""
+                    SELECT fk.name
+                    FROM sys.foreign_keys fk
+                    INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+                    INNER JOIN sys.tables tp ON fkc.parent_object_id = tp.object_id
+                    INNER JOIN sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
+                    INNER JOIN sys.tables tr ON fkc.referenced_object_id = tr.object_id
+                    WHERE tp.name = ? AND cp.name = ? AND tr.name = ?
+                """, (fk_table, fk_col, table_name))
+                
+                fk_row = target_cursor.fetchone()
+                if fk_row:
+                    fk_name = fk_row[0]
+                    target_cursor.execute(f"ALTER TABLE [{fk_table}] NOCHECK CONSTRAINT [{fk_name}]")
+                    fk_disabled.append((fk_table, fk_name))
+                    sync_status['details'].append(f"    ✓ FK désactivée: {fk_table}.{fk_col}")
+            
+            # 6b. Mettre à jour les FK dans les tables enfants
+            # IMPORTANT : Gérer les conflits de PK qui peuvent survenir lors de la mise à jour
+            fk_updated_total = 0
+            for fk_table in table_config['fk_tables']:
+                fk_col = table_config['fk_columns'][fk_table]
+                
+                # Utiliser une copie du mapping pour chaque table (pour éviter de modifier le mapping original)
+                table_id_mapping = list(id_mapping)
+                
+                # Construire le mapping pour la mise à jour avec gestion des conflits
+                update_count = 0
+                conflicts_count = 0
+                for old_id, new_id in table_id_mapping:
+                    try:
+                        target_cursor.execute(f"""
+                            UPDATE [{fk_table}]
+                            SET [{fk_col}] = ?
+                            WHERE [{fk_col}] = ?
+                        """, (new_id, old_id))
+                        update_count += target_cursor.rowcount
+                    except Exception as update_err:
+                        err_str = str(update_err)
+                        if 'duplicate key' in err_str.lower() or 'primary key' in err_str.lower() or '23000' in err_str:
+                            # Conflit détecté lors de la mise à jour (plusieurs lignes avec le même nouveau ID créent un doublon de PK)
+                            conflicts_count += 1
+                            if conflicts_count <= 3:  # Limiter les messages
+                                sync_status['details'].append(f"    ⚠ Conflit PK dans {fk_table}: old_id={old_id}->new_id={new_id} ({err_str[:100]})")
+                            continue
+                        else:
+                            raise  # Répercuter les autres erreurs
+                
+                fk_updated_total += update_count
+                if update_count > 0:
+                    sync_status['details'].append(f"    ✓ {update_count} références FK mises à jour dans {fk_table}")
+                if conflicts_count > 0:
+                    sync_status['details'].append(f"    ⚠ {conflicts_count} références FK non mises à jour dans {fk_table} à cause de conflits de PK")
+            
+            # 6c. Modifier les IDs dans la table principale
+            # Vérifier et activer IDENTITY_INSERT si nécessaire
+            identity_enabled = False
+            target_cursor.execute("""
+                SELECT COUNT(*) 
+                FROM sys.columns c
+                INNER JOIN sys.tables t ON c.object_id = t.object_id
+                WHERE t.name = ? AND c.is_identity = 1
+            """, (table_name,))
+            if target_cursor.fetchone()[0] > 0:
+                target_cursor.execute(f"SET IDENTITY_INSERT [{table_name}] ON")
+                identity_enabled = True
+            
+            # Récupérer toutes les colonnes de la table
+            target_cursor.execute("""
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = ?
+                ORDER BY ORDINAL_POSITION
+            """, (table_name,))
+            all_columns = [row[0] for row in target_cursor.fetchall()]
+            columns_insert = ', '.join([f'[{col}]' for col in all_columns])
+            
+            # Créer une table temporaire pour stocker le mapping
+            target_cursor.execute(f"""
+                CREATE TABLE #TEMP_MAPPING_{table_name} (
+                    ancien_ID INT PRIMARY KEY,
+                    nouveau_ID INT NOT NULL
+                )
+            """)
+            
+            # Insérer le mapping
+            for old_id, new_id in id_mapping:
+                target_cursor.execute(f"""
+                    INSERT INTO #TEMP_MAPPING_{table_name} (ancien_ID, nouveau_ID)
+                    VALUES (?, ?)
+                """, (old_id, new_id))
+            
+            # Créer une table temporaire avec les enregistrements à modifier (avec nouveaux IDs)
+            target_cursor.execute(f"""
+                SELECT pa.*, m.nouveau_ID AS NEW_ID
+                INTO #TEMP_REALIGN_{table_name}
+                FROM [{table_name}] pa
+                INNER JOIN #TEMP_MAPPING_{table_name} m ON pa.ID = m.ancien_ID
+            """)
+            
+            # Mettre à jour les IDs dans la table temporaire
+            target_cursor.execute(f"""
+                UPDATE #TEMP_REALIGN_{table_name}
+                SET ID = NEW_ID
+            """)
+            
+            # Supprimer les anciens enregistrements de la table principale
+            old_ids_list = [old_id for old_id, _ in id_mapping]
+            placeholders = ','.join(['?' for _ in old_ids_list])
+            target_cursor.execute(f"""
+                DELETE FROM [{table_name}]
+                WHERE ID IN ({placeholders})
+            """, old_ids_list)
+            
+            # Insérer les enregistrements avec les nouveaux IDs
+            target_cursor.execute(f"""
+                INSERT INTO [{table_name}] ({columns_insert})
+                SELECT {columns_insert}
+                FROM #TEMP_REALIGN_{table_name}
+            """)
+            
+            # Nettoyer les tables temporaires
+            target_cursor.execute(f"DROP TABLE #TEMP_REALIGN_{table_name}")
+            target_cursor.execute(f"DROP TABLE #TEMP_MAPPING_{table_name}")
+            
+            # Réactiver IDENTITY si nécessaire
+            if identity_enabled:
+                target_cursor.execute(f"SET IDENTITY_INSERT [{table_name}] OFF")
+                # Réinitialiser IDENTITY
+                target_cursor.execute(f"SELECT MAX(ID) FROM [{table_name}]")
+                max_id = target_cursor.fetchone()[0] or 0
+                target_cursor.execute(f"DBCC CHECKIDENT ('[{table_name}]', RESEED, {max_id})")
+            
+            # 6d. Réactiver les FK entrantes
+            for fk_table, fk_name in fk_disabled:
+                target_cursor.execute(f"ALTER TABLE [{fk_table}] CHECK CONSTRAINT [{fk_name}]")
+            
+            # Valider la transaction
+            target_conn.commit()
+            target_conn.autocommit = True
+            
+            sync_status['details'].append(f"  ✓ {table_name}: {len(id_mapping)} IDs réalisés, {fk_updated_total} FK mises à jour")
+            return True
+            
+        except Exception as e:
+            target_conn.rollback()
+            target_conn.autocommit = True
+            sync_status['details'].append(f"  ✗ {table_name}: Erreur lors du réalignement: {str(e)[:200]}")
+            import traceback
+            traceback.print_exc()
+            return False
+            
+    except Exception as e:
+        sync_status['details'].append(f"  ✗ {table_name}: Erreur lors de la vérification: {str(e)[:200]}")
+        return False
+
 def sync_databases():
     global sync_status
     sync_status = {'running': True, 'message': 'Démarrage...', 'progress': 0, 'details': [], 'code_version': PROJET21_CODE_VERSION}
@@ -376,6 +679,15 @@ def sync_databases():
         
         total_tables = len(sorted_tables)
         failed_tables = []
+        
+        # ÉTAPE PRÉLIMINAIRE : Réalignement automatique des IDs pour PAPIERS_ARTICLES et PAPIERS_IMPRIMEURS
+        # Cette étape garantit que les IDs sont alignés avant la synchronisation normale
+        sync_status['details'].append("\n🔄 Étape de réalignement automatique des IDs...")
+        
+        tables_to_realign = ['PAPIERS_ARTICLES', 'PAPIERS_IMPRIMEURS']
+        for table_name in tables_to_realign:
+            if table_name in sorted_tables:
+                auto_realign_table_ids(source_cursor, target_cursor, target_conn, table_name, sync_status)
         
         # Première passe : synchroniser toutes les tables dans l'ordre topologique
         for i, table_name in enumerate(sorted_tables):
@@ -496,14 +808,19 @@ def sync_databases():
                             target_cursor.execute(f"SELECT DISTINCT [{ref_col}] FROM [{ref_table}] WHERE [{ref_col}] IS NOT NULL")
                             fk_values_cache[ref_table] = {row[0] for row in target_cursor.fetchall()}
                             
-                            # CORRECTION : Vérifier explicitement si 0 existe dans la table référencée
+                            # CORRECTION CRITIQUE : Vérifier explicitement si 0 existe dans la table référencée
                             # et l'ajouter au cache si nécessaire (car 0 IS NOT NULL est vrai mais peut être exclu)
+                            # Cette vérification garantit que ID_IMPRIMEUR = 0 est toujours traité comme valide
+                            # si ID_SOCIETE = 0 existe dans IMPRIMEURS
                             try:
                                 target_cursor.execute(f"SELECT COUNT(*) FROM [{ref_table}] WHERE [{ref_col}] = 0")
                                 if target_cursor.fetchone()[0] > 0:
                                     fk_values_cache[ref_table].add(0)
-                            except:
-                                pass  # Si la vérification échoue, continuer avec le cache existant
+                                    sync_status['details'].append(f"    ✓ Valeur FK 0 détectée et ajoutée au cache pour {ref_table}.{ref_col}")
+                            except Exception as e:
+                                # Si la vérification échoue, continuer avec le cache existant
+                                sync_status['details'].append(f"    ⚠ Impossible de vérifier FK 0 pour {ref_table}.{ref_col}: {str(e)[:100]}")
+                                pass
                         except Exception:
                             fk_values_cache[ref_table] = set()
                 
@@ -1070,10 +1387,21 @@ def sync_databases():
                                             if cache_key not in fk_cache:
                                                 fk_cache[cache_key] = check_fk_exists(target_cursor, ref_table, ref_col, fk_value)
                                             if not fk_cache[cache_key]:
-                                                # FK n'existe pas, ignorer cet enregistrement
-                                                skip_row = True
-                                                fk_errors += 1
-                                                break
+                                                # CORRECTION : Pour la valeur 0, vérifier directement dans la table
+                                                # car 0 peut être valide même s'il n'est pas dans le cache
+                                                if fk_value == 0:
+                                                    if check_fk_exists(target_cursor, ref_table, ref_col, 0):
+                                                        fk_cache[cache_key] = True
+                                                    else:
+                                                        # FK n'existe pas, ignorer cet enregistrement
+                                                        skip_row = True
+                                                        fk_errors += 1
+                                                        break
+                                                else:
+                                                    # FK n'existe pas, ignorer cet enregistrement
+                                                    skip_row = True
+                                                    fk_errors += 1
+                                                    break
                                     except (ValueError, IndexError):
                                         # Colonne FK non trouvée, continuer
                                         pass
@@ -1304,7 +1632,7 @@ def sync_databases():
                             # On utilisera OPENROWSET directement avec WHERE basé sur les PKs manquantes identifiées précédemment
                             pass
                         
-                        # Essayer d'abord avec INSERT ... SELECT via OPENROWSET (plus efficace)
+                        # Utiliser l'approche ligne par ligne directement (évite OPENROWSET qui peut être bloqué)
                         identity_enabled = False
                         if has_identity_column(target_cursor, table_name):
                             target_cursor.execute(f"SET IDENTITY_INSERT [{table_name}] ON")
@@ -1329,107 +1657,46 @@ def sync_databases():
                             for _, dt, _, _, _ in cols_info
                         )
                         
-                        # Préparer les variables de connexion source
-                        source_server = SOURCE_CONFIG['server'].replace('\\', '\\\\')
-                        source_db = SOURCE_CONFIG['database']
-                        source_user = SOURCE_CONFIG['username']
-                        source_pwd = SOURCE_CONFIG['password'].replace("'", "''")
-                        
+                        # Utiliser directement l'approche ligne par ligne (plus fiable, évite OPENROWSET)
                         try:
-                            # Construire la clause WHERE pour exclure les PKs existants
-                            if existing_pks:
+                            # Index uniques disponibles pour résoudre les conflits (INSERT -> UPDATE)
+                            unique_indexes = _get_unique_indexes(target_cursor, table_name)
+                            exclude_cols = set(pk_columns)
+                            updated_ultime = 0
+                            
+                            # Si on a la liste des PKs manquantes, construire une clause WHERE
+                            if missing_pks_list and len(missing_pks_list) > 0:
+                                # Construire WHERE pour filtrer uniquement les PKs manquantes
                                 if len(pk_columns) == 1:
-                                    pk_list = ','.join([f"'{str(pk)}'" if isinstance(pk, str) else str(pk) for pk in existing_pks if pk is not None])
-                                    where_clause = f"WHERE [{pk_columns[0]}] NOT IN ({pk_list})" if pk_list else ""
-                                else:
-                                    pk_conditions = []
-                                    for pk_tuple in existing_pks:
-                                        if None not in pk_tuple:
-                                            conditions = []
-                                            for idx, pk_col in enumerate(pk_columns):
-                                                val = pk_tuple[idx]
-                                                if isinstance(val, str):
-                                                    conditions.append(f"[{pk_col}] = '{val.replace("'", "''")}'")
+                                    pk_values = [pk for pk in missing_pks_list if pk is not None]
+                                    if pk_values:
+                                        # Limiter à 1000 pour éviter les requêtes trop longues
+                                        for batch in [pk_values[i:i+1000] for i in range(0, len(pk_values), 1000)]:
+                                            pk_strs = []
+                                            for pk_val in batch:
+                                                if isinstance(pk_val, str):
+                                                    pk_strs.append(f"'{pk_val.replace("'", "''")}'")
                                                 else:
-                                                    conditions.append(f"[{pk_col}] = {val}")
-                                            pk_conditions.append("(" + " AND ".join(conditions) + ")")
-                                    if pk_conditions:
-                                        where_clause = "WHERE NOT (" + " OR ".join(pk_conditions) + ")"
-                                    else:
-                                        where_clause = ""
-                            else:
-                                where_clause = ""
-                            
-                            # Construire la liste de colonnes avec conversion si nécessaire
-                            if has_unsupported_types:
-                                converted_cols = []
-                                for col_name, data_type, max_len, nullable, default in cols_info:
-                                    if data_type in ('timestamp', 'rowversion'):
-                                        converted_cols.append(f"CONVERT(VARBINARY(8), [{col_name}]) AS [{col_name}]")
-                                    elif data_type in ('sql_variant', 'xml', 'text', 'ntext'):
-                                        converted_cols.append(f"CONVERT(NVARCHAR(MAX), CAST([{col_name}] AS NVARCHAR(MAX))) AS [{col_name}]")
-                                    elif data_type in ('geography', 'geometry', 'hierarchyid', 'image'):
-                                        converted_cols.append(f"CONVERT(VARBINARY(MAX), [{col_name}]) AS [{col_name}]")
-                                    else:
-                                        converted_cols.append(f"[{col_name}]")
-                                select_col_list = ", ".join(converted_cols)
-                            else:
-                                select_col_list = col_list
-                            
-                            # Essayer INSERT ... SELECT via OPENROWSET
-                            insert_sql = f"""
-                                INSERT INTO [{table_name}] ({col_list})
-                                SELECT {select_col_list}
-                                FROM OPENROWSET('SQLNCLI', 
-                                    'Server={source_server};Database={source_db};UID={source_user};PWD={source_pwd}',
-                                    'SELECT {select_col_list} FROM [{table_name}] {where_clause}')
-                            """
-                            
-                            target_cursor.execute(insert_sql)
-                            inserted = target_cursor.rowcount
-                            target_conn.commit()
-                        except Exception as openrowset_err:
-                            ultime_diag["openrowset"] = str(openrowset_err)
-                            # Si OPENROWSET ne fonctionne pas, utiliser l'approche ligne par ligne
-                            try:
-                                # Index uniques disponibles pour résoudre les conflits (INSERT -> UPDATE)
-                                unique_indexes = _get_unique_indexes(target_cursor, table_name)
-                                exclude_cols = set(pk_columns)
-                                updated_ultime = 0
-                                
-                                # Si on a la liste des PKs manquantes, construire une clause WHERE
-                                if missing_pks_list and len(missing_pks_list) > 0:
-                                    # Construire WHERE pour filtrer uniquement les PKs manquantes
-                                    if len(pk_columns) == 1:
-                                        pk_values = [pk for pk in missing_pks_list if pk is not None]
-                                        if pk_values:
-                                            # Limiter à 1000 pour éviter les requêtes trop longues
-                                            for batch in [pk_values[i:i+1000] for i in range(0, len(pk_values), 1000)]:
-                                                pk_strs = []
-                                                for pk_val in batch:
-                                                    if isinstance(pk_val, str):
-                                                        pk_strs.append(f"'{pk_val.replace("'", "''")}'")
-                                                    else:
-                                                        pk_strs.append(str(pk_val))
-                                                where_clause = f"WHERE [{pk_columns[0]}] IN ({','.join(pk_strs)})"
-                                                source_cursor.execute(f"SELECT {col_list} FROM [{table_name}] {where_clause}")
-                                                source_rows = source_cursor.fetchall()
+                                                    pk_strs.append(str(pk_val))
+                                            where_clause = f"WHERE [{pk_columns[0]}] IN ({','.join(pk_strs)})"
+                                            source_cursor.execute(f"SELECT {col_list} FROM [{table_name}] {where_clause}")
+                                            source_rows = source_cursor.fetchall()
+                                            
+                                            pk_indices = [columns.index(pk) for pk in pk_columns]
+                                            placeholders = ", ".join(["?" for _ in columns])
+                                            
+                                            for row in source_rows:
+                                                row_dict = {columns[i]: row[i] for i in range(len(columns))}
                                                 
-                                                pk_indices = [columns.index(pk) for pk in pk_columns]
-                                                placeholders = ", ".join(["?" for _ in columns])
-                                                
-                                                for row in source_rows:
-                                                    row_dict = {columns[i]: row[i] for i in range(len(columns))}
-                                                    
-                                                    try:
-                                                        target_cursor.execute(
-                                                            f"INSERT INTO [{table_name}] ({col_list}) VALUES ({placeholders})",
-                                                            list(row)
-                                                        )
-                                                        inserted += 1
-                                                        if inserted % 100 == 0:
-                                                            target_conn.commit()
-                                                    except Exception as ins_err:
+                                                try:
+                                                    target_cursor.execute(
+                                                        f"INSERT INTO [{table_name}] ({col_list}) VALUES ({placeholders})",
+                                                        list(row)
+                                                    )
+                                                    inserted += 1
+                                                    if inserted % 100 == 0:
+                                                        target_conn.commit()
+                                                except Exception as ins_err:
                                                         err_str = str(ins_err)
                                                         
                                                         # Si erreur de conflit d'index unique, essayer UPDATE (Option A)
@@ -1551,127 +1818,127 @@ def sync_databases():
                                                                     if unique_indexes:
                                                                         diag_msg += f" (index uniques testés: {len(unique_indexes)})"
                                                                     ultime_diag["insert_samples"].append(diag_msg)
-                                                        else:
-                                                            if len(ultime_diag["insert_samples"]) < 3:
-                                                                ultime_diag["insert_samples"].append(str(ins_err))
-                                                        continue
-                                                
-                                                if inserted > 0 or updated_ultime > 0:
+                                                            else:
+                                                                if len(ultime_diag["insert_samples"]) < 3:
+                                                                    ultime_diag["insert_samples"].append(str(ins_err))
+                                                            continue
+                                            
+                                            if inserted > 0 or updated_ultime > 0:
+                                                target_conn.commit()
+                                else:
+                                    # PK composite - lire tous et filtrer
+                                    source_cursor.execute(f"SELECT {col_list} FROM [{table_name}]")
+                                    source_rows = source_cursor.fetchall()
+                                    
+                                    pk_indices = [columns.index(pk) for pk in pk_columns]
+                                    placeholders = ", ".join(["?" for _ in columns])
+                                    
+                                    for row in source_rows:
+                                        pk_tuple = tuple(row[idx] for idx in pk_indices)
+                                        if pk_tuple not in existing_pks:
+                                            row_dict = {columns[i]: row[i] for i in range(len(columns))}
+                                            
+                                            try:
+                                                target_cursor.execute(
+                                                    f"INSERT INTO [{table_name}] ({col_list}) VALUES ({placeholders})",
+                                                    list(row)
+                                                )
+                                                inserted += 1
+                                                existing_pks.add(pk_tuple)
+                                                if inserted % 100 == 0:
                                                     target_conn.commit()
-                                    else:
-                                        # PK composite - lire tous et filtrer
-                                        source_cursor.execute(f"SELECT {col_list} FROM [{table_name}]")
-                                        source_rows = source_cursor.fetchall()
-                                        
-                                        pk_indices = [columns.index(pk) for pk in pk_columns]
-                                        placeholders = ", ".join(["?" for _ in columns])
-                                        
-                                        for row in source_rows:
-                                            pk_tuple = tuple(row[idx] for idx in pk_indices)
-                                            if pk_tuple not in existing_pks:
-                                                row_dict = {columns[i]: row[i] for i in range(len(columns))}
+                                            except Exception as ins_err:
+                                                err_str = str(ins_err)
                                                 
-                                                try:
-                                                    target_cursor.execute(
-                                                        f"INSERT INTO [{table_name}] ({col_list}) VALUES ({placeholders})",
-                                                        list(row)
-                                                    )
-                                                    inserted += 1
-                                                    existing_pks.add(pk_tuple)
-                                                    if inserted % 100 == 0:
-                                                        target_conn.commit()
-                                                except Exception as ins_err:
-                                                    err_str = str(ins_err)
+                                                # Si erreur de conflit d'index unique, essayer UPDATE (Option A)
+                                                if 'duplicate key' in err_str.lower() or 'unique index' in err_str.lower() or '2601' in err_str:
+                                                    updated_via_unique = False
                                                     
-                                                    # Si erreur de conflit d'index unique, essayer UPDATE (Option A)
-                                                    if 'duplicate key' in err_str.lower() or 'unique index' in err_str.lower() or '2601' in err_str:
-                                                        updated_via_unique = False
+                                                    for idx_name, idx_cols in unique_indexes:
+                                                        if not idx_cols:
+                                                            continue
                                                         
-                                                        for idx_name, idx_cols in unique_indexes:
-                                                            if not idx_cols:
-                                                                continue
-                                                            
-                                                            # Construire les valeurs de l'index (NULL inclus)
-                                                            idx_values = []
-                                                            has_all = True
-                                                            for col in idx_cols:
-                                                                if col not in row_dict:
-                                                                    has_all = False
-                                                                    break
-                                                                idx_values.append(row_dict.get(col))
-                                                            if not has_all:
-                                                                continue
-                                                            
-                                                            # Utiliser find_row_by_unique_index pour gérer les NULL correctement
-                                                            existing_row = find_row_by_unique_index(
-                                                                target_cursor, table_name, idx_cols, idx_values
-                                                            )
-                                                            if not existing_row:
-                                                                # Fallback : essayer de trouver la ligne avec une requête directe
-                                                                try:
-                                                                    where_parts_fallback = []
-                                                                    where_params_fallback = []
-                                                                    for col, val in zip(idx_cols, idx_values):
-                                                                        if val is None:
-                                                                            where_parts_fallback.append(f"[{col}] IS NULL")
-                                                                        else:
-                                                                            where_parts_fallback.append(f"[{col}] = ?")
-                                                                            where_params_fallback.append(val)
-                                                                    where_clause_fallback = " AND ".join(where_parts_fallback)
-                                                                    target_cursor.execute(f"SELECT * FROM [{table_name}] WHERE {where_clause_fallback}", tuple(where_params_fallback))
-                                                                    row_fallback = target_cursor.fetchone()
-                                                                    if row_fallback:
-                                                                        target_cursor.execute(f"SELECT * FROM [{table_name}] WHERE 1=0")
-                                                                        cols_fallback = [desc[0] for desc in target_cursor.description]
-                                                                        existing_row = {cols_fallback[i]: row_fallback[i] for i in range(len(cols_fallback))}
-                                                                except Exception:
-                                                                    pass
-                                                            
-                                                            if not existing_row:
-                                                                continue
-                                                            
-                                                            # Conflit détecté : UPDATE uniquement si différence
-                                                            exclude_for_update = exclude_cols | set(idx_cols)
-                                                            has_diff, diff_cols, update_values = compare_rows_for_update(
-                                                                row_dict, existing_row, exclude_for_update
-                                                            )
-                                                            if not has_diff:
-                                                                updated_via_unique = True
+                                                        # Construire les valeurs de l'index (NULL inclus)
+                                                        idx_values = []
+                                                        has_all = True
+                                                        for col in idx_cols:
+                                                            if col not in row_dict:
+                                                                has_all = False
                                                                 break
-                                                            
-                                                            # WHERE unique avec gestion des NULL
-                                                            where_parts = []
-                                                            where_params = []
-                                                            for col, val in zip(idx_cols, idx_values):
-                                                                if val is None:
-                                                                    where_parts.append(f"[{col}] IS NULL")
-                                                                else:
-                                                                    where_parts.append(f"[{col}] = ?")
-                                                                    where_params.append(val)
-                                                            where_unique = " AND ".join(where_parts)
-                                                            
-                                                            set_clauses = [f"[{col}] = ?" for col in diff_cols]
-                                                            set_values = [update_values[col] for col in diff_cols]
-                                                            update_sql = f"UPDATE [{table_name}] SET {', '.join(set_clauses)} WHERE {where_unique}"
-                                                            target_cursor.execute(update_sql, tuple(set_values) + tuple(where_params))
-                                                            
-                                                            updated_ultime += 1
-                                                            if updated_ultime % 100 == 0:
-                                                                target_conn.commit()
+                                                            idx_values.append(row_dict.get(col))
+                                                        if not has_all:
+                                                            continue
+                                                        
+                                                        # Utiliser find_row_by_unique_index pour gérer les NULL correctement
+                                                        existing_row = find_row_by_unique_index(
+                                                            target_cursor, table_name, idx_cols, idx_values
+                                                        )
+                                                        if not existing_row:
+                                                            # Fallback : essayer de trouver la ligne avec une requête directe
+                                                            try:
+                                                                where_parts_fallback = []
+                                                                where_params_fallback = []
+                                                                for col, val in zip(idx_cols, idx_values):
+                                                                    if val is None:
+                                                                        where_parts_fallback.append(f"[{col}] IS NULL")
+                                                                    else:
+                                                                        where_parts_fallback.append(f"[{col}] = ?")
+                                                                        where_params_fallback.append(val)
+                                                                where_clause_fallback = " AND ".join(where_parts_fallback)
+                                                                target_cursor.execute(f"SELECT * FROM [{table_name}] WHERE {where_clause_fallback}", tuple(where_params_fallback))
+                                                                row_fallback = target_cursor.fetchone()
+                                                                if row_fallback:
+                                                                    target_cursor.execute(f"SELECT * FROM [{table_name}] WHERE 1=0")
+                                                                    cols_fallback = [desc[0] for desc in target_cursor.description]
+                                                                    existing_row = {cols_fallback[i]: row_fallback[i] for i in range(len(cols_fallback))}
+                                                            except Exception:
+                                                                pass
+                                                        
+                                                        if not existing_row:
+                                                            continue
+                                                        
+                                                        # Conflit détecté : UPDATE uniquement si différence
+                                                        exclude_for_update = exclude_cols | set(idx_cols)
+                                                        has_diff, diff_cols, update_values = compare_rows_for_update(
+                                                            row_dict, existing_row, exclude_for_update
+                                                        )
+                                                        if not has_diff:
                                                             updated_via_unique = True
                                                             break
                                                         
-                                                        if not updated_via_unique:
-                                                            if len(ultime_diag["insert_samples"]) < 3:
-                                                                ultime_diag["insert_samples"].append(str(ins_err))
-                                                    else:
+                                                        # WHERE unique avec gestion des NULL
+                                                        where_parts = []
+                                                        where_params = []
+                                                        for col, val in zip(idx_cols, idx_values):
+                                                            if val is None:
+                                                                where_parts.append(f"[{col}] IS NULL")
+                                                            else:
+                                                                where_parts.append(f"[{col}] = ?")
+                                                                where_params.append(val)
+                                                        where_unique = " AND ".join(where_parts)
+                                                        
+                                                        set_clauses = [f"[{col}] = ?" for col in diff_cols]
+                                                        set_values = [update_values[col] for col in diff_cols]
+                                                        update_sql = f"UPDATE [{table_name}] SET {', '.join(set_clauses)} WHERE {where_unique}"
+                                                        target_cursor.execute(update_sql, tuple(set_values) + tuple(where_params))
+                                                        
+                                                        updated_ultime += 1
+                                                        if updated_ultime % 100 == 0:
+                                                            target_conn.commit()
+                                                        updated_via_unique = True
+                                                        break
+                                                    
+                                                    if not updated_via_unique:
                                                         if len(ultime_diag["insert_samples"]) < 3:
                                                             ultime_diag["insert_samples"].append(str(ins_err))
-                                                    continue
-                                        
-                                        if inserted > 0 or updated_ultime > 0:
-                                            target_conn.commit()
-                                else:
+                                                else:
+                                                    if len(ultime_diag["insert_samples"]) < 3:
+                                                        ultime_diag["insert_samples"].append(str(ins_err))
+                                                continue
+                                    
+                                    if inserted > 0 or updated_ultime > 0:
+                                        target_conn.commit()
+                            else:
                                     # Lire tous les enregistrements de la source
                                     source_cursor.execute(f"SELECT {col_list} FROM [{table_name}]")
                                     source_rows = source_cursor.fetchall()
@@ -1782,7 +2049,7 @@ def sync_databases():
                                     if inserted > 0 or updated_ultime_2 > 0:
                                         target_conn.commit()
                                     updated_ultime += updated_ultime_2
-                            except Exception as read_err:
+                        except Exception as read_err:
                                 ultime_diag["read"] = str(read_err)
                                 # Si la lecture échoue (types non supportés), essayer avec conversion SQL
                                 try:
@@ -1877,8 +2144,9 @@ def sync_databases():
                                             target_conn.commit()
                                 except Exception as convert_err:
                                     ultime_diag["convert"] = str(convert_err)
-                                    # Si même la conversion échoue, utiliser OPENROWSET avec INSERT ... SELECT direct
-                                    # en construisant une clause WHERE pour chaque PK manquante
+                                    # Si même la conversion échoue, essayer une dernière fois avec l'approche ligne par ligne
+                                    # en ignorant les colonnes problématiques si nécessaire
+                                    sync_status['details'].append(f"  ⚠ Conversion échouée, tentative ligne par ligne avec gestion d'erreurs...")
                                     try:
                                         # Utiliser missing_pks_list si disponible, sinon recalculer
                                         if missing_pks_list:
@@ -1886,99 +2154,51 @@ def sync_databases():
                                         else:
                                             missing_pks = source_pks - existing_pks
                                         
-                                        if missing_pks:
-                                            sync_status['details'].append(f"  Tentative avec OPENROWSET pour {len(missing_pks)} PKs manquantes...")
-                                            
-                                            # Construire une clause WHERE pour tous les PKs manquants
-                                            if len(pk_columns) == 1:
-                                                pk_values = [pk for pk in missing_pks if pk is not None]
-                                                if pk_values:
-                                                    # Construire la liste des valeurs
+                                        if missing_pks and len(pk_columns) == 1:
+                                            pk_values = [pk for pk in missing_pks if pk is not None]
+                                            if pk_values:
+                                                # Traiter par lots de 1000
+                                                for batch in [pk_values[i:i+1000] for i in range(0, len(pk_values), 1000)]:
                                                     pk_strs = []
-                                                    for pk_val in pk_values:
+                                                    for pk_val in batch:
                                                         if isinstance(pk_val, str):
                                                             pk_strs.append(f"'{pk_val.replace("'", "''")}'")
                                                         else:
                                                             pk_strs.append(str(pk_val))
+                                                    where_clause = f"WHERE [{pk_columns[0]}] IN ({','.join(pk_strs)})"
                                                     
-                                                    if pk_strs:
-                                                        # Diviser en lots de 1000 pour éviter les requêtes trop longues
-                                                        batch_size = 1000
-                                                        for batch_start in range(0, len(pk_strs), batch_size):
-                                                            batch = pk_strs[batch_start:batch_start + batch_size]
-                                                            pk_list = ",".join(batch)
-                                                            where_clause = f"WHERE [{pk_columns[0]}] IN ({pk_list})"
-                                                            
-                                                            try:
-                                                                insert_sql = f"""
-                                                                    INSERT INTO [{table_name}] ({col_list})
-                                                                    SELECT {select_col_list if has_unsupported_types else col_list}
-                                                                    FROM OPENROWSET('SQLNCLI', 
-                                                                        'Server={source_server};Database={source_db};UID={source_user};PWD={source_pwd}',
-                                                                        'SELECT {select_col_list if has_unsupported_types else col_list} FROM [{table_name}] {where_clause}')
-                                                                """
-                                                                target_cursor.execute(insert_sql)
-                                                                batch_inserted = target_cursor.rowcount
-                                                                inserted += batch_inserted
-                                                                target_conn.commit()
-                                                            except Exception as batch_err:
-                                                                if ultime_diag["openrowset_pk_samples"] is None:
-                                                                    ultime_diag["openrowset_pk_samples"] = []
-                                                                # Si le batch échoue, essayer PK par PK
-                                                                for pk_str in batch:
-                                                                    try:
-                                                                        where_clause = f"WHERE [{pk_columns[0]}] = {pk_str}"
-                                                                        insert_sql = f"""
-                                                                            INSERT INTO [{table_name}] ({col_list})
-                                                                            SELECT {select_col_list if has_unsupported_types else col_list}
-                                                                            FROM OPENROWSET('SQLNCLI', 
-                                                                                'Server={source_server};Database={source_db};UID={source_user};PWD={source_pwd}',
-                                                                                'SELECT {select_col_list if has_unsupported_types else col_list} FROM [{table_name}] {where_clause}')
-                                                                        """
-                                                                        target_cursor.execute(insert_sql)
-                                                                        inserted += 1
-                                                                        if inserted % 50 == 0:
-                                                                            target_conn.commit()
-                                                                    except Exception as pk_err:
-                                                                        if len(ultime_diag["openrowset_pk_samples"]) < 3:
-                                                                            ultime_diag["openrowset_pk_samples"].append(str(pk_err))
-                                                                        continue
-                                                                if inserted > 0:
-                                                                    target_conn.commit()
-                                            else:
-                                                # PK composite - traiter une par une
-                                                for missing_pk in list(missing_pks)[:500]:  # Limiter à 500
                                                     try:
-                                                        pk_conditions = []
-                                                        for idx, pk_col in enumerate(pk_columns):
-                                                            pk_val = missing_pk[idx]
-                                                            if isinstance(pk_val, str):
-                                                                pk_val_escaped = pk_val.replace("'", "''")
-                                                                pk_conditions.append(f"[{pk_col}] = '{pk_val_escaped}'")
-                                                            else:
-                                                                pk_conditions.append(f"[{pk_col}] = {pk_val}")
-                                                        pk_where = " AND ".join(pk_conditions)
+                                                        # Essayer de lire les données même avec types problématiques
+                                                        source_cursor.execute(f"SELECT {col_list} FROM [{table_name}] {where_clause}")
+                                                        source_rows = source_cursor.fetchall()
                                                         
-                                                        insert_sql = f"""
-                                                            INSERT INTO [{table_name}] ({col_list})
-                                                            SELECT {select_col_list if has_unsupported_types else col_list}
-                                                            FROM OPENROWSET('SQLNCLI', 
-                                                                'Server={source_server};Database={source_db};UID={source_user};PWD={source_pwd}',
-                                                                'SELECT {select_col_list if has_unsupported_types else col_list} FROM [{table_name}] WHERE {pk_where}')
-                                                        """
-                                                        target_cursor.execute(insert_sql)
-                                                        inserted += 1
-                                                        if inserted % 50 == 0:
+                                                        pk_indices = [columns.index(pk) for pk in pk_columns]
+                                                        placeholders = ", ".join(["?" for _ in columns])
+                                                        
+                                                        for row in source_rows:
+                                                            try:
+                                                                target_cursor.execute(
+                                                                    f"INSERT INTO [{table_name}] ({col_list}) VALUES ({placeholders})",
+                                                                    list(row)
+                                                                )
+                                                                inserted += 1
+                                                                if inserted % 100 == 0:
+                                                                    target_conn.commit()
+                                                            except Exception as ins_err:
+                                                                # Ignorer les erreurs d'insertion (types, contraintes, etc.)
+                                                                if len(ultime_diag["insert_samples"]) < 3:
+                                                                    ultime_diag["insert_samples"].append(str(ins_err))
+                                                                continue
+                                                        
+                                                        if inserted > 0:
                                                             target_conn.commit()
-                                                    except Exception as pk_err:
-                                                        if len(ultime_diag["openrowset_pk_samples"]) < 3:
-                                                            ultime_diag["openrowset_pk_samples"].append(str(pk_err))
+                                                    except Exception as batch_read_err:
+                                                        # Si même la lecture par batch échoue, ignorer ce batch
+                                                        if len(ultime_diag["read"]) < 200:
+                                                            ultime_diag["read"] = str(batch_read_err)
                                                         continue
-                                                
-                                                if inserted > 0:
-                                                    target_conn.commit()
                                     except Exception as final_err:
-                                        sync_status['details'].append(f"  ⚠ Impossible d'insérer via OPENROWSET: {str(final_err)[:100]}")
+                                        sync_status['details'].append(f"  ⚠ Impossible d'insérer les enregistrements restants: {str(final_err)[:100]}")
                                         pass
                         
                         if inserted > 0 or updated_ultime > 0:
@@ -2069,6 +2289,11 @@ def verify_sync():
             if len(item) >= 4:
                 total_manquants += item[3]  # missing_count
         
+        total_doublons = 0
+        for item in results.get('doublons_pk', []):
+            if len(item) >= 3:
+                total_doublons += item[2]  # duplicate_rows
+        
         return jsonify({
             'success': True,
             'output': results.get('output', ''),
@@ -2076,14 +2301,17 @@ def verify_sync():
                 'synchronisees': len(results['synchronisees']),
                 'ecarts_critiques': len(results.get('ecarts_critiques', [])),
                 'ecarts_normaux': len(results.get('ecarts_normaux', [])),
+                'doublons_pk': len(results.get('doublons_pk', [])),
                 'manquantes_cible': len(results['manquantes_cible']),
                 'manquantes_source': len(results['manquantes_source']),
-                'total_manquants': total_manquants
+                'total_manquants': total_manquants,
+                'total_doublons': total_doublons
             },
             'details': {
                 'synchronisees': results['synchronisees'],
                 'ecarts_critiques': results.get('ecarts_critiques', []),
                 'ecarts_normaux': results.get('ecarts_normaux', []),
+                'doublons_pk': results.get('doublons_pk', []),
                 'manquantes_cible': results['manquantes_cible'],
                 'manquantes_source': results['manquantes_source']
             }
@@ -2135,6 +2363,41 @@ def _fetch_missing_pks_for_table(source_cursor, target_cursor, table_name):
         # types mixtes => tri non garanti
         pass
     return pk_columns, missing
+
+
+def _fetch_extra_pks_for_table(source_cursor, target_cursor, table_name):
+    """
+    Retourne (pk_columns, extra_pks_sorted).
+    extra_pks_sorted: PK présentes dans la CIBLE mais absentes en SOURCE.
+    """
+    pk_columns = get_primary_keys(source_cursor, table_name)
+    if not pk_columns:
+        return [], []
+
+    pk_list = ", ".join([f"[{pk}]" for pk in pk_columns])
+
+    source_cursor.execute(f"SELECT {pk_list} FROM [{table_name}]")
+    source_pks = set()
+    for row in source_cursor.fetchall():
+        if len(pk_columns) == 1:
+            source_pks.add(row[0])
+        else:
+            source_pks.add(tuple(row))
+
+    target_cursor.execute(f"SELECT {pk_list} FROM [{table_name}]")
+    target_pks = set()
+    for row in target_cursor.fetchall():
+        if len(pk_columns) == 1:
+            target_pks.add(row[0])
+        else:
+            target_pks.add(tuple(row))
+
+    extra = list(target_pks - source_pks)
+    try:
+        extra.sort()
+    except Exception:
+        pass
+    return pk_columns, extra
 
 
 def _select_rows_by_pks(cursor, table_name, pk_columns, pks):
@@ -2356,6 +2619,119 @@ def missing_rows():
             pass
 
 
+def _diagnose_extra_row(table_name, row_dict, source_cursor, target_cursor):
+    """
+    Indique si une ligne "supplémentaire en cible" ressemble à un doublon (même index unique que la source),
+    ou plutôt une donnée locale (ex: tables web).
+    """
+    try:
+        pk_columns = get_primary_keys(source_cursor, table_name)
+        unique_indexes = _get_unique_indexes(target_cursor, table_name)
+        for idx_name, idx_cols in unique_indexes:
+            values = []
+            has_all = True
+            has_null = False
+            for c in idx_cols:
+                if c not in row_dict:
+                    has_all = False
+                    break
+                v = row_dict.get(c)
+                if v is None:
+                    has_null = True
+                values.append(v)
+            if not has_all or has_null:
+                continue
+
+            # Chercher une ligne en source avec la même clé unique.
+            where_parts = [f"[{c}] = ?" for c in idx_cols]
+            sql = f"SELECT TOP 1 {', '.join([f'[{pk}]' for pk in pk_columns])} FROM [{table_name}] WHERE " + " AND ".join(where_parts)
+            source_cursor.execute(sql, tuple(values))
+            src = source_cursor.fetchone()
+            if src:
+                return f"Doublon probable vs SOURCE (index unique {idx_name})"
+        return "Présente en CIBLE mais absente en SOURCE (donnée locale / spécifique cible)"
+    except Exception:
+        return "Présente en CIBLE mais absente en SOURCE (diagnostic non disponible)"
+
+
+@projet21_bp.route('/extra-rows', methods=['GET'])
+def extra_rows():
+    """
+    Renvoie les lignes présentes en CIBLE mais absentes en SOURCE (PK-based),
+    avec toutes les colonnes + valeurs depuis la CIBLE.
+
+    Query:
+      - table: nom de table (obligatoire)
+      - limit: nb lignes (défaut 50, max 200)
+      - offset: pagination (défaut 0)
+    """
+    table_name = (request.args.get('table') or '').strip()
+    if not table_name:
+        return jsonify({'success': False, 'error': "Paramètre 'table' obligatoire"}), 400
+
+    try:
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+    except Exception:
+        return jsonify({'success': False, 'error': "Paramètres 'limit' et 'offset' doivent être des entiers"}), 400
+
+    if limit < 1:
+        limit = 1
+    if limit > 200:
+        limit = 200
+    if offset < 0:
+        offset = 0
+
+    source_conn = None
+    target_conn = None
+    try:
+        source_conn = get_connection(SOURCE_CONFIG, readonly=True)
+        target_conn = get_connection(TARGET_CONFIG)
+        source_cursor = source_conn.cursor()
+        target_cursor = target_conn.cursor()
+
+        pk_columns, extra_pks = _fetch_extra_pks_for_table(source_cursor, target_cursor, table_name)
+        if not pk_columns:
+            return jsonify({
+                'success': False,
+                'error': f"Impossible d'afficher les lignes supplémentaires: table '{table_name}' sans clé primaire détectée."
+            }), 400
+
+        total_extra = len(extra_pks)
+        page_pks = extra_pks[offset: offset + limit]
+
+        columns, rows = _select_rows_by_pks(target_cursor, table_name, pk_columns, page_pks)
+
+        # Ajouter une note à chaque ligne
+        for r in rows:
+            r["__note"] = _diagnose_extra_row(table_name, r, source_cursor, target_cursor)
+
+        return jsonify({
+            'success': True,
+            'table': table_name,
+            'pk_columns': pk_columns,
+            'total_extra': total_extra,
+            'offset': offset,
+            'limit': limit,
+            'columns': columns,
+            'rows': rows,
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
+    finally:
+        try:
+            if source_conn:
+                source_conn.close()
+        except Exception:
+            pass
+        try:
+            if target_conn:
+                target_conn.close()
+        except Exception:
+            pass
+
+
 def _select_row_by_pk(cursor, table_name, pk_columns, pk_value):
     """Retourne une ligne (dict) depuis la base cible pour une PK donnée, ou None."""
     if not pk_columns:
@@ -2373,6 +2749,126 @@ def _select_row_by_pk(cursor, table_name, pk_columns, pk_value):
         return None
     columns = [desc[0] for desc in cursor.description]
     return {columns[i]: _normalize_pyodbc_value(row[i]) for i in range(len(columns))}
+
+def _select_rows_by_pk_duplicates(target_cursor, table_name, pk_columns, duplicate_pks):
+    """
+    Récupère TOUTES les lignes dupliquées pour une liste de PK dupliquées.
+    Retourne (columns, rows) où chaque row a aussi '__duplicate_count' indiquant combien de fois cette PK apparaît.
+    """
+    if not duplicate_pks or not pk_columns:
+        return [], []
+    
+    all_rows = []
+    columns = None
+    
+    for pk_info in duplicate_pks:
+        pk_value, count = pk_info
+        
+        # Récupérer toutes les lignes avec cette PK
+        if len(pk_columns) == 1:
+            sql = f"SELECT * FROM [{table_name}] WHERE [{pk_columns[0]}] = ?"
+            target_cursor.execute(sql, (pk_value,))
+        else:
+            where = " AND ".join([f"[{c}] = ?" for c in pk_columns])
+            sql = f"SELECT * FROM [{table_name}] WHERE {where}"
+            target_cursor.execute(sql, tuple(pk_value))
+        
+        rows_batch = target_cursor.fetchall()
+        if not columns:
+            columns = [desc[0] for desc in target_cursor.description]
+        
+        for row in rows_batch:
+            row_dict = {columns[i]: _normalize_pyodbc_value(row[i]) for i in range(len(columns))}
+            row_dict['__duplicate_count'] = count
+            all_rows.append(row_dict)
+    
+    return columns, all_rows
+
+@projet21_bp.route('/duplicate-pks', methods=['GET'])
+def duplicate_pks():
+    """
+    Renvoie les lignes avec des PK dupliquées dans la CIBLE pour une table donnée.
+    
+    Query:
+      - table: nom de table (obligatoire)
+      - limit: nb PK dupliquées à traiter (défaut 20, max 100)
+      - offset: pagination (défaut 0)
+    """
+    table_name = (request.args.get('table') or '').strip()
+    if not table_name:
+        return jsonify({'success': False, 'error': "Paramètre 'table' obligatoire"}), 400
+    
+    try:
+        limit = int(request.args.get('limit', 20))
+        offset = int(request.args.get('offset', 0))
+    except Exception:
+        return jsonify({'success': False, 'error': "Paramètres 'limit' et 'offset' doivent être des entiers"}), 400
+    
+    if limit < 1:
+        limit = 1
+    if limit > 100:
+        limit = 100
+    if offset < 0:
+        offset = 0
+    
+    target_conn = None
+    try:
+        from routes.projet21_verification import check_duplicate_pks
+        target_conn = get_connection(TARGET_CONFIG)
+        target_cursor = target_conn.cursor()
+        
+        pk_columns = get_primary_keys(target_cursor, table_name)
+        if not pk_columns:
+            return jsonify({
+                'success': False,
+                'error': f"Impossible d'afficher les doublons: table '{table_name}' sans clé primaire détectée."
+            }), 400
+        
+        duplicate_check = check_duplicate_pks(target_cursor, table_name)
+        if 'error' in duplicate_check:
+            return jsonify({
+                'success': False,
+                'error': f"Erreur lors de la vérification des doublons: {duplicate_check['error']}"
+            }), 500
+        
+        if not duplicate_check.get('has_duplicates', False):
+            return jsonify({
+                'success': True,
+                'table': table_name,
+                'pk_columns': pk_columns,
+                'total_duplicates': 0,
+                'offset': 0,
+                'limit': limit,
+                'columns': [],
+                'rows': []
+            })
+        
+        duplicate_pks_list = duplicate_check.get('duplicate_pks', [])
+        total_duplicates = len(duplicate_pks_list)
+        page_duplicates = duplicate_pks_list[offset: offset + limit]
+        
+        columns, rows = _select_rows_by_pk_duplicates(target_cursor, table_name, pk_columns, page_duplicates)
+        
+        return jsonify({
+            'success': True,
+            'table': table_name,
+            'pk_columns': pk_columns,
+            'total_duplicates': total_duplicates,
+            'total_duplicate_rows': duplicate_check.get('duplicate_rows', 0),
+            'offset': offset,
+            'limit': limit,
+            'columns': columns,
+            'rows': rows,
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
+    finally:
+        try:
+            if target_conn:
+                target_conn.close()
+        except Exception:
+            pass
 
 
 @projet21_bp.route('/compare-rows', methods=['GET'])
@@ -2869,6 +3365,290 @@ def analyse_schema_papiers():
             'report': report
         })
         
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@projet21_bp.route('/auto-sync/config', methods=['GET'])
+def get_auto_sync_config():
+    """Récupère la configuration de synchronisation automatique"""
+    try:
+        from routes.projet21_auto_sync import load_auto_sync_config
+        config = load_auto_sync_config()
+        return jsonify({
+            'success': True,
+            'config': config
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@projet21_bp.route('/auto-sync/config', methods=['POST'])
+def set_auto_sync_config():
+    """Active ou désactive la synchronisation automatique"""
+    try:
+        from routes.projet21_auto_sync import set_auto_sync_enabled
+        from flask import current_app
+        
+        data = request.get_json()
+        enabled = data.get('enabled', True)
+        config = set_auto_sync_enabled(enabled)
+        
+        # Mettre à jour le scheduler APScheduler si disponible
+        # Note: Si vous utilisez Task Scheduler Windows, cette partie ne s'applique pas
+        scheduler = current_app.config.get('PROJET21_SCHEDULER')
+        if scheduler:
+            try:
+                from apscheduler.triggers.cron import CronTrigger
+                from routes.projet21_auto_sync import run_auto_sync_and_verify
+                
+                if enabled:
+                    # Ajouter ou mettre à jour le job
+                    scheduler.add_job(
+                        func=run_auto_sync_and_verify,
+                        trigger=CronTrigger(hour=5, minute=0),
+                        id='projet21_auto_sync',
+                        name='Synchronisation automatique Projet 21',
+                        replace_existing=True
+                    )
+                else:
+                    # Supprimer le job
+                    try:
+                        scheduler.remove_job('projet21_auto_sync')
+                    except:
+                        pass  # Le job n'existe peut-être pas
+            except ImportError:
+                pass  # APScheduler non disponible, utiliser Task Scheduler Windows
+        
+        # Message adapté selon le type de scheduler
+        if scheduler:
+            message = f'Synchronisation automatique ' + ('activée' if enabled else 'désactivée') + ' (APScheduler)'
+        else:
+            message = f'Synchronisation automatique ' + ('activée' if enabled else 'désactivée') + ' (Task Scheduler Windows)\n\n'
+            if enabled:
+                message += '⚠️ Important: Pour que la synchronisation fonctionne, assurez-vous que la tâche "Projet21 - Synchronisation Automatique" est activée dans le Planificateur de tâches Windows.'
+            else:
+                message += 'Pour désactiver complètement, désactivez également la tâche dans le Planificateur de tâches Windows.'
+        
+        return jsonify({
+            'success': True,
+            'config': config,
+            'message': message
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@projet21_bp.route('/auto-sync/status', methods=['GET'])
+def get_auto_sync_status():
+    """Vérifie l'état de la synchronisation automatique avec Task Scheduler Windows"""
+    try:
+        from routes.projet21_auto_sync import load_auto_sync_config, is_auto_sync_enabled, RESULTS_FILE
+        from datetime import datetime, timedelta
+        from pathlib import Path
+        
+        config = load_auto_sync_config()
+        enabled = is_auto_sync_enabled()
+        
+        # Vérifier Task Scheduler (Windows)
+        # On vérifie si le script de synchronisation existe
+        task_script_path = Path(__file__).parent / 'projet21_auto_sync_task.py'
+        task_scheduler_status = {
+            'type': 'windows_task_scheduler',
+            'script_exists': task_script_path.exists(),
+            'script_path': str(task_script_path)
+        }
+        
+        # Vérifier le dernier résultat
+        from routes.projet21_auto_sync import load_last_verification_result
+        last_result = load_last_verification_result()
+        
+        last_result_timestamp = None
+        last_result_file_exists = False
+        if RESULTS_FILE and RESULTS_FILE.exists():
+            last_result_file_exists = True
+            if last_result:
+                last_result_timestamp = last_result.get('timestamp')
+            else:
+                # Essayer de lire directement le timestamp du fichier
+                try:
+                    import json
+                    with open(RESULTS_FILE, 'r', encoding='utf-8') as f:
+                        file_data = json.load(f)
+                        last_result_timestamp = file_data.get('timestamp')
+                except:
+                    pass
+        
+        # Calculer le prochain exécution attendue (05:00 AM chaque jour)
+        now = datetime.now()
+        next_run = now.replace(hour=5, minute=0, second=0, microsecond=0)
+        if now.hour >= 5:
+            next_run += timedelta(days=1)
+        
+        # Calculer le temps depuis la dernière exécution
+        hours_since_last_run = None
+        if last_result_timestamp:
+            try:
+                last_run_dt = datetime.fromisoformat(last_result_timestamp.replace('Z', '+00:00'))
+                if last_run_dt.tzinfo:
+                    # Convertir en datetime naïf pour comparaison
+                    last_run_dt = last_run_dt.replace(tzinfo=None)
+                hours_since_last_run = (now - last_run_dt).total_seconds() / 3600
+            except:
+                pass
+        
+        status_info = {
+            'enabled': enabled,
+            'config': config,
+            'scheduler': task_scheduler_status,
+            'last_result_file_exists': last_result_file_exists,
+            'last_result_timestamp': last_result_timestamp,
+            'current_time': datetime.now().isoformat(),
+            'next_scheduled_run': next_run.isoformat(),
+            'hours_since_last_run': hours_since_last_run
+        }
+        
+        return jsonify({
+            'success': True,
+            'status': status_info
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@projet21_bp.route('/auto-sync/test-run', methods=['POST'])
+def test_auto_sync_run():
+    """Déclenche manuellement une synchronisation automatique pour test"""
+    try:
+        from routes.projet21_auto_sync import run_auto_sync_and_verify
+        
+        print("🧪 Test manuel de synchronisation automatique déclenché")
+        run_auto_sync_and_verify()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Synchronisation automatique de test exécutée. Vérifiez les résultats dans la section "Vérifier synchronisation automatique".'
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@projet21_bp.route('/auto-sync/debug-file', methods=['GET'])
+def debug_result_file():
+    """Route de diagnostic pour vérifier le fichier de résultats"""
+    try:
+        from routes.projet21_auto_sync import RESULTS_FILE, RESULTS_DIR
+        from pathlib import Path
+        import json
+        import os
+        
+        debug_info = {
+            'results_dir_exists': RESULTS_DIR.exists() if RESULTS_DIR else False,
+            'results_dir_path': str(RESULTS_DIR) if RESULTS_DIR else None,
+            'results_file_exists': RESULTS_FILE.exists() if RESULTS_FILE else False,
+            'results_file_path': str(RESULTS_FILE) if RESULTS_FILE else None,
+            'current_working_dir': os.getcwd(),
+            'script_file': str(Path(__file__).resolve()),
+        }
+        
+        if RESULTS_FILE and RESULTS_FILE.exists():
+            try:
+                with open(RESULTS_FILE, 'r', encoding='utf-8') as f:
+                    file_data = json.load(f)
+                    debug_info['file_timestamp'] = file_data.get('timestamp')
+                    debug_info['file_sync_success'] = file_data.get('sync_success')
+                    debug_info['file_has_problems'] = file_data.get('has_problems')
+                    debug_info['file_size'] = RESULTS_FILE.stat().st_size
+                    debug_info['file_modified'] = os.path.getmtime(RESULTS_FILE)
+            except Exception as e:
+                debug_info['file_read_error'] = str(e)
+        
+        return jsonify({
+            'success': True,
+            'debug': debug_info
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@projet21_bp.route('/auto-sync/last-result', methods=['GET'])
+def get_last_auto_sync_result():
+    """Récupère le dernier résultat de vérification automatique"""
+    try:
+        from routes.projet21_auto_sync import load_last_verification_result
+        
+        result = load_last_verification_result()
+        if not result:
+            return jsonify({
+                'success': True,
+                'has_result': False,
+                'message': 'Aucun résultat de synchronisation automatique disponible'
+            })
+        
+        # Formater les résultats comme la vérification manuelle
+        results_data = result.get('results', {})
+        
+        # Calculer les totaux pour le résumé
+        total_manquants = 0
+        for item in results_data.get('ecarts_critiques', []):
+            if len(item) >= 4:
+                total_manquants += item[3]
+        
+        total_doublons = 0
+        for item in results_data.get('doublons_pk', []):
+            if len(item) >= 3:
+                total_doublons += item[2]
+        
+        return jsonify({
+            'success': True,
+            'has_result': True,
+            'timestamp': result.get('timestamp'),
+            'sync_success': result.get('sync_success', True),
+            'has_problems': result.get('has_problems', False),
+            'output': results_data.get('output', ''),
+            'summary': {
+                'synchronisees': len(results_data.get('synchronisees', [])),
+                'ecarts_critiques': len(results_data.get('ecarts_critiques', [])),
+                'ecarts_normaux': len(results_data.get('ecarts_normaux', [])),
+                'doublons_pk': len(results_data.get('doublons_pk', [])),
+                'manquantes_cible': len(results_data.get('manquantes_cible', [])),
+                'manquantes_source': len(results_data.get('manquantes_source', [])),
+                'total_manquants': total_manquants,
+                'total_doublons': total_doublons
+            },
+            'details': {
+                'synchronisees': results_data.get('synchronisees', []),
+                'ecarts_critiques': results_data.get('ecarts_critiques', []),
+                'ecarts_normaux': results_data.get('ecarts_normaux', []),
+                'doublons_pk': results_data.get('doublons_pk', []),
+                'manquantes_cible': results_data.get('manquantes_cible', []),
+                'manquantes_source': results_data.get('manquantes_source', [])
+            }
+        })
     except Exception as e:
         import traceback
         return jsonify({

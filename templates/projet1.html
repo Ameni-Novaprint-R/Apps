@@ -11,6 +11,33 @@
 <!-- DataTables JS -->
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<!-- DataTables Buttons (pour export PDF et Excel) -->
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<!-- JSZip (requis pour Excel) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- pdfmake (requis pour PDF) - Version plus récente pour compatibilité -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.min.js"></script>
+<script>
+    // Attendre que pdfmake soit chargé avant de l'initialiser
+    window.addEventListener('load', function() {
+        if (typeof pdfMake !== 'undefined') {
+            try {
+                // Les polices sont déjà incluses dans vfs_fonts.min.js
+                // Pas besoin de les redéfinir si vfs_fonts est chargé correctement
+                console.log('pdfMake chargé avec succès');
+            } catch (error) {
+                console.error('Erreur lors de l\'initialisation de pdfMake:', error);
+            }
+        } else {
+            console.error('pdfMake n\'est pas disponible');
+        }
+    });
+</script>
+<!-- Buttons HTML5 (pour export) -->
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 <!-- Font Awesome pour les icônes -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
@@ -191,7 +218,15 @@
         table-layout: auto;
     }
     
-    #tableSuivi th,
+    #tableSuivi th {
+        white-space: nowrap;
+        padding: 0.5rem 0.4rem;
+        text-align: center;
+        vertical-align: middle;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: table-cell;
+    }
     #tableSuivi td {
         white-space: nowrap;
         padding: 0.5rem 0.75rem;
@@ -215,10 +250,16 @@
         text-overflow: ellipsis;
     }
     
-    th.col-date, td.col-date {
-        width: 110px;
-        max-width: 130px;
+    th.col-date {
+        width: 200px;
+        max-width: 220px;
         text-align: center;
+    }
+    td.col-date {
+        width: 200px;
+        max-width: 220px;
+        text-align: center;
+        white-space: nowrap;
     }
     
     th.col-statut, td.col-statut {
@@ -228,14 +269,32 @@
     }
     
     th.col-statut-dossier, td.col-statut-dossier {
-        width: 120px;
-        max-width: 140px;
+        width: 150px;
+        max-width: 170px;
+        text-align: center;
+    }
+    
+    th.col-temps-total, td.col-temps-total {
+        width: 160px;
+        max-width: 180px;
+        text-align: center;
+    }
+    
+    th.col-poste-production, td.col-poste-production {
+        width: 170px;
+        max-width: 190px;
+        text-align: center;
+    }
+    
+    th.col-date-poste, td.col-date-poste {
+        width: 140px;
+        max-width: 160px;
         text-align: center;
     }
     
     th.col-ecart, td.col-ecart {
-        width: 100px;
-        max-width: 120px;
+        width: 95px;
+        max-width: 110px;
         text-align: center;
     }
     
@@ -283,6 +342,18 @@
     .column-toggle-panel .form-check-label {
         margin-bottom: 0;
         vertical-align: middle;
+    }
+    
+    /* Styles pour les boutons d'export */
+    .dt-buttons {
+        margin-bottom: 15px;
+    }
+    .dt-buttons .btn {
+        margin-right: 5px;
+        margin-bottom: 5px;
+    }
+    .dt-buttons .btn i {
+        margin-right: 5px;
     }
     
     .dataTables_wrapper .dataTables_scroll {
@@ -447,9 +518,12 @@
                     <h3>Commandes avec Suivi</h3>
                     <div class="card">
                         <div class="card-body">
-                            <div class="column-toggle-panel">
+                            <div class="column-toggle-panel mb-3">
                                 <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
                                 <div class="d-flex flex-wrap gap-2" id="columnToggleContainer"></div>
+                            </div>
+                            <div class="mb-3" id="exportButtonsContainer">
+                                <!-- Les boutons d'export seront ajoutés ici par DataTables -->
                             </div>
                             <div class="table-responsive position-relative">
                                 <div class="table-scroll-top">
@@ -461,10 +535,13 @@
                                             <th class="col-numero">Numéro</th>
                                             <th class="col-client">Client</th>
                                             <th class="col-reference">Référence</th>
-                                            <th class="col-date">Date Prévue</th>
-                                            <th class="col-date">Date Réelle</th>
+                                            <th class="col-date">Date Prévue de livraison</th>
+                                            <th class="col-date">Date Réelle de livraison</th>
                                             <th class="col-statut">Statut</th>
                                             <th class="col-statut-dossier">Statut de dossier</th>
+                                            <th class="col-temps-total">Temps Total Prévu</th>
+                                            <th class="col-poste-production">Poste de production</th>
+                                            <th class="col-date-poste">Date poste</th>
                                             <th class="col-ecart">Écart (jours)</th>
                                             <th class="col-actions">Actions</th>
                                 </tr>
@@ -912,16 +989,41 @@ document.addEventListener('DOMContentLoaded', function () {
                         '<span class="badge bg-info">encours</span>' : 
                         (commande.statut_dossier || '-');
                     
+                    // Formater le temps total prévu (en heures avec 2 décimales)
+                    const tempsTotalPrevu = commande.temps_total_prevu || 0;
+                    const tempsTotalPrevuFormatted = tempsTotalPrevu > 0 ? 
+                        `${tempsTotalPrevu.toFixed(2)} h` : '-';
+                    
+                    // Formater le poste de production et la date poste avec couleur verte si en cours
+                    const productionEnCours = commande.production_en_cours || false;
+                    const couleurStyle = productionEnCours ? 'style="color: #28a745; font-weight: 600;"' : '';
+                    
+                    const posteProduction = commande.poste_production || '-';
+                    const posteProductionFormatted = posteProduction !== '-' ? 
+                        `<span ${couleurStyle}>${posteProduction}</span>` : '-';
+                    
+                    // Formater la date poste (extraire juste la date si c'est un datetime)
+                    let datePosteFormatted = '-';
+                    if (commande.date_poste) {
+                        const datePosteStr = commande.date_poste.split(' ')[0]; // Prendre juste la date
+                        datePosteFormatted = productionEnCours ? 
+                            `<span ${couleurStyle}>${datePosteStr}</span>` : 
+                            datePosteStr;
+                    }
+                    
                     return [
                         commande.numero,
                         commande.client || '-',
                         commande.reference || '-',
-                        datePrevueFormatted, // Date Prévue (index 3)
-                        dateReelleFormatted, // Date Réelle (index 4)
+                        datePrevueFormatted, // Date Prévue de livraison (index 3)
+                        dateReelleFormatted, // Date Réelle de livraison (index 4)
                         `<span class="badge ${statutClass}">${commande.statut_delai || '-'}</span>`,
                         statutDossierText, // Statut de dossier (index 6)
-                        ecartText,
-                        actionBtn
+                        tempsTotalPrevuFormatted, // Temps Total Prévu (index 7)
+                        posteProductionFormatted, // Poste de production (index 8)
+                        datePosteFormatted, // Date poste (index 9)
+                        ecartText, // Écart (jours) (index 10)
+                        actionBtn // Actions (index 11)
                     ];
                 });
                 
@@ -951,10 +1053,13 @@ document.addEventListener('DOMContentLoaded', function () {
             { titre: 'Numéro', filtre: true, toggle: true, className: 'col-numero', width: '100px' },
             { titre: 'Client', filtre: true, toggle: true, className: 'col-client', width: '150px' },
             { titre: 'Référence', filtre: true, toggle: true, className: 'col-reference', width: '140px' },
-            { titre: 'Date Prévue', filtre: true, toggle: true, className: 'col-date', width: '110px' },
-            { titre: 'Date Réelle', filtre: true, toggle: true, className: 'col-date', width: '110px' },
+            { titre: 'Date Prévue de livraison', filtre: true, toggle: true, className: 'col-date', width: '200px' },
+            { titre: 'Date Réelle de livraison', filtre: true, toggle: true, className: 'col-date', width: '200px' },
             { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '100px' },
-            { titre: 'Statut de dossier', filtre: true, toggle: true, className: 'col-statut-dossier', width: '120px' },
+            { titre: 'Statut de dossier', filtre: true, toggle: true, className: 'col-statut-dossier', width: '150px' },
+            { titre: 'Temps Total Prévu', filtre: true, toggle: true, className: 'col-temps-total', width: '160px' },
+            { titre: 'Poste de production', filtre: true, toggle: true, className: 'col-poste-production', width: '170px' },
+            { titre: 'Date poste', filtre: true, toggle: true, className: 'col-date-poste', width: '140px' },
             { titre: 'Écart (jours)', filtre: true, toggle: true, className: 'col-ecart', width: '100px' },
             { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '110px', orderable: false }
         ];
@@ -1000,7 +1105,170 @@ document.addEventListener('DOMContentLoaded', function () {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json'
             },
             order: [[0, 'desc']],
-            dom: 'lrtip',
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"B>>rtip',
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel"></i> Excel',
+                    className: 'btn btn-success btn-sm',
+                    exportOptions: {
+                        columns: ':not(.col-actions)',
+                        format: {
+                            header: function(data, column, node) {
+                                // Récupérer le texte de l'en-tête depuis le <th> réel du tableau
+                                const $table = $('#tableSuivi');
+                                if ($table.length) {
+                                    const $header = $table.find('thead tr:first-child th').eq(column);
+                                    if ($header.length) {
+                                        const headerText = $header.text().trim();
+                                        if (headerText) {
+                                            return headerText;
+                                        }
+                                    }
+                                }
+                                // Fallback: utiliser les colonneDefs si disponibles
+                                const colonneDefs = [
+                                    'Numéro', 'Client', 'Référence', 'Date Prévue de livraison',
+                                    'Date Réelle de livraison', 'Statut', 'Statut de dossier',
+                                    'Temps Total Prévu', 'Poste de production', 'Date poste', 'Écart (jours)'
+                                ];
+                                if (colonneDefs[column]) {
+                                    return colonneDefs[column];
+                                }
+                                // Dernier fallback: nettoyer le HTML
+                                if (typeof data === 'string') {
+                                    return data.replace(/<[^>]*>/g, '').trim();
+                                }
+                                return data;
+                            },
+                            body: function(data, row, column, node) {
+                                // Nettoyer le HTML des cellules pour l'export Excel
+                                if (typeof data === 'string') {
+                                    return data.replace(/<[^>]*>/g, '').trim();
+                                }
+                                return data;
+                            }
+                        }
+                    },
+                    filename: function() {
+                        const date = new Date();
+                        const dateStr = date.toISOString().split('T')[0];
+                        return 'Suivi_Dossiers_' + dateStr;
+                    },
+                    title: 'Suivi des Dossiers et des Délais de Livraison'
+                },
+                {
+                    extend: 'pdfHtml5',
+                    text: '<i class="fas fa-file-pdf"></i> PDF',
+                    className: 'btn btn-danger btn-sm',
+                    exportOptions: {
+                        columns: ':not(.col-actions)',
+                        format: {
+                            header: function(data, column, node) {
+                                // Récupérer le texte de l'en-tête depuis le <th> réel du tableau
+                                const $table = $('#tableSuivi');
+                                if ($table.length) {
+                                    const $header = $table.find('thead tr:first-child th').eq(column);
+                                    if ($header.length) {
+                                        const headerText = $header.text().trim();
+                                        if (headerText) {
+                                            return headerText;
+                                        }
+                                    }
+                                }
+                                // Fallback: utiliser les colonneDefs si disponibles
+                                const colonneDefs = [
+                                    'Numéro', 'Client', 'Référence', 'Date Prévue de livraison',
+                                    'Date Réelle de livraison', 'Statut', 'Statut de dossier',
+                                    'Temps Total Prévu', 'Poste de production', 'Date poste', 'Écart (jours)'
+                                ];
+                                if (colonneDefs[column]) {
+                                    return colonneDefs[column];
+                                }
+                                // Dernier fallback: nettoyer le HTML
+                                if (typeof data === 'string') {
+                                    return data.replace(/<[^>]*>/g, '').trim();
+                                }
+                                return data;
+                            },
+                            body: function(data, row, column, node) {
+                                // Nettoyer le HTML des cellules pour l'export PDF
+                                if (typeof data === 'string') {
+                                    return data.replace(/<[^>]*>/g, '').trim();
+                                }
+                                return data;
+                            }
+                        }
+                    },
+                    filename: function() {
+                        const date = new Date();
+                        const dateStr = date.toISOString().split('T')[0];
+                        return 'Suivi_Dossiers_' + dateStr;
+                    },
+                    title: 'Suivi des Dossiers et des Délais de Livraison',
+                    orientation: 'landscape',
+                    pageSize: 'A4',
+                    customize: function(doc) {
+                        try {
+                            // Vérifier que le document est valide
+                            if (!doc || !doc.content || doc.content.length < 2) {
+                                console.error('Document PDF invalide:', doc);
+                                return;
+                            }
+                            
+                            // Vérifier que la table existe
+                            if (!doc.content[1] || !doc.content[1].table) {
+                                console.error('Table non trouvée dans le document PDF');
+                                return;
+                            }
+                            
+                            // Réduire la taille de la police pour que toutes les colonnes tiennent
+                            doc.defaultStyle = doc.defaultStyle || {};
+                            doc.defaultStyle.fontSize = 7;
+                            
+                            // Initialiser les styles si nécessaire
+                            doc.styles = doc.styles || {};
+                            doc.styles.tableHeader = doc.styles.tableHeader || {};
+                            doc.styles.tableHeader.fontSize = 8;
+                            doc.styles.tableHeader.alignment = 'center';
+                            doc.styles.tableHeader.fillColor = '#343a40';
+                            doc.styles.tableHeader.color = '#ffffff';
+                            doc.styles.tableHeader.bold = true;
+                            
+                            // Calculer les largeurs des colonnes proportionnellement
+                            const numColumns = doc.content[1].table.body[0].length;
+                            
+                            // En mode paysage A4, la largeur disponible est environ 792 points (moins les marges)
+                            doc.pageMargins = doc.pageMargins || [15, 50, 15, 30];
+                            const pageWidth = 792 - doc.pageMargins[0] - doc.pageMargins[2];
+                            
+                            // Largeurs proportionnelles basées sur les largeurs CSS réelles
+                            // Total approximatif: 100+150+140+200+200+100+150+160+170+140+95 = 1605px
+                            const totalWidth = 100 + 150 + 140 + 200 + 200 + 100 + 150 + 160 + 170 + 140 + 95;
+                            const columnWidths = [
+                                (100 / totalWidth) * pageWidth,   // Numéro
+                                (150 / totalWidth) * pageWidth,   // Client
+                                (140 / totalWidth) * pageWidth,   // Référence
+                                (200 / totalWidth) * pageWidth,   // Date Prévue
+                                (200 / totalWidth) * pageWidth,   // Date Réelle
+                                (100 / totalWidth) * pageWidth,   // Statut
+                                (150 / totalWidth) * pageWidth,   // Statut dossier
+                                (160 / totalWidth) * pageWidth,   // Temps Total
+                                (170 / totalWidth) * pageWidth,   // Poste
+                                (140 / totalWidth) * pageWidth,   // Date poste
+                                (95 / totalWidth) * pageWidth     // Écart
+                            ];
+                            
+                            doc.content[1].table.widths = columnWidths;
+                            
+                            // Ajuster les marges pour maximiser l'espace (marges minimales)
+                            doc.pageMargins = [15, 50, 15, 30];
+                        } catch (error) {
+                            console.error('Erreur lors de la personnalisation du PDF:', error);
+                        }
+                    }
+                }
+            ],
             autoWidth: false,
             columnDefs: columnDefsConfig,
             orderClasses: true,
@@ -1165,10 +1433,13 @@ document.addEventListener('DOMContentLoaded', function () {
             { titre: 'Numéro', filtre: true },
             { titre: 'Client', filtre: true },
             { titre: 'Référence', filtre: true },
-            { titre: 'Date Prévue', filtre: true },
-            { titre: 'Date Réelle', filtre: true },
+            { titre: 'Date Prévue de livraison', filtre: true },
+            { titre: 'Date Réelle de livraison', filtre: true },
             { titre: 'Statut', filtre: true },
             { titre: 'Statut de dossier', filtre: true },
+            { titre: 'Temps Total Prévu', filtre: true },
+            { titre: 'Poste de production', filtre: true },
+            { titre: 'Date poste', filtre: true },
             { titre: 'Écart (jours)', filtre: true },
             { titre: 'Actions', filtre: false }
         ];
@@ -1192,7 +1463,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
-    // Initialiser le filtre de plage de dates pour Date Prévue
+    // Initialiser le filtre de plage de dates pour Date Prévue de livraison (index 3)
     function initializeDateRangeFilter(api) {
         // Fonction de recherche personnalisée pour la plage de dates
         const dateRangeFilter = function(settings, data, dataIndex) {
@@ -1227,7 +1498,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return true; // Pas de filtre, afficher toutes les lignes
             }
             
-            // Récupérer la date de la colonne (index 3 pour Date Prévue)
+            // Récupérer la date de la colonne (index 3 pour Date Prévue de livraison)
             const dateStr = data[3];
             if (!dateStr || dateStr === '-') {
                 return false; // Pas de date, exclure
@@ -1286,10 +1557,13 @@ document.addEventListener('DOMContentLoaded', function () {
             { titre: 'Numéro', toggle: true },
             { titre: 'Client', toggle: true },
             { titre: 'Référence', toggle: true },
-            { titre: 'Date Prévue', toggle: true },
-            { titre: 'Date Réelle', toggle: true },
+            { titre: 'Date Prévue de livraison', toggle: true },
+            { titre: 'Date Réelle de livraison', toggle: true },
             { titre: 'Statut', toggle: true },
             { titre: 'Statut de dossier', toggle: true },
+            { titre: 'Temps Total Prévu', toggle: true },
+            { titre: 'Poste de production', toggle: true },
+            { titre: 'Date poste', toggle: true },
             { titre: 'Écart (jours)', toggle: true },
             { titre: 'Actions', toggle: true }
         ];
@@ -1305,9 +1579,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const toggleId = `colToggle_${index}`;
             const isVisible = column.visible();
             
-            // Pour la colonne "Date Prévue", ajouter les champs de date
+            // Pour la colonne "Date Prévue de livraison", ajouter les champs de date
             let $checkbox;
-            if (def.titre === 'Date Prévue') {
+            if (def.titre === 'Date Prévue de livraison') {
                 $checkbox = $(`
                     <div class="form-check form-check-inline" style="display: inline-flex; align-items: center; vertical-align: middle;">
                         <input class="form-check-input" type="checkbox" id="${toggleId}" ${isVisible ? 'checked' : ''} style="margin-top: 0;">
@@ -1338,8 +1612,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 const checked = this.checked;
                 column.visible(checked, false);
                 
-                // Afficher/masquer les champs de date pour Date Prévue
-                if (def.titre === 'Date Prévue') {
+                // Afficher/masquer les champs de date pour Date Prévue de livraison
+                if (def.titre === 'Date Prévue de livraison') {
                     const $dateContainer = $(`#dateRangeToggle_${index}`);
                     if (checked) {
                         $dateContainer.slideDown(200);
@@ -1363,7 +1637,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             
             // Gestionnaires pour les champs de date dans le toggle
-            if (def.titre === 'Date Prévue') {
+            if (def.titre === 'Date Prévue de livraison') {
                 // Attacher les événements après que l'élément soit ajouté au DOM
                 setTimeout(function() {
                     const $dateContainer = $(`#dateRangeToggle_${index}`);
