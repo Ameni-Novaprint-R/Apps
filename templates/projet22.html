@@ -401,6 +401,42 @@
         box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
     }
     
+    /* Wrapper champ mot de passe avec icône œil */
+    .password-field-wrap {
+        position: relative;
+        display: block;
+    }
+    .password-field-wrap input {
+        padding-right: 42px;
+    }
+    .password-toggle-eye {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #5a6c7d;
+        transition: color 0.2s, background 0.2s;
+    }
+    .password-toggle-eye:hover {
+        color: var(--color-blue);
+        background: rgba(74, 144, 226, 0.08);
+    }
+    .password-toggle-eye svg {
+        width: 20px;
+        height: 20px;
+        pointer-events: none;
+    }
+    
     .modal-footer {
         border-top: 1px solid #e0e0e0;
         padding: 20px 0;
@@ -717,13 +753,25 @@
                         <label for="oldPassword">
                             <span style="color: #50C878;">🔒</span> Ancien mot de passe *
                         </label>
-                        <input type="password" id="oldPassword" name="oldPassword" minlength="6">
+                        <div class="password-field-wrap">
+                            <input type="password" id="oldPassword" name="oldPassword" minlength="6">
+                            <button type="button" class="password-toggle-eye" onmousedown="showPasswordWhilePressed('oldPassword', this)" onmouseup="return false;" title="Maintenir pour afficher le mot de passe" aria-label="Maintenir pour afficher le mot de passe">
+                                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="icon-eye-off" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                        </div>
                         <small class="text-muted">Saisissez votre ancien mot de passe pour confirmer</small>
                     </div>
                     
                     <div class="form-group">
                         <label for="newPassword">Nouveau mot de passe *</label>
-                        <input type="password" id="newPassword" name="mdp" required minlength="6">
+                        <div class="password-field-wrap">
+                            <input type="password" id="newPassword" name="mdp" required minlength="6">
+                            <button type="button" class="password-toggle-eye" onmousedown="showPasswordWhilePressed('newPassword', this)" onmouseup="return false;" title="Maintenir pour afficher le mot de passe" aria-label="Maintenir pour afficher le mot de passe">
+                                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="icon-eye-off" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                        </div>
                         <small class="text-muted">Minimum 6 caractères</small>
                     </div>
                     
@@ -774,11 +822,23 @@
                 <input type="hidden" id="atelierHasExistingPassword" name="hasExistingPassword">
                 <div class="form-group" id="atelierOldPasswordGroup" style="display: none;">
                     <label for="atelierOldPassword">Ancien mot de passe *</label>
-                    <input type="password" id="atelierOldPassword" name="oldPassword" minlength="6">
+                    <div class="password-field-wrap">
+                        <input type="password" id="atelierOldPassword" name="oldPassword" minlength="6">
+                        <button type="button" class="password-toggle-eye" onmousedown="showPasswordWhilePressed('atelierOldPassword', this)" onmouseup="return false;" title="Maintenir pour afficher le mot de passe" aria-label="Maintenir pour afficher le mot de passe">
+                            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <svg class="icon-eye-off" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="atelierNewPassword">Nouveau mot de passe *</label>
-                    <input type="password" id="atelierNewPassword" name="mdp" required minlength="6">
+                    <div class="password-field-wrap">
+                        <input type="password" id="atelierNewPassword" name="mdp" required minlength="6">
+                        <button type="button" class="password-toggle-eye" onmousedown="showPasswordWhilePressed('atelierNewPassword', this)" onmouseup="return false;" title="Maintenir pour afficher le mot de passe" aria-label="Maintenir pour afficher le mot de passe">
+                            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <svg class="icon-eye-off" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        </button>
+                    </div>
                     <small class="text-muted">Minimum 6 caractères</small>
                 </div>
                 <div id="atelierPasswordAlert"></div>
@@ -1399,6 +1459,42 @@ function resetFilters() {
 function showAlert(containerId, message, type) {
     const container = document.getElementById(containerId);
     container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+}
+
+/** Afficher le mot de passe tant que le bouton est maintenu ; masquer au relâchement ou quand la souris quitte le bouton */
+function showPasswordWhilePressed(inputId, buttonEl) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.type = 'text';
+    const eye = buttonEl.querySelector('.icon-eye');
+    const eyeOff = buttonEl.querySelector('.icon-eye-off');
+    if (eye && eyeOff) {
+        eye.style.display = 'none';
+        eyeOff.style.display = 'block';
+    }
+    buttonEl.title = 'Relâchez pour masquer';
+    buttonEl.setAttribute('aria-label', 'Relâchez pour masquer le mot de passe');
+
+    function hide() {
+        input.type = 'password';
+        if (eye && eyeOff) {
+            eye.style.display = 'block';
+            eyeOff.style.display = 'none';
+        }
+        buttonEl.title = 'Maintenir pour afficher le mot de passe';
+        buttonEl.setAttribute('aria-label', 'Maintenir pour afficher le mot de passe');
+        document.removeEventListener('mouseup', hide);
+        document.removeEventListener('pointerup', hide);
+        buttonEl.removeEventListener('mouseleave', onLeave);
+        buttonEl.removeEventListener('pointerleave', onLeave);
+    }
+    function onLeave() {
+        hide();
+    }
+    document.addEventListener('mouseup', hide);
+    document.addEventListener('pointerup', hide);
+    buttonEl.addEventListener('mouseleave', onLeave);
+    buttonEl.addEventListener('pointerleave', onLeave);
 }
 
 // --- Gestion des ateliers ---

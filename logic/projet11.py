@@ -27,6 +27,268 @@ def _to_int(value):
         return 0
 
 
+def column_exists(cursor, table_name, column_name):
+    """Vérifie si une colonne existe dans une table SQL Server."""
+    try:
+        cursor.execute("""
+            SELECT COUNT(*) as col_exists
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = ? AND COLUMN_NAME = ?
+        """, (table_name, column_name))
+        return cursor.fetchone().col_exists > 0
+    except Exception:
+        return False
+
+
+_cloture_column_ensured = False
+
+
+def ensure_cloture_column():
+    """Vérifie si la colonne Cloture existe dans WEB_TRAITEMENTS ; si non, l'ajoute."""
+    global _cloture_column_ensured
+    if _cloture_column_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture'):
+                _cloture_column_ensured = True
+                return
+            cursor.execute("ALTER TABLE dbo.WEB_TRAITEMENTS ADD Cloture TINYINT NULL DEFAULT 0")
+            cursor.connection.commit()
+            print("[projet11] Colonne Cloture ajoutée à WEB_TRAITEMENTS.")
+    except Exception as e:
+        print(f"[projet11] ensure_cloture_column: {e}")
+    finally:
+        _cloture_column_ensured = True
+
+
+# ============================================================================
+# SUIVI PRODUCTION - Synthèse dossiers x ordres
+# ============================================================================
+
+def get_suivi_production_data(client_filter='', dossier_filter='', poste_filter=''):
+    """Retourne la matrice Dossier x Ordre pour la section Suivi Production.
+    Chaque cellule contient : poste, temps (h), codindav (0=Non commencé, 1=En attente, 2=En cours, 3=Terminé).
+    CodIndAv reflète WEB_TRAITEMENTS (DteDeb/DteFin) ; synchronisation faite par sync_codindav_*.
+    """
+    ensure_cloture_column()
+    with get_db_cursor() as cursor:
+        has_ordre = column_exists(cursor, 'GP_FICHES_TRAVAIL', 'Ordre')
+        ordre_select = 'FT.Ordre AS ordre' if has_ordre else 'ROW_NUMBER() OVER (PARTITION BY FT.ID_COMMANDE ORDER BY FT.ID) AS ordre'
+        
+        has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
+        wt_cols = 'TpsReel, PostesReel, DteFin, w.Cloture' if has_cloture else 'TpsReel, PostesReel, DteFin, CAST(0 AS INT) AS Cloture'
+        # Prendre la DERNIÈRE fiche (par date début) pour livraisons partielles : si dernière non clôturée = en cours (bleu)
+        wt_order = 'ORDER BY w.DteDeb DESC, w.DateCreation DESC'
+        sql = f"""
+            SELECT 
+                C.Numero AS dossier,
+                S.RaiSocTri AS client,
+                {ordre_select},
+                P.Nom AS poste_prev,
+                ISNULL(FT.CodIndAv, 0) AS codindav_ft,
+                FT.ID AS id_fiche,
+                C.ID AS id_commande,
+                FI.TpsPrevDev AS tps_prev,
+                WT.TpsReel AS tps_reel,
+                WT.PostesReel AS poste_reel,
+                WT.DteFin AS dte_fin,
+                ISNULL(WT.Cloture, 0) AS cloture
+            FROM GP_FICHES_TRAVAIL FT
+            INNER JOIN COMMANDES C ON C.ID = FT.ID_COMMANDE
+            LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
+            LEFT JOIN GP_POSTES P ON P.ID = FT.ID_POSTE
+            LEFT JOIN GP_FICHTRA_INT FI ON FI.ID_FICHTRA = FT.ID
+            OUTER APPLY (
+                SELECT TOP 1 {wt_cols}
+                FROM WEB_TRAITEMENTS w
+                WHERE w.ID_FICHE_TRAVAIL = FT.ID
+                {wt_order}
+            ) WT
+            WHERE C.Termine = 0
+        """
+        params = []
+        if client_filter:
+            sql += " AND S.RaiSocTri LIKE ?"
+            params.append(f"%{client_filter}%")
+        if dossier_filter:
+            sql += " AND C.Numero LIKE ?"
+            params.append(f"%{dossier_filter}%")
+        if poste_filter:
+            sql += " AND P.Nom LIKE ?"
+            params.append(f"%{poste_filter}%")
+        sql += " ORDER BY C.Numero, " + ("FT.Ordre" if has_ordre else "FT.ID")
+        
+        try:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+        except Exception as e:
+            if 'Ordre' in str(e) or 'invalid column' in str(e).lower() or 'nom de colonne' in str(e).lower():
+                wt_cols_fb = 'TpsReel, PostesReel, DteFin, w.Cloture' if has_cloture else 'TpsReel, PostesReel, DteFin, CAST(0 AS INT) AS Cloture'
+                wt_order_fb = 'ORDER BY w.DteDeb DESC, w.DateCreation DESC'
+                sql_fallback = f"""
+                    SELECT 
+                        C.Numero AS dossier,
+                        S.RaiSocTri AS client,
+                        ROW_NUMBER() OVER (PARTITION BY FT.ID_COMMANDE ORDER BY FT.ID) AS ordre,
+                        P.Nom AS poste_prev,
+                        ISNULL(FT.CodIndAv, 0) AS codindav_ft,
+                        FT.ID AS id_fiche,
+                        C.ID AS id_commande,
+                        FI.TpsPrevDev AS tps_prev,
+                        WT.TpsReel AS tps_reel,
+                        WT.PostesReel AS poste_reel,
+                        WT.DteFin AS dte_fin,
+                        ISNULL(WT.Cloture, 0) AS cloture
+                    FROM GP_FICHES_TRAVAIL FT
+                    INNER JOIN COMMANDES C ON C.ID = FT.ID_COMMANDE
+                    LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
+                    LEFT JOIN GP_POSTES P ON P.ID = FT.ID_POSTE
+                    LEFT JOIN GP_FICHTRA_INT FI ON FI.ID_FICHTRA = FT.ID
+                    OUTER APPLY (
+                        SELECT TOP 1 {wt_cols_fb}
+                        FROM WEB_TRAITEMENTS w
+                        WHERE w.ID_FICHE_TRAVAIL = FT.ID
+                        {wt_order_fb}
+                    ) WT
+                    WHERE C.Termine = 0
+                """
+                add_clauses = []
+                if client_filter:
+                    add_clauses.append(" AND S.RaiSocTri LIKE ?")
+                if dossier_filter:
+                    add_clauses.append(" AND C.Numero LIKE ?")
+                if poste_filter:
+                    add_clauses.append(" AND P.Nom LIKE ?")
+                sql_fallback += ''.join(add_clauses) + " ORDER BY C.Numero, FT.ID"
+                cursor.execute(sql_fallback, params)
+                rows = cursor.fetchall()
+            else:
+                raise
+    
+    dossiers = {}
+    for r in rows:
+        dossier = (r.dossier or '').strip()
+        client = (r.client or '').strip()
+        ordre = int(r.ordre) if r.ordre is not None else 0
+        poste = (r.poste_reel or '').strip() or (getattr(r, 'poste_prev', None) or '').strip()
+        codindav_ft = int(r.codindav_ft) if getattr(r, 'codindav_ft', None) is not None else 0
+        cloture = int(getattr(r, 'cloture', 0) or 0)
+        tps_reel = getattr(r, 'tps_reel', None)
+        # Terminé (vert) = dernière fiche clôturée ; si dernière fiche non clôturée = en cours (bleu) même si ancienne clôturée
+        if cloture:
+            codindav = 3
+        elif tps_reel is not None or getattr(r, 'poste_reel', None):
+            codindav = 2
+        else:
+            codindav = codindav_ft
+        tps = r.tps_reel if r.tps_reel is not None else r.tps_prev
+        try:
+            tps_h = round(float(tps), 1) if tps is not None else 0.0
+        except (TypeError, ValueError):
+            tps_h = 0.0
+        
+        if dossier not in dossiers:
+            dossiers[dossier] = {'dossier': dossier, 'client': client, 'ordres': {}}
+        dossiers[dossier]['ordres'][ordre] = {
+            'poste': poste,
+            'tps_h': tps_h,
+            'codindav': codindav,
+            'id_fiche': r.id_fiche
+        }
+    
+    max_ordre = max((max(d['ordres'].keys()) for d in dossiers.values() if d['ordres']), default=0)
+    lignes = []
+    for dossier, data in sorted(dossiers.items()):
+        ordres_list = []
+        for k in range(1, max_ordre + 1):
+            c = data['ordres'].get(k, {'poste': '', 'tps_h': 0.0, 'codindav': 0, 'id_fiche': None})
+            ordres_list.append(c)
+        lignes.append({
+            'dossier': data['dossier'],
+            'client': data['client'],
+            'ordres': ordres_list
+        })
+    
+    return {'lignes': lignes, 'nb_ordres': max_ordre}
+
+
+def sync_codindav_for_fiche(id_fiche_travail, cursor):
+    """
+    Met à jour GP_FICHES_TRAVAIL.CodIndAv pour une fiche, à partir de WEB_TRAITEMENTS.
+    - Traitement avec DteDeb + DteFin -> CodIndAv = 3 (Terminé)
+    - Traitement avec DteDeb sans DteFin -> CodIndAv = 2 (En cours)
+    - Pas de traitement: si ordre précédent terminé -> 1 (En attente), sinon 0 (Non commencé)
+    """
+    if not id_fiche_travail:
+        return
+    try:
+        if not column_exists(cursor, 'GP_FICHES_TRAVAIL', 'Ordre'):
+            return
+        has_id_travail = column_exists(cursor, 'GP_FICHES_TRAVAIL', 'ID_TRAVAIL')
+        if has_id_travail:
+            cursor.execute("SELECT ID_COMMANDE, ID_TRAVAIL, Ordre FROM GP_FICHES_TRAVAIL WHERE ID = ?", (id_fiche_travail,))
+        else:
+            cursor.execute("SELECT ID_COMMANDE, Ordre FROM GP_FICHES_TRAVAIL WHERE ID = ?", (id_fiche_travail,))
+        fiche = cursor.fetchone()
+        if not fiche:
+            return
+        id_commande = fiche.ID_COMMANDE
+        ordre = fiche.Ordre if fiche.Ordre is not None else 0
+        id_travail = getattr(fiche, 'ID_TRAVAIL', None)
+        
+        has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
+        cloture_col = ', Cloture' if has_cloture else ''
+        cursor.execute(f"""
+            SELECT TOP 1 DteDeb, DteFin{cloture_col}
+            FROM WEB_TRAITEMENTS
+            WHERE ID_FICHE_TRAVAIL = ?
+            ORDER BY DateCreation DESC
+        """, (id_fiche_travail,))
+        wt = cursor.fetchone()
+        if wt and wt.DteDeb:
+            cloture_ok = has_cloture and getattr(wt, 'Cloture', 0) == 1
+            cod = 3 if (wt.DteFin or cloture_ok) else 2
+        else:
+            prev_done = True
+            if ordre > 1:
+                # Uniquement Cloture=1 = étape définitivement terminée (DteFin seul peut avoir une 2e fiche)
+                done_cond = "W.Cloture = 1" if has_cloture else "W.DteFin IS NOT NULL"
+                if has_id_travail and id_travail is not None:
+                    cursor.execute(f"""
+                        SELECT FT.ID
+                        FROM GP_FICHES_TRAVAIL FT
+                        INNER JOIN WEB_TRAITEMENTS W ON W.ID_FICHE_TRAVAIL = FT.ID AND {done_cond}
+                        WHERE FT.ID_COMMANDE = ? AND FT.ID_TRAVAIL = ? AND FT.Ordre = ?
+                    """, (id_commande, id_travail, ordre - 1))
+                else:
+                    cursor.execute(f"""
+                        SELECT FT.ID
+                        FROM GP_FICHES_TRAVAIL FT
+                        INNER JOIN WEB_TRAITEMENTS W ON W.ID_FICHE_TRAVAIL = FT.ID AND {done_cond}
+                        WHERE FT.ID_COMMANDE = ? AND FT.Ordre = ?
+                    """, (id_commande, ordre - 1))
+                prev_done = cursor.fetchone() is not None
+            cod = 1 if prev_done else 0
+        cursor.execute("UPDATE GP_FICHES_TRAVAIL SET CodIndAv = ? WHERE ID = ?", (cod, id_fiche_travail))
+        if cod == 3 and ordre:
+            if has_id_travail and id_travail is not None:
+                cursor.execute("""
+                    SELECT ID FROM GP_FICHES_TRAVAIL
+                    WHERE ID_COMMANDE = ? AND ID_TRAVAIL = ? AND Ordre = ?
+                """, (id_commande, id_travail, ordre + 1))
+            else:
+                cursor.execute("""
+                    SELECT ID FROM GP_FICHES_TRAVAIL
+                    WHERE ID_COMMANDE = ? AND Ordre = ?
+                """, (id_commande, ordre + 1))
+            next_fiche = cursor.fetchone()
+            if next_fiche:
+                cursor.execute("UPDATE GP_FICHES_TRAVAIL SET CodIndAv = 1 WHERE ID = ?", (next_fiche.ID,))
+    except Exception as e:
+        print(f"[projet11] sync_codindav_for_fiche: {e}")
+
+
 # ============================================================================
 # FONCTIONS DE CONSULTATION
 # ============================================================================
@@ -510,11 +772,11 @@ def get_traitement_by_fiche(id_fiche_travail):
 # ============================================================================
 
 def get_all_traitements():
-    """
-    Récupère tous les traitements enregistrés dans WEB_TRAITEMENTS
-    """
+    """Récupère tous les traitements enregistrés dans WEB_TRAITEMENTS"""
+    ensure_cloture_column()
     with get_db_cursor() as cursor:
-        cursor.execute("""
+        cols_cloture = ', Cloture' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture') else ', CAST(0 AS TINYINT) AS Cloture'
+        cursor.execute(f"""
             SELECT 
                 ID,
                 ID_FICHE_TRAVAIL,
@@ -538,6 +800,7 @@ def get_all_traitements():
                 TpsReel,
                 DateCreation,
                 DateModification
+                {cols_cloture}
             FROM WEB_TRAITEMENTS
             ORDER BY DateCreation DESC
         """)
@@ -572,7 +835,8 @@ def get_all_traitements():
                 "tps_reel": tps_reel,
                 "ecart_temps": ecart,
                 "date_creation": row.DateCreation.strftime('%Y-%m-%d') if row.DateCreation else None,
-                "date_modification": row.DateModification.strftime('%Y-%m-%d') if row.DateModification else None
+                "date_modification": row.DateModification.strftime('%Y-%m-%d') if row.DateModification else None,
+                "cloture": _to_int(getattr(row, 'Cloture', 0))
             })
         
         return traitements
@@ -582,8 +846,12 @@ def get_traitement_by_id(traitement_id):
     """
     Récupère un traitement spécifique par son ID.
     Gère les deux noms de colonne pour le temps prévu (TpsPrevDev_GP_FICHTRA_INT ou TpsPrevDev_GP_FICHES_OPERATIONS).
+    Retourne aussi Cloture pour afficher le bouton Déclôturer en fiche clôturée.
     """
+    ensure_cloture_column()
     with get_db_cursor() as cursor:
+        has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
+        cloture_col = ', Cloture' if has_cloture else ''
         # Essayer d'abord avec la colonne renommée TpsPrevDev_GP_FICHTRA_INT
         try:
             cursor.execute("""
@@ -614,6 +882,7 @@ def get_traitement_by_id(traitement_id):
                     DateCreation,
                     DateModification,
                     TempsEcouleAffichageSec
+                    """ + cloture_col + """
                 FROM WEB_TRAITEMENTS
                 WHERE ID = ?
             """, (traitement_id,))
@@ -650,6 +919,7 @@ def get_traitement_by_id(traitement_id):
                             DateCreation,
                             DateModification,
                             TempsEcouleAffichageSec
+                            """ + cloture_col + """
                         FROM WEB_TRAITEMENTS
                         WHERE ID = ?
                     """, (traitement_id,))
@@ -730,7 +1000,8 @@ def get_traitement_by_id(traitement_id):
             "postes_reel": row.PostesReel,
             "date_creation": date_creation_str,
             "date_modification": date_modification_str,
-            "temps_ecoule_affichage_sec": getattr(row, 'TempsEcouleAffichageSec', None)
+            "temps_ecoule_affichage_sec": getattr(row, 'TempsEcouleAffichageSec', None),
+            "cloture": _to_int(getattr(row, 'Cloture', 0))
         }
 
 
@@ -750,6 +1021,7 @@ def create_traitement(data):
     Returns:
         int: ID du traitement créé, ou None en cas d'erreur
     """
+    ensure_cloture_column()
     try:
         print(f"[DEBUG] Début create_traitement avec data: {data}")
         with get_db_cursor() as cursor:
@@ -968,7 +1240,12 @@ def create_traitement(data):
                 # Pour les services non prévus, utiliser NULL au lieu de 0 pour ID_FICHE_TRAVAIL
                 id_fiche_insert = None if (not id_fiche_travail or id_fiche_travail == 0) else id_fiche_travail
                 
-                cursor.execute("""
+                cloture_val = 1 if data.get('cloture') in (1, '1', True) else 0
+                has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
+                cloture_col = ', Cloture' if has_cloture else ''
+                cloture_ph = ', ?' if has_cloture else ''
+                cloture_params = (cloture_val,) if has_cloture else ()
+                cursor.execute(f"""
                     INSERT INTO WEB_TRAITEMENTS (
                         ID_FICHE_TRAVAIL,
                         ID_GP_TRAITEMENTS,
@@ -991,9 +1268,9 @@ def create_traitement(data):
                         PdtC,
                         PdtNNC,
                         PdtANC,
-                        TpsReel
+                        TpsReel{cloture_col}
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{cloture_ph})
                 """, (
                     id_fiche_insert,  # NULL pour service non prévu, ID valide sinon
                     traitement_data[0] if traitement_data else None,  # ID_GP_TRAITEMENTS (traçabilité)
@@ -1026,10 +1303,12 @@ def create_traitement(data):
                     pdt_anc,
                     # Temps réel calculé
                     tps_reel
-                ))
+                ) + cloture_params)
                 
                 print("[DEBUG] INSERT réussi")
-                cursor.commit()
+                if id_fiche_insert:
+                    sync_codindav_for_fiche(id_fiche_insert, cursor)
+                cursor.connection.commit()
                 print("[DEBUG] COMMIT réussi")
                 
             except Exception as e:
@@ -1103,8 +1382,7 @@ def create_traitement(data):
 
 
 def update_traitement(traitement_id, data):
-    """
-    Met à jour un traitement existant
+    """Met à jour un traitement existant.
     
     Args:
         traitement_id (int): ID du traitement à mettre à jour
@@ -1113,6 +1391,7 @@ def update_traitement(traitement_id, data):
     Returns:
         bool: True si succès, False sinon
     """
+    ensure_cloture_column()
     try:
         with get_db_cursor() as cursor:
             from datetime import datetime
@@ -1180,7 +1459,27 @@ def update_traitement(traitement_id, data):
             print(f"[DEBUG update_traitement] Mise à jour traitement {traitement_id}")
             print(f"[DEBUG update_traitement] Données: dte_deb={dte_deb}, dte_fin={dte_fin}, nb_op={nb_op}, pdt_c={pdt_c}, pdt_nnc={pdt_nnc}, pdt_anc={pdt_anc}")
             
-            sql_update = """
+            # Opérateur : si matricule_personel fourni, récupérer Nom/Prenom depuis personel
+            matricule_op = data.get('matricule_personel')
+            nom_op, prenom_op = '', ''
+            if matricule_op is not None:
+                try:
+                    m = int(matricule_op)
+                    cursor.execute("SELECT Nom, Prenom FROM personel WHERE Matricule = ?", (m,))
+                    r = cursor.fetchone()
+                    if r:
+                        nom_op = (r.Nom or "").strip()
+                        prenom_op = (r.Prenom or "").strip()
+                except (TypeError, ValueError):
+                    pass
+            
+            cloture_val = 1 if data.get('cloture') in (1, '1', True) else 0
+            has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
+            cloture_set = ', Cloture = ?' if has_cloture else ''
+            cloture_param = (cloture_val,) if has_cloture else ()
+            op_set = ', Matricule_personel = ?, Nom_personel = ?, Prenom_personel = ?' if matricule_op is not None else ''
+            op_param = (matricule_op, nom_op, prenom_op) if matricule_op is not None else ()
+            sql_update = f"""
                 UPDATE WEB_TRAITEMENTS
                 SET 
                     DteDeb = ?,
@@ -1191,7 +1490,7 @@ def update_traitement(traitement_id, data):
                     PdtANC = ?,
                     NbPers = ?,
                     PostesReel = ?,
-                    TpsReel = ?,
+                    TpsReel = ?{op_set}{cloture_set},
                     DateModification = GETDATE()
                 WHERE ID = ?
             """
@@ -1204,19 +1503,20 @@ def update_traitement(traitement_id, data):
                 pdt_anc,
                 nb_pers,
                 data.get('postes_reel'),
-                tps_reel,
-                traitement_id
-            )
+                tps_reel
+            ) + op_param + cloture_param + (traitement_id,)
             try:
                 if dte_fin is not None:
-                    cursor.execute("""
+                    sql_fin = f"""
                         UPDATE WEB_TRAITEMENTS
                         SET DteDeb = ?, DteFin = ?, NbOp = ?, PdtC = ?, PdtNNC = ?, PdtANC = ?,
-                            NbPers = ?, PostesReel = ?, TpsReel = ?, TempsEcouleAffichageSec = NULL,
+                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}, TempsEcouleAffichageSec = NULL,
                             DateModification = GETDATE()
                         WHERE ID = ?
-                    """, (dte_deb, dte_fin, nb_op, pdt_c, pdt_nnc, pdt_anc, nb_pers,
-                          data.get('postes_reel'), tps_reel, traitement_id))
+                    """
+                    params_fin = (dte_deb, dte_fin, nb_op, pdt_c, pdt_nnc, pdt_anc, nb_pers,
+                                  data.get('postes_reel'), tps_reel) + op_param + cloture_param + (traitement_id,)
+                    cursor.execute(sql_fin, params_fin)
                 else:
                     cursor.execute(sql_update, params)
             except Exception:
@@ -1224,6 +1524,11 @@ def update_traitement(traitement_id, data):
             
             rows_affected = cursor.rowcount
             print(f"[DEBUG update_traitement] UPDATE exécuté, lignes affectées: {rows_affected}")
+            
+            cursor.execute("SELECT ID_FICHE_TRAVAIL FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
+            row_fiche = cursor.fetchone()
+            if row_fiche and row_fiche.ID_FICHE_TRAVAIL:
+                sync_codindav_for_fiche(row_fiche.ID_FICHE_TRAVAIL, cursor)
             
             if rows_affected == 0:
                 # Vérifier si le traitement existe
@@ -1284,6 +1589,227 @@ def update_chrono_affichage(traitement_id, temps_ecoule_sec):
         return False
 
 
+def update_operateur_traitement(traitement_id, matricule_personel):
+    """
+    Met à jour uniquement l'opérateur (Matricule_personel, Nom_personel, Prenom_personel)
+    d'un traitement. Récupère Nom et Prenom depuis la table personel.
+    """
+    if matricule_personel is None:
+        return False
+    try:
+        matricule = int(matricule_personel)
+    except (TypeError, ValueError):
+        return False
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                "SELECT Nom, Prenom FROM personel WHERE Matricule = ?",
+                (matricule,)
+            )
+            row = cursor.fetchone()
+            nom = (row.Nom or "").strip() if row else ""
+            prenom = (row.Prenom or "").strip() if row else ""
+            cursor.execute("""
+                UPDATE WEB_TRAITEMENTS
+                SET Matricule_personel = ?, Nom_personel = ?, Prenom_personel = ?, DateModification = GETDATE()
+                WHERE ID = ?
+            """, (matricule, nom, prenom, traitement_id))
+            cursor.connection.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erreur update_operateur_traitement: {e}")
+        return False
+
+
+def update_cloture_traitement(traitement_id, cloture_val):
+    """Met à jour uniquement la colonne Cloture (0 ou 1) d'un traitement."""
+    try:
+        cloture = 1 if cloture_val in (1, '1', True) else 0
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture'):
+                return False
+            cursor.execute("""
+                UPDATE WEB_TRAITEMENTS
+                SET Cloture = ?, DateModification = GETDATE()
+                WHERE ID = ?
+            """, (cloture, traitement_id))
+            cursor.connection.commit()
+            if cursor.rowcount > 0:
+                cursor.execute("SELECT ID_FICHE_TRAVAIL FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
+                row_fiche = cursor.fetchone()
+                if row_fiche and row_fiche.ID_FICHE_TRAVAIL:
+                    sync_codindav_for_fiche(row_fiche.ID_FICHE_TRAVAIL, cursor)
+                    cursor.connection.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erreur update_cloture_traitement: {e}")
+        return False
+
+
+# ============================================================================
+# VERROUILLAGE FICHE OUVERTE (éviter double ouverture)
+# Libération : à la fermeture (Annuler/X/Clôturer/Enregistrer), bouton Débloquer, ou task 23h59.
+# ============================================================================
+OUVERTURE_TIMEOUT_SEC = 300
+
+_ouverture_table_ensured = False
+
+
+def ensure_ouverture_table(cursor):
+    """
+    Crée la table WEB_TRAITEMENTS_OUVERTURE si elle n'existe pas.
+    Si elle existe avec une mauvaise structure (ex. PK sur SessionId), on la recrée :
+    PRIMARY KEY sur TraitementId uniquement = une ligne par fiche ouverte.
+    """
+    global _ouverture_table_ensured
+    if _ouverture_table_ensured:
+        return
+    try:
+        cursor.execute("SELECT 1 FROM sys.tables WHERE name = 'WEB_TRAITEMENTS_OUVERTURE'")
+        table_exists = cursor.fetchone()
+        if table_exists:
+            # Vérifier que la PK est bien (TraitementId) seul
+            cursor.execute("""
+                SELECT kcu.COLUMN_NAME
+                FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+                INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                    ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_NAME = kcu.TABLE_NAME
+                WHERE tc.TABLE_NAME = 'WEB_TRAITEMENTS_OUVERTURE' AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                ORDER BY kcu.ORDINAL_POSITION
+            """)
+            pk_cols = [row.COLUMN_NAME for row in cursor.fetchall()]
+            if pk_cols != ['TraitementId']:
+                cursor.execute("DROP TABLE dbo.WEB_TRAITEMENTS_OUVERTURE")
+                cursor.connection.commit()
+                table_exists = None
+        if not table_exists:
+            cursor.execute("""
+                CREATE TABLE dbo.WEB_TRAITEMENTS_OUVERTURE (
+                    TraitementId INT NOT NULL PRIMARY KEY,
+                    SessionId NVARCHAR(255) NOT NULL,
+                    DateOuverture DATETIME NOT NULL DEFAULT GETDATE()
+                )
+            """)
+            cursor.connection.commit()
+        _ouverture_table_ensured = True
+    except Exception as e:
+        print(f"[projet11] ensure_ouverture_table: {e}")
+
+
+def acquire_traitement_lock(traitement_id, session_id):
+    """
+    Acquiert le verrou pour une fiche.
+    Une fiche (ID) ne peut être ouverte qu'à un seul endroit à la fois (tout utilisateur, tout PC).
+    Pas de suppression par timeout ici : libération par fermeture, Débloquer, ou task 23h59.
+    """
+    if not session_id:
+        return (False, "session_id manquant")
+    try:
+        with get_db_cursor() as cursor:
+            ensure_ouverture_table(cursor)
+            # Tenter d'insérer : si la fiche est déjà prise par quelqu'un, on aura une erreur de clé dupliquée
+            try:
+                cursor.execute("""
+                    INSERT INTO WEB_TRAITEMENTS_OUVERTURE (TraitementId, SessionId, DateOuverture)
+                    VALUES (?, ?, GETDATE())
+                """, (traitement_id, session_id))
+                cursor.connection.commit()
+                return (True, None)
+            except Exception as insert_err:
+                cursor.connection.rollback()
+                err_str = str(insert_err).lower()
+                is_duplicate = (
+                    getattr(insert_err, 'args', None) and len(insert_err.args) >= 1 and str(insert_err.args[0]) == '23000'
+                ) or 'unique' in err_str or 'duplicate' in err_str or 'primary key' in err_str or 'violation' in err_str
+                if not is_duplicate:
+                    raise insert_err
+            # Une ligne existe déjà : vérifier si c'est la même session
+            cursor.execute("""
+                SELECT SessionId FROM WEB_TRAITEMENTS_OUVERTURE WHERE TraitementId = ?
+            """, (traitement_id,))
+            row = cursor.fetchone()
+            if not row:
+                # Race : la ligne a été supprimée entre-temps, réessayer l'insert
+                try:
+                    cursor.execute("""
+                        INSERT INTO WEB_TRAITEMENTS_OUVERTURE (TraitementId, SessionId, DateOuverture)
+                        VALUES (?, ?, GETDATE())
+                    """, (traitement_id, session_id))
+                    cursor.connection.commit()
+                    return (True, None)
+                except Exception:
+                    cursor.connection.rollback()
+                return (False, "Cette fiche est déjà ouverte ailleurs. Veuillez attendre qu'elle soit fermée.")
+            if row.SessionId == session_id:
+                cursor.execute("""
+                    UPDATE WEB_TRAITEMENTS_OUVERTURE
+                    SET DateOuverture = GETDATE()
+                    WHERE TraitementId = ? AND SessionId = ?
+                """, (traitement_id, session_id))
+                cursor.connection.commit()
+                return (True, None)
+            return (False, "Cette fiche est déjà ouverte ailleurs. Veuillez attendre qu'elle soit fermée.")
+    except Exception as e:
+        print(f"Erreur acquire_traitement_lock: {e}")
+        return (False, "Erreur technique lors de l'ouverture de la fiche.")
+
+
+def release_traitement_lock(traitement_id, session_id):
+    """Libère le verrou à la fermeture d'une fiche. Supprime la ligne même si session_id diffère (nettoyage)."""
+    try:
+        with get_db_cursor() as cursor:
+            ensure_ouverture_table(cursor)
+            cursor.execute("""
+                DELETE FROM WEB_TRAITEMENTS_OUVERTURE
+                WHERE TraitementId = ? AND SessionId = ?
+            """, (traitement_id, session_id))
+            n = cursor.rowcount
+            if n == 0 and session_id:
+                # Fallback : supprimer par TraitementId seul (cas où session_id ne matche pas)
+                cursor.execute("DELETE FROM WEB_TRAITEMENTS_OUVERTURE WHERE TraitementId = ?", (traitement_id,))
+            cursor.connection.commit()
+    except Exception as e:
+        print(f"Erreur release_traitement_lock: {e}")
+
+
+def nettoyage_verrous_ouverture():
+    """Vide la table WEB_TRAITEMENTS_OUVERTURE (appelé par la task 23h59)."""
+    try:
+        with get_db_cursor() as cursor:
+            ensure_ouverture_table(cursor)
+            cursor.execute("DELETE FROM WEB_TRAITEMENTS_OUVERTURE")
+            cursor.connection.commit()
+            return True
+    except Exception as e:
+        print(f"Erreur nettoyage_verrous_ouverture: {e}")
+        return False
+
+
+def forcer_liberation_traitement(traitement_id):
+    """Supprime la ligne de cette fiche dans WEB_TRAITEMENTS_OUVERTURE (bouton Débloquer)."""
+    try:
+        with get_db_cursor() as cursor:
+            ensure_ouverture_table(cursor)
+            cursor.execute("DELETE FROM WEB_TRAITEMENTS_OUVERTURE WHERE TraitementId = ?", (traitement_id,))
+            cursor.connection.commit()
+            return True
+    except Exception as e:
+        print(f"Erreur forcer_liberation_traitement: {e}")
+        return False
+
+
+def get_ids_verrouilles_ouverture():
+    """Retourne la liste des TraitementId présents dans WEB_TRAITEMENTS_OUVERTURE."""
+    try:
+        with get_db_cursor() as cursor:
+            ensure_ouverture_table(cursor)
+            cursor.execute("SELECT TraitementId FROM WEB_TRAITEMENTS_OUVERTURE")
+            return [row.TraitementId for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Erreur get_ids_verrouilles_ouverture: {e}")
+        return []
+
+
 def delete_traitement(traitement_id):
     """
     Supprime un traitement
@@ -1296,7 +1822,12 @@ def delete_traitement(traitement_id):
     """
     try:
         with get_db_cursor() as cursor:
+            cursor.execute("SELECT ID_FICHE_TRAVAIL FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
+            row_fiche = cursor.fetchone()
+            id_fiche = row_fiche.ID_FICHE_TRAVAIL if row_fiche and row_fiche.ID_FICHE_TRAVAIL else None
             cursor.execute("DELETE FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
+            if id_fiche:
+                sync_codindav_for_fiche(id_fiche, cursor)
             cursor.connection.commit()
             print(f"[OK] Traitement {traitement_id} supprimé avec succès")
             return True

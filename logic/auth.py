@@ -193,7 +193,11 @@ def login_user(matricule, password):
             flask_session['is_atelier'] = False
             # Nom affichable (chaîne fiable pour la session)
             nom_employe = f"{getattr(employee, 'Nom', '') or ''} {getattr(employee, 'Prenom', '') or ''}".strip() or f"Matricule {matricule}"
-            if matricule in SUPER_USER_MATRICULES:
+            try:
+                m = int(matricule) if matricule is not None else None
+            except (ValueError, TypeError):
+                m = None
+            if m is not None and m in SUPER_USER_MATRICULES:
                 # Super-utilisateur : accès complet
                 try:
                     flask_session['matricule'] = matricule
@@ -207,7 +211,7 @@ def login_user(matricule, password):
             cursor.execute("""
                 SELECT COUNT(*) as nb_droits
                 FROM WEB_DROITS_ACCES
-                WHERE Matricule = ? AND Autorise = 1
+                WHERE Matricule = ? AND (Autorise = 1 OR Autorise IS NULL)
             """, (matricule,))
             
             result = cursor.fetchone()
@@ -329,13 +333,22 @@ def get_current_user():
 def is_super_user():
     """
     Vérifie si l'utilisateur connecté est le super-utilisateur
+    Gère matricule en int ou string (session peut sérialiser différemment)
     """
     try:
         from flask import session as flask_session
         if not is_authenticated():
             return False
+        if flask_session.get('is_super_user', False):
+            return True
         matricule = flask_session.get('matricule')
-        return flask_session.get('is_super_user', False) or (matricule is not None and matricule in SUPER_USER_MATRICULES)
+        if matricule is None:
+            return False
+        try:
+            m = int(matricule) if matricule is not None else None
+            return m is not None and m in SUPER_USER_MATRICULES
+        except (ValueError, TypeError):
+            return False
     except Exception:
         return False
 
@@ -389,7 +402,7 @@ def has_project_access(project_id):
                 INNER JOIN WEB_ACTIONS WA ON WA.ID = WDA.ID_Action
                 INNER JOIN WEB_SECTIONS WS ON WS.ID = WA.ID_Section
                 WHERE WDA.Matricule = ?
-                AND WDA.Autorise = 1
+                AND (WDA.Autorise = 1 OR WDA.Autorise IS NULL)
                 AND WS.ID_Proj = ?
             """, (matricule, project_id))
             
@@ -428,7 +441,7 @@ def has_action_access(action_id):
                         FROM WEB_DROITS_ACCES
                         WHERE NomAtelier = ?
                         AND ID_Action = ?
-                        AND Autorise = 1
+                        AND (Autorise = 1 OR Autorise IS NULL)
                     """, (nom_atelier, action_id))
                     result = cursor.fetchone()
                     return result and result.nb_droits > 0
@@ -447,7 +460,7 @@ def has_action_access(action_id):
                 FROM WEB_DROITS_ACCES
                 WHERE Matricule = ?
                 AND ID_Action = ?
-                AND Autorise = 1
+                AND (Autorise = 1 OR Autorise IS NULL)
             """, (matricule, action_id))
             
             result = cursor.fetchone()
@@ -504,7 +517,7 @@ def has_section_access(section_id):
                 INNER JOIN WEB_ACTIONS WA ON WA.ID = WDA.ID_Action
                 WHERE WDA.Matricule = ?
                 AND WA.ID_Section = ?
-                AND WDA.Autorise = 1
+                AND (WDA.Autorise = 1 OR WDA.Autorise IS NULL)
             """, (matricule, section_id))
             
             result = cursor.fetchone()
@@ -585,7 +598,7 @@ def get_user_sections(project_id):
                     INNER JOIN WEB_DROITS_ACCES WDA ON WDA.ID_Action = WA.ID
                     WHERE (WP.ID = ? OR WP.NumProj = ?)
                     AND WDA.Matricule = ?
-                    AND WDA.Autorise = 1
+                    AND (WDA.Autorise = 1 OR WDA.Autorise IS NULL)
                     ORDER BY WS.ID
                 """, (project_id, project_id, matricule))
                 
@@ -672,7 +685,7 @@ def get_user_projects():
                     INNER JOIN WEB_ACTIONS WA ON WA.ID_Section = WS.ID
                     INNER JOIN WEB_DROITS_ACCES WDA ON WDA.ID_Action = WA.ID
                     WHERE WDA.Matricule = ?
-                    AND WDA.Autorise = 1
+                    AND (WDA.Autorise = 1 OR WDA.Autorise IS NULL)
                     AND WP.archive = 0
                     ORDER BY WP.NumProj
                 """, (matricule,))

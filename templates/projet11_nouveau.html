@@ -391,12 +391,18 @@
 
                             <hr>
 
-                            <div class="d-flex justify-content-end gap-2">
+                            <div class="d-flex justify-content-end gap-2 flex-wrap">
                                 <button type="button" class="btn btn-secondary" id="btnAnnuler" onclick="annulerFormulaire()">
                                     <i class="fas fa-times"></i> Annuler
                                 </button>
-                                <button type="submit" class="btn btn-success btn-lg" id="btnEnregistrer">
-                                    <i class="fas fa-stop-circle"></i> <span id="btnEnregistrerTexte">Arrêter et Enregistrer</span>
+                                <button type="button" class="btn btn-primary btn-lg" id="btnEnregistrer">
+                                    <i class="fas fa-save"></i> <span id="btnEnregistrerTexte">Enregistrer</span>
+                                </button>
+                                <button type="button" class="btn btn-success" id="btnCloturer" style="display: none;">
+                                    <i class="fas fa-lock"></i> Clôturer
+                                </button>
+                                <button type="button" class="btn btn-warning" id="btnDecloturer" style="display: none;">
+                                    <i class="fas fa-lock-open"></i> Déclôturer
                                 </button>
                             </div>
                         </div>
@@ -429,6 +435,37 @@ let restaurationEtatPlanifiee = false;
 // Récupérer l'ID du traitement à modifier depuis l'URL
 const urlParams = new URLSearchParams(window.location.search);
 const traitementIdFromUrl = urlParams.get('id') || urlParams.get('traitement_id');
+// Mode Reprise (action Reprise) : X enregistre, pas de bouton Annuler, PATCH opérateur en direct
+const estModeReprise = (urlParams.get('reprise') === '1' || urlParams.get('reprise') === 'true');
+// Mode Modifier (action Modifier) : X ferme sans enregistrer, Annuler annule les modifs, pas de PATCH en direct
+const estModeModifier = !!(traitementIdFromUrl && String(traitementIdFromUrl).trim() && !estModeReprise);
+
+// ID de session pour verrouillage fiche (même ID que parent si passé en URL)
+const PROJET11_SESSION_ID = (function() {
+    const p = new URLSearchParams(window.location.search);
+    const sid = p.get('p11_sid');
+    if (sid) return sid;
+    return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 's' + Date.now() + '-' + Math.random().toString(36).slice(2);
+})();
+
+function releaseTraitementLock(id) {
+    if (!id) return;
+    fetch('/projet11/api/traitements/' + id + '/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: PROJET11_SESSION_ID }),
+        keepalive: true
+    }).catch(function() {});
+}
+
+// Libérer le verrou quand l'utilisateur ferme l'onglet (X du navigateur) - sendBeacon survit à la fermeture
+window.addEventListener('beforeunload', function() {
+    var id = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
+    if (id && typeof PROJET11_SESSION_ID !== 'undefined') {
+        navigator.sendBeacon('/projet11/api/traitements/' + id + '/close',
+            new Blob([JSON.stringify({ session_id: PROJET11_SESSION_ID })], { type: 'application/json' }));
+    }
+});
 
 // Récupérer les données du traitement depuis le serveur (passées via Jinja2)
 let traitementDataFromServer = null;
@@ -460,6 +497,8 @@ function setCurrentTraitementId(id) {
     if (hidden) {
         hidden.value = id ? id : '';
     }
+    // Ne pas forcer la visibilité Clôturer/Déclôturer ici : elle est gérée par chargerDonneesTraitement
+    // (fiche clôturée = Déclôturer) ou par le callback de création (nouvelle fiche = Clôturer).
 }
 
 function mettreAJourMatriculeDepuisTexte(element, texte) {
@@ -568,8 +607,23 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('[DEBUG] DOMContentLoaded - traitementDataFromServer:', traitementDataFromServer);
     console.log('[DEBUG] DOMContentLoaded - estModeEmbed:', estModeEmbed);
     
-    // En Reprise ou Modifier : masquer le bouton Annuler (éviter de supprimer la fiche par erreur)
-    if (traitementIdFromUrl) {
+    // Plein écran : acquérir le verrou (parent a libéré en fermant le modal)
+    if (traitementIdFromUrl && window.parent === window) {
+        fetch('/projet11/api/traitements/' + traitementIdFromUrl + '/open', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: PROJET11_SESSION_ID })
+        }).then(function(r) { return r.json();         }).then(function(res) {
+            if (!res.success) {
+                alert(res.error || 'Cette fiche est déjà ouverte ailleurs.');
+                if (window.opener) window.close(); else history.back();
+            }
+        }).catch(function() {});
+    }
+    
+    // En Reprise : masquer le bouton Annuler (X enregistre les modifs ; pas d'annulation).
+    // En Modifier : afficher Annuler (fermer sans enregistrer = annuler les modifications).
+    if (estModeReprise) {
         var btnAnnuler = document.getElementById('btnAnnuler');
         if (btnAnnuler) btnAnnuler.style.display = 'none';
     }
@@ -658,14 +712,24 @@ function chargerDonneesTraitement(data) {
     const btnTexte = document.getElementById('btnEnregistrerTexte');
     const btnEnregistrer = document.getElementById('btnEnregistrer');
     if (btnTexte && btnEnregistrer) {
-        if (data.dte_fin) {
-            // Traitement terminé
-            btnTexte.textContent = 'Enregistrer les modifications';
-            btnEnregistrer.querySelector('i').className = 'fas fa-save';
+        btnTexte.textContent = 'Enregistrer';
+        btnEnregistrer.querySelector('i').className = 'fas fa-save';
+    }
+    // Afficher / masquer Clôturer et Déclôturer
+    const btnCloturer = document.getElementById('btnCloturer');
+    const btnDecloturer = document.getElementById('btnDecloturer');
+    const idTraitement = data.id ? String(data.id) : null;
+    const estCloture = !!(data.cloture === 1 || data.cloture === true || data.cloture === '1' || (data.Cloture !== undefined && (data.Cloture === 1 || data.Cloture === true)));
+    if (btnCloturer && btnDecloturer) {
+        if (idTraitement && estCloture) {
+            btnCloturer.style.display = 'none';
+            btnDecloturer.style.display = 'inline-block';
+        } else if (idTraitement) {
+            btnCloturer.style.display = 'inline-block';
+            btnDecloturer.style.display = 'none';
         } else {
-            // Traitement en cours
-            btnTexte.textContent = 'Arrêter et Enregistrer';
-            btnEnregistrer.querySelector('i').className = 'fas fa-stop-circle';
+            btnCloturer.style.display = 'none';
+            btnDecloturer.style.display = 'none';
         }
     }
     
@@ -1618,6 +1682,17 @@ function genererChampsOperateurs(nbPersonnes) {
         }
         // Mettre à jour le titre de la page avec le nom et prénom de l'opérateur
         mettreAJourTitrePageOperateur();
+        // Sync opérateur en temps réel vers la table uniquement en création ou Reprise (pas en Modifier)
+        if (!estModeModifier && currentTraitementId && matricule) {
+            clearTimeout(window._syncOperateurTimeout);
+            window._syncOperateurTimeout = setTimeout(function() {
+                fetch('/projet11/api/traitements/' + currentTraitementId + '/operateur', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matricule_personel: parseInt(matricule, 10) })
+                }).catch(function(err) { console.error('Sync opérateur:', err); });
+            }, 400);
+        }
     });
     
     // Mettre à jour le titre au chargement si un opérateur est déjà sélectionné
@@ -1799,6 +1874,17 @@ function demarrerChrono() {
         startTraitementEnCours = false;
         if (result.success) {
             setCurrentTraitementId(result.id);
+            fetch('/projet11/api/traitements/' + result.id + '/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: PROJET11_SESSION_ID })
+            }).catch(function() {});
+            var btnCloturer = document.getElementById('btnCloturer');
+            var btnDecloturer = document.getElementById('btnDecloturer');
+            if (btnCloturer && btnDecloturer) {
+                btnCloturer.style.display = 'inline-block';
+                btnDecloturer.style.display = 'none';
+            }
         } else {
             stopChrono();
             $('#dte_deb').val('');
@@ -1918,6 +2004,7 @@ function resetForm() {
 // ============================================================================
 $('#formNouveauTraitement').on('submit', function(e) {
     e.preventDefault();
+    // _enregistrerAvecCloture est défini par le bouton (Enregistrer = false, Clôturer = true)
     
     // Synchroniser les champs dates visibles vers cachés (fiche terminée en modification)
     syncDatesModificationEtTpsReel();
@@ -1974,7 +2061,7 @@ $('#formNouveauTraitement').on('submit', function(e) {
             return;
         }
         if (!dteFinValue) {
-            alert('Veuillez arrêter le chronomètre (bouton Arrêter et Enregistrer) ou renseigner la date de fin pour une fiche terminée');
+            alert('Veuillez renseigner la date de fin pour enregistrer (le bouton Enregistrer arrête le chronomètre puis enregistre).');
             return;
         }
         
@@ -2030,7 +2117,11 @@ $('#formNouveauTraitement').on('submit', function(e) {
     const dureeHeures = (dureeMinutes / 60).toFixed(3);
     
     // Confirmation
-    if (!confirm(`Enregistrer ce traitement?\n\nConformes: ${safePdtC.toLocaleString('fr-FR')}\nNon conformes (Nouvelles): ${safePdtNNC.toLocaleString('fr-FR')}\nNon conformes (Anciennes): ${safePdtANC.toLocaleString('fr-FR')}\nTotal: ${totalProduite.toLocaleString('fr-FR')}\nDurée: ${dureeHeures}h (${dureeMinutes} min)`)) {
+    const estCloture = !!window._enregistrerAvecCloture;
+    const messageConfirm = estCloture
+        ? `Clôturer ce traitement ?\n\nConformes: ${safePdtC.toLocaleString('fr-FR')}\nNon conformes (Nouvelles): ${safePdtNNC.toLocaleString('fr-FR')}\nNon conformes (Anciennes): ${safePdtANC.toLocaleString('fr-FR')}\nTotal: ${totalProduite.toLocaleString('fr-FR')}\nDurée: ${dureeHeures}h (${dureeMinutes} min)\n\nLe statut passera à "Clôturé".`
+        : `Enregistrer ce traitement?\n\nConformes: ${safePdtC.toLocaleString('fr-FR')}\nNon conformes (Nouvelles): ${safePdtNNC.toLocaleString('fr-FR')}\nNon conformes (Anciennes): ${safePdtANC.toLocaleString('fr-FR')}\nTotal: ${totalProduite.toLocaleString('fr-FR')}\nDurée: ${dureeHeures}h (${dureeMinutes} min)`;
+    if (!confirm(messageConfirm)) {
         // L'utilisateur souhaite garder le traitement en cours : réinitialiser la date de fin
         $('#dte_fin').val('');
         return;
@@ -2053,6 +2144,13 @@ $('#formNouveauTraitement').on('submit', function(e) {
         numero_commande: currentNumeroCommande || null,
         nom_service: currentService || null
     };
+    if (window._enregistrerAvecCloture) {
+        data.cloture = 1;
+        if (!dteFinValue) {
+            const now = new Date();
+            data.dte_fin = formatDateTimeLocal(now);
+        }
+    }
     
     // Log des données envoyées
     console.log('=== DONNÉES ENVOYÉES AU SERVEUR ===');
@@ -2100,6 +2198,7 @@ $('#formNouveauTraitement').on('submit', function(e) {
         console.log('Résultat:', result);
         if (result.success) {
             const traitementId = idToUse || currentTraitementId || traitementIdFromUrl || result.id || 'N/A';
+            releaseTraitementLock(traitementId);
             setCurrentTraitementId(null);
             const messageAction = idToUse ? 'modifié' : 'enregistré';
             alert(`✅ Traitement ${messageAction} avec succès!\n\nID: ${traitementId}\nDurée: ${dureeHeures}h (${dureeMinutes} min)\nTotal produit: ${totalProduite.toLocaleString('fr-FR')}`);
@@ -2231,14 +2330,19 @@ function saveEnCoursOnClose() {
     }).catch(function(err) {
         console.error('Save on close PUT failed:', err);
     });
+    releaseTraitementLock(idToUse);
 }
 
 // Fonction pour annuler le formulaire (ne sauvegarde pas, ferme juste le popup)
 function annulerFormulaire() {
-    // Si un traitement en cours existe, le supprimer pour ne pas le laisser dans la liste
+    const ouvertDepuisModifOuReprise = !!(traitementIdFromUrl && String(traitementIdFromUrl).trim());
     const idToUse = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
-    if (idToUse) {
-        // Supprimer le traitement en cours pour ne pas le laisser dans la liste
+    
+    if (idToUse && (window.parent === window || !ouvertDepuisModifOuReprise)) {
+        releaseTraitementLock(idToUse);
+    }
+    
+    if (idToUse && !ouvertDepuisModifOuReprise) {
         fetch(`/projet11/api/traitements/${idToUse}`, {
             method: 'DELETE',
             keepalive: true
@@ -2276,6 +2380,47 @@ window.addEventListener('message', function(e) {
     if (e.data && e.data.action === 'saveEnCours') {
         saveEnCoursOnClose();
     }
+});
+
+// Boutons Enregistrer, Clôturer, Déclôturer (ordre: Annuler | Enregistrer | Clôturer)
+$(document).ready(function() {
+    $('#btnEnregistrer').on('click', function() {
+        window._enregistrerAvecCloture = false;
+        $('#formNouveauTraitement').trigger('submit');
+    });
+    $('#btnCloturer').on('click', function() {
+        window._enregistrerAvecCloture = true;
+        const nowStr = formatDateTimeLocal(new Date());
+        if (!$('#dte_fin').val() || $('#dte_fin').val().trim() === '') {
+            $('#dte_fin').val(nowStr);
+            if ($('#dte_fin_visible').length) $('#dte_fin_visible').val(nowStr);
+        }
+        $('#formNouveauTraitement').trigger('submit');
+    });
+    $('#btnDecloturer').on('click', function() {
+        const idToUse = currentTraitementId || traitementIdFromUrl || (document.getElementById('traitement_id') && document.getElementById('traitement_id').value) || null;
+        if (!idToUse) return;
+        if (!confirm('Déclôturer ce traitement ? Le statut affichera "Terminé" dans la liste.')) return;
+        fetch('/projet11/api/traitements/' + idToUse + '/cloture', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cloture: 0 })
+        }).then(function(r) { return r.json(); }).then(function(result) {
+            if (result.success) {
+                alert('Traitement déclôturé.');
+                if (window.parent && window.parent !== window) {
+                    try { window.parent.postMessage({ action: 'fiche_saved' }, window.location.origin); } catch (e) { window.parent.location.reload(); }
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert('Erreur: ' + (result.error || 'Impossible de déclôturer'));
+            }
+        }).catch(function(err) {
+            alert('Erreur lors de la déclôture');
+            console.error(err);
+        });
+    });
 });
 
 // ============================================================================

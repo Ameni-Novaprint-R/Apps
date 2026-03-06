@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Suivi Production - Projet 11{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .suivi-header {
+        background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+        color: #2e7d32;
+        border: 2px solid #4caf50;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .suivi-header h1 { font-size: 1.6rem; margin: 0; color: #2e7d32; }
+    .filter-container {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+    }
+    .filter-container label { font-weight: 600; margin-right: 6px; }
+    .filter-container input {
+        padding: 6px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+    .filter-container .btn-primary { padding: 6px 20px; }
+    .legend-box {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .legend-square {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+    .legend-square.non-commence { background: #E7292E; }
+    .legend-square.en-attente { background: #FFDA09; }
+    .legend-square.en-cours { background: #0C79FE; }
+    .legend-square.termine { background: #189E26; }
+    .suivi-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        background: white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .suivi-table th, .suivi-table td {
+        border: 1px solid #dee2e6;
+        padding: 8px 10px;
+    }
+    .suivi-table th {
+        background: #343a40;
+        color: white;
+        font-weight: 600;
+        text-align: center;
+    }
+    .suivi-table th.col-dossier,
+    .suivi-table th.col-client { text-align: left; }
+    .suivi-table td.col-dossier { font-weight: 600; }
+    .ordres-cell {
+        min-width: 100px;
+        text-align: center;
+        line-height: 1.3;
+    }
+    .ordres-cell .poste-name { font-weight: 500; color: #000 !important; }
+    .ordres-cell .tps-h { font-size: 0.8em; color: #000 !important; }
+    .ordres-cell.codindav-0 { background: #E7292E; }
+    .ordres-cell.codindav-1 { background: #FFDA09; }
+    .ordres-cell.codindav-2 { background: #0C79FE; }
+    .ordres-cell.codindav-3 { background: #189E26; }
+    .ordres-cell.codindav-4 { background: #6c757d; }
+    .ordres-cell.empty { background: #f8f9fa; color: #6c757d; }
+    .table-scroll-wrapper { width: 100%; }
+    .scrollbar-top {
+        overflow-x: auto;
+        overflow-y: hidden;
+        min-height: 24px;
+        margin-bottom: 4px;
+    }
+    .scrollbar-top .scroll-spacer { height: 1px; min-width: 100%; }
+    .table-responsive { overflow-x: auto; width: 100%; }
+    .btn-back { margin-bottom: 15px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <a href="{{ url_for('projet11.index') }}" class="btn btn-outline-secondary btn-back">
+        <i class="fas fa-arrow-left"></i> Retour
+    </a>
+    <div class="suivi-header">
+        <h1><i class="fas fa-chart-line"></i> Synthèse des dossiers en cours – Suivi Production</h1>
+    </div>
+
+    <form method="get" action="{{ url_for('projet11.suivi_production') }}" class="filter-container">
+        <div>
+            <label for="client">Client</label>
+            <input type="text" id="client" name="client" placeholder="Nom client" value="{{ request.args.get('client', '') }}">
+        </div>
+        <div>
+            <label for="dossier">Dossier</label>
+            <input type="text" id="dossier" name="dossier" placeholder="Numéro dossier" value="{{ request.args.get('dossier', '') }}">
+        </div>
+        <div>
+            <label for="poste">Poste</label>
+            <input type="text" id="poste" name="poste" placeholder="Nom poste" value="{{ request.args.get('poste', '') }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Filtrer</button>
+    </form>
+
+    <div class="legend-box">
+        <div class="legend-item"><span class="legend-square non-commence"></span> Non commencé</div>
+        <div class="legend-item"><span class="legend-square en-attente"></span> En attente</div>
+        <div class="legend-item"><span class="legend-square en-cours"></span> En cours</div>
+        <div class="legend-item"><span class="legend-square termine"></span> Terminé</div>
+    </div>
+
+    <div class="table-scroll-wrapper">
+        <div class="scrollbar-top" id="scrollbarTop"><div class="scroll-spacer" id="scrollSpacer"></div></div>
+        <div class="table-responsive" id="tableScroll">
+        <table class="suivi-table" id="suiviTable">
+            <thead>
+                <tr>
+                    <th class="col-dossier">Dossier</th>
+                    <th class="col-client">Client</th>
+                    {% for k in range(1, (nb_ordres or 0) + 1) %}
+                    <th>Ordre {{ k }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td class="col-dossier">{{ ligne.dossier }}</td>
+                    <td class="col-client">{{ ligne.client }}</td>
+                    {% for c in ligne.ordres %}
+                    <td class="ordres-cell {% if c.poste or c.tps_h %}codindav-{{ c.codindav }}{% else %}empty{% endif %}">
+                        {% if c.poste or c.tps_h %}
+                        <div class="poste-name">{{ c.poste or '-' }}</div>
+                        <div class="tps-h">{{ "%.1f"|format(c.tps_h) }} h</div>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{{ (nb_ordres or 0) + 2 }}" style="text-align:center; padding: 30px; color: #6c757d;">
+                        Aucun dossier en cours
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        var top = document.getElementById('scrollbarTop');
+        var spacer = document.getElementById('scrollSpacer');
+        var tableScroll = document.getElementById('tableScroll');
+        var table = document.getElementById('suiviTable');
+        if (!top || !spacer || !tableScroll || !table) return;
+        function syncSpacer() {
+            var w = table.scrollWidth;
+            spacer.style.width = w + 'px';
+            spacer.style.minWidth = w + 'px';
+        }
+        function syncToTop() { top.scrollLeft = tableScroll.scrollLeft; }
+        function syncFromTop() { tableScroll.scrollLeft = top.scrollLeft; }
+        syncSpacer();
+        setTimeout(syncSpacer, 100);
+        top.addEventListener('scroll', syncFromTop);
+        tableScroll.addEventListener('scroll', syncToTop);
+        window.addEventListener('resize', syncSpacer);
+    });
+})();
+</script>
+{% endblock %}

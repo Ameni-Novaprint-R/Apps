@@ -144,29 +144,33 @@
 .table-scroll-top::-webkit-scrollbar-track {
     background-color: transparent;
 }
+/* [REVERT] Taille police intermédiaire + ajustements visibilité - annuler ce bloc si besoin */
 #tableTraitements {
     width: auto;
     table-layout: auto;
+    font-size: 0.72rem;
 }
 #tableTraitements th,
 #tableTraitements td {
     white-space: nowrap;
+    padding: 5px 7px !important;
+    line-height: 1.25;
 }
 th.col-id, td.col-id {
-    width: 60px;
-    max-width: 70px;
+    width: 55px;
+    max-width: 65px;
     text-align: center;
 }
 th.col-date, td.col-date {
-    width: 140px;
-    max-width: 160px;
+    width: 120px;
+    max-width: 145px;
 }
 th.col-numero, td.col-numero {
-    width: 140px;
+    width: 120px;
 }
 th.col-reference, td.col-reference {
-    width: 160px;
-    max-width: 200px;
+    width: 140px;
+    max-width: 185px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -175,51 +179,57 @@ th.col-reference, td.col-reference {
     max-width: 100%;
 }
 th.col-client, td.col-client {
-    width: 220px;
-    max-width: 260px;
+    width: 175px;
+    max-width: 220px;
 }
 th.col-service, td.col-service {
-    width: 170px;
-    max-width: 200px;
+    width: 140px;
+    max-width: 175px;
 }
 th.col-poste, td.col-poste,
 th.col-machine, td.col-machine {
-    width: 170px;
-    max-width: 210px;
+    width: 140px;
+    max-width: 185px;
 }
 th.col-operateur, td.col-operateur {
-    width: 190px;
-    max-width: 220px;
+    width: 155px;
+    max-width: 195px;
 }
 th.col-nb, td.col-nb {
-    width: 85px;
-    max-width: 100px;
+    width: 65px;
+    max-width: 85px;
     text-align: center;
 }
 th.col-temps, td.col-temps {
-    width: 115px;
-    max-width: 130px;
+    width: 95px;
+    max-width: 110px;
     text-align: center;
 }
 th.col-ecart, td.col-ecart {
-    width: 110px;
-    max-width: 130px;
+    width: 95px;
+    max-width: 110px;
     text-align: center;
 }
 th.col-statut, td.col-statut {
-    width: 120px;
-    max-width: 140px;
+    width: 100px;
+    max-width: 120px;
     text-align: center;
 }
 th.col-actions, td.col-actions {
-    width: 140px;
-    min-width: 140px;
-    max-width: 150px;
+    width: 115px;
+    min-width: 115px;
+    max-width: 120px;
+}
+.actions-buttons-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: nowrap;
 }
 /* Boutons d'action modernes avec icônes SVG (style projet22) */
 .btn-action-modern {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     border: none;
     background: transparent;
@@ -230,12 +240,12 @@ th.col-actions, td.col-actions {
     transition: all 0.3s ease;
     position: relative;
     padding: 0;
-    margin: 0 1px;
+    margin: 0;
     flex-shrink: 0;
 }
 .btn-action-modern svg {
-    width: 16px;
-    height: 16px;
+    width: 13px;
+    height: 13px;
     transition: all 0.3s ease;
 }
 .btn-action-modern:hover {
@@ -266,21 +276,61 @@ th.col-actions, td.col-actions {
 }
 .table-filters input {
     width: 100%;
-    font-size: 0.85rem;
-    padding: 4px;
+    font-size: 0.70rem;
+    padding: 3px 6px;
     box-sizing: border-box;
+    min-height: 22px;
+}
+.table-filters th {
+    padding: 3px 6px !important;
 }
 .column-toggle-panel {
     margin-bottom: 1rem;
+    font-size: 0.72rem;
+}
+.column-toggle-panel .fw-bold {
+    font-size: 0.83rem;
+}
+.column-toggle-panel .form-check,
+.column-toggle-panel .form-check-label {
+    font-size: 0.72rem;
 }
 .column-toggle-panel .form-check {
     margin-right: 1rem;
     margin-bottom: 0.5rem;
     white-space: nowrap;
 }
+#colExportButtonsWrapper {
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-left: auto;
+}
 .column-toggle-panel .form-check-input {
     margin-top: 0.3rem;
     margin-right: 0.35rem;
+}
+/* DataTables "Afficher X entrées" et pagination proportionnels */
+#tableTraitements_wrapper .dataTables_length,
+#tableTraitements_wrapper .dataTables_info {
+    font-size: 0.72rem;
+}
+/* Barre Excel/PDF/Enregistrer sur même ligne que "Afficher X entrées" */
+#tableTraitements_wrapper .row:first-child {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+#tableTraitements_wrapper .dataTables_length {
+    margin-right: auto;
+}
+#liste-export-buttons {
+    font-size: 0.72rem;
+}
+#tableTraitements_wrapper .dataTables_length select {
+    font-size: 0.72rem;
+    padding: 2px 24px 2px 10px;
+    min-width: 4em;
+    text-align: center;
 }
 .btn-edit {
     background-color: #FFF44F;
@@ -305,11 +355,15 @@ th.col-actions, td.col-actions {
     color: #fff;
 }
 .badge-statut-encours {
-    background-color: #FFF44F;
-    color: #212529;
+    background-color: #0d6efd;
+    color: #ffffff;
 }
 .badge-statut-termine {
-    background-color: #00B140;
+    background-color: #6c757d;
+    color: #ffffff;
+}
+.badge-statut-cloture {
+    background-color: #198754;
     color: #ffffff;
 }
 </style>
@@ -335,31 +389,30 @@ th.col-actions, td.col-actions {
 
             <div class="card">
                 <div class="card-body">
-                    <!-- Boutons d'export du tableau : affichés UNIQUEMENT si l'utilisateur a l'ID_Action correspondant dans WEB_DROITS_ACCES -->
-                    <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-                        {% if has_action_access(6) %}
-                        <a href="{{ url_for('projet11.export_traitements_excel') }}" class="btn btn-sm btn-success" title="Exporter le tableau en Excel">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; fill: white; vertical-align: middle; margin-right: 4px;">
-                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                            </svg>
-                            Excel
-                        </a>
-                        {% endif %}
-                        {% if has_action_access(7) %}
-                        <a href="{{ url_for('projet11.export_traitements_pdf') }}" class="btn btn-sm btn-danger" title="Exporter le tableau en PDF">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; fill: white; vertical-align: middle; margin-right: 4px;">
-                                <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
-                            </svg>
-                            PDF
-                        </a>
-                        {% endif %}
-                    </div>
                     <div class="column-toggle-panel">
                         <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
                         <div class="d-flex flex-wrap gap-2 align-items-center" id="columnToggleContainer">
                             <div class="form-check form-check-inline me-2" id="colToggleAllWrapper">
                                 <input class="form-check-input" type="checkbox" id="colToggleAll" checked title="Tout cocher / tout décocher">
                                 <label class="form-check-label" for="colToggleAll">Tout cocher</label>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0" id="colExportButtonsWrapper">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnEnregistrerFiltre" title="Enregistrer les filtres et colonnes affichées pour les prochaines connexions">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                                    Enregistrer une vue
+                                </button>
+                                {% if has_action_access(6) %}
+                                <a href="{{ url_for('projet11.export_traitements_excel') }}" class="btn btn-sm btn-success" title="Exporter le tableau en Excel">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="white"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                                    Excel
+                                </a>
+                                {% endif %}
+                                {% if has_action_access(7) %}
+                                <a href="{{ url_for('projet11.export_traitements_pdf') }}" class="btn btn-sm btn-danger" title="Exporter le tableau en PDF">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="white"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>
+                                    PDF
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -455,20 +508,29 @@ th.col-actions, td.col-actions {
                                         {% endif %}
                                     </td>
                                     <td class="col-statut">
-                                        {% if t.dte_fin %}
+                                        {% if t.cloture %}
+                                            <span class="badge badge-statut-cloture">Clôturé</span>
+                                        {% elif t.dte_fin %}
                                             <span class="badge badge-statut-termine">Terminé</span>
                                         {% else %}
                                             <span class="badge badge-statut-encours">En cours</span>
                                         {% endif %}
                                     </td>
                                     <td class="col-actions" style="white-space: nowrap;">
-                                        <div style="display: inline-flex; align-items: center; gap: 2px; flex-wrap: nowrap;">
+                                        <div class="actions-buttons-group">
                                             <button class="btn-action-modern btn-action-view btn-view-traitement" data-id="{{ t.id }}" title="Voir les détails" data-bs-toggle="tooltip">
                                                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                                                 </svg>
                                             </button>
-                                            {% if has_action_access(3) %}
+                                            {% if reprise_action_id and has_action_access(reprise_action_id) and not t.dte_fin and not t.cloture %}
+                                            <button class="btn-action-modern btn-action-reprise btn-reprise-traitement" data-id="{{ t.id }}" title="Reprise" data-bs-toggle="tooltip">
+                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                                                </svg>
+                                            </button>
+                                            {% endif %}
+                                            {% if has_action_access(3) and (t.cloture or t.dte_fin) %}
                                             <button class="btn-action-modern btn-action-edit btn-edit-traitement" data-id="{{ t.id }}" title="Modifier" data-bs-toggle="tooltip">
                                                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -482,11 +544,9 @@ th.col-actions, td.col-actions {
                                                 </svg>
                                             </button>
                                             {% endif %}
-                                            {% if reprise_action_id and has_action_access(reprise_action_id) and not t.dte_fin %}
-                                            <button class="btn-action-modern btn-action-reprise btn-reprise-traitement" data-id="{{ t.id }}" title="Reprise" data-bs-toggle="tooltip">
-                                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
-                                                </svg>
+                                            {% if debloquer_action_id and has_action_access(debloquer_action_id) and not t.dte_fin and not t.cloture and t.id in ids_verrouilles %}
+                                            <button type="button" class="btn-action-modern btn-debloquer-traitement" data-id="{{ t.id }}" title="Débloquer (libérer le verrou)" data-bs-toggle="tooltip">
+                                                <i class="fas fa-lock-open"></i>
                                             </button>
                                             {% endif %}
                                         </div>
@@ -542,7 +602,7 @@ th.col-actions, td.col-actions {
                         id="btnOuvrirPleinEcranModif">
                     <i class="fas fa-external-link-alt"></i> Ouvrir plein écran
                 </button>
-                <button class="p12-close-modal" type="button" aria-label="Fermer" onclick="fermerModalModification()">&times;</button>
+                <button class="p12-close-modal" type="button" aria-label="Fermer" onclick="fermerModalModificationOuEnregistrer()">&times;</button>
             </div>
         </div>
         <div class="p12-modal-body modal-iframe-container">
@@ -555,27 +615,31 @@ th.col-actions, td.col-actions {
 </div>
 
 <script>
+// Clé localStorage du filtre : par matricule ou par atelier (évite le partage entre utilisateurs)
+const FILTRE_STORAGE_KEY = {{ filtre_storage_key|tojson }};
+// ID de session unique par onglet (pour verrouillage fiche ouverte)
+const PROJET11_SESSION_ID = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 's' + Date.now() + '-' + Math.random().toString(36).slice(2);
 // Initialiser DataTable
 $(document).ready(function() {
     const $table = $('#tableTraitements');
     const colonneDefs = [
-        { titre: 'ID', filtre: true, toggle: true, className: 'col-id', width: '70px' },
-        { titre: 'Date Début', filtre: true, toggle: true, className: 'col-date', width: '150px' },
-        { titre: 'Date Fin', filtre: true, toggle: true, className: 'col-date', width: '150px' },
-        { titre: 'N° Commande', filtre: true, toggle: true, className: 'col-numero', width: '150px' },
-        { titre: 'Référence', filtre: true, toggle: true, className: 'col-reference', width: '160px' },
-        { titre: 'Client', filtre: true, toggle: true, className: 'col-client', width: '220px' },
-        { titre: 'Service', filtre: true, toggle: true, className: 'col-service', width: '180px' },
-        { titre: 'Poste Prévu', filtre: true, toggle: true, className: 'col-poste', width: '180px' },
-        { titre: 'Machine Réelle', filtre: true, toggle: true, className: 'col-machine', width: '180px' },
-        { titre: 'Opérateur', filtre: true, toggle: true, className: 'col-operateur', width: '200px' },
-        { titre: 'Nb Op.', filtre: true, toggle: true, className: 'col-nb', width: '90px' },
-        { titre: 'Nb Pers.', filtre: true, toggle: true, className: 'col-nb', width: '90px' },
-        { titre: 'Tps Prévu', filtre: true, toggle: true, className: 'col-temps col-temps-prev', width: '120px' },
-        { titre: 'Tps Réel', filtre: true, toggle: true, className: 'col-temps col-temps-reel', width: '120px' },
-        { titre: 'Écart', filtre: true, toggle: true, className: 'col-ecart', width: '120px' },
-        { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '130px' },
-        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '120px', orderable: false }
+        { titre: 'ID', filtre: true, toggle: true, className: 'col-id', width: '55px' },
+        { titre: 'Date Début', filtre: true, toggle: true, className: 'col-date', width: '120px' },
+        { titre: 'Date Fin', filtre: true, toggle: true, className: 'col-date', width: '120px' },
+        { titre: 'N° Commande', filtre: true, toggle: true, className: 'col-numero', width: '120px' },
+        { titre: 'Référence', filtre: true, toggle: true, className: 'col-reference', width: '140px' },
+        { titre: 'Client', filtre: true, toggle: true, className: 'col-client', width: '175px' },
+        { titre: 'Service', filtre: true, toggle: true, className: 'col-service', width: '140px' },
+        { titre: 'Poste Prévu', filtre: true, toggle: true, className: 'col-poste', width: '140px' },
+        { titre: 'Machine Réelle', filtre: true, toggle: true, className: 'col-machine', width: '140px' },
+        { titre: 'Opérateur', filtre: true, toggle: true, className: 'col-operateur', width: '155px' },
+        { titre: 'Nb Op.', filtre: true, toggle: true, className: 'col-nb', width: '65px' },
+        { titre: 'Nb Pers.', filtre: true, toggle: true, className: 'col-nb', width: '65px' },
+        { titre: 'Tps Prévu', filtre: true, toggle: true, className: 'col-temps col-temps-prev', width: '95px' },
+        { titre: 'Tps Réel', filtre: true, toggle: true, className: 'col-temps col-temps-reel', width: '95px' },
+        { titre: 'Écart', filtre: true, toggle: true, className: 'col-ecart', width: '95px' },
+        { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '100px' },
+        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '115px', orderable: false }
     ];
 
     // Ajouter une ligne de filtres
@@ -612,40 +676,57 @@ $(document).ready(function() {
         columnDefs: columnDefsConfig,
         initComplete: function() {
             const api = this.api();
-            var saved = sessionStorage.getItem('projet11_liste_etat');
+            function appliquerEtat(etat) {
+                if (!etat) return;
+                colonneDefs.forEach(function(def, i) {
+                    if (def && def.toggle && etat.colVisible && etat.colVisible[i] !== undefined) {
+                        api.column(i).visible(etat.colVisible[i], false);
+                    }
+                });
+                colonneDefs.forEach(function(def, i) {
+                    if (etat.filterValues && etat.filterValues[i] !== undefined) {
+                        var input = $('.table-filters input[data-col="' + i + '"]');
+                        if (input.length) {
+                            input.val(etat.filterValues[i]);
+                            api.column(i).search(etat.filterValues[i], false, true);
+                        }
+                    }
+                });
+                if (etat.toutCocher !== undefined) $('#colToggleAll').prop('checked', etat.toutCocher);
+                if (etat.pageLength) api.page.len(etat.pageLength);
+                api.draw(false);
+            }
+            function finInit() {
+                initialiserFiltres(api);
+                initialiserToggles(api);
+                api.columns.adjust();
+                setTimeout(function() {
+                    updateTopScrollWidth();
+                    evaluerScrollHorizontal();
+                    activerTooltips();
+                }, 0);
+            }
             var etat = null;
-            if (saved) {
+            var savedSession = sessionStorage.getItem('projet11_liste_etat');
+            if (savedSession) {
                 try {
-                    etat = JSON.parse(saved);
+                    etat = JSON.parse(savedSession);
                     sessionStorage.removeItem('projet11_liste_etat');
-                    colonneDefs.forEach(function(def, i) {
-                        if (def && def.toggle && etat.colVisible && etat.colVisible[i] !== undefined) {
-                            api.column(i).visible(etat.colVisible[i], false);
-                        }
-                    });
-                    colonneDefs.forEach(function(def, i) {
-                        if (etat.filterValues && etat.filterValues[i] !== undefined) {
-                            var input = $('.table-filters input[data-col="' + i + '"]');
-                            if (input.length) {
-                                input.val(etat.filterValues[i]);
-                                api.column(i).search(etat.filterValues[i], false, true);
-                            }
-                        }
-                    });
-                    api.draw(false);
                 } catch (e) { }
             }
-            initialiserFiltres(api);
-            initialiserToggles(api);
-            if (etat && etat.toutCocher !== undefined) {
-                $('#colToggleAll').prop('checked', etat.toutCocher);
+            if (etat) {
+                appliquerEtat(etat);
+                finInit();
+                return;
             }
-            api.columns.adjust();
-            setTimeout(function() {
-                updateTopScrollWidth();
-                evaluerScrollHorizontal();
-                activerTooltips();
-            }, 0);
+            try {
+                var savedStr = localStorage.getItem(FILTRE_STORAGE_KEY);
+                var saved = savedStr ? JSON.parse(savedStr) : null;
+                if (saved && (saved.colVisible || saved.filterValues)) {
+                    appliquerEtat(saved);
+                }
+            } catch (e) { }
+            finInit();
         }
     });
 
@@ -713,6 +794,30 @@ $(document).ready(function() {
     evaluerScrollHorizontal();
     activerTooltips();
 
+    $('#btnEnregistrerFiltre').on('click', function() {
+        var api = $('#tableTraitements').DataTable();
+        if (!api) return;
+        var colVisible = [];
+        var filterValues = [];
+        api.columns().every(function() {
+            colVisible.push(this.visible());
+            var input = $('.table-filters input[data-col="' + this.index() + '"]');
+            filterValues.push(input.length ? input.val() || '' : '');
+        });
+        var payload = {
+            colVisible: colVisible,
+            filterValues: filterValues,
+            toutCocher: $('#colToggleAll').prop('checked'),
+            pageLength: api.page.len()
+        };
+        try {
+            localStorage.setItem(FILTRE_STORAGE_KEY, JSON.stringify(payload));
+            alert('Filtre enregistré. Il sera appliqué par défaut à chaque chargement de la page.');
+        } catch (e) {
+            alert('Erreur lors de l\'enregistrement du filtre : ' + (e.message || 'stockage non disponible'));
+        }
+    });
+
     function initialiserFiltres(api) {
         api.columns().every(function() {
             const column = this;
@@ -744,8 +849,8 @@ $(document).ready(function() {
     function initialiserToggles(api) {
         const $container = $('#columnToggleContainer');
         const $toggleAll = $('#colToggleAll');
-        // Garder le bloc "Tout cocher", supprimer uniquement les toggles de colonnes
-        $container.children().not('#colToggleAllWrapper').remove();
+        // Garder "Tout cocher" et les boutons Excel/PDF/Enregistrer, supprimer uniquement les toggles de colonnes
+        $container.children().not('#colToggleAllWrapper, #colExportButtonsWrapper').remove();
 
         function updateToggleAllState() {
             let allVisible = true;
@@ -798,7 +903,7 @@ $(document).ready(function() {
                 }, 100);
             });
 
-            $container.append($checkbox);
+            $('#colExportButtonsWrapper').before($checkbox);
         });
         updateToggleAllState();
     }
@@ -820,7 +925,7 @@ $(document).ready(function() {
                 fermerModalDetails();
             }
             if (modalModifier && modalModifier.classList.contains('active')) {
-                fermerModalModification();
+                fermerModalModificationOuEnregistrer();
             }
         }
     });
@@ -834,7 +939,7 @@ $(document).ready(function() {
     
     document.getElementById('modalModifierTraitement')?.addEventListener('click', function(event) {
         if (event.target === this) {
-            fermerModalModification();
+            fermerModalModificationOuEnregistrer();
         }
     });
 
@@ -856,6 +961,28 @@ $(document).ready(function() {
         if (id) {
             supprimerTraitement(id);
         }
+    });
+
+    $(document).on('click', '.btn-debloquer-traitement', function() {
+        const id = $(this).data('id');
+        if (!id) return;
+        if (!confirm('Libérer le verrou de cette fiche ? Elle pourra être rouverte (ex. après une fermeture brutale).')) return;
+        const $btn = $(this);
+        $btn.prop('disabled', true);
+        fetch('/projet11/api/traitements/' + id + '/forcer-liberation', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res && res.success) {
+                    location.reload();
+                } else {
+                    alert(res && res.error ? res.error : 'Erreur lors de la libération.');
+                    $btn.prop('disabled', false);
+                }
+            })
+            .catch(function() {
+                alert('Erreur lors de la libération.');
+                $btn.prop('disabled', false);
+            });
     });
 });
 
@@ -958,6 +1085,29 @@ function ouvrirModalModification(id, isReprise) {
         return;
     }
     
+    // Verrouiller la fiche avant d'ouvrir (éviter double ouverture)
+    fetch('/projet11/api/traitements/' + id + '/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: PROJET11_SESSION_ID })
+    }).then(function(r) {
+        return r.json().then(function(res) {
+            if (!r.ok) return { success: false, error: res.error || 'Cette fiche est déjà ouverte ailleurs.' };
+            return res;
+        });
+    }).then(function(res) {
+        if (!res || !res.success) {
+            alert(res && res.error ? res.error : 'Cette fiche est déjà ouverte ailleurs. Veuillez attendre qu\'elle soit fermée.');
+            return;
+        }
+        ouvrirModalModificationSuite(id, isReprise, iframe, modalModifier);
+    }).catch(function(err) {
+        alert('Erreur lors de l\'ouverture de la fiche.');
+        console.error(err);
+    });
+}
+
+function ouvrirModalModificationSuite(id, isReprise, iframe, modalModifier) {
     const titreLabel = document.getElementById('modalModifierTraitementLabel');
     if (titreLabel) {
         titreLabel.innerHTML = isReprise
@@ -966,11 +1116,16 @@ function ouvrirModalModification(id, isReprise) {
     }
     iframe.setAttribute('title', isReprise ? 'Reprise du traitement' : 'Modifier le Traitement');
     
-    // Construire l'URL avec l'ID du traitement (même page que nouveau traitement, préremplie)
     const baseUrl = iframe.getAttribute('data-base-src') || '{{ url_for("projet11.nouveau_traitement", embed=1) }}';
     const separator = baseUrl.includes('?') ? '&' : '?';
-    const newUrl = `${baseUrl}${separator}id=${id}&ts=${Date.now()}`;
+    let newUrl = `${baseUrl}${separator}id=${id}&ts=${Date.now()}`;
+    if (isReprise) {
+        newUrl += '&reprise=1';
+    }
+    newUrl += '&p11_sid=' + encodeURIComponent(PROJET11_SESSION_ID);
     iframe.src = newUrl;
+    window._modalModificationIsReprise = isReprise;
+    window._modalModificationTraitementId = id;
     
     document.body.classList.add('modal-open');
     modalModifier.classList.add('active');
@@ -982,6 +1137,7 @@ function ouvrirModalModification(id, isReprise) {
         btnPleinEcran.onclick = function() {
             const urlPleinEcran = newUrl.replace('embed=1&', '').replace('&embed=1', '').replace('?embed=1', '');
             window.open(urlPleinEcran, '_blank');
+            fermerModalModification();
         };
     }
     
@@ -1028,13 +1184,39 @@ function ouvrirModalModification(id, isReprise) {
     });
 }
 
+// Fermeture par le X : en Reprise = enregistrer puis fermer ; en Modifier = fermer sans enregistrer
+function fermerModalModificationOuEnregistrer() {
+    if (window._modalModificationIsReprise) {
+        try {
+            const iframe = document.getElementById('iframeModifierTraitement');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({ action: 'saveEnCours' }, window.location.origin);
+            }
+        } catch (e) { }
+        setTimeout(fermerModalModification, 600);
+    } else {
+        fermerModalModification();
+    }
+}
+
 function fermerModalModification() {
     const modalModifier = document.getElementById('modalModifierTraitement');
     if (!modalModifier) return;
     
+    // Libérer le verrou de la fiche
+    const tid = window._modalModificationTraitementId;
+    if (tid && typeof PROJET11_SESSION_ID !== 'undefined') {
+        fetch('/projet11/api/traitements/' + tid + '/close', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: PROJET11_SESSION_ID }),
+            keepalive: true
+        }).catch(function() {});
+        window._modalModificationTraitementId = null;
+    }
+    
     const iframe = document.getElementById('iframeModifierTraitement');
     if (iframe) {
-        // Réinitialiser l'iframe
         iframe.src = 'about:blank';
     }
     

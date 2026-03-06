@@ -5,7 +5,7 @@
 Routes Flask pour le Projet 11 - Gestion des traitements (WEB_TRAITEMENTS)
 """
 
-from flask import Blueprint, render_template, request, jsonify, Response, flash
+from flask import Blueprint, render_template, request, jsonify, Response, flash, session
 from logic import projet11
 from logic.auth import get_user_sections, has_section_access, has_action_access, is_super_user
 from datetime import datetime
@@ -138,12 +138,14 @@ def index():
         show_nouvelle_fiche = False
         show_liste_traitements = False
         show_statistiques = False
+        show_suivi_production = False
         
         if is_super_user():
             # Super-utilisateur : toutes les sections
             show_nouvelle_fiche = True
             show_liste_traitements = True
             show_statistiques = True
+            show_suivi_production = True
         else:
             # Vérifier chaque section autorisée par son nom pour déterminer quelle carte afficher
             for section in authorized_sections:
@@ -168,12 +170,19 @@ def index():
                     (('statistiques' in section_nom_lower or 'stats' in section_nom_lower) or
                      section_id == all_sections_map.get('statistiques', -1))):
                     show_statistiques = True
+                
+                # Section "Suivi Production"
+                if (section_id in authorized_section_ids and 
+                    (('suivi' in section_nom_lower and 'production' in section_nom_lower) or
+                     section_id == all_sections_map.get('suivi production', -1))):
+                    show_suivi_production = True
         
         return render_template('projet11.html',
                              authorized_sections=sections_dict,
                              show_nouvelle_fiche=show_nouvelle_fiche,
                              show_liste_traitements=show_liste_traitements,
-                             show_statistiques=show_statistiques)
+                             show_statistiques=show_statistiques,
+                             show_suivi_production=show_suivi_production)
     except Exception as e:
         print(f"Erreur dans projet11.index: {e}")
         import traceback
@@ -183,7 +192,51 @@ def index():
                              authorized_sections={},
                              show_nouvelle_fiche=True,
                              show_liste_traitements=True,
-                             show_statistiques=True)
+                             show_statistiques=True,
+                             show_suivi_production=True)
+
+
+@projet11_bp.route('/projet11/suivi-production')
+def suivi_production():
+    """Page Suivi Production - Synthèse des dossiers en cours - vérifie l'accès à la section"""
+    try:
+        from flask import redirect, url_for
+        from db import get_db_cursor
+        from logic.auth import has_section_access, is_super_user
+        
+        section_id = None
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT WS.ID
+                    FROM WEB_SECTIONS WS
+                    INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                    WHERE WP.NumProj = 11 AND WS.Nom = 'Suivi Production'
+                """)
+                row = cursor.fetchone()
+                if row:
+                    section_id = row.ID
+        except Exception as e:
+            print(f"Erreur lors de la récupération de l'ID de section Suivi Production: {e}")
+        
+        if section_id and not is_super_user() and not has_section_access(section_id):
+            flash("Vous n'avez pas accès à cette section.", "error")
+            return redirect(url_for('projet11.index'))
+        
+        client_filter = request.args.get('client', '').strip()
+        dossier_filter = request.args.get('dossier', '').strip()
+        poste_filter = request.args.get('poste', '').strip()
+        data = projet11.get_suivi_production_data(client_filter, dossier_filter, poste_filter)
+        return render_template('projet11_suivi_production.html',
+                             lignes=data.get('lignes', []),
+                             nb_ordres=data.get('nb_ordres', 0))
+    except Exception as e:
+        print(f"Erreur dans suivi_production: {e}")
+        import traceback
+        traceback.print_exc()
+        from flask import flash, redirect, url_for
+        flash(f"Erreur lors du chargement du Suivi Production: {str(e)}", "error")
+        return redirect(url_for('projet11.index'))
 
 
 @projet11_bp.route('/projet11/traitements')
@@ -216,8 +269,11 @@ def liste_traitements():
             return redirect(url_for('projet11.index'))
         
         traitements = projet11.get_all_traitements()
+        ids_verrouilles = set(projet11.get_ids_verrouilles_ouverture())
         # ID de l'action REPRISE (section Liste des Traitements) pour afficher le bouton
         reprise_action_id = None
+        # ID de l'action DEBLOQUER (ID_Section=2, ID=33) : affichage du bouton uniquement si l'utilisateur a accès
+        debloquer_action_id = None
         if section_id:
             try:
                 with get_db_cursor() as cur:
@@ -230,8 +286,34 @@ def liste_traitements():
                         reprise_action_id = r.ID
             except Exception:
                 pass
+            try:
+                with get_db_cursor() as cur:
+                    cur.execute("""
+                        SELECT ID FROM WEB_ACTIONS
+                        WHERE ID_Section = 2 AND Action = 'DEBLOQUER'
+                    """)
+                    r = cur.fetchone()
+                    if r:
+                        debloquer_action_id = r.ID
+            except Exception:
+                pass
         from flask import make_response
-        resp = make_response(render_template('projet11_liste.html', traitements=traitements, reprise_action_id=reprise_action_id))
+        matricule = session.get('matricule')
+        atelier_nom = session.get('atelier_nom')
+        if matricule is not None:
+            filtre_storage_key = f'projet11_liste_filtre_Matricule_{matricule}'
+        elif atelier_nom:
+            filtre_storage_key = f'projet11_liste_filtre_Atelier_{atelier_nom}'
+        else:
+            filtre_storage_key = 'projet11_liste_filtre_default'
+        resp = make_response(render_template(
+            'projet11_liste.html',
+            traitements=traitements,
+            ids_verrouilles=ids_verrouilles,
+            reprise_action_id=reprise_action_id,
+            debloquer_action_id=debloquer_action_id,
+            filtre_storage_key=filtre_storage_key,
+        ))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
         resp.headers['Expires'] = '0'
@@ -683,6 +765,102 @@ def api_update_chrono_affichage(traitement_id):
         return jsonify({"error": "Mise à jour impossible"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/operateur', methods=['PATCH'])
+def api_update_operateur_traitement(traitement_id):
+    """Met à jour l'opérateur du traitement (pour sync en temps réel quand l'utilisateur change l'opérateur)."""
+    try:
+        data = request.get_json() or {}
+        matricule = data.get('matricule_personel')
+        success = projet11.update_operateur_traitement(traitement_id, matricule)
+        if success:
+            return jsonify({"success": True})
+        return jsonify({"error": "Mise à jour opérateur impossible"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/cloture', methods=['PATCH'])
+def api_update_cloture_traitement(traitement_id):
+    """Met à jour uniquement la colonne Cloture (0 ou 1) - pour le bouton Déclôturer."""
+    from logic.auth import has_action_access, is_super_user
+    if not is_super_user() and not has_action_access(3):
+        return jsonify({"error": "Accès refusé"}), 403
+    try:
+        data = request.get_json() or {}
+        cloture = data.get('cloture', 0)
+        success = projet11.update_cloture_traitement(traitement_id, cloture)
+        if success:
+            return jsonify({"success": True})
+        return jsonify({"error": "Mise à jour impossible"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/open', methods=['POST'])
+def api_open_traitement(traitement_id):
+    """Vérrouille la fiche à l'ouverture. Retourne erreur si déjà ouverte ailleurs."""
+    try:
+        data = request.get_json() or {}
+        session_id = data.get('session_id', '').strip()
+        if not session_id:
+            return jsonify({"success": False, "error": "session_id manquant"}), 400
+        success, err = projet11.acquire_traitement_lock(traitement_id, session_id)
+        if success:
+            return jsonify({"success": True})
+        return jsonify({"success": False, "error": err or "Fiche déjà ouverte ailleurs"}), 409
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/close', methods=['POST'])
+def api_close_traitement(traitement_id):
+    """Libère le verrou à la fermeture de la fiche."""
+    try:
+        data = request.get_json() or {}
+        session_id = data.get('session_id', '').strip()
+        projet11.release_traitement_lock(traitement_id, session_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/nettoyage-verrous', methods=['GET', 'POST'])
+def api_nettoyage_verrous():
+    """Vide la table WEB_TRAITEMENTS_OUVERTURE. À appeler par la task planifiée à 23h59."""
+    try:
+        ok = projet11.nettoyage_verrous_ouverture()
+        return jsonify({"success": ok})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/forcer-liberation', methods=['POST', 'DELETE'])
+def api_forcer_liberation_traitement(traitement_id):
+    """Supprime la ligne de cette fiche dans WEB_TRAITEMENTS_OUVERTURE (bouton Débloquer)."""
+    from logic.auth import has_action_access, is_super_user
+    debloquer_action_id = None
+    try:
+        from db import get_db_cursor
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT ID FROM WEB_ACTIONS
+                WHERE ID_Section = 2 AND Action = 'DEBLOQUER'
+            """)
+            row = cursor.fetchone()
+            if row:
+                debloquer_action_id = row.ID
+    except Exception:
+        debloquer_action_id = None
+
+    if not is_super_user() and (not debloquer_action_id or not has_action_access(debloquer_action_id)):
+        return jsonify({"success": False, "error": "Accès refusé"}), 403
+    try:
+        ok = projet11.forcer_liberation_traitement(traitement_id)
+        return jsonify({"success": ok})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @projet11_bp.route('/projet11/api/traitements/<int:traitement_id>', methods=['DELETE'])

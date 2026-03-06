@@ -141,10 +141,16 @@
                 <span>Statistiques</span>
             </a>
             {% endif %}
+            {% if show_suivi_production %}
+            <a href="{{ url_for('projet11.suivi_production') }}" class="section-btn" style="text-decoration: none;">
+                <span>📈</span>
+                <span>Suivi Production</span>
+            </a>
+            {% endif %}
         </div>
     </div>
     
-    {% if not show_nouvelle_fiche and not show_liste_traitements and not show_statistiques %}
+    {% if not show_nouvelle_fiche and not show_liste_traitements and not show_statistiques and not show_suivi_production %}
     <div class="alert alert-warning mt-4">
         <i class="fas fa-exclamation-triangle"></i>
         Vous n'avez accès à aucune section du Projet 11. Veuillez contacter l'administrateur pour obtenir les droits nécessaires.
@@ -198,7 +204,7 @@
         cursor: pointer;
         user-select: none;
         flex: 1;
-        max-width: 33.333%;
+        max-width: 25%;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -274,11 +280,9 @@ document.addEventListener('DOMContentLoaded', function() {
         modalNouvelleFiche.setAttribute('aria-hidden', 'false');
 
         // Toujours recharger l'iframe avec un nouveau timestamp pour avoir un formulaire vide
-        // Cela garantit que les données précédentes ne persistent pas après une fermeture sans sauvegarde
         if (iframeNouvelleFiche) {
             const newSrc = buildIframeSrc();
             if (newSrc) {
-                // Forcer le rechargement même si l'iframe a déjà un src
                 iframeNouvelleFiche.src = newSrc;
             }
         }
@@ -286,8 +290,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.fermerModalNouvelleFiche = function(sansSauvegarde = false) {
         if (!modalNouvelleFiche) return;
-        // Demande de sauvegarde "en cours" avant fermeture (si la page embed l'écoute)
-        // SAUF si on annule (sansSauvegarde = true)
         if (!sansSauvegarde && iframeNouvelleFiche && iframeNouvelleFiche.contentWindow) {
             try {
                 iframeNouvelleFiche.contentWindow.postMessage({ action: 'saveEnCours' }, window.location.origin);
@@ -296,9 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Si on ferme sans sauvegarder (annulation ou X), réinitialiser l'iframe pour effacer les données
         if (sansSauvegarde && iframeNouvelleFiche) {
-            // Réinitialiser l'iframe pour forcer le rechargement avec un formulaire vide
             iframeNouvelleFiche.src = 'about:blank';
         }
         
@@ -307,20 +307,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.remove('modal-open');
     };
     
-    // Écouter les messages de l'iframe pour gérer l'annulation
     window.addEventListener('message', function(event) {
-        // Vérifier l'origine pour la sécurité
         if (event.origin !== window.location.origin) return;
         
         if (event.data && event.data.action === 'annuler') {
-            // Fermer le popup sans sauvegarder
             window.fermerModalNouvelleFiche(true);
         }
     });
 
-    // Fermeture en cliquant en dehors désactivée (le modal ne se ferme que via le bouton de fermeture)
-    
-    // Fermer avec Échap (sans sauvegarder, donc réinitialiser l'iframe)
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && modalNouvelleFiche && modalNouvelleFiche.classList.contains('active')) {
             window.fermerModalNouvelleFiche(true);
@@ -378,4 +372,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endblock %}
 {% endblock %}
-
