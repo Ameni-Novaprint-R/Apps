@@ -3,6 +3,9 @@
 {% block title %}Projet 16 - GMAO{% endblock %}
 
 {% block content %}
+{% if popup_only %}
+<script>document.documentElement.classList.add('popup-only-mode'); document.body.classList.add('popup-only-mode');</script>
+{% endif %}
 <script>
     // Fallback global pour éviter les ReferenceError si le script principal ne se charge pas
     // La version complète est définie plus bas dans le fichier.
@@ -1023,11 +1026,20 @@
             flex-direction: column;
         }
     }
+    {% if popup_only %}
+    /* Mode popup seul (depuis projet11) : masquer TOUT sauf le modal */
+    html.popup-only-mode, body.popup-only-mode { background: transparent !important; margin: 0; padding: 0; }
+    body.popup-only-mode * { visibility: hidden !important; }
+    body.popup-only-mode .modal.active { visibility: visible !important; display: flex !important; }
+    body.popup-only-mode .modal.active * { visibility: visible !important; }
+    body.popup-only-mode .modal { background: transparent !important; }
+    body.popup-only-mode .modal-content { box-shadow: 0 10px 40px rgba(0,0,0,0.25); }
+    {% endif %}
 </style>
 
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 
-<div class="gmao-container">
+<div class="gmao-container"{% if popup_only %} id="gmao-main-content"{% endif %}>
     <div class="gmao-header">
         <h2>🛠️ GMAO - Gestion de la Maintenance</h2>
         <p>Gestion de la Maintenance Assistée par Ordinateur</p>
@@ -2066,6 +2078,9 @@
     function closeReparationModal() {
         document.getElementById('reparationModal').classList.remove('active');
         document.body.classList.remove('modal-open');
+        if (window.parent !== window) {
+            try { window.parent.postMessage({ type: 'reparationModalClosed' }, '*'); } catch (e) {}
+        }
         document.getElementById('reparationForm').reset();
         document.getElementById('demande_id_rep').value = '';
         currentInterventionMode = 'corrective';
@@ -3437,6 +3452,22 @@
 
     // Initialisation
     $(document).ready(function() {
+        // Ouverture depuis projet11 (panne machine) : préremplir Machine et Intervenant
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('openReparation') !== '1') return;
+            var machine = params.get('machine') || '';
+            var intervenantNom = params.get('intervenant_nom') || '';
+            var intervenantMat = params.get('intervenant_mat') || '';
+            openReparationModalDirect();
+            $('#machine_reparation').val(machine);
+            $('#intervenant_input').val(intervenantNom).attr('data-matricule', intervenantMat);
+            $('#mat_inter').val(intervenantMat);
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        })();
+
         // Ne pas charger les demandes au démarrage - attendre le clic sur Maintenance Corrective
         // loadDemandes();
 

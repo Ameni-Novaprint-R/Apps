@@ -11,10 +11,26 @@
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <style>
-    /* Le chronomètre utilise maintenant alert alert-info comme Informations Prévues */
+    /* Le chronomètre - hauteur minimale, espacements très réduits */
     #chronoBox {
         text-align: center;
+        padding: 0.2rem 0.6rem !important;
+        margin: 0.4rem 0 !important;
     }
+    #chronoBox .chrono-header-row { margin-bottom: 0 !important; margin-top: -2px !important; }
+    #chronoBox .chrono-header-row h5 { font-size: 1.05rem; line-height: 1.2; margin: 0 !important; }
+    #chronoBox .chrono-display {
+        font-size: 42px;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+        color: #0c5460;
+        margin: -4px 0 2px 0 !important;
+        line-height: 1.1;
+    }
+    #chronoBox .chrono-panne-btn { margin-top: 2px !important; }
+    #chronoBox #chronoPauseIndicator { margin: 0 !important; min-height: 18px; padding: 1px 0; }
+    #chronoBox #chronoPauseIndicator .badge { font-size: 0.75rem; padding: 2px 6px; }
+    #chronoBox #chronoBoxEnCours > small { margin: 0 !important; font-size: 0.8rem; }
     .chrono-display {
         font-size: 48px;
         font-weight: bold;
@@ -159,8 +175,8 @@
         margin: 0.5rem 0 !important;
     }
     #chronoBox {
-        padding: 0.75rem 1rem !important;
-        margin: 0.75rem 0 !important;
+        padding: 0.2rem 0.6rem !important;
+        margin: 0.4rem 0 !important;
     }
     hr {
         margin: 0.75rem 0 !important;
@@ -170,6 +186,50 @@
         margin-top: 0.75rem !important;
     }
     {% endif %}
+    /* Quand le popup réparation est ouvert : même style que popup production (overlay seul, pas d'opacity sur le contenu) */
+    /* RÉVERSIBLE: si le rendu ne convient pas, remettre: opacity: 0.4; */
+    body.reparation-popup-open .container.mt-4,
+    body.reparation-popup-open .container-fluid.mt-4 { pointer-events: none; }
+
+    /* Overlay popup réparation - identique à p12-modal (popup fiche de production) */
+    #reparationPopupOverlay {
+        display: none;
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 99999;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow-y: auto;
+        padding: 15px;
+    }
+    #reparationPopupOverlay.active {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+    #reparationPopupLoader {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 100000;
+        display: none;
+    }
+    #reparationPopupLoader.visible { display: block !important; }
+    #operateurEncoursModal.visible { display: flex !important; align-items: center; justify-content: center; }
+    .machine-encours-popup {
+        position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 9999;
+        background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15); min-width: 240px; max-width: 340px; text-align: center;
+    }
+    .machine-encours-popup p { margin: 0 0 8px 0; color: #495057; }
+    .machine-encours-popup .btn-ok-machine { background-color: #C0E0FF; border-color: #C0E0FF; color: #333; }
+    .machine-encours-popup .btn-ok-machine:hover { background-color: #A8D4FF; border-color: #A8D4FF; color: #333; }
+    #operateurEncoursModal .btn-ok-operateur { background-color: #C0E0FF; border-color: #C0E0FF; color: #333; }
+    #operateurEncoursModal .btn-ok-operateur:hover { background-color: #A8D4FF; border-color: #A8D4FF; color: #333; }
+    #operateurEncoursModalTexte { font-size: 0.9375rem; text-align: center; }
 </style>
 {% endblock %}
 
@@ -285,17 +345,24 @@
                             <!-- Chronomètre : mode "en cours" (compteur qui tourne) -->
                             <div class="alert alert-info" id="chronoBox" style="display: none;">
                                 <div id="chronoBoxEnCours">
-                                    <div class="d-flex justify-content-between align-items-center mb-2" style="position: relative;">
+                                    <div class="d-flex justify-content-between align-items-center chrono-header-row" style="position: relative;">
                                         <h5 class="mb-0" style="position: absolute; left: 50%; transform: translateX(-50%); width: 100%; text-align: center; z-index: 1; pointer-events: none;"><i class="fas fa-stopwatch"></i> Chronomètre de Production</h5>
-                                        <button type="button" class="btn btn-warning btn-sm" id="btnPauseChrono" onclick="togglePauseChrono()" style="display: none; margin-left: auto; position: relative; z-index: 2;">
-                                            <i class="fas fa-pause"></i> Pause
-                                        </button>
+                                        <div class="d-flex flex-column align-items-end" style="position: relative; z-index: 2; margin-left: auto;">
+                                            <button type="button" class="btn btn-warning btn-sm" id="btnPauseChrono" onclick="togglePauseChrono()" style="display: none;">
+                                                <i class="fas fa-pause"></i> Pause
+                                            </button>
+                                            <div id="chronoPanneMachineWrap" style="visibility: hidden; flex-shrink: 0;">
+                                                <button type="button" class="btn btn-outline-danger btn-sm chrono-panne-btn" id="chronoPanneMachine">
+                                                    <i class="fas fa-wrench"></i> Machine en panne
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="chrono-display" id="chronoDisplay">00:00:00</div>
-                                    <small>Démarré à: <span id="chronoStart"></span></small>
-                                    <div id="chronoPauseIndicator" style="display: none; margin-top: 10px;">
+                                    <div id="chronoPauseIndicator" style="visibility: hidden;">
                                         <span class="badge bg-warning text-dark"><i class="fas fa-pause"></i> En pause</span>
                                     </div>
+                                    <small class="d-block chrono-demarre" style="margin: 0;">Démarré à: <span id="chronoStart"></span></small>
                                 </div>
                                 <!-- Mode "terminé" : affichage du temps réel enregistré (TpsReel) -->
                                 <div id="chronoBoxTermine" style="display: none;">
@@ -349,6 +416,12 @@
                                         <!-- Les options seront ajoutées dynamiquement -->
                                     </datalist>
                                     <small class="text-muted">Machines du service sélectionné uniquement</small>
+                                    <div id="machineEncoursPopupWrap" style="position: relative;">
+                                        <div id="machineEncoursPopup" class="machine-encours-popup" style="display: none;">
+                                            <p id="machineEncoursPopupTexte" class="mb-2 small"></p>
+                                            <button type="button" class="btn btn-sm btn-ok-machine" id="machineEncoursPopupBtnOk">OK</button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Opérateur Principal -->
@@ -383,6 +456,15 @@
                                 </div>
                             </div>
 
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label for="traitement_description" class="form-label">
+                                        <strong>Description</strong>
+                                    </label>
+                                    <textarea class="form-control" id="traitement_description" name="traitement_description" rows="3" placeholder="Commentaires ou précisions sur le traitement..."></textarea>
+                                </div>
+                            </div>
+
                             <!-- Champs cachés -->
                             <input type="hidden" id="dte_deb" name="dte_deb">
                             <input type="hidden" id="dte_fin" name="dte_fin">
@@ -411,6 +493,23 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Modal bloquant : opérateur a une fiche en cours -->
+<div id="operateurEncoursModal" class="operateur-encours-modal" style="display: none; position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: 100000; background: rgba(0,0,0,0.5);">
+    <div style="background: #fff; padding: 24px; border-radius: 8px; max-width: 420px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <p id="operateurEncoursModalTexte" class="mb-3"></p>
+        <button type="button" class="btn btn-ok-operateur" id="operateurEncoursModalBtnOk">OK</button>
+    </div>
+</div>
+
+<!-- Overlay popup Fiche de Réparation - fond identique à p12-modal (popup fiche de production) -->
+<div id="reparationPopupOverlay">
+    <div id="reparationPopupLoader" class="text-center text-white py-5">
+        <div class="spinner-border mb-2" role="status"></div>
+        <p class="mb-0">Chargement...</p>
+    </div>
+    <iframe id="reparationPopupIframe" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; background: transparent;" title="Fiche de Réparation"></iframe>
 </div>
 
 <script>
@@ -514,6 +613,50 @@ function synchroniserMatriculesOperateurs() {
     });
 }
 
+// Modal bloquant : opérateur a une fiche en cours - avec rafraîchissement auto quand la fiche est fermée
+var _operateurEncoursPollInterval = null;
+function verifierOperateurEncoursMontrerModal(matricule, ficheEncours) {
+    var modal = document.getElementById('operateurEncoursModal');
+    var texte = document.getElementById('operateurEncoursModalTexte');
+    if (!modal || !texte) return;
+    var lignes = ['Une fiche en cours est déjà ouverte pour cet opérateur. Veuillez la fermer avant de continuer.'];
+    if (ficheEncours.numero) lignes.push('Dossier : ' + ficheEncours.numero);
+    if (ficheEncours.id) lignes.push('ID : ' + ficheEncours.id);
+    texte.innerHTML = lignes.join('<br>');
+    modal.classList.add('visible');
+    modal.style.display = 'flex';
+    if (_operateurEncoursPollInterval) clearInterval(_operateurEncoursPollInterval);
+    _operateurEncoursPollInterval = setInterval(function() {
+        var excludeId = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
+        fetch('/projet11/api/traitements/verifier-operateur-encours?matricule=' + encodeURIComponent(matricule) + (excludeId ? '&exclude_id=' + excludeId : ''))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.fiche_encours) {
+                    verifierOperateurEncoursFermerModal(false);
+                    if ($('#operateur_1').val() && currentService && currentNumeroCommande) demarrerChrono();
+                }
+            });
+    }, 3000);
+}
+function verifierOperateurEncoursFermerModal(viderOperateur) {
+    var modal = document.getElementById('operateurEncoursModal');
+    if (modal) {
+        modal.classList.remove('visible');
+        modal.style.display = 'none';
+    }
+    if (_operateurEncoursPollInterval) {
+        clearInterval(_operateurEncoursPollInterval);
+        _operateurEncoursPollInterval = null;
+    }
+    if (viderOperateur && $('#operateur_1').length) {
+        $('#operateur_1').val('').attr('data-matricule', '');
+        mettreAJourTitrePageOperateur();
+    }
+}
+$(document).on('click', '#operateurEncoursModalBtnOk', function() {
+    verifierOperateurEncoursFermerModal(true);
+});
+
 function restaurerChronoDepuisFormulaire() {
     const dteDebInput = document.getElementById('dte_deb');
     const dteFinInput = document.getElementById('dte_fin');
@@ -541,7 +684,8 @@ function restaurerChronoDepuisFormulaire() {
         chronoPausedTime = null;
         chronoTotalElapsed = 0;
         $('#btnPauseChrono').hide();
-        $('#chronoPauseIndicator').hide();
+        $('#chronoPauseIndicator').css('visibility', 'hidden');
+        syncChronoPanneVisibility();
         $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
     }
     $('#chronoBox').css('display', 'block');
@@ -556,7 +700,8 @@ function restaurerChronoDepuisFormulaire() {
     chronoIsPaused = false;
     chronoPausedTime = null;
     chronoTotalElapsed = 0;
-    $('#chronoPauseIndicator').hide();
+    $('#chronoPauseIndicator').css('visibility', 'hidden');
+    syncChronoPanneVisibility();
     $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
     
     chronoInterval = setInterval(() => {
@@ -867,6 +1012,10 @@ function remplirChampsTraitement(data) {
             champPdtANC.value = data.pdt_anc || 0;
         }
     }
+    if (data.description !== undefined && data.description !== null) {
+        const champDesc = document.getElementById('traitement_description');
+        if (champDesc) champDesc.value = data.description || '';
+    }
     
     // Dates de début et fin
     if (data.dte_deb) {
@@ -894,7 +1043,8 @@ function remplirChampsTraitement(data) {
                         chronoTotalElapsed = tempsAfficheSec * 1000;
                         $('#chronoBox').css('display', 'block');
                         $('#btnPauseChrono').css('display', 'block');
-                        $('#chronoPauseIndicator').hide();
+                        $('#chronoPauseIndicator').css('visibility', 'hidden');
+                        syncChronoPanneVisibility();
                         $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
                         $('#chronoStart').text(dteDeb.toLocaleString('fr-FR', {
                             hour: '2-digit',
@@ -917,7 +1067,8 @@ function remplirChampsTraitement(data) {
                             $('#btnPauseChrono').html('<i class="fas fa-play"></i> Reprendre');
                             $('#btnPauseChrono').removeClass('btn-warning').addClass('btn-success');
                             $('#chronoBox').removeClass('alert-info').addClass('alert-warning');
-                            $('#chronoPauseIndicator').show();
+                            $('#chronoPauseIndicator').css('visibility', 'visible');
+                            syncChronoPanneVisibility();
                             chronoIsPaused = true;
                         } else {
                             chronoStart = dteDeb;
@@ -946,7 +1097,8 @@ function remplirChampsTraitement(data) {
         chronoPausedTime = null;
         chronoTotalElapsed = 0;
         $('#btnPauseChrono').hide();
-        $('#chronoPauseIndicator').hide();
+        $('#chronoPauseIndicator').css('visibility', 'hidden');
+        syncChronoPanneVisibility();
         $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
                             chronoInterval = null;
                         }
@@ -1677,10 +1829,6 @@ function genererChampsOperateurs(nbPersonnes) {
     // Événement sur le premier opérateur pour démarrer le chronomètre et mettre à jour le titre
     $('#operateur_1').on('input change', function() {
         const matricule = $(this).attr('data-matricule');
-        if ($(this).val() && matricule && currentService && currentNumeroCommande) {
-            demarrerChrono();
-        }
-        // Mettre à jour le titre de la page avec le nom et prénom de l'opérateur
         mettreAJourTitrePageOperateur();
         // Sync opérateur en temps réel vers la table uniquement en création ou Reprise (pas en Modifier)
         if (!estModeModifier && currentTraitementId && matricule) {
@@ -1692,6 +1840,18 @@ function genererChampsOperateurs(nbPersonnes) {
                     body: JSON.stringify({ matricule_personel: parseInt(matricule, 10) })
                 }).catch(function(err) { console.error('Sync opérateur:', err); });
             }, 400);
+        }
+        if ($(this).val() && matricule && currentService && currentNumeroCommande) {
+            var excludeId = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
+            fetch('/projet11/api/traitements/verifier-operateur-encours?matricule=' + encodeURIComponent(matricule) + (excludeId ? '&exclude_id=' + excludeId : ''))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.fiche_encours) {
+                        verifierOperateurEncoursMontrerModal(matricule, data.fiche_encours);
+                        return;
+                    }
+                    demarrerChrono();
+                }).catch(function() { demarrerChrono(); });
         }
     });
     
@@ -1717,6 +1877,46 @@ $('#nb_pers').on('keypress', function(e) {
 // Gestionnaire de focus pour le champ Machine Réelle (comme Service de Production)
 $('#machine_reelle').on('focus', function() {
     $(this).select(); // Sélectionner tout le texte s'il y en a
+});
+
+// Vérifier si la machine a une fiche en cours - petit popup non bloquant (fermeture: OK, clic dehors, focus autre champ)
+var _machineEncoursCheckTimeout;
+function machineEncoursPopupFermer() {
+    $('#machineEncoursPopup').hide();
+    $(document).off('click.machineEncours focusin.machineEncours');
+}
+$('#machine_reelle').on('input change', function() {
+    var machine = ($(this).val() || '').trim();
+    var popup = $('#machineEncoursPopup');
+    if (!machine) {
+        machineEncoursPopupFermer();
+        return;
+    }
+    clearTimeout(_machineEncoursCheckTimeout);
+    _machineEncoursCheckTimeout = setTimeout(function() {
+        var excludeId = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
+        fetch('/projet11/api/traitements/verifier-machine-encours?machine=' + encodeURIComponent(machine) + (excludeId ? '&exclude_id=' + excludeId : ''))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.fiche_encours) {
+                    machineEncoursPopupFermer();
+                    $('#machineEncoursPopupTexte').text('Une fiche en cours utilise déjà cette machine (Dossier: ' + (data.fiche_encours.numero || '') + ').');
+                    popup.show();
+                    $(document).on('click.machineEncours', function(e) {
+                        if (!$(e.target).closest('#machineEncoursPopup').length) machineEncoursPopupFermer();
+                    });
+                    $(document).on('focusin.machineEncours', function(e) {
+                        if (!$(e.target).closest('#machineEncoursPopup').length) machineEncoursPopupFermer();
+                    });
+                } else {
+                    machineEncoursPopupFermer();
+                }
+            }).catch(function() { machineEncoursPopupFermer(); });
+    }, 500);
+});
+$(document).on('click', '#machineEncoursPopupBtnOk', function(e) {
+    e.stopPropagation();
+    machineEncoursPopupFermer();
 });
 
 // Gestionnaire de navigation pour le champ Machine Réelle
@@ -1825,7 +2025,8 @@ function demarrerChrono() {
     chronoIsPaused = false;
     chronoPausedTime = null;
     chronoTotalElapsed = 0;
-    $('#chronoPauseIndicator').hide();
+    $('#chronoPauseIndicator').css('visibility', 'hidden');
+    syncChronoPanneVisibility();
     $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
 
     chronoInterval = setInterval(() => {
@@ -1908,7 +2109,8 @@ window.togglePauseChrono = function() {
         chronoIsPaused = false;
         $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
         $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
-        $('#chronoPauseIndicator').hide();
+        $('#chronoPauseIndicator').css('visibility', 'hidden');
+        syncChronoPanneVisibility();
         $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
         chronoInterval = setInterval(function() {
             if (!chronoIsPaused) {
@@ -1940,7 +2142,8 @@ window.togglePauseChrono = function() {
 
         $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
         $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
-        $('#chronoPauseIndicator').hide();
+        $('#chronoPauseIndicator').css('visibility', 'hidden');
+        syncChronoPanneVisibility();
         $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
     } else {
         // Mettre en pause : enregistrer le temps affiché côté serveur pour réouverture
@@ -1958,10 +2161,46 @@ window.togglePauseChrono = function() {
 
         $('#btnPauseChrono').html('<i class="fas fa-play"></i> Reprendre');
         $('#btnPauseChrono').removeClass('btn-warning').addClass('btn-success');
-        $('#chronoPauseIndicator').show();
+        $('#chronoPauseIndicator').css('visibility', 'visible');
+        syncChronoPanneVisibility();
         $('#chronoBox').removeClass('alert-info').addClass('alert-warning');
     }
 };
+
+$('#chronoPanneMachine').on('click', function() {
+    var machine = ($('#machine_reelle').val() || '').trim();
+    var intervenantNom = ($('#operateur_1').val() || '').trim();
+    var intervenantMat = ($('#operateur_1').attr('data-matricule') || '').trim();
+    var url = window.location.origin + '/projet16?openReparation=1&popupOnly=1&machine=' + encodeURIComponent(machine) + '&intervenant_nom=' + encodeURIComponent(intervenantNom) + '&intervenant_mat=' + encodeURIComponent(intervenantMat);
+    // Afficher immédiatement l'overlay (fond identique à popup production) et le loader
+    document.body.classList.add('reparation-popup-open');
+    document.body.style.overflow = 'hidden';
+    $('#reparationPopupOverlay').addClass('active');
+    $('#reparationPopupLoader').addClass('visible');
+    $('#reparationPopupIframe').off('load.reparation').on('load.reparation', function() {
+        $('#reparationPopupLoader').removeClass('visible');
+        $('#reparationPopupIframe').off('load.reparation');
+    }).attr('src', url);
+});
+
+function fermerPopupReparation() {
+    $('#reparationPopupIframe').attr('src', '').off('load.reparation');
+    $('#reparationPopupOverlay').removeClass('active');
+    $('#reparationPopupLoader').removeClass('visible');
+    document.body.classList.remove('reparation-popup-open');
+    document.body.style.overflow = '';
+}
+
+// Fermer le popup quand l'utilisateur clique Annuler, Clôturer, etc. dans la fiche de réparation
+window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'reparationModalClosed') {
+        fermerPopupReparation();
+    }
+});
+
+function syncChronoPanneVisibility() {
+    $('#chronoPanneMachineWrap').css('visibility', chronoIsPaused ? 'visible' : 'hidden');
+}
 
 function stopChrono() {
     if (chronoInterval) {
@@ -1971,7 +2210,8 @@ function stopChrono() {
         chronoPausedTime = null;
         chronoTotalElapsed = 0;
         $('#btnPauseChrono').hide();
-        $('#chronoPauseIndicator').hide();
+        $('#chronoPauseIndicator').css('visibility', 'hidden');
+        syncChronoPanneVisibility();
         $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
         chronoInterval = null;
     }
@@ -2142,7 +2382,8 @@ $('#formNouveauTraitement').on('submit', function(e) {
         pdt_anc: safePdtANC,
         nb_op: totalProduite,
         numero_commande: currentNumeroCommande || null,
-        nom_service: currentService || null
+        nom_service: currentService || null,
+        description: ($('#traitement_description').val() || '').trim() || null
     };
     if (window._enregistrerAvecCloture) {
         data.cloture = 1;
@@ -2320,7 +2561,8 @@ function saveEnCoursOnClose() {
         pdt_anc: safePdtANC,
         nb_op: totalProduite,
         numero_commande: currentNumeroCommande || null,
-        nom_service: currentService || null
+        nom_service: currentService || null,
+        description: ($('#traitement_description').val() || '').trim() || null
     };
     fetch(`/projet11/api/traitements/${idToUse}`, {
         method: 'PUT',
@@ -2333,16 +2575,24 @@ function saveEnCoursOnClose() {
     releaseTraitementLock(idToUse);
 }
 
-// Fonction pour annuler le formulaire (ne sauvegarde pas, ferme juste le popup)
+// Fonction pour annuler le formulaire
+// IMPORTANT - Ne pas modifier la logique sans comprendre :
+// - Nouvelle fiche (ouverture sans id) : Annuler SUPPRIME le traitement créé (chrono lancé, lignes enregistrées, etc.)
+// - Modifier (ouverture avec id, pas reprise) : Annuler ferme sans sauvegarder, NE supprime PAS
+// - Reprise (ouverture avec id + reprise=1) : le bouton Annuler est masqué
+// - Les boutons X (popup, onglet) ferment sans supprimer (ne pas confondre avec Annuler)
 function annulerFormulaire() {
-    const ouvertDepuisModifOuReprise = !!(traitementIdFromUrl && String(traitementIdFromUrl).trim());
-    const idToUse = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
-    
-    if (idToUse && (window.parent === window || !ouvertDepuisModifOuReprise)) {
+    stopChrono();
+    var hid = document.getElementById('traitement_id');
+    var idFromForm = hid && hid.value ? String(hid.value).trim() : null;
+    const idToUse = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || idFromForm || null;
+    const estModeNouvelleFiche = !estModeModifier && !estModeReprise;
+
+    if (idToUse && (window.parent === window || estModeNouvelleFiche)) {
         releaseTraitementLock(idToUse);
     }
-    
-    if (idToUse && !ouvertDepuisModifOuReprise) {
+
+    if (estModeNouvelleFiche && idToUse) {
         fetch(`/projet11/api/traitements/${idToUse}`, {
             method: 'DELETE',
             keepalive: true
@@ -2350,8 +2600,8 @@ function annulerFormulaire() {
             console.error('Erreur suppression traitement annulé:', err);
         });
     }
-    
-    // Envoyer au parent : fermer le popup et (optionnel) enregistrer le temps chrono pour réouverture
+
+    // Fermer le popup / revenir en arrière
     var chronoSec = null;
     if (chronoStart || chronoTotalElapsed > 0) {
         if (chronoIsPaused && chronoTotalElapsed > 0) {

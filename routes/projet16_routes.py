@@ -47,7 +47,8 @@ def index():
     operateurs = get_operateurs_disponibles()
     machines = get_machines_disponibles()
     articles = get_articles_disponibles()
-    return render_template('projet16.html', operateurs=operateurs, machines=machines, articles=articles)
+    popup_only = request.args.get('popupOnly') == '1'
+    return render_template('projet16.html', operateurs=operateurs, machines=machines, articles=articles, popup_only=popup_only)
 
 @projet16_bp.route('/api/search_operateurs')
 def api_search_operateurs():

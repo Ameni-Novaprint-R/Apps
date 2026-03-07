@@ -481,6 +481,30 @@ def api_get_traitement(traitement_id):
     return jsonify(traitement)
 
 
+@projet11_bp.route('/projet11/api/traitements/verifier-operateur-encours', methods=['GET'])
+def api_verifier_operateur_encours():
+    """Vérifie si l'opérateur a une fiche en cours. Param: matricule, exclude_id (optionnel)"""
+    matricule = request.args.get('matricule')
+    exclude_id = request.args.get('exclude_id', type=int)
+    if not matricule:
+        return jsonify({"fiche_encours": None}), 200
+    try:
+        m = int(matricule)
+    except (TypeError, ValueError):
+        return jsonify({"fiche_encours": None}), 200
+    encours = projet11.get_fiche_encours_operateur(m, exclude_id)
+    return jsonify({"fiche_encours": encours}), 200
+
+
+@projet11_bp.route('/projet11/api/traitements/verifier-machine-encours', methods=['GET'])
+def api_verifier_machine_encours():
+    """Vérifie si la machine a une fiche en cours. Param: machine, exclude_id (optionnel)"""
+    machine = request.args.get('machine', '')
+    exclude_id = request.args.get('exclude_id', type=int)
+    encours = projet11.get_fiche_encours_machine(machine, exclude_id)
+    return jsonify({"fiche_encours": encours}), 200
+
+
 @projet11_bp.route('/projet11/api/traitements', methods=['POST'])
 def api_create_traitement():
     """API pour créer un nouveau traitement"""

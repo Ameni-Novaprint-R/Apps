@@ -9,6 +9,7 @@ Module pour gérer les traitements avec données provenant de plusieurs tables
 from datetime import datetime
 from contextlib import contextmanager
 from decimal import Decimal
+import pyodbc
 # Utiliser la fonction de connexion de db.py qui fonctionne déjà
 from db import get_db_cursor
 
@@ -41,11 +42,32 @@ def column_exists(cursor, table_name, column_name):
 
 
 _cloture_column_ensured = False
+_description_column_ensured = False
+
+
+def ensure_description_column():
+    """Vérifie si la colonne Description existe dans WEB_TRAITEMENTS ; si non, l'ajoute."""
+    global _description_column_ensured
+    if _description_column_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if column_exists(cursor, 'WEB_TRAITEMENTS', 'Description'):
+                _description_column_ensured = True
+                return
+            cursor.execute("ALTER TABLE dbo.WEB_TRAITEMENTS ADD Description NVARCHAR(MAX) NULL")
+            cursor.connection.commit()
+            print("[projet11] Colonne Description ajoutée à WEB_TRAITEMENTS.")
+    except Exception as e:
+        print(f"[projet11] ensure_description_column: {e}")
+    finally:
+        _description_column_ensured = True
 
 
 def ensure_cloture_column():
-    """Vérifie si la colonne Cloture existe dans WEB_TRAITEMENTS ; si non, l'ajoute."""
+    """Vérifie si les colonnes Cloture et Description existent dans WEB_TRAITEMENTS ; si non, les ajoute."""
     global _cloture_column_ensured
+    ensure_description_column()
     if _cloture_column_ensured:
         return
     try:
@@ -745,6 +767,60 @@ def get_operations_by_fiche(id_fiche_travail):
         return operations
 
 
+def get_fiche_encours_operateur(matricule, exclude_traitement_id=None):
+    """
+    Retourne un traitement en cours (DteFin IS NULL) pour cet opérateur, ou None.
+    exclude_traitement_id : ID à exclure (fiche en cours de modification).
+    """
+    if not matricule:
+        return None
+    try:
+        with get_db_cursor() as cursor:
+            exclude_sql = " AND ID != ?" if exclude_traitement_id else ""
+            params = [matricule]
+            if exclude_traitement_id:
+                params.append(exclude_traitement_id)
+            cursor.execute("""
+                SELECT ID, Numero_COMMANDES, Nom_GP_SERVICES, DteDeb
+                FROM WEB_TRAITEMENTS
+                WHERE Matricule_personel = ? AND DteFin IS NULL""" + exclude_sql,
+                params)
+            row = cursor.fetchone()
+            if row:
+                return {"id": row.ID, "numero": row.Numero_COMMANDES or "", "service": row.Nom_GP_SERVICES or "", "dte_deb": row.DteDeb}
+            return None
+    except Exception as e:
+        print(f"[projet11] get_fiche_encours_operateur: {e}")
+        return None
+
+
+def get_fiche_encours_machine(postes_reel, exclude_traitement_id=None):
+    """
+    Retourne un traitement en cours (DteFin IS NULL) avec cette machine, ou None.
+    exclude_traitement_id : ID à exclure.
+    """
+    if not postes_reel or not str(postes_reel).strip():
+        return None
+    try:
+        with get_db_cursor() as cursor:
+            exclude_sql = " AND ID != ?" if exclude_traitement_id else ""
+            params = [postes_reel.strip()]
+            if exclude_traitement_id:
+                params.append(exclude_traitement_id)
+            cursor.execute("""
+                SELECT ID, Numero_COMMANDES, Nom_GP_SERVICES, DteDeb
+                FROM WEB_TRAITEMENTS
+                WHERE LTRIM(RTRIM(PostesReel)) = ? AND DteFin IS NULL""" + exclude_sql,
+                params)
+            row = cursor.fetchone()
+            if row:
+                return {"id": row.ID, "numero": row.Numero_COMMANDES or "", "service": row.Nom_GP_SERVICES or "", "dte_deb": row.DteDeb}
+            return None
+    except Exception as e:
+        print(f"[projet11] get_fiche_encours_machine: {e}")
+        return None
+
+
 def get_traitement_by_fiche(id_fiche_travail):
     """
     Récupère le traitement existant pour une fiche de travail
@@ -776,6 +852,7 @@ def get_all_traitements():
     ensure_cloture_column()
     with get_db_cursor() as cursor:
         cols_cloture = ', Cloture' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture') else ', CAST(0 AS TINYINT) AS Cloture'
+        cols_desc = ', Description' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Description') else ', CAST(NULL AS NVARCHAR(MAX)) AS Description'
         cursor.execute(f"""
             SELECT 
                 ID,
@@ -801,6 +878,7 @@ def get_all_traitements():
                 DateCreation,
                 DateModification
                 {cols_cloture}
+                {cols_desc}
             FROM WEB_TRAITEMENTS
             ORDER BY DateCreation DESC
         """)
@@ -836,7 +914,8 @@ def get_all_traitements():
                 "ecart_temps": ecart,
                 "date_creation": row.DateCreation.strftime('%Y-%m-%d') if row.DateCreation else None,
                 "date_modification": row.DateModification.strftime('%Y-%m-%d') if row.DateModification else None,
-                "cloture": _to_int(getattr(row, 'Cloture', 0))
+                "cloture": _to_int(getattr(row, 'Cloture', 0)),
+                "description": getattr(row, 'Description', None) or ''
             })
         
         return traitements
@@ -851,7 +930,9 @@ def get_traitement_by_id(traitement_id):
     ensure_cloture_column()
     with get_db_cursor() as cursor:
         has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
+        has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
         cloture_col = ', Cloture' if has_cloture else ''
+        desc_col = ', Description' if has_description else ''
         # Essayer d'abord avec la colonne renommée TpsPrevDev_GP_FICHTRA_INT
         try:
             cursor.execute("""
@@ -882,7 +963,7 @@ def get_traitement_by_id(traitement_id):
                     DateCreation,
                     DateModification,
                     TempsEcouleAffichageSec
-                    """ + cloture_col + """
+                    """ + cloture_col + desc_col + """
                 FROM WEB_TRAITEMENTS
                 WHERE ID = ?
             """, (traitement_id,))
@@ -919,7 +1000,7 @@ def get_traitement_by_id(traitement_id):
                             DateCreation,
                             DateModification,
                             TempsEcouleAffichageSec
-                            """ + cloture_col + """
+                            """ + cloture_col + desc_col + """
                         FROM WEB_TRAITEMENTS
                         WHERE ID = ?
                     """, (traitement_id,))
@@ -1001,7 +1082,8 @@ def get_traitement_by_id(traitement_id):
             "date_creation": date_creation_str,
             "date_modification": date_modification_str,
             "temps_ecoule_affichage_sec": getattr(row, 'TempsEcouleAffichageSec', None),
-            "cloture": _to_int(getattr(row, 'Cloture', 0))
+            "cloture": _to_int(getattr(row, 'Cloture', 0)),
+            "description": getattr(row, 'Description', None) or ''
         }
 
 
@@ -1242,9 +1324,13 @@ def create_traitement(data):
                 
                 cloture_val = 1 if data.get('cloture') in (1, '1', True) else 0
                 has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
+                has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
                 cloture_col = ', Cloture' if has_cloture else ''
                 cloture_ph = ', ?' if has_cloture else ''
                 cloture_params = (cloture_val,) if has_cloture else ()
+                desc_col = ', Description' if has_description else ''
+                desc_ph = ', ?' if has_description else ''
+                desc_params = (data.get('description') or None,) if has_description else ()
                 cursor.execute(f"""
                     INSERT INTO WEB_TRAITEMENTS (
                         ID_FICHE_TRAVAIL,
@@ -1268,9 +1354,9 @@ def create_traitement(data):
                         PdtC,
                         PdtNNC,
                         PdtANC,
-                        TpsReel{cloture_col}
+                        TpsReel{cloture_col}{desc_col}
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{cloture_ph})
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{cloture_ph}{desc_ph})
                 """, (
                     id_fiche_insert,  # NULL pour service non prévu, ID valide sinon
                     traitement_data[0] if traitement_data else None,  # ID_GP_TRAITEMENTS (traçabilité)
@@ -1303,7 +1389,7 @@ def create_traitement(data):
                     pdt_anc,
                     # Temps réel calculé
                     tps_reel
-                ) + cloture_params)
+                ) + cloture_params + desc_params)
                 
                 print("[DEBUG] INSERT réussi")
                 if id_fiche_insert:
@@ -1473,10 +1559,16 @@ def update_traitement(traitement_id, data):
                 except (TypeError, ValueError):
                     pass
             
-            cloture_val = 1 if data.get('cloture') in (1, '1', True) else 0
+            # Cloture : ne modifier QUE si explicitement fourni (bouton Clôturer envoie cloture=1).
+            # Sinon (bouton Enregistrer en mode Modifier) : conserver la valeur existante.
             has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
-            cloture_set = ', Cloture = ?' if has_cloture else ''
-            cloture_param = (cloture_val,) if has_cloture else ()
+            has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
+            update_cloture = has_cloture and ('cloture' in data)
+            cloture_val = 1 if data.get('cloture') in (1, '1', True) else 0
+            cloture_set = ', Cloture = ?' if update_cloture else ''
+            cloture_param = (cloture_val,) if update_cloture else ()
+            desc_set = ', Description = ?' if has_description else ''
+            desc_param = (data.get('description') or None,) if has_description else ()
             op_set = ', Matricule_personel = ?, Nom_personel = ?, Prenom_personel = ?' if matricule_op is not None else ''
             op_param = (matricule_op, nom_op, prenom_op) if matricule_op is not None else ()
             sql_update = f"""
@@ -1490,7 +1582,7 @@ def update_traitement(traitement_id, data):
                     PdtANC = ?,
                     NbPers = ?,
                     PostesReel = ?,
-                    TpsReel = ?{op_set}{cloture_set},
+                    TpsReel = ?{op_set}{cloture_set}{desc_set},
                     DateModification = GETDATE()
                 WHERE ID = ?
             """
@@ -1504,18 +1596,18 @@ def update_traitement(traitement_id, data):
                 nb_pers,
                 data.get('postes_reel'),
                 tps_reel
-            ) + op_param + cloture_param + (traitement_id,)
+            ) + op_param + cloture_param + desc_param + (traitement_id,)
             try:
                 if dte_fin is not None:
                     sql_fin = f"""
                         UPDATE WEB_TRAITEMENTS
                         SET DteDeb = ?, DteFin = ?, NbOp = ?, PdtC = ?, PdtNNC = ?, PdtANC = ?,
-                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}, TempsEcouleAffichageSec = NULL,
+                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}{desc_set}, TempsEcouleAffichageSec = NULL,
                             DateModification = GETDATE()
                         WHERE ID = ?
                     """
                     params_fin = (dte_deb, dte_fin, nb_op, pdt_c, pdt_nnc, pdt_anc, nb_pers,
-                                  data.get('postes_reel'), tps_reel) + op_param + cloture_param + (traitement_id,)
+                                  data.get('postes_reel'), tps_reel) + op_param + cloture_param + desc_param + (traitement_id,)
                     cursor.execute(sql_fin, params_fin)
                 else:
                     cursor.execute(sql_update, params)
@@ -1812,7 +1904,8 @@ def get_ids_verrouilles_ouverture():
 
 def delete_traitement(traitement_id):
     """
-    Supprime un traitement
+    Supprime un traitement et ses verrous d'ouverture.
+    Utilisé par le bouton Annuler de la nouvelle fiche de production.
     
     Args:
         traitement_id (int): ID du traitement à supprimer
@@ -1822,6 +1915,7 @@ def delete_traitement(traitement_id):
     """
     try:
         with get_db_cursor() as cursor:
+            cursor.execute("DELETE FROM WEB_TRAITEMENTS_OUVERTURE WHERE TraitementId = ?", (traitement_id,))
             cursor.execute("SELECT ID_FICHE_TRAVAIL FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
             row_fiche = cursor.fetchone()
             id_fiche = row_fiche.ID_FICHE_TRAVAIL if row_fiche and row_fiche.ID_FICHE_TRAVAIL else None
