@@ -546,14 +546,27 @@ def update_demande_intervention(demande_id, data):
 
 def delete_demande_intervention(demande_id):
     """
-    Supprime une demande d'intervention
+    Supprime une demande d'intervention.
+    Impossible si une fiche de réparation est associée à cette demande.
     """
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            DELETE FROM WEB_GMAO
-            WHERE ID = ?
-        """, (demande_id,))
-        
+        try:
+            cursor.execute("""
+                SELECT COUNT(*) as table_exists
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_NAME = 'WEB_GMAO_REPARATION'
+            """)
+            reparation_table_exists = cursor.fetchone().table_exists > 0
+        except Exception:
+            reparation_table_exists = False
+        if reparation_table_exists:
+            cursor.execute("""
+                SELECT ID FROM WEB_GMAO_REPARATION WHERE ID_WEB_GMAO_Dem_In = ?
+            """, (demande_id,))
+            if cursor.fetchone():
+                raise ValueError("Suppression impossible : une fiche de réparation est déjà associée à cette demande d'intervention.")
+        cursor.execute("DELETE FROM WEB_GMAO_ARTICLES WHERE ID_WEB_GMAO = ?", (demande_id,))
+        cursor.execute("DELETE FROM WEB_GMAO WHERE ID = ?", (demande_id,))
         cursor.connection.commit()
         return True
 
@@ -600,22 +613,26 @@ def update_reparation(demande_id, data):
         
         from datetime import datetime, timedelta
         
-        dte_deb_str = convert_datetime_for_sql(data.get('dte_deb'))
-        dte_fin_str = data.get('dte_fin')
-        tps_reel_value = data.get('tps_reel')
+        intervention_jours = data.get('intervention_jours')
+        if intervention_jours and isinstance(intervention_jours, list) and len(intervention_jours) > 0:
+            dte_deb_str, dte_fin_str, tps_reel = _compute_dates_from_intervention_jours(intervention_jours)
+            tps_reel_value = tps_reel
+            dte_fin = dte_fin_str
+        else:
+            dte_deb_str = convert_datetime_for_sql(data.get('dte_deb'))
+            dte_fin_str = data.get('dte_fin')
+            tps_reel_value = data.get('tps_reel')
+            dte_fin = None
+            tps_reel = None
         
-        # Normaliser les valeurs vides (chaînes vides -> None)
-        if dte_fin_str == '' or (dte_fin_str and not dte_fin_str.strip()):
+        if dte_fin_str == '' or (dte_fin_str and isinstance(dte_fin_str, str) and not dte_fin_str.strip()):
             dte_fin_str = None
         if tps_reel_value == '' or (tps_reel_value is not None and str(tps_reel_value).strip() == ''):
             tps_reel_value = None
-        
-        dte_fin = None
-        tps_reel = None
-        
-        # Vérifier que dte_deb_str est valide avant de faire les calculs
-        if not dte_deb_str:
-            raise ValueError("DteDeb est obligatoire pour mettre à jour une réparation")
+        use_intervention_jours = intervention_jours and isinstance(intervention_jours, list) and len(intervention_jours) > 0
+        if not use_intervention_jours:
+            dte_fin = None
+            tps_reel = None
 
         # #region agent log
         _agent_log(
@@ -631,9 +648,11 @@ def update_reparation(demande_id, data):
         )
         # #endregion agent log
         
-        # Règle 1 : Si DteFin est saisi manuellement, calculer TpsReel = DteFin - DteDeb
-        if dte_fin_str and dte_fin_str.strip():
-            dte_fin = convert_datetime_for_sql(dte_fin_str)
+        # Règles DteFin/TpsReel : seulement si pas de jours d'intervention
+        if not use_intervention_jours:
+            # Règle 1 : Si DteFin est saisi manuellement, calculer TpsReel = DteFin - DteDeb
+            if dte_fin_str and str(dte_fin_str).strip():
+                dte_fin = convert_datetime_for_sql(dte_fin_str)
             # Calculer TpsReel à partir de DteFin et DteDeb
             if dte_fin:
                 try:
@@ -649,26 +668,26 @@ def update_reparation(demande_id, data):
                     import traceback
                     traceback.print_exc()
                     tps_reel = None
-        # Règle 2 : Si TpsReel est saisi et DteFin n'est pas renseigné, calculer DteFin = DteDeb + TpsReel
-        elif tps_reel_value and str(tps_reel_value).strip():
-            try:
-                tps_reel = parse_tpsreel_to_hours(tps_reel_value)
-                if tps_reel and tps_reel > 0:
-                    dte_deb = parse_datetime_safe(dte_deb_str)
-                    if dte_deb:
-                        dte_fin_dt = dte_deb + timedelta(hours=tps_reel)
-                        dte_fin = dte_fin_dt.strftime('%Y-%m-%d %H:%M:%S')
+            # Règle 2 : Si TpsReel est saisi et DteFin n'est pas renseigné, calculer DteFin = DteDeb + TpsReel
+            elif tps_reel_value and str(tps_reel_value).strip():
+                try:
+                    tps_reel = parse_tpsreel_to_hours(tps_reel_value)
+                    if tps_reel and tps_reel > 0:
+                        dte_deb = parse_datetime_safe(dte_deb_str)
+                        if dte_deb:
+                            dte_fin_dt = dte_deb + timedelta(hours=tps_reel)
+                            dte_fin = dte_fin_dt.strftime('%Y-%m-%d %H:%M:%S')
+                        else:
+                            tps_reel = None
+                            dte_fin = None
                     else:
                         tps_reel = None
-                        dte_fin = None
-                else:
+                except Exception as e:
+                    print(f"[ERREUR] Erreur lors du calcul de DteFin à partir de TpsReel: {e}")
+                    import traceback
+                    traceback.print_exc()
                     tps_reel = None
-            except Exception as e:
-                print(f"[ERREUR] Erreur lors du calcul de DteFin à partir de TpsReel: {e}")
-                import traceback
-                traceback.print_exc()
-                tps_reel = None
-                dte_fin = None
+                    dte_fin = None
         
         id_stat_rep = data.get('id_stat_rep', 0)
         
@@ -693,9 +712,9 @@ def update_reparation(demande_id, data):
         # Déterminer si c'est une réparation liée à une demande ou une réparation directe
         is_reparation_directe = not demande_exists
         
-        # RÈGLE IMPORTANTE : Si ID_WEB_GMAO_Dem_In est NULL, alors ID_StatRep doit être NULL
-        if is_reparation_directe:
-            id_stat_rep = None  # Toujours NULL pour les réparations directes
+        # Résoudre id_stat_rep : si 0 (Enregistrer), récupérer l'ID de "En cours" depuis WEB_GMAO_StatRep
+        if id_stat_rep == 0:
+            id_stat_rep = get_statut_rep_id_by_designation('En cours') or id_stat_rep
         
         # Déterminer PostesReel : si ID_WEB_GMAO_Dem_In est renseigné, copier depuis WEB_GMAO, sinon utiliser la valeur saisie
         postes_reel_value = data.get('postes_reel', '')
@@ -746,6 +765,11 @@ def update_reparation(demande_id, data):
                         update_sql += "                            ID_WEB_GMAO_PREVENTIVE = ?,\n"
                         params.append(id_preventive)
                     
+                    descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+                    if descprob_exists:
+                        update_sql += "                            DescProb = ?,\n"
+                        params.append(data.get('desc_prob') or None)
+                    
                     update_sql += "                            DateModification = GETDATE()\n                        WHERE ID = ?"
                     params.append(demande_id)
                     
@@ -789,6 +813,11 @@ def update_reparation(demande_id, data):
                         update_sql += "                            TypeIN = ?,\n"
                         params.append(type_in_norm)
                     
+                    descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+                    if descprob_exists:
+                        update_sql += "                            DescProb = ?,\n"
+                        params.append(data.get('desc_prob') or None)
+                    
                     update_sql += "                            DateModification = GETDATE()\n                        WHERE ID_WEB_GMAO_Dem_In = ?"
                     params.append(demande_id)
                     
@@ -828,6 +857,12 @@ def update_reparation(demande_id, data):
                         insert_placeholders += "?, "
                         params.append(id_preventive)
                     
+                    descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+                    if descprob_exists:
+                        insert_cols += "DescProb, "
+                        insert_placeholders += "?, "
+                        params.append(data.get('desc_prob') or None)
+                    
                     insert_cols += "ID_WEB_GMAO_Dem_In, DateCreation, DateModification"
                     insert_placeholders += "?, GETDATE(), GETDATE()"
                     params.append(demande_id)
@@ -856,8 +891,16 @@ def update_reparation(demande_id, data):
             )
             # #endregion agent log
         
-        # Note: TpsReel est une colonne calculée dans SQL Server, elle sera automatiquement
-        # calculée à partir de DteDeb et DteFin. Pas besoin de la mettre à jour manuellement.
+        # Note: TpsTotal (ex-TpsReel) peut être une colonne calculée dans SQL Server.
+        # Sinon, il est mis à jour via DteDeb/DteFin ou via les jours d'intervention.
+        
+        reparation_id = None
+        if use_intervention_jours and intervention_jours:
+            reparation_id = demande_id if is_reparation_directe else None
+            if not reparation_id:
+                cursor.execute("SELECT ID FROM WEB_GMAO_REPARATION WHERE ID_WEB_GMAO_Dem_In = ?", (demande_id,))
+                row_rep = cursor.fetchone()
+                reparation_id = row_rep.ID if row_rep else None
         
         try:
             cursor.connection.commit()
@@ -867,6 +910,9 @@ def update_reparation(demande_id, data):
             import traceback
             traceback.print_exc()
             raise
+        
+        if reparation_id and use_intervention_jours and intervention_jours:
+            save_intervention_jours(reparation_id, intervention_jours)
         
         return True
 
@@ -895,58 +941,52 @@ def create_reparation_direct(data):
             inter_row = cursor.fetchone()
             intervenant_nom = inter_row.NomComplet if inter_row else None
         
-        # Gérer DteFin et TpsReel selon les règles :
-        # - Si DteFin est saisi manuellement → TpsReel = DteFin - DteDeb
-        # - Si TpsReel est saisi manuellement et DteFin n'est pas renseigné → DteFin = DteDeb + TpsReel
-        # - Si DteFin et TpsReel sont tous les deux saisis → prioriser DteFin et recalculer TpsReel
+        # Gérer DteFin et TpsReel (ou depuis les jours d'intervention)
         from datetime import datetime, timedelta
         
-        dte_deb_str = convert_datetime_for_sql(data.get('dte_deb'))
-        dte_fin_str = data.get('dte_fin')
-        tps_reel_value = data.get('tps_reel')
-        
-        dte_fin = None
-        tps_reel = None
-        
-        # Règle 1 : Si DteFin est saisi manuellement, calculer TpsReel = DteFin - DteDeb
-        if dte_fin_str and dte_fin_str.strip():
-            dte_fin = convert_datetime_for_sql(dte_fin_str)
-            # Calculer TpsReel à partir de DteFin et DteDeb
-            try:
-                dte_deb = parse_datetime_safe(dte_deb_str)
-                dte_fin_dt = parse_datetime_safe(dte_fin)
-                if dte_deb and dte_fin_dt and dte_fin_dt > dte_deb:
-                    diff = dte_fin_dt - dte_deb
-                    tps_reel = diff.total_seconds() / 3600  # En heures décimales
-                else:
+        intervention_jours = data.get('intervention_jours')
+        use_intervention_jours = intervention_jours and isinstance(intervention_jours, list) and len(intervention_jours) > 0
+        if use_intervention_jours:
+            dte_deb_str, dte_fin_str, tps_reel = _compute_dates_from_intervention_jours(intervention_jours)
+            dte_fin = dte_fin_str
+        else:
+            dte_deb_str = convert_datetime_for_sql(data.get('dte_deb'))
+            dte_fin_str = data.get('dte_fin')
+            tps_reel_value = data.get('tps_reel')
+            dte_fin = None
+            tps_reel = None
+            if dte_fin_str and str(dte_fin_str).strip():
+                dte_fin = convert_datetime_for_sql(dte_fin_str)
+                try:
+                    dte_deb = parse_datetime_safe(dte_deb_str)
+                    dte_fin_dt = parse_datetime_safe(dte_fin)
+                    if dte_deb and dte_fin_dt and dte_fin_dt > dte_deb:
+                        diff = dte_fin_dt - dte_deb
+                        tps_reel = diff.total_seconds() / 3600
+                    else:
+                        tps_reel = None
+                except Exception as e:
+                    print(f"[ERREUR] create_reparation_direct TpsReel: {e}")
                     tps_reel = None
-            except Exception as e:
-                print(f"[ERREUR] Erreur lors du calcul de TpsReel à partir de DteFin dans create_reparation_direct: {e}")
-                import traceback
-                traceback.print_exc()
-                tps_reel = None
-        # Règle 2 : Si TpsReel est saisi et DteFin n'est pas renseigné, calculer DteFin = DteDeb + TpsReel
-        elif tps_reel_value:
-            try:
-                tps_reel = float(tps_reel_value)
-                dte_deb = parse_datetime_safe(dte_deb_str)
-                if dte_deb:
-                    dte_fin_dt = dte_deb + timedelta(hours=tps_reel)
-                    dte_fin = dte_fin_dt.strftime('%Y-%m-%d %H:%M:%S')
-                else:
+            elif tps_reel_value:
+                try:
+                    tps_reel = float(tps_reel_value)
+                    dte_deb = parse_datetime_safe(dte_deb_str)
+                    if dte_deb:
+                        dte_fin_dt = dte_deb + timedelta(hours=tps_reel)
+                        dte_fin = dte_fin_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        tps_reel = None
+                        dte_fin = None
+                except Exception as e:
+                    print(f"[ERREUR] create_reparation_direct DteFin: {e}")
                     tps_reel = None
                     dte_fin = None
-            except Exception as e:
-                print(f"[ERREUR] Erreur lors du calcul de DteFin à partir de TpsReel dans create_reparation_direct: {e}")
-                import traceback
-                traceback.print_exc()
-                tps_reel = None
-                dte_fin = None
         
         id_stat_rep = data.get('id_stat_rep', 0)
-        # RÈGLE IMPORTANTE : Si ID_WEB_GMAO_Dem_In est NULL, alors ID_StatRep doit être NULL
-        # Pour les réparations directes (ID_WEB_GMAO_Dem_In = NULL), ID_StatRep doit être NULL
-        id_stat_rep = None  # Toujours NULL pour les réparations directes
+        # Résoudre id_stat_rep : si 0 (Enregistrer), récupérer l'ID de "En cours" depuis WEB_GMAO_StatRep
+        if id_stat_rep == 0:
+            id_stat_rep = get_statut_rep_id_by_designation('En cours') or id_stat_rep
         
         # Gestion de ID_WEB_GMAO_PREVENTIVE
         id_preventive = data.get('id_web_gmao_preventive')
@@ -990,6 +1030,12 @@ def create_reparation_direct(data):
             insert_placeholders += "?, "
             params.append(id_preventive)
         
+        descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+        if descprob_exists:
+            insert_columns += "DescProb, "
+            insert_placeholders += "?, "
+            params.append(data.get('desc_prob') or None)
+        
         insert_columns += "ID_WEB_GMAO_Dem_In, DateCreation, DateModification"
         insert_placeholders += "NULL, GETDATE(), GETDATE()"
         
@@ -1029,10 +1075,11 @@ def create_reparation_direct(data):
                     )
                     raise
             
-            # Note: TpsReel est une colonne calculée dans SQL Server, elle sera automatiquement
-            # calculée à partir de DteDeb et DteFin. Pas besoin de la mettre à jour manuellement.
+            # Note: TpsTotal (ex-TpsReel) est dérivé de DteDeb/DteFin ou des jours d'intervention.
             
             cursor.connection.commit()
+            if use_intervention_jours and intervention_jours and new_id:
+                save_intervention_jours(new_id, intervention_jours)
             return new_id
         except Exception as e:
             _agent_log(
@@ -1045,14 +1092,24 @@ def create_reparation_direct(data):
 
 def get_statut_rep_id_by_designation(designation):
     """
-    Récupère l'ID d'un statut de réparation depuis sa désignation
+    Récupère l'ID d'un statut de réparation depuis sa désignation.
+    Recherche insensible à la casse et aux espaces (LTRIM/RTRIM).
     """
+    if not designation:
+        return None
     with get_db_cursor() as cursor:
+        des = str(designation).strip()
         cursor.execute("""
             SELECT ID FROM WEB_GMAO_StatRep
-            WHERE Designation = ?
-        """, (designation,))
-        
+            WHERE LTRIM(RTRIM(Designation)) = LTRIM(RTRIM(?))
+        """, (des,))
+        row = cursor.fetchone()
+        if row is not None:
+            return row.ID
+        cursor.execute("""
+            SELECT ID FROM WEB_GMAO_StatRep
+            WHERE LOWER(LTRIM(RTRIM(Designation))) = LOWER(?)
+        """, (des,))
         row = cursor.fetchone()
         return row.ID if row else None
 
@@ -1084,7 +1141,8 @@ def update_reparation_status(demande_id, data):
         if statut_designation:
             id_stat_rep = get_statut_rep_id_by_designation(statut_designation)
         
-        if not id_stat_rep:
+        # Accepter id_stat_rep = 0 (certaines tables utilisent 0 pour un statut)
+        if id_stat_rep is None:
             raise ValueError(f"Statut '{statut_designation}' non trouvé dans WEB_GMAO_StatRep")
         
         type_in_value = data.get('type_in')
@@ -1141,10 +1199,9 @@ def update_reparation_status(demande_id, data):
                 tps_reel = None
                 dte_fin = None
         
-        # Si la réparation est clôturée (ID_StatRep = 1), la demande doit aussi être clôturée
-        # Règle : ID_StatRep = 1 → ID_StatDemIn = 1 automatiquement
+        # Si la réparation est clôturée, la demande associée doit aussi être clôturée
         id_stat_dem_in_to_set = None
-        if id_stat_rep == 1:  # Cloturée
+        if data.get('statut') == 'cloturer':
             # Obtenir l'ID correspondant à "Cloturée" dans WEB_GMAO_StatDemIn
             cursor.execute("SELECT ID FROM WEB_GMAO_StatDemIn WHERE Designation = 'Cloturée'")
             stat_dem_row = cursor.fetchone()
@@ -1157,10 +1214,8 @@ def update_reparation_status(demande_id, data):
         
         is_reparation_directe = not demande_exists
         
-        # RÈGLE IMPORTANTE : Si ID_WEB_GMAO_Dem_In est NULL, alors ID_StatRep doit être NULL
-        # Pour les réparations directes, ID_StatRep doit toujours être NULL
-        if is_reparation_directe:
-            id_stat_rep = None  # Toujours NULL pour les réparations directes
+        # id_stat_rep est déjà défini depuis le statut (Temporaire, Clôturée, En Attente)
+        # Pas de forçage à NULL pour les réparations directes
         
         # Déterminer PostesReel : si ID_WEB_GMAO_Dem_In est renseigné, copier depuis WEB_GMAO, sinon utiliser la valeur saisie
         postes_reel_value = data.get('postes_reel', '')
@@ -1176,8 +1231,7 @@ def update_reparation_status(demande_id, data):
             reparation_existante = cursor.fetchone()
             
             if reparation_existante:
-                # Mettre à jour la réparation directe existante
-                # ID_StatRep doit être NULL pour les réparations directes
+                # Mettre à jour la réparation directe existante (avec statut)
                 update_sql = """
                     UPDATE WEB_GMAO_REPARATION SET
                         DteDeb = ?,
@@ -1186,7 +1240,7 @@ def update_reparation_status(demande_id, data):
                         Intervenant = ?,
                         PostesReel = ?,
                         Nat = ?,
-                        ID_StatRep = NULL,
+                        ID_StatRep = ?,
                 """
                 params = [
                     convert_datetime_for_sql(data.get('dte_deb')),
@@ -1194,7 +1248,8 @@ def update_reparation_status(demande_id, data):
                     data.get('mat_inter'),
                     intervenant_nom,
                     postes_reel_value,
-                    data.get('nat', 'Mec')
+                    data.get('nat', 'Mec'),
+                    id_stat_rep
                 ]
                 if typein_exists:
                     update_sql += "                        TypeIN = COALESCE(?, TypeIN),\n"
@@ -1206,6 +1261,11 @@ def update_reparation_status(demande_id, data):
                 if preventive_exists:
                     update_sql += "                        ID_WEB_GMAO_PREVENTIVE = ?,\n"
                     params.append(id_preventive)
+                
+                descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+                if descprob_exists:
+                    update_sql += "                        DescProb = ?,\n"
+                    params.append(data.get('desc_prob') or None)
                 
                 update_sql += "                        DateModification = GETDATE()\n                    WHERE ID = ?"
                 params.append(demande_id)
@@ -1270,6 +1330,11 @@ def update_reparation_status(demande_id, data):
                     update_sql += "                        ID_WEB_GMAO_PREVENTIVE = ?,\n"
                     params.append(id_preventive)
                 
+                descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+                if descprob_exists:
+                    update_sql += "                        DescProb = ?,\n"
+                    params.append(data.get('desc_prob') or None)
+                
                 update_sql += "                        DateModification = GETDATE()\n                    WHERE ID_WEB_GMAO_Dem_In = ?"
                 params.append(demande_id)
                 
@@ -1330,6 +1395,12 @@ def update_reparation_status(demande_id, data):
                     insert_vals += "?, "
                     params.append(id_preventive)
                 
+                descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+                if descprob_exists:
+                    insert_cols += "DescProb, "
+                    insert_vals += "?, "
+                    params.append(data.get('desc_prob') or None)
+                
                 insert_cols += "ID_WEB_GMAO_Dem_In, DateCreation, DateModification"
                 insert_vals += "?, GETDATE(), GETDATE()"
                 params.append(demande_id)
@@ -1340,17 +1411,15 @@ def update_reparation_status(demande_id, data):
                     ) VALUES ({insert_vals})
                 """, tuple(params))
         
-        # Mettre à jour les dates préventives si une tâche préventive est liée
-        # Récupérer id_preventive depuis les données ou depuis la réparation mise à jour
+        # Mettre à jour les dates préventives si une tâche préventive est liée (maintenance préventive uniquement)
+        preventive_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'ID_WEB_GMAO_PREVENTIVE')
         id_preventive = data.get('id_web_gmao_preventive')
-        if not id_preventive and reparation_existante:
+        if not id_preventive and reparation_existante and preventive_exists:
             # Si id_preventive n'est pas dans les données, le récupérer depuis la réparation
             cursor.execute("SELECT ID_WEB_GMAO_PREVENTIVE FROM WEB_GMAO_REPARATION WHERE ID_WEB_GMAO_Dem_In = ?", (demande_id,))
             rep_row = cursor.fetchone()
-            if rep_row:
+            if rep_row and getattr(rep_row, 'ID_WEB_GMAO_PREVENTIVE', None):
                 id_preventive = rep_row.ID_WEB_GMAO_PREVENTIVE
-        
-        preventive_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'ID_WEB_GMAO_PREVENTIVE')
         if id_preventive and preventive_exists:
             update_preventive_dates_from_reparation(cursor, id_preventive)
             # #region agent log
@@ -1362,42 +1431,29 @@ def update_reparation_status(demande_id, data):
             )
             # #endregion agent log
         
-        # Note: TpsReel est une colonne calculée dans SQL Server, elle sera automatiquement
-        # calculée à partir de DteDeb et DteFin. Pas besoin de la mettre à jour manuellement.
+        # Note: TpsTotal (ex-TpsReel) est dérivé de DteDeb/DteFin ou des jours d'intervention.
+        
+        # Sauvegarder les jours d'intervention si fournis
+        rep_id = None
+        if is_reparation_directe:
+            rep_id = demande_id
+        else:
+            cursor.execute("SELECT ID FROM WEB_GMAO_REPARATION WHERE ID_WEB_GMAO_Dem_In = ?", (demande_id,))
+            r = cursor.fetchone()
+            rep_id = r.ID if r else None
+        if rep_id and data.get('intervention_jours'):
+            jours_list = data.get('intervention_jours', [])
+            save_intervention_jours(rep_id, jours_list)
         
         cursor.connection.commit()
         return True
 
-def delete_reparation(demande_id):
+def delete_reparation(reparation_id):
     """
-    Supprime les informations de réparation d'une demande
-    RÈGLE IMPORTANTE : Ne JAMAIS supprimer une fiche qui contient des données de demande d'intervention.
-    - Si la fiche contient des données de demande d'intervention (OperDem, MatrOpDem, DteDemIn), 
-      on remet SEULEMENT les champs de réparation à NULL
-    - Si c'est une fiche "En cours" (ID_StatRep = 0) SANS aucune donnée de demande d'intervention, 
-      alors on peut supprimer complètement la fiche
+    Supprime uniquement la fiche de réparation (table WEB_GMAO_REPARATION) et ses articles.
+    N'affecte pas la fiche de demande d'intervention (WEB_GMAO).
     """
     with get_db_cursor() as cursor:
-        # Vérifier si la fiche contient des données de demande d'intervention
-        cursor.execute("""
-            SELECT ID_StatRep, ID_StatDemIn, OperDem, MatrOpDem, DteDemIn, DemIn
-            FROM WEB_GMAO 
-            WHERE ID = ?
-        """, (demande_id,))
-        
-        row = cursor.fetchone()
-        if not row:
-            return False  # La fiche n'existe pas
-        
-        # Vérifier si la fiche contient des données de demande d'intervention
-        has_demande_data = (
-            row.OperDem is not None and row.OperDem != '' or
-            row.MatrOpDem is not None and row.MatrOpDem != '' or
-            row.DteDemIn is not None or
-            (row.DemIn is not None and row.DemIn != '')
-        )
-        
-        # Vérifier si la table WEB_GMAO_REPARATION existe
         try:
             cursor.execute("""
                 SELECT COUNT(*) as table_exists
@@ -1405,94 +1461,25 @@ def delete_reparation(demande_id):
                 WHERE TABLE_NAME = 'WEB_GMAO_REPARATION'
             """)
             reparation_table_exists = cursor.fetchone().table_exists > 0
-        except Exception as e:
-            print(f"[WARNING] Erreur lors de la vérification de la table WEB_GMAO_REPARATION: {e}")
+        except Exception:
             reparation_table_exists = False
-        
-        # Si la fiche contient des données de demande d'intervention, on ne supprime JAMAIS la ligne
-        # On supprime seulement la réparation depuis WEB_GMAO_REPARATION
-        if has_demande_data:
-            if reparation_table_exists:
-                # Supprimer la réparation depuis WEB_GMAO_REPARATION
-                cursor.execute("""
-                    DELETE FROM WEB_GMAO_REPARATION
-                    WHERE ID_WEB_GMAO_Dem_In = ?
-                """, (demande_id,))
-            else:
-                # Fallback : comportement ancien
-                cursor.execute("""
-                    UPDATE WEB_GMAO SET
-                        DteDeb = NULL,
-                        DteFin = NULL,
-                        MatInter = NULL,
-                        Internvenant = NULL,
-                        ID_StatRep = NULL,
-                        DateModification = GETDATE()
-                    WHERE ID = ?
-                """, (demande_id,))
-            
-            # Supprimer aussi les articles associés dans WEB_GMAO_ARTICLES
-            cursor.execute("""
-                DELETE FROM WEB_GMAO_ARTICLES
-                WHERE ID_WEB_GMAO = ?
-            """, (demande_id,))
-        else:
-            # C'est une réparation directe (sans demande d'intervention)
-            if reparation_table_exists:
-                # Vérifier si c'est une réparation directe dans WEB_GMAO_REPARATION (ID_WEB_GMAO_Dem_In = NULL)
-                cursor.execute("""
-                    SELECT ID FROM WEB_GMAO_REPARATION 
-                    WHERE ID_WEB_GMAO_Dem_In IS NULL AND ID = ?
-                """, (demande_id,))
-                reparation_directe = cursor.fetchone()
-                
-                if reparation_directe:
-                    # Supprimer la réparation directe depuis WEB_GMAO_REPARATION
-                    cursor.execute("""
-                        DELETE FROM WEB_GMAO_REPARATION
-                        WHERE ID = ?
-                    """, (demande_id,))
-                else:
-                    # Chercher par ID_WEB_GMAO_Dem_In si la réparation est liée
-                    cursor.execute("""
-                        DELETE FROM WEB_GMAO_REPARATION
-                        WHERE ID_WEB_GMAO_Dem_In = ?
-                    """, (demande_id,))
-                
-                # Supprimer les articles (chercher dans ID_WEB_GMAO_REPARATION pour les réparations directes)
-                cursor.execute("""
-                    DELETE FROM WEB_GMAO_ARTICLES
-                    WHERE ID_WEB_GMAO_REPARATION = ?
-                """, (demande_id,))
-            else:
-                # Fallback : comportement ancien
-                if row.ID_StatRep == 0:
-                    cursor.execute("""
-                        DELETE FROM WEB_GMAO_ARTICLES
-                        WHERE ID_WEB_GMAO = ?
-                    """, (demande_id,))
-                    cursor.execute("DELETE FROM WEB_GMAO WHERE ID = ?", (demande_id,))
-                else:
-                    cursor.execute("""
-                        UPDATE WEB_GMAO SET
-                            DteDeb = NULL,
-                            DteFin = NULL,
-                            MatInter = NULL,
-                            Internvenant = NULL,
-                            ID_StatRep = NULL,
-                            DateModification = GETDATE()
-                        WHERE ID = ?
-                    """, (demande_id,))
-                    cursor.execute("""
-                        DELETE FROM WEB_GMAO_ARTICLES
-                        WHERE ID_WEB_GMAO = ?
-                    """, (demande_id,))
-        
+        if not reparation_table_exists:
+            return False
+        cursor.execute("SELECT ID FROM WEB_GMAO_REPARATION WHERE ID = ?", (reparation_id,))
+        if not cursor.fetchone():
+            return False
+        cursor.execute("DELETE FROM WEB_GMAO_ARTICLES WHERE ID_WEB_GMAO_REPARATION = ?", (reparation_id,))
+        cursor.execute("DELETE FROM WEB_GMAO_REPARATION WHERE ID = ?", (reparation_id,))
         cursor.connection.commit()
         return True
 
-def get_all_demandes():
-    """Récupère toutes les demandes d'intervention avec tous les détails"""
+def get_all_demandes(fiche_type=None):
+    """
+    Récupère les fiches selon le type demandé.
+    fiche_type: None (toutes) | 'demandes' (uniquement fiches de demande d'intervention) | 'reparations' (uniquement fiches ayant une réparation)
+    - demandes: lignes de WEB_GMAO avec OperDem, MatrOpDem, DteDemIn renseignés
+    - reparations: lignes de WEB_GMAO ayant une ligne dans WEB_GMAO_REPARATION (r.ID IS NOT NULL)
+    """
     with get_db_cursor() as cursor:
         # Vérifier si la colonne Suffixe existe
         try:
@@ -1518,9 +1505,25 @@ def get_all_demandes():
             print(f"[WARNING] Erreur lors de la vérification de la table WEB_GMAO_REPARATION: {e}")
             reparation_table_exists = False
         
+        descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb') if reparation_table_exists else False
+        
+        # Filtre selon le type de fiche demandé (pour n'afficher que les lignes de la table concernée)
+        if fiche_type == 'demandes':
+            where_extra = """ AND g.OperDem IS NOT NULL AND LTRIM(RTRIM(ISNULL(g.OperDem,''))) <> ''
+                AND g.MatrOpDem IS NOT NULL AND LTRIM(RTRIM(ISNULL(g.MatrOpDem,''))) <> ''
+                AND g.DteDemIn IS NOT NULL """
+            where_extra_sans_r = where_extra  # pour les branches sans JOIN r
+        elif fiche_type == 'reparations' and reparation_table_exists:
+            where_extra = " AND r.ID IS NOT NULL "
+            where_extra_sans_r = ""  # branche sans r : on ne peut pas filtrer par réparation, on retourne rien via autre branche
+        else:
+            where_extra = ""
+            where_extra_sans_r = ""
+        
         # Construire la requête avec ou sans Suffixe et avec ou sans WEB_GMAO_REPARATION
         if suffixe_exists and reparation_table_exists:
-            cursor.execute("""
+            sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+            cursor.execute(f"""
                 SELECT 
                     g.ID,
                     g.Code,
@@ -1537,7 +1540,7 @@ def get_all_demandes():
                     r.ID_StatRep as ID_StatRep,
                     r.DteDeb as DteDeb,
                     r.DteFin as DteFin,
-                    r.TpsReel as TpsReel,
+                    r.TpsTotal as TpsTotal,
                     r.MatInter as MatInter,
                     r.Intervenant as Internvenant,
                     g.DateCreation,
@@ -1545,16 +1548,17 @@ def get_all_demandes():
                     sd.Designation as StatutDemande,
                     sr.Designation as StatutReparation,
                     em.Designation as TypeArret
+                    {sel_desc}
                 FROM WEB_GMAO g
                 LEFT JOIN WEB_GMAO_REPARATION r ON r.ID_WEB_GMAO_Dem_In = g.ID
                 LEFT JOIN WEB_GMAO_StatDemIn sd ON g.ID_StatDemIn = sd.ID
                 LEFT JOIN WEB_GMAO_StatRep sr ON r.ID_StatRep = sr.ID
                 LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
-                WHERE g.Code = 'C'
+                WHERE g.Code = 'C' {where_extra}
                 ORDER BY g.DateCreation DESC
             """)
         elif suffixe_exists:
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT 
                     g.ID,
                     g.Code,
@@ -1571,7 +1575,7 @@ def get_all_demandes():
                     r.ID_StatRep,
                     r.DteDeb,
                     r.DteFin,
-                    r.TpsReel,
+                    r.TpsTotal,
                     r.MatInter,
                     r.Intervenant,
                     g.DateCreation,
@@ -1583,11 +1587,12 @@ def get_all_demandes():
                 LEFT JOIN WEB_GMAO_StatDemIn sd ON g.ID_StatDemIn = sd.ID
                 LEFT JOIN WEB_GMAO_StatRep sr ON r.ID_StatRep = sr.ID
                 LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
-                WHERE g.Code = 'C'
+                WHERE g.Code = 'C' {where_extra_sans_r}
                 ORDER BY g.DateCreation DESC
             """)
         elif reparation_table_exists:
-            cursor.execute("""
+            sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+            cursor.execute(f"""
                 SELECT 
                     g.ID,
                     g.Code,
@@ -1604,7 +1609,7 @@ def get_all_demandes():
                     r.ID_StatRep as ID_StatRep,
                     r.DteDeb as DteDeb,
                     r.DteFin as DteFin,
-                    r.TpsReel as TpsReel,
+                    r.TpsTotal as TpsTotal,
                     r.MatInter as MatInter,
                     r.Intervenant as Internvenant,
                     g.DateCreation,
@@ -1612,18 +1617,20 @@ def get_all_demandes():
                     sd.Designation as StatutDemande,
                     sr.Designation as StatutReparation,
                     em.Designation as TypeArret
+                    {sel_desc}
                 FROM WEB_GMAO g
                 LEFT JOIN WEB_GMAO_REPARATION r ON r.ID_WEB_GMAO_Dem_In = g.ID
                 LEFT JOIN WEB_GMAO_StatDemIn sd ON g.ID_StatDemIn = sd.ID
                 LEFT JOIN WEB_GMAO_StatRep sr ON r.ID_StatRep = sr.ID
                 LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
-                WHERE g.Code = 'C'
+                WHERE g.Code = 'C' {where_extra}
                 ORDER BY g.DateCreation DESC
             """)
         else:
             # Si WEB_GMAO_REPARATION existe, utiliser cette table
             if reparation_table_exists:
-                cursor.execute("""
+                sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+                cursor.execute(f"""
                     SELECT 
                         g.ID,
                         g.Code,
@@ -1640,7 +1647,7 @@ def get_all_demandes():
                         r.ID_StatRep as ID_StatRep,
                         r.DteDeb as DteDeb,
                         r.DteFin as DteFin,
-                        r.TpsReel as TpsReel,
+                        r.TpsTotal as TpsTotal,
                         r.MatInter as MatInter,
                         r.Intervenant as Internvenant,
                         g.DateCreation,
@@ -1648,12 +1655,13 @@ def get_all_demandes():
                         sd.Designation as StatutDemande,
                         sr.Designation as StatutReparation,
                         em.Designation as TypeArret
+                        {sel_desc}
                     FROM WEB_GMAO g
                     LEFT JOIN WEB_GMAO_REPARATION r ON r.ID_WEB_GMAO_Dem_In = g.ID
                     LEFT JOIN WEB_GMAO_StatDemIn sd ON g.ID_StatDemIn = sd.ID
                     LEFT JOIN WEB_GMAO_StatRep sr ON r.ID_StatRep = sr.ID
                     LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
-                    WHERE g.Code = 'C'
+                    WHERE g.Code = 'C' {where_extra}
                     ORDER BY g.DateCreation DESC
                 """)
             else:
@@ -1669,13 +1677,9 @@ def get_all_demandes():
             dte_fin_str = row.DteFin.strftime('%Y-%m-%d %H:%M:%S') if row.DteFin else None
             date_creation_str = row.DateCreation.strftime('%Y-%m-%d %H:%M:%S') if row.DateCreation else None
             
-            # Utiliser les désignations des tables de référence
-            statut_demande = row.StatutDemande if row.StatutDemande else "Non Cloturée"
-            # ID_StatRep = 0 signifie "En cours"
-            if row.ID_StatRep == 0:
-                statut_reparation = "En cours"
-            else:
-                statut_reparation = row.StatutReparation if row.StatutReparation else "Non démarré"
+            # Utiliser les désignations des tables de référence WEB_GMAO_StatDemIn et WEB_GMAO_StatRep
+            statut_demande = row.StatutDemande if row.StatutDemande else "—"
+            statut_reparation = row.StatutReparation if row.StatutReparation else "—"
             
             demandes.append({
                 "id": row.ID,
@@ -1689,6 +1693,7 @@ def get_all_demandes():
                 "etat_machine": row.TypeArret,  # État de la machine lors de la demande (Sans Arret / Avec Arret)
                 "dem_in": row.DemIn,
                 "nat": row.Nat,
+                "desc_prob": getattr(row, 'DescProb', None) if descprob_exists else None,
                 "urg": row.Urg,
                 "statut_demande": statut_demande,
                 "statut_demande_id": row.ID_StatDemIn,
@@ -1696,12 +1701,82 @@ def get_all_demandes():
                 "statut_reparation_id": row.ID_StatRep,
                 "dte_deb": dte_deb_str,
                 "dte_fin": dte_fin_str,
-                "tps_reel": row.TpsReel,
+                "tps_reel": row.TpsTotal,
                 "intervenant": row.Internvenant,
                 "mat_inter": row.MatInter,
                 "date_creation": date_creation_str
             })
         return demandes
+
+def get_all_reparations():
+    """
+    Récupère toutes les lignes de la table WEB_GMAO_REPARATION.
+    Chaque ligne retournée correspond à une fiche de réparation.
+    - id = ID de la fiche de réparation (r.ID)
+    - id_demande = ID de la fiche de demande d'intervention (r.ID_WEB_GMAO_Dem_In, peut être null pour réparation directe)
+    """
+    with get_db_cursor() as cursor:
+        try:
+            cursor.execute("""
+                SELECT COUNT(*) as table_exists
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_NAME = 'WEB_GMAO_REPARATION'
+            """)
+            reparation_table_exists = cursor.fetchone().table_exists > 0
+        except Exception as e:
+            print(f"[WARNING] Erreur lors de la vérification de la table WEB_GMAO_REPARATION: {e}")
+            reparation_table_exists = False
+        
+        if not reparation_table_exists:
+            return []
+        
+        descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+        sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+        
+        cursor.execute(f"""
+            SELECT 
+                r.ID as ID_Reparation,
+                r.ID_WEB_GMAO_Dem_In as ID_Demande,
+                g.DteDemIn as DteDemIn,
+                r.DteDeb as DteDeb,
+                r.DteFin as DteFin,
+                    r.TpsTotal as TpsTotal,
+                r.PostesReel as PostesReel,
+                r.MatInter as MatInter,
+                r.Intervenant as Internvenant,
+                r.Nat as Nat,
+                r.ID_StatRep as ID_StatRep,
+                sr.Designation as StatutReparation
+                {sel_desc}
+            FROM WEB_GMAO_REPARATION r
+            LEFT JOIN WEB_GMAO g ON g.ID = r.ID_WEB_GMAO_Dem_In
+            LEFT JOIN WEB_GMAO_StatRep sr ON r.ID_StatRep = sr.ID
+            ORDER BY r.ID DESC
+        """)
+        
+        reparations = []
+        for row in cursor.fetchall():
+            dte_dem_in_str = row.DteDemIn.strftime('%Y-%m-%d %H:%M:%S') if row.DteDemIn else None
+            dte_deb_str = row.DteDeb.strftime('%Y-%m-%d %H:%M:%S') if row.DteDeb else None
+            dte_fin_str = row.DteFin.strftime('%Y-%m-%d %H:%M:%S') if row.DteFin else None
+            # Utiliser la désignation de WEB_GMAO_StatRep
+            statut_reparation = row.StatutReparation if row.StatutReparation else "—"
+            reparations.append({
+                "id": row.ID_Reparation,
+                "id_demande": row.ID_Demande,
+                "dte_dem_in": dte_dem_in_str,
+                "dte_deb": dte_deb_str,
+                "dte_fin": dte_fin_str,
+                "tps_reel": row.TpsTotal,
+                "postes_reel": row.PostesReel,
+                "mat_inter": row.MatInter,
+                "intervenant": row.Internvenant,
+                "nat": row.Nat,
+                "desc_prob": getattr(row, 'DescProb', None) if descprob_exists else None,
+                "statut_reparation": statut_reparation,
+                "statut_reparation_id": getattr(row, 'ID_StatRep', None),
+            })
+        return reparations
 
 def get_demande_by_id(demande_id):
     """Récupère une demande spécifique par son ID"""
@@ -1730,21 +1805,25 @@ def get_demande_by_id(demande_id):
             print(f"[WARNING] Erreur lors de la vérification de la table WEB_GMAO_REPARATION: {e}")
             reparation_table_exists = False
         
+        descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb') if reparation_table_exists else False
+        
         # Construire la requête avec ou sans Suffixe et avec ou sans WEB_GMAO_REPARATION
         if suffixe_exists and reparation_table_exists:
-            cursor.execute("""
+            sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+            cursor.execute(f"""
                 SELECT 
                     g.ID, g.Code, g.DteDemIn, g.OperDem, g.MatrOpDem, g.PostesReel, g.ID_EMach, g.DemIn, g.Urg,
                     g.ID_StatDemIn, g.Suffixe,
                     r.DteDeb as DteDeb,
                     r.DteFin as DteFin,
-                    r.TpsReel as TpsReel,
+                    r.TpsTotal as TpsTotal,
                     r.Nat as Nat,
                     r.ID_StatRep as ID_StatRep,
                     r.MatInter as MatInter,
                     r.Intervenant as Internvenant,
                     em.Designation as EtatMachine,
                     sr.Designation as StatutReparation
+                    {sel_desc}
                 FROM WEB_GMAO g
                 LEFT JOIN WEB_GMAO_REPARATION r ON r.ID_WEB_GMAO_Dem_In = g.ID
                 LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
@@ -1753,13 +1832,15 @@ def get_demande_by_id(demande_id):
             """, (demande_id,))
         elif suffixe_exists:
             if reparation_table_exists:
-                cursor.execute("""
+                sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+                cursor.execute(f"""
                     SELECT 
                         g.ID, g.Code, g.DteDemIn, g.OperDem, g.MatrOpDem, g.PostesReel, g.ID_EMach, g.DemIn, g.Urg,
                         g.ID_StatDemIn, g.Suffixe,
-                        r.DteDeb, r.DteFin, r.TpsReel, r.Nat, r.ID_StatRep, r.MatInter, r.Intervenant,
+                        r.DteDeb, r.DteFin, r.TpsTotal, r.Nat, r.ID_StatRep, r.MatInter, r.Intervenant,
                         em.Designation as EtatMachine,
                         sr.Designation as StatutReparation
+                        {sel_desc}
                     FROM WEB_GMAO g
                     LEFT JOIN WEB_GMAO_REPARATION r ON r.ID_WEB_GMAO_Dem_In = g.ID
                     LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
@@ -1772,19 +1853,21 @@ def get_demande_by_id(demande_id):
                 print("⚠️ ATTENTION: WEB_GMAO_REPARATION n'existe pas mais les colonnes ont été supprimées de WEB_GMAO!")
                 return None
         elif reparation_table_exists:
-            cursor.execute("""
+            sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+            cursor.execute(f"""
                 SELECT 
                     g.ID, g.Code, g.DteDemIn, g.OperDem, g.MatrOpDem, g.PostesReel, g.ID_EMach, g.DemIn, g.Urg,
                     g.ID_StatDemIn, 0 as Suffixe,
                     r.DteDeb as DteDeb,
                     r.DteFin as DteFin,
-                    r.TpsReel as TpsReel,
+                    r.TpsTotal as TpsTotal,
                     r.Nat as Nat,
                     r.ID_StatRep as ID_StatRep,
                     r.MatInter as MatInter,
                     r.Intervenant as Internvenant,
                     em.Designation as EtatMachine,
                     sr.Designation as StatutReparation
+                    {sel_desc}
                 FROM WEB_GMAO g
                 LEFT JOIN WEB_GMAO_REPARATION r ON r.ID_WEB_GMAO_Dem_In = g.ID
                 LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
@@ -1793,13 +1876,15 @@ def get_demande_by_id(demande_id):
             """, (demande_id,))
         else:
             if reparation_table_exists:
-                cursor.execute("""
+                sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+                cursor.execute(f"""
                     SELECT 
                         g.ID, g.Code, g.DteDemIn, g.OperDem, g.MatrOpDem, g.PostesReel, g.ID_EMach, g.DemIn, g.Urg,
                         g.ID_StatDemIn, 0 as Suffixe,
-                        r.DteDeb, r.DteFin, r.TpsReel, r.Nat, r.ID_StatRep, r.MatInter, r.Intervenant,
+                        r.DteDeb, r.DteFin, r.TpsTotal, r.Nat, r.ID_StatRep, r.MatInter, r.Intervenant,
                         em.Designation as EtatMachine,
                         sr.Designation as StatutReparation
+                        {sel_desc}
                     FROM WEB_GMAO g
                     LEFT JOIN WEB_GMAO_REPARATION r ON r.ID_WEB_GMAO_Dem_In = g.ID
                     LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
@@ -1814,29 +1899,94 @@ def get_demande_by_id(demande_id):
         
         row = cursor.fetchone()
         if not row:
+            # L'ID peut être celui d'une réparation (fiche de réparation ouverte depuis le tableau réparations)
+            if reparation_table_exists:
+                sel_desc = ", r.DescProb as DescProb" if descprob_exists else ""
+                cursor.execute(f"""
+                    SELECT 
+                        r.ID, r.ID_WEB_GMAO_Dem_In, r.DteDeb, r.DteFin, r.TpsTotal, r.PostesReel,
+                        r.MatInter, r.Intervenant, r.Nat, r.ID_StatRep
+                        {sel_desc},
+                        g.DteDemIn, g.OperDem, g.MatrOpDem, g.Code, g.ID_EMach, g.DemIn, g.Urg, g.ID_StatDemIn,
+                        em.Designation as EtatMachine,
+                        sr.Designation as StatutReparation
+                    FROM WEB_GMAO_REPARATION r
+                    LEFT JOIN WEB_GMAO g ON g.ID = r.ID_WEB_GMAO_Dem_In
+                    LEFT JOIN WEB_GMAO_EMach em ON g.ID_EMach = em.ID
+                    LEFT JOIN WEB_GMAO_StatRep sr ON r.ID_StatRep = sr.ID
+                    WHERE r.ID = ?
+                """, (demande_id,))
+                row_rep = cursor.fetchone()
+                if row_rep:
+                    tps_reel_hhmm = None
+                    if row_rep.TpsTotal:
+                        try:
+                            if isinstance(row_rep.TpsTotal, str) and ':' in row_rep.TpsTotal:
+                                tps_reel_hhmm = row_rep.TpsTotal
+                            else:
+                                tps_reel_hours = float(row_rep.TpsTotal)
+                                hours = int(tps_reel_hours)
+                                minutes = int((tps_reel_hours - hours) * 60)
+                                tps_reel_hhmm = f"{hours:02d}:{minutes:02d}"
+                        except:
+                            tps_reel_hhmm = None
+                    statut_rep = row_rep.StatutReparation if row_rep.StatutReparation else "—"
+                    result_rep = {
+                        "id": row_rep.ID,
+                        "id_demande": row_rep.ID_WEB_GMAO_Dem_In,
+                        "code": getattr(row_rep, 'Code', None),
+                        "suffixe": 0,
+                        "dte_dem_in": row_rep.DteDemIn.strftime('%Y-%m-%dT%H:%M') if getattr(row_rep, 'DteDemIn', None) else '',
+                        "oper_dem": getattr(row_rep, 'OperDem', None),
+                        "matr_op_dem": getattr(row_rep, 'MatrOpDem', None),
+                        "postes_reel": row_rep.PostesReel,
+                        "id_emach": getattr(row_rep, 'ID_EMach', None),
+                        "etat_machine": getattr(row_rep, 'EtatMachine', None),
+                        "dem_in": getattr(row_rep, 'DemIn', None),
+                        "nat": row_rep.Nat,
+                        "desc_prob": getattr(row_rep, 'DescProb', None),
+                        "urg": getattr(row_rep, 'Urg', None),
+                        "id_stat_dem_in": getattr(row_rep, 'ID_StatDemIn', None),
+                        "id_stat_rep": getattr(row_rep, 'ID_StatRep', None),
+                        "statut_reparation": statut_rep,
+                        "dte_deb": row_rep.DteDeb.strftime('%Y-%m-%dT%H:%M') if row_rep.DteDeb else '',
+                        "dte_fin": row_rep.DteFin.strftime('%Y-%m-%dT%H:%M') if row_rep.DteFin else '',
+                        "tps_reel": tps_reel_hhmm,
+                        "mat_inter": row_rep.MatInter,
+                        "intervenant": row_rep.Intervenant
+                    }
+                    cursor.execute("""
+                        SELECT ID, ID_GS_ARTICLES, Designation_GS_ARTICLES, Designation_GS_FAMILLES,
+                            Designation_GS_TYPES_ARTICLE, Quantite
+                        FROM WEB_GMAO_ARTICLES
+                        WHERE ID_WEB_GMAO_REPARATION = ?
+                        ORDER BY ID
+                    """, (row_rep.ID,))
+                    result_rep["articles"] = [{"id": a.ID, "id_article": a.ID_GS_ARTICLES, "designation": a.Designation_GS_ARTICLES,
+                        "famille": a.Designation_GS_FAMILLES, "type_article": a.Designation_GS_TYPES_ARTICLE, "quantite": float(a.Quantite) if a.Quantite else 0}
+                        for a in cursor.fetchall()]
+                    result_rep["intervention_jours"] = get_intervention_jours(row_rep.ID)
+                    return result_rep
             return None
         
         # Convertir TpsReel en format HH:MM pour l'affichage
         tps_reel_hhmm = None
-        if row.TpsReel:
+        if row.TpsTotal:
             try:
-                if isinstance(row.TpsReel, str) and ':' in row.TpsReel:
+                if isinstance(row.TpsTotal, str) and ':' in row.TpsTotal:
                     # Déjà en format HH:MM
-                    tps_reel_hhmm = row.TpsReel
+                    tps_reel_hhmm = row.TpsTotal
                 else:
                     # Convertir de heures décimales en HH:MM
-                    tps_reel_hours = float(row.TpsReel)
+                    tps_reel_hours = float(row.TpsTotal)
                     hours = int(tps_reel_hours)
                     minutes = int((tps_reel_hours - hours) * 60)
                     tps_reel_hhmm = f"{hours:02d}:{minutes:02d}"
             except:
                 tps_reel_hhmm = None
         
-        # Déterminer le statut de réparation
-        if row.ID_StatRep == 0:
-            statut_reparation = "En cours"
-        else:
-            statut_reparation = row.StatutReparation if row.StatutReparation else "Non démarré"
+        # Utiliser la désignation de WEB_GMAO_StatRep
+        statut_reparation = row.StatutReparation if row.StatutReparation else "—"
         
         result = {
             "id": row.ID,
@@ -1850,6 +2000,7 @@ def get_demande_by_id(demande_id):
             "etat_machine": row.EtatMachine,
             "dem_in": row.DemIn,
             "nat": row.Nat,
+            "desc_prob": getattr(row, 'DescProb', None),
             "urg": row.Urg,
             "id_stat_dem_in": row.ID_StatDemIn,
             "id_stat_rep": row.ID_StatRep,
@@ -1890,7 +2041,158 @@ def get_demande_by_id(demande_id):
             })
         
         result["articles"] = articles
+        cursor.execute("SELECT ID FROM WEB_GMAO_REPARATION WHERE ID_WEB_GMAO_Dem_In = ?", (demande_id,))
+        rep_row = cursor.fetchone()
+        rep_id = rep_row.ID if rep_row else None
+        result["intervention_jours"] = get_intervention_jours(rep_id) if rep_id else []
         return result
+
+def _ensure_intervention_jours_table(cursor):
+    """Crée la table WEB_GMAO_REPARATION_JOURS si elle n'existe pas."""
+    try:
+        cursor.execute("""
+            SELECT COUNT(*) as tbl_exists
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_NAME = 'WEB_GMAO_REPARATION_JOURS'
+        """)
+        if cursor.fetchone().tbl_exists > 0:
+            return
+        cursor.execute("""
+            CREATE TABLE WEB_GMAO_REPARATION_JOURS (
+                ID int IDENTITY(1,1) PRIMARY KEY,
+                ID_WEB_GMAO_REPARATION int NOT NULL,
+                DateIntervention datetime NOT NULL,
+                TpsReel float NULL
+            )
+        """)
+        cursor.connection.commit()
+    except Exception as e:
+        print(f"[WARNING] Erreur création WEB_GMAO_REPARATION_JOURS: {e}")
+
+def get_intervention_jours(reparation_id):
+    """Récupère les jours d'intervention d'une réparation (date + temps par jour)."""
+    with get_db_cursor() as cursor:
+        _ensure_intervention_jours_table(cursor)
+        try:
+            cursor.execute("""
+                SELECT ID, DateIntervention, TpsReel
+                FROM WEB_GMAO_REPARATION_JOURS
+                WHERE ID_WEB_GMAO_REPARATION = ?
+                ORDER BY DateIntervention
+            """, (reparation_id,))
+            rows = cursor.fetchall()
+        except Exception as e:
+            print(f"[WARNING] Erreur get_intervention_jours: {e}")
+            return []
+        return [
+            {
+                "id": r.ID,
+                "date_intervention": r.DateIntervention.strftime('%Y-%m-%dT%H:%M') if r.DateIntervention else '',
+                "tps_reel": r.TpsReel,
+                "tps_reel_hhmm": _heures_to_hhmm(r.TpsReel) if r.TpsReel is not None else '00:00'
+            }
+            for r in rows
+        ]
+
+def _heures_to_hhmm(hours):
+    """Convertit des heures décimales en format HH:MM."""
+    if hours is None:
+        return '00:00'
+    try:
+        h = int(hours)
+        m = int(round((hours - h) * 60))
+        return f"{h:02d}:{m:02d}"
+    except:
+        return '00:00'
+
+def _hhmm_to_heures(hhmm):
+    """Convertit HH:MM en heures décimales."""
+    if not hhmm:
+        return None
+    try:
+        parts = str(hhmm).strip().split(':')
+        if len(parts) >= 2:
+            h, m = int(parts[0]), int(parts[1])
+            return h + m / 60.0
+    except:
+        pass
+    return None
+
+def _compute_dates_from_intervention_jours(jours_list):
+    """Calcule dte_deb, dte_fin, tps_reel total à partir de la liste des jours (sans sauvegarder)."""
+    if not jours_list:
+        return (None, None, None)
+    dates = []
+    tps_total = 0.0
+    for j in jours_list:
+        dt_str = j.get('date_intervention') or ''
+        tps = j.get('tps_reel')
+        if isinstance(tps, str) and ':' in str(tps):
+            tps = _hhmm_to_heures(tps)
+        if tps is None:
+            tps = 0.0
+        if dt_str:
+            dates.append((dt_str, float(tps)))
+            tps_total += float(tps)
+    if not dates:
+        return (None, None, None)
+    dates.sort(key=lambda x: x[0])
+    dte_deb_str = convert_datetime_for_sql(dates[0][0])
+    last_dt_str, last_tps = dates[-1][0], dates[-1][1]
+    dte_fin_str = None
+    try:
+        from datetime import timedelta
+        dt_obj = parse_datetime_safe(convert_datetime_for_sql(last_dt_str))
+        if dt_obj and last_tps > 0:
+            fin = dt_obj + timedelta(hours=last_tps)
+            dte_fin_str = fin.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            dte_fin_str = convert_datetime_for_sql(last_dt_str)
+    except Exception:
+        dte_fin_str = convert_datetime_for_sql(last_dt_str)
+    return (dte_deb_str, dte_fin_str, tps_total)
+
+def save_intervention_jours(reparation_id, jours_list):
+    """
+    Enregistre les jours d'intervention pour une réparation.
+    Remplace les lignes existantes.
+    jours_list: [{"date_intervention": "2024-01-15T08:00", "tps_reel": 4.5 ou "04:30"}, ...]
+    Retourne (dte_deb, dte_fin, tps_reel_total) calculés à partir de la liste.
+    """
+    with get_db_cursor() as cursor:
+        _ensure_intervention_jours_table(cursor)
+        cursor.execute("DELETE FROM WEB_GMAO_REPARATION_JOURS WHERE ID_WEB_GMAO_REPARATION = ?", (reparation_id,))
+        dte_deb_str = None
+        dte_fin_str = None
+        tps_total = 0.0
+        if jours_list:
+            for j in sorted(jours_list, key=lambda x: x.get('date_intervention') or ''):
+                dt_str = j.get('date_intervention') or ''
+                tps = j.get('tps_reel')
+                if isinstance(tps, str) and ':' in str(tps):
+                    tps = _hhmm_to_heures(tps)
+                if tps is None:
+                    tps = 0.0
+                if dt_str:
+                    cursor.execute("""
+                        INSERT INTO WEB_GMAO_REPARATION_JOURS (ID_WEB_GMAO_REPARATION, DateIntervention, TpsReel)
+                        VALUES (?, ?, ?)
+                    """, (reparation_id, convert_datetime_for_sql(dt_str), float(tps)))
+                    tps_total += float(tps)
+                    if dte_deb_str is None:
+                        dte_deb_str = convert_datetime_for_sql(dt_str)
+                    dte_fin_str = convert_datetime_for_sql(dt_str)
+                    if float(tps) > 0:
+                        try:
+                            from datetime import timedelta
+                            dt_obj = parse_datetime_safe(convert_datetime_for_sql(dt_str))
+                            if dt_obj:
+                                fin = dt_obj + timedelta(hours=float(tps))
+                                dte_fin_str = fin.strftime('%Y-%m-%d %H:%M:%S')
+                        except Exception:
+                            pass
+        cursor.connection.commit()
+        return (dte_deb_str, dte_fin_str, tps_total)
 
 def add_article_to_reparation(id_web_gmao=None, id_web_gmao_reparation=None, id_gs_articles=None, quantite=None):
     """
@@ -2151,7 +2453,7 @@ def get_all_preventive_tasks(machine_name=None):
         # Ajouter TpsReel, DteDeb et Intervenant depuis WEB_GMAO_REPARATION si la colonne existe
         if preventive_col_exists:
             query += """,
-                r.TpsReel,
+                r.TpsTotal,
                 r.DteDeb,
                 r.Intervenant"""
         
@@ -2166,7 +2468,7 @@ def get_all_preventive_tasks(machine_name=None):
                 LEFT JOIN (
                     SELECT 
                         ID_WEB_GMAO_PREVENTIVE,
-                        TpsReel,
+                        TpsTotal,
                         DteDeb,
                         Intervenant,
                         ROW_NUMBER() OVER (PARTITION BY ID_WEB_GMAO_PREVENTIVE ORDER BY DteDeb DESC) as rn
@@ -2204,7 +2506,7 @@ def get_all_preventive_tasks(machine_name=None):
             
             # Ajouter TpsReel et DteDeb si disponibles
             if preventive_col_exists:
-                tps_reel_raw = row.TpsReel if hasattr(row, 'TpsReel') and row.TpsReel is not None else None
+                tps_reel_raw = row.TpsTotal if hasattr(row, 'TpsTotal') and row.TpsTotal is not None else None
                 # Convertir TpsReel en heures décimales si c'est une chaîne au format "HH:MM"
                 tps_reel = None
                 if tps_reel_raw is not None:

@@ -25,6 +25,7 @@ from logic.projet16 import (
     create_reparation_direct,
     delete_reparation,
     get_all_demandes,
+    get_all_reparations,
     get_demande_by_id,
     get_machines,
     add_article_to_reparation,
@@ -305,11 +306,11 @@ def api_update_reparation_status(demande_id):
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-@projet16_bp.route('/api/delete_reparation/<int:demande_id>', methods=['DELETE'])
-def api_delete_reparation(demande_id):
-    """API pour supprimer une réparation (remettre à NULL les champs de réparation)"""
+@projet16_bp.route('/api/delete_reparation/<int:reparation_id>', methods=['DELETE'])
+def api_delete_reparation(reparation_id):
+    """Supprime uniquement la fiche de réparation (sans toucher à la demande d'intervention)"""
     try:
-        success = delete_reparation(demande_id)
+        success = delete_reparation(reparation_id)
         
         if success:
             return jsonify({
@@ -327,12 +328,25 @@ def api_delete_reparation(demande_id):
 
 @projet16_bp.route('/api/demandes')
 def api_demandes():
-    """API pour récupérer toutes les demandes"""
+    """API pour récupérer les demandes. type=demandes (fiches demande d'intervention) | type=reparations (fiches réparation) | absent (toutes)"""
     try:
-        demandes = get_all_demandes()
+        fiche_type = request.args.get('type')  # 'demandes' | 'reparations' | None
+        demandes = get_all_demandes(fiche_type=fiche_type)
         return jsonify(demandes)
     except Exception as e:
         print(f"[ERREUR API] Erreur dans api_demandes: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@projet16_bp.route('/api/reparations')
+def api_reparations():
+    """API pour récupérer toutes les fiches de réparation (lignes de WEB_GMAO_REPARATION)."""
+    try:
+        reparations = get_all_reparations()
+        return jsonify(reparations)
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_reparations: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-07T05:06:21.446581",
+  "timestamp": "2026-03-10T05:06:47.506116",
   "sync_success": true,
   "results": {
     "synchronisees": [
@@ -125,7 +125,7 @@
       ],
       [
         "BONS_CMDE",
-        612
+        619
       ],
       [
         "BROCH_CHEM_OPF",
@@ -181,11 +181,11 @@
       ],
       [
         "CMDE_VERSIONS",
-        2547
+        2559
       ],
       [
         "COMMANDES",
-        2252
+        2264
       ],
       [
         "COMMANDES_COMMENT",
@@ -221,7 +221,7 @@
       ],
       [
         "CPTA_BANQUES",
-        6610
+        6612
       ],
       [
         "CPTA_CLOTURES",
@@ -237,7 +237,7 @@
       ],
       [
         "CPTA_TAX_DEFAUT",
-        735
+        736
       ],
       [
         "CPTA_TAX_SCHEMA",
@@ -285,11 +285,11 @@
       ],
       [
         "DEV_GROUPES",
-        3307
+        3315
       ],
       [
         "DEV_GROUPES_ELEM",
-        8775
+        8797
       ],
       [
         "DEV_IMP_CONT",
@@ -301,7 +301,7 @@
       ],
       [
         "DEV_IMP_OPP",
-        65965
+        65967
       ],
       [
         "DEV_IMP_ROTO",
@@ -329,7 +329,7 @@
       ],
       [
         "DEV_SEL_CAHIERS",
-        3279
+        3281
       ],
       [
         "DEV_SEL_CATEGORIES",
@@ -353,7 +353,7 @@
       ],
       [
         "DEV_SEL_OFFSETS",
-        22970
+        22987
       ],
       [
         "DEV_SEL_PAYS",
@@ -377,7 +377,7 @@
       ],
       [
         "DEV_SEL_TYPOS",
-        8987
+        9013
       ],
       [
         "DEV_SOL_IMPRIM",
@@ -429,19 +429,19 @@
       ],
       [
         "EDITIONS_BL",
-        2700
+        2721
       ],
       [
         "EDITIONS_BON_CMDE",
-        97
+        98
       ],
       [
         "EDITIONS_EDITION",
-        19859
+        19860
       ],
       [
         "EDITIONS_FACTURE",
-        7246
+        7256
       ],
       [
         "EDITIONS_IMAGES",
@@ -581,7 +581,7 @@
       ],
       [
         "FACTURES",
-        9024
+        9034
       ],
       [
         "FACTURES_COMMENT",
@@ -589,7 +589,7 @@
       ],
       [
         "FACTURES_ELEM",
-        21227
+        21240
       ],
       [
         "FACTURES_ELEM_OPTIONS",
@@ -597,7 +597,7 @@
       ],
       [
         "FACTURES_ELEM_VENTIL",
-        74353
+        74393
       ],
       [
         "FACTURES_STEG",
@@ -649,7 +649,7 @@
       ],
       [
         "FORMES_DECOUPE",
-        304
+        306
       ],
       [
         "FORMES_ETIQ",
@@ -674,10 +674,6 @@
       [
         "GP_GROUPES",
         125
-      ],
-      [
-        "GP_GROUPES_ELEM",
-        192
       ],
       [
         "GP_GROUPES_MODELES",
@@ -737,7 +733,7 @@
       ],
       [
         "GP_TRAVAUX",
-        3290
+        3303
       ],
       [
         "GROUPES_MACROS",
@@ -745,7 +741,7 @@
       ],
       [
         "GS_ARTICLES",
-        5808
+        5809
       ],
       [
         "GS_ARTICLES_FOUR",
@@ -788,16 +784,12 @@
         4
       ],
       [
-        "GS_MVT_STOCKS",
-        78458
-      ],
-      [
         "GS_PIECES",
-        46202
+        46242
       ],
       [
         "GS_STOCKS",
-        3836
+        3837
       ],
       [
         "GS_STOCKS_INFO_COMP",
@@ -921,7 +913,7 @@
       ],
       [
         "JOURNAL",
-        308108
+        308285
       ],
       [
         "LignesDevis",
@@ -1365,7 +1357,7 @@
       ],
       [
         "SOCIETES",
-        7417
+        7419
       ],
       [
         "SOCIETES_ADR_COMMENT",
@@ -1413,7 +1405,7 @@
       ],
       [
         "SOCIETES_SOCUTIL",
-        7416
+        7418
       ],
       [
         "SOCIETES_UTIL",
@@ -1517,11 +1509,11 @@
       ],
       [
         "VOYAGE_LIGNES",
-        926
+        928
       ],
       [
         "VOYAGES",
-        214
+        216
       ],
       [
         "WEB_PAPETIERS",
@@ -1555,8 +1547,8 @@
     "ecarts_normaux": [
       [
         "BONS_LIV",
-        2718,
-        2719,
+        2739,
+        2740,
         1,
         [
           47675
@@ -1564,8 +1556,8 @@
       ],
       [
         "BONS_LIV_LIGNES",
-        3005,
-        3006,
+        3026,
+        3027,
         1,
         [
           50156
@@ -1621,26 +1613,26 @@
       ],
       [
         "CMDES_MATIERE",
-        15025,
-        15092,
-        67,
+        15051,
+        15121,
+        70,
         [
           45568,
           45440,
           45441,
+          45831,
+          45832,
           31753,
           48783,
           48784,
           48785,
-          48786,
-          28625,
-          47388
+          48786
         ]
       ],
       [
         "COMMANDES_DESCR",
-        359,
-        371,
+        363,
+        375,
         12,
         [
           [
@@ -1707,8 +1699,8 @@
       ],
       [
         "COMMANDES_OPTIONS",
-        1363,
-        1367,
+        1371,
+        1375,
         4,
         [
           [
@@ -1731,8 +1723,8 @@
       ],
       [
         "CPTA_GRPE_DEFAUT",
-        737,
-        739,
+        738,
+        740,
         2,
         [
           [
@@ -1749,9 +1741,9 @@
       ],
       [
         "CTRL_RES",
-        4,
-        95,
-        91,
+        5,
+        98,
+        93,
         [
           115200,
           121090,
@@ -1767,8 +1759,8 @@
       ],
       [
         "DEV_AFF",
-        35978,
-        35983,
+        36024,
+        36029,
         5,
         [
           290056,
@@ -1780,8 +1772,8 @@
       ],
       [
         "DEV_BROCH",
-        7813,
         7814,
+        7815,
         1,
         [
           282613
@@ -1789,8 +1781,8 @@
       ],
       [
         "DEV_CAHIERS",
-        12932,
         12933,
+        12934,
         1,
         [
           130452
@@ -1798,8 +1790,8 @@
       ],
       [
         "DEV_COUT_PV",
-        46720,
-        46723,
+        46775,
+        46778,
         3,
         [
           236985,
@@ -1809,8 +1801,8 @@
       ],
       [
         "DEV_COUTS",
-        423776,
-        423824,
+        424184,
+        424232,
         48,
         [
           [
@@ -1857,8 +1849,8 @@
       ],
       [
         "DEV_DESCR",
-        17125,
-        17127,
+        17136,
+        17138,
         2,
         [
           [
@@ -1873,8 +1865,8 @@
       ],
       [
         "DEV_ELEM",
-        72827,
-        72836,
+        72880,
+        72889,
         9,
         [
           401856,
@@ -1890,8 +1882,8 @@
       ],
       [
         "DEV_ELEM_CHANGEMENTS",
-        81705,
-        81714,
+        81758,
+        81767,
         9,
         [
           417121,
@@ -1907,8 +1899,8 @@
       ],
       [
         "DEV_ELEM_PAP",
-        72827,
-        72836,
+        72880,
+        72889,
         9,
         [
           401856,
@@ -1924,8 +1916,8 @@
       ],
       [
         "DEV_FACONNAGES",
-        58471,
-        58481,
+        58548,
+        58558,
         10,
         [
           280705,
@@ -1942,8 +1934,8 @@
       ],
       [
         "DEV_FORMATS_PAP",
-        50513,
-        50530,
+        50555,
+        50572,
         17,
         [
           136322,
@@ -1960,8 +1952,8 @@
       ],
       [
         "DEV_IMP_FEUILLES",
-        78305,
-        78309,
+        78358,
+        78362,
         4,
         [
           422272,
@@ -1972,8 +1964,8 @@
       ],
       [
         "DEV_IMP_FLASHAGE",
-        20492,
-        20494,
+        20496,
+        20498,
         2,
         [
           422272,
@@ -1982,8 +1974,8 @@
       ],
       [
         "DEV_IMPOS_ENCRE",
-        72205,
-        72214,
+        72258,
+        72267,
         9,
         [
           401856,
@@ -1999,8 +1991,8 @@
       ],
       [
         "DEV_IMPOSITION_ELEMS",
-        687417,
-        687431,
+        687755,
+        687769,
         14,
         [
           2640512,
@@ -2017,8 +2009,8 @@
       ],
       [
         "DEV_IMPRESSIONS",
-        78305,
-        78309,
+        78358,
+        78362,
         4,
         [
           422272,
@@ -2029,8 +2021,8 @@
       ],
       [
         "DEV_LIV_VERSIONS",
-        59442,
-        59448,
+        59493,
+        59499,
         6,
         [
           [
@@ -2061,8 +2053,8 @@
       ],
       [
         "DEV_LIV_VERSIONS_COND",
-        59158,
-        59163,
+        59201,
+        59206,
         5,
         [
           [
@@ -2094,8 +2086,8 @@
       ],
       [
         "DEV_LIVRAISONS",
-        53070,
-        53076,
+        53121,
+        53127,
         6,
         [
           288544,
@@ -2108,8 +2100,8 @@
       ],
       [
         "DEV_OP_TYPO",
-        32832,
-        32834,
+        32878,
+        32880,
         2,
         [
           [
@@ -2124,8 +2116,8 @@
       ],
       [
         "DEV_PLIAGES",
-        18967,
-        18968,
+        18973,
+        18974,
         1,
         [
           143227
@@ -2133,8 +2125,8 @@
       ],
       [
         "DEV_SAISIE_PV",
-        45376,
-        45383,
+        45431,
+        45438,
         7,
         [
           [
@@ -2169,8 +2161,8 @@
       ],
       [
         "DEV_VERSIONS",
-        61990,
-        61996,
+        62041,
+        62047,
         6,
         [
           308160,
@@ -2183,8 +2175,8 @@
       ],
       [
         "DEV_VERSIONS_COND",
-        59053,
-        59059,
+        59096,
+        59102,
         6,
         [
           296577,
@@ -2197,8 +2189,8 @@
       ],
       [
         "DEV_VERSIONS_ELEM",
-        91240,
-        91249,
+        91293,
+        91302,
         9,
         [
           416804,
@@ -2214,8 +2206,8 @@
       ],
       [
         "DEVIS",
-        52972,
-        52977,
+        53023,
+        53028,
         5,
         [
           290056,
@@ -2227,9 +2219,9 @@
       ],
       [
         "ECHEANCES",
-        3422,
-        4975,
-        1553,
+        3437,
+        5032,
+        1595,
         [
           123040,
           123234,
@@ -2245,8 +2237,8 @@
       ],
       [
         "EDITIONS",
-        59894,
-        59896,
+        59934,
+        59936,
         2,
         [
           190632,
@@ -2255,9 +2247,9 @@
       ],
       [
         "EDITIONS_BLOCS",
-        243289,
-        245959,
-        2670,
+        243566,
+        246298,
+        2732,
         [
           581633,
           581634,
@@ -2273,8 +2265,8 @@
       ],
       [
         "EDITIONS_LETTRE",
-        9170,
-        9172,
+        9177,
+        9179,
         2,
         [
           190632,
@@ -2363,8 +2355,8 @@
       ],
       [
         "FACTURE_ELEM_BL",
-        2649,
-        2650,
+        2662,
+        2663,
         1,
         [
           [
@@ -2375,8 +2367,8 @@
       ],
       [
         "FACTURES_TAXES",
-        16895,
-        16898,
+        16916,
+        16919,
         3,
         [
           [
@@ -2395,8 +2387,8 @@
       ],
       [
         "FACTURES_TVA",
-        9065,
-        9066,
+        9075,
+        9076,
         1,
         [
           [
@@ -2407,8 +2399,8 @@
       ],
       [
         "GP_COUTS",
-        10544,
-        10598,
+        10599,
+        10653,
         54,
         [
           [
@@ -2455,9 +2447,9 @@
       ],
       [
         "GP_FACT_ACHATS_SSTR",
-        6740,
-        8080,
-        1340,
+        6759,
+        8184,
+        1425,
         [
           221184,
           221185,
@@ -2473,9 +2465,9 @@
       ],
       [
         "GP_FICHES_OPERATIONS",
-        4554,
-        4583,
-        29,
+        4574,
+        4606,
+        32,
         [
           [
             417126,
@@ -2502,6 +2494,10 @@
             538
           ],
           [
+            437935,
+            24
+          ],
+          [
             432427,
             538
           ],
@@ -2512,53 +2508,49 @@
           [
             441731,
             726
-          ],
-          [
-            437655,
-            726
           ]
         ]
       ],
       [
         "GP_FICHES_TRAVAIL",
-        15330,
-        15472,
-        142,
+        15405,
+        15555,
+        150,
         [
           438272,
           438278,
           438279,
           431625,
+          441870,
           431672,
           439864,
           417343,
+          439873,
+          438355
+        ]
+      ],
+      [
+        "GP_FICHTRA_INT",
+        14850,
+        14983,
+        133,
+        [
+          438272,
+          438278,
+          438279,
+          431625,
+          441870,
+          431672,
+          439864,
           439873,
           438355,
           438356
         ]
       ],
       [
-        "GP_FICHTRA_INT",
-        14778,
-        14903,
-        125,
-        [
-          438272,
-          438278,
-          438279,
-          431625,
-          431672,
-          439864,
-          439873,
-          438355,
-          438356,
-          438357
-        ]
-      ],
-      [
         "GP_FICHTRA_SPEC",
-        18341,
-        18450,
+        18359,
+        18468,
         109,
         [
           [
@@ -2615,8 +2607,8 @@
       ],
       [
         "GP_FICHTRA_SSTR",
-        551,
-        566,
+        554,
+        569,
         15,
         [
           408835,
@@ -2632,12 +2624,23 @@
         ]
       ],
       [
+        "GP_GROUPES_ELEM",
+        190,
+        192,
+        2,
+        [
+          1272,
+          1298
+        ]
+      ],
+      [
         "GP_RESSOURCES",
-        15664,
-        15926,
-        262,
+        15719,
+        15985,
+        266,
         [
           609283,
+          580157,
           607757,
           607758,
           607760,
@@ -2645,8 +2648,7 @@
           607763,
           580114,
           607765,
-          580118,
-          607766
+          580118
         ]
       ],
       [
@@ -2709,9 +2711,9 @@
       ],
       [
         "GP_RESSOURCES_TRAV",
-        5868,
-        5993,
-        125,
+        5919,
+        6052,
+        133,
         [
           [
             441592,
@@ -2770,8 +2772,8 @@
       ],
       [
         "GP_TRAVAUX_SPEC",
-        18437,
-        18440,
+        18499,
+        18502,
         3,
         [
           [
@@ -2792,39 +2794,49 @@
         ]
       ],
       [
+        "GS_MVT_STOCKS",
+        78502,
+        78504,
+        2,
+        [
+          205209,
+          204933
+        ]
+      ],
+      [
         "GS_TAMPONS_LIGNES",
-        1815,
-        2615,
-        800,
+        1790,
+        2641,
+        851,
         [
           268291,
           268292,
           292876,
+          292880,
+          292881,
           292884,
           292885,
           292886,
           286743,
-          286744,
-          286745,
-          292887
+          286744
         ]
       ],
       [
         "GS_TAMPONS_PIECES",
-        1416,
-        1976,
-        560,
+        1389,
+        1996,
+        607,
         [
           194567,
           192520,
           192521,
           194568,
           194569,
+          194578,
           194579,
           194580,
           194581,
-          194582,
-          194587
+          194582
         ]
       ],
       [
@@ -2847,8 +2859,8 @@
       ],
       [
         "IMPRIMANTES",
-        59956,
-        59958,
+        59996,
+        59998,
         2,
         [
           190824,
@@ -2857,9 +2869,9 @@
       ],
       [
         "JDF_ENVOYES",
-        458,
-        1156,
-        698,
+        403,
+        1169,
+        766,
         [
           73730,
           73732,
@@ -2875,22 +2887,23 @@
       ],
       [
         "LIVR_CMDE_VERSIONS",
-        2682,
-        2688,
-        6,
+        2699,
+        2706,
+        7,
         [
           87392,
           87393,
           87396,
           85739,
           87212,
-          88533
+          88533,
+          87256
         ]
       ],
       [
         "LIVR_COND",
-        2406,
-        2407,
+        2417,
+        2418,
         1,
         [
           83647
@@ -2898,8 +2911,8 @@
       ],
       [
         "LIVR_ETIQ",
-        2782,
-        2783,
+        2803,
+        2804,
         1,
         [
           46827
@@ -2907,10 +2920,11 @@
       ],
       [
         "LIVRAISONS_CMDE",
-        2388,
-        2394,
-        6,
+        2405,
+        2412,
+        7,
         [
+          82953,
           83087,
           83088,
           83091,
@@ -2921,8 +2935,8 @@
       ],
       [
         "PAPIERS_ARTICLES",
-        1158,
-        1248,
+        1159,
+        1249,
         90,
         [
           86623,
@@ -2939,8 +2953,8 @@
       ],
       [
         "PAPIERS_TARIF_FMT",
-        1159,
-        2050,
+        1160,
+        2051,
         891,
         [
           [
@@ -3064,9 +3078,10 @@
       [
         "PERSONNES",
         9825,
-        9838,
-        13,
+        9839,
+        14,
         [
+          18533,
           18534,
           18503,
           18536,
@@ -3075,15 +3090,14 @@
           10292,
           11384,
           18489,
-          18522,
-          14456
+          18522
         ]
       ],
       [
         "SOCIETES_ADR_PERSON",
         376,
-        389,
-        13,
+        390,
+        14,
         [
           [
             15451,
@@ -3139,8 +3153,8 @@
       ],
       [
         "SOCIETES_ADRESSES",
-        7469,
-        7470,
+        7471,
+        7472,
         1,
         [
           289
@@ -3148,8 +3162,8 @@
       ],
       [
         "SOCIETES_LIVRAISONS",
-        7301,
-        7302,
+        7303,
+        7304,
         1,
         [
           [
@@ -3182,9 +3196,9 @@
       ],
       [
         "TELEPHONES",
-        7323,
-        7477,
-        154,
+        7324,
+        7479,
+        155,
         [
           24587,
           13839,
@@ -3200,8 +3214,8 @@
       ],
       [
         "VENDEURS",
-        5892,
-        5895,
+        5894,
+        5897,
         3,
         [
           [
@@ -3251,7 +3265,7 @@
       ],
       [
         "WEB_GMAO_ARTICLES",
-        3
+        2
       ],
       [
         "WEB_GMAO_EMach",
@@ -3263,7 +3277,11 @@
       ],
       [
         "WEB_GMAO_REPARATION",
-        8
+        13
+      ],
+      [
+        "WEB_GMAO_REPARATION_JOURS",
+        4
       ],
       [
         "WEB_GMAO_StatDemIn",
@@ -3295,7 +3313,7 @@
       ],
       [
         "WEB_TRAITEMENTS",
-        287
+        327
       ],
       [
         "WEB_TRAITEMENTS_OUVERTURE",
@@ -3303,7 +3321,7 @@
       ]
     ],
     "doublons_pk": [],
-    "output": "================================================================================\nVÉRIFICATION DE LA SYNCHRONISATION\n================================================================================\n\nTables source: 461\nTables cible: 481\n\n================================================================================\n\n================================================================================\n🔍 VÉRIFICATION DES DOUBLONS DE CLÉ PRIMAIRE (CIBLE)\n================================================================================\n\n✓ TABLES SYNCHRONISÉES (382):\n   #temp_personnes: 77 enregistrements\n  ACTIONS_A_EFFECTUER: 5 enregistrements\n  ACTIONS_PREDEFINIES: 32 enregistrements\n  ACTIONS_VISITE: 3 enregistrements\n  ACTIVITES: 0 enregistrements\n  AFFAIRES: 0 enregistrements\n  AFFAIRES_PRODUITS: 0 enregistrements\n  AFFAIRES_SOCIETES: 0 enregistrements\n  AFFECT_ACTIVITES: 0 enregistrements\n  AFFECT_PAYS: 0 enregistrements\n  AFFECT_PROD_SOC: 0 enregistrements\n  AFFECT_SECTEURS: 0 enregistrements\n  AMALGAMES_CAHIERS: 22 enregistrements\n  AMALGAMES_TYPES: 72 enregistrements\n  ARRONDIS: 8 enregistrements\n  ARTICLES_DESCRIPTION: 0 enregistrements\n  ASSISTANT: 0 enregistrements\n  ASS_CAHIERS: 6 enregistrements\n  ASS_CAHIERS_TARIF: 18 enregistrements\n  ASS_CONTINU: 1 enregistrements\n  ASS_CONTINU_OPF: 0 enregistrements\n  ASS_CONTINU_TARIF: 3 enregistrements\n  ASS_CONT_OPF_TARIF: 0 enregistrements\n  ASS_CONT_PERFO: 10 enregistrements\n  ASS_FEUILLES: 6 enregistrements\n  ASS_FEUILLES_TARIF: 18 enregistrements\n  BAREME_FAMILLES: 1 enregistrements\n  BAREME_OPERATIONS: 0 enregistrements\n  BAREME_TARIFS: 0 enregistrements\n  BONS_CMDE: 612 enregistrements\n  BROCH_CHEMINS: 19 enregistrements\n  BROCH_CHEMINS_TYPES: 14 enregistrements\n  BROCH_CHEM_OPF: 17 enregistrements\n  BROCH_TYPES: 14 enregistrements\n  BROCH_TYPES_CAHIERS: 14 enregistrements\n  CAMIONS: 18 enregistrements\n  CATEGORIES_INFO_COMP: 0 enregistrements\n  CATEGORIES_SOCIETES: 29 enregistrements\n  CENTRES_COUT: 9 enregistrements\n  CLIENTS_SOC_FACT: 0 enregistrements\n  CMDE_BAREMES: 0 enregistrements\n  CMDE_CONTROLES: 0 enregistrements\n  CMDE_CTRL_LIENS: 0 enregistrements\n  CMDE_VERSIONS: 2547 enregistrements\n  COMMANDES: 2252 enregistrements\n  COMMANDES_COMMENT: 2 enregistrements\n  COMMANDES_FICHIERS: 0 enregistrements\n  CONDITIONNEMENTS: 21 enregistrements\n  COND_IMPRIM: 21 enregistrements\n  COND_IMPRIM_TARIF: 63 enregistrements\n  COUTURE: 1 enregistrements\n  COUTURE_TARIF: 3 enregistrements\n  CPTA_ACHATS: 0 enregistrements\n  CPTA_BANQUES: 6610 enregistrements\n  CPTA_CLOTURES: 2 enregistrements\n  CPTA_CPTE: 54 enregistrements\n  CPTA_GRPE_CPTE: 6 enregistrements\n  CPTA_TAXES: 5 enregistrements\n  CPTA_TAX_DEFAUT: 735 enregistrements\n  CPTA_TAX_SCHEMA: 5 enregistrements\n  CPTA_TAX_SCHEMA_ELEM: 7 enregistrements\n  CTRL_ATEL_COLONNES: 0 enregistrements\n  CTRL_ATEL_MODELES: 0 enregistrements\n  DEVISES: 8 enregistrements\n  DEVIS_INFO_COMP: 2 enregistrements\n  DEVIS_OPTIPLUS: 0 enregistrements\n  DEV_BAREMES: 0 enregistrements\n  DEV_COMMENT: 23 enregistrements\n  DEV_ELEM_IMP: 0 enregistrements\n  DEV_ELEM_OPP: 0 enregistrements\n  DEV_ETIQ_CONT: 0 enregistrements\n  DEV_FACONNAGES_ELEM: 20 enregistrements\n  DEV_GROUPES: 3307 enregistrements\n  DEV_GROUPES_ELEM: 8775 enregistrements\n  DEV_IMP_CONT: 0 enregistrements\n  DEV_IMP_NUMERIQUE: 305 enregistrements\n  DEV_IMP_OPP: 65965 enregistrements\n  DEV_IMP_ROTO: 0 enregistrements\n  DEV_LIA_CONT: 0 enregistrements\n  DEV_LIA_FE: 2142 enregistrements\n  DEV_LIVRAISONS_COND: 0 enregistrements\n  DEV_OPP: 0 enregistrements\n  DEV_SEL_AMALGAMES: 975 enregistrements\n  DEV_SEL_CAHIERS: 3279 enregistrements\n  DEV_SEL_CATEGORIES: 0 enregistrements\n  DEV_SEL_CERTIFICATIONS: 73 enregistrements\n  DEV_SEL_IMPCONTINU: 0 enregistrements\n  DEV_SEL_IMPNUMERIQUE: 206 enregistrements\n  DEV_SEL_IMPRIMEURS: 0 enregistrements\n  DEV_SEL_OFFSETS: 22970 enregistrements\n  DEV_SEL_PAYS: 0 enregistrements\n  DEV_SEL_PLIEUSES: 787 enregistrements\n  DEV_SEL_ROTATIVES: 0 enregistrements\n  DEV_SEL_SECTEURS: 0 enregistrements\n  DEV_SEL_SERI: 0 enregistrements\n  DEV_SEL_TYPOS: 8987 enregistrements\n  DEV_SOL_IMPRIM: 0 enregistrements\n  DEV_TYPES: 10 enregistrements\n  DICTIONNAIRE: 203 enregistrements\n  DOSSIERS_NOTES: 29 enregistrements\n  DROITS: 2309 enregistrements\n  DROITS_ENTITES: 78 enregistrements\n  Devis: 0 enregistrements\n  EDITIONS_AR: 85 enregistrements\n  EDITIONS_BL: 2700 enregistrements\n  EDITIONS_BON_CMDE: 97 enregistrements\n  EDITIONS_EDITION: 19859 enregistrements\n  EDITIONS_FACTURE: 7246 enregistrements\n  EDITIONS_IMAGES: 10 enregistrements\n  EDITIONS_MODELES: 20 enregistrements\n  EDITIONS_POCH_FAB: 0 enregistrements\n  EDITIONS_RELEVE: 0 enregistrements\n  EDMOD_DESCRIPTIF: 8 enregistrements\n  EDMOD_ETIQUETTE: 6 enregistrements\n  EDMOD_FACTURE: 9 enregistrements\n  EDMOD_LETTRE_AR: 21 enregistrements\n  EDT_CALC: 0 enregistrements\n  EDT_CALC_PERIODES: 0 enregistrements\n  EDT_CALC_POSTES: 0 enregistrements\n  EDT_EMPLOIS_TEMPS: 2 enregistrements\n  EDT_PAYS: 1 enregistrements\n  EDT_PERIODES: 7 enregistrements\n  EDT_PERIODES_EMPLTPS: 6 enregistrements\n  EDT_PERIODES_PAYS: 0 enregistrements\n  EDT_PERIODES_POSTES: 1 enregistrements\n  EDT_PERIODES_SERVICE: 0 enregistrements\n  EDT_PERIODES_SOC: 0 enregistrements\n  EDT_POSTES_PERIPERS: 0 enregistrements\n  EDT_SOC: 1 enregistrements\n  EDT_SOCUTIL: 2 enregistrements\n  ED_MODELES: 70 enregistrements\n  EMAPLAN_EVT: 0 enregistrements\n  EMPLOYES: 103 enregistrements\n  EMPLOYES_SAUVEGARDE_20240423: 103 enregistrements\n  ENCARTEUSES: 11 enregistrements\n  ENCARTEUSES_TARIF: 33 enregistrements\n  ENCOLLAGE: 2 enregistrements\n  ENCOLLAGE_TARIF: 6 enregistrements\n  ENCRAGES_DEFAUT: 50 enregistrements\n  ETAPES_PRODUCTION: 0 enregistrements\n  FACTURES: 9024 enregistrements\n  FACTURES_COMMENT: 4 enregistrements\n  FACTURES_ELEM: 21227 enregistrements\n  FACTURES_ELEM_OPTIONS: 0 enregistrements\n  FACTURES_ELEM_VENTIL: 74353 enregistrements\n  FACTURES_STEG: 8 enregistrements\n  FACTYPES_TYPESDEVIS: 34 enregistrements\n  FACT_ELEM_BAREMES: 0 enregistrements\n  FAC_MARGES: 1 enregistrements\n  FAC_MARGES_TARIF: 3 enregistrements\n  FILMS_FORMATS: 0 enregistrements\n  FILMS_FORMATS_TARIF: 0 enregistrements\n  FILMS_TARIF: 3 enregistrements\n  FLASHEUSES: 27 enregistrements\n  FLASHEUSES_TARIF: 81 enregistrements\n  FLASH_TARIF_COMPLEX: 810 enregistrements\n  FONCTIONS: 31 enregistrements\n  FORMATS_PAPIERS_HF: 4 enregistrements\n  FORMATS_STD: 10 enregistrements\n  FORMES_COUTS: 3 enregistrements\n  FORMES_DECOUPE: 304 enregistrements\n  FORMES_ETIQ: 0 enregistrements\n  GP_ACCES_POSTES: 1460 enregistrements\n  GP_CONTROLES: 1 enregistrements\n  GP_CTRL_NOTIF_TEXTES: 1 enregistrements\n  GP_FICHES_ORDRE: 0 enregistrements\n  GP_GROUPES: 125 enregistrements\n  GP_GROUPES_ELEM: 192 enregistrements\n  GP_GROUPES_MODELES: 3 enregistrements\n  GP_LIENS_DEVIS: 408 enregistrements\n  GP_MACROS: 85 enregistrements\n  GP_MACROS_ANOMALIES: 0 enregistrements\n  GP_MACROS_ANOMAL_COL: 0 enregistrements\n  GP_MACROS_COL: 948 enregistrements\n  GP_OCCUPATIONS: 1203 enregistrements\n  GP_PARAM_MATIERES: 12 enregistrements\n  GP_POSTES: 163 enregistrements\n  GP_POSTES_OP: 455 enregistrements\n  GP_POSTES_TARIF: 259 enregistrements\n  GP_PRESENCES: 7 enregistrements\n  GP_RETFICH_PREF: 44 enregistrements\n  GP_SERVICES: 17 enregistrements\n  GP_TRAVAUX: 3290 enregistrements\n  GROUPES_MACROS: 6 enregistrements\n  GS_ARTICLES: 5808 enregistrements\n  GS_ARTICLES_FOUR: 1207 enregistrements\n  GS_CODES_BARRES_FOUR: 4 enregistrements\n  GS_CODE_BARRE_TERM: 0 enregistrements\n  GS_DEVIS_STOCKS: 49 enregistrements\n  GS_FAMILLES: 553 enregistrements\n  GS_INVENTAIRE_VERROU: 2 enregistrements\n  GS_LOTS: 10 enregistrements\n  GS_MACROS: 52 enregistrements\n  GS_MACROS_COL: 409 enregistrements\n  GS_MVT_LOTS: 4 enregistrements\n  GS_MVT_STOCKS: 78458 enregistrements\n  GS_PIECES: 46202 enregistrements\n  GS_STOCKS: 3836 enregistrements\n  GS_STOCKS_INFO_COMP: 0 enregistrements\n  GS_STOCKS_PVENTE: 0 enregistrements\n  GS_TAMPONS_LOTS: 0 enregistrements\n  GS_TYPES_ARTICLE: 20 enregistrements\n  IMPORTANCE_CLIENT: 5 enregistrements\n  IMPRIMEURS: 1 enregistrements\n  IMPRIMEURS_TARIFS: 1 enregistrements\n  IMP_CONTINU: 1 enregistrements\n  IMP_CONTINU_OPF: 0 enregistrements\n  IMP_CONTINU_TARIF: 3 enregistrements\n  IMP_CONT_CHARGEURS: 6 enregistrements\n  IMP_CONT_CHARGEURS_IMPR: 6 enregistrements\n  IMP_CONT_CHARGEURS_TARIF: 13 enregistrements\n  IMP_CONT_OPF_TARIF: 0 enregistrements\n  IMP_CONT_PERFO: 6 enregistrements\n  IMP_CONT_TYPES_ENCRE: 0 enregistrements\n  IMP_NUMERIQUE: 6 enregistrements\n  IMP_NUMERIQUE_TARIF: 18 enregistrements\n  IMP_NUMERIQUE_TYPES_ENCRE: 1 enregistrements\n  INFO_CMDE_CHOIX: 2 enregistrements\n  INFO_COMMANDES: 5 enregistrements\n  INTERETS: 0 enregistrements\n  INTERMEDIAIRES: 0 enregistrements\n  JDF_CONNEXIONS: 1 enregistrements\n  JDF_PARAM_OPERATION: 63 enregistrements\n  JDF_PARAM_POSTE: 32 enregistrements\n  JDF_QUEUE_ID: 0 enregistrements\n  JMF_PARAM_GEN: 1 enregistrements\n  JMF_PARAM_OPERATION: 12 enregistrements\n  JMF_RECUS: 0 enregistrements\n  JOURNAL: 308108 enregistrements\n  LIVR_FAMILLES: 1 enregistrements\n  LIVR_POINTS: 6 enregistrements\n  LIVR_PT_IMPRIM: 6 enregistrements\n  LIVR_PT_IMPRIM_TARIF: 18 enregistrements\n  LIVR_PT_TARIFS: 17 enregistrements\n  LIVR_TRANSPORT: 0 enregistrements\n  LIVR_TRANSPORT_TARIF: 0 enregistrements\n  LignesDevis: 0 enregistrements\n  MACROS: 144 enregistrements\n  MACROS_COLONNES: 1142 enregistrements\n  MACROS_FILTRES: 184 enregistrements\n  MASSICOTS: 1 enregistrements\n  MASSICOTS_TARIF: 3 enregistrements\n  MODELES_PLANNING: 0 enregistrements\n  MODELES_PLAN_ETAPES: 0 enregistrements\n  MOYENS_CONTACT: 12 enregistrements\n  MSG_COMPTES: 1 enregistrements\n  MSG_COMPTES_EMPLOYES: 7 enregistrements\n  MSG_MANDATAIRES: 0 enregistrements\n  NOTES: 37109 enregistrements\n  NOTES_AFFAIRES: 0 enregistrements\n  NOTES_CMDE_CONTROLES: 0 enregistrements\n  NOTES_COMMANDES: 0 enregistrements\n  NOTES_DESTINATAIRES: 3673 enregistrements\n  NOTES_DEVIS: 13 enregistrements\n  NOTES_DOSSIERS: 3634 enregistrements\n  NOTES_EVENEMENTS: 7 enregistrements\n  NOTES_FICHIERS: 38 enregistrements\n  NOTES_LECTEURS: 4780 enregistrements\n  NOTES_MAILS: 1 enregistrements\n  NOTES_MAILS_ID_POP: 0 enregistrements\n  NOTES_MAILS_POP: 0 enregistrements\n  NOTES_MODELES: 0 enregistrements\n  NOTES_NOTES: 0 enregistrements\n  NOTES_PIECES_JOINTES: 0 enregistrements\n  NOTES_POSTES: 2 enregistrements\n  NOTES_SOCIETES: 37066 enregistrements\n  NOTES_TEXTES: 36966 enregistrements\n  NOTES_TYPES: 4 enregistrements\n  OPF: 67 enregistrements\n  OPF_FAMILLES: 17 enregistrements\n  OPF_IMPRIM: 67 enregistrements\n  OPF_IMPRIM_TARIF: 201 enregistrements\n  OPP: 3 enregistrements\n  OPP_FAMILLES: 6 enregistrements\n  OPP_IMPRIM: 3 enregistrements\n  OPP_IMPRIM_TARIF: 9 enregistrements\n  OPP_TARIF_COMPLEX: 90 enregistrements\n  ORDRE_PRODUCTION: 0 enregistrements\n  P2B_COMPTES: 0 enregistrements\n  PAPIERS: 285 enregistrements\n  PAPIERS_CATEG: 41 enregistrements\n  PAPIERS_CERTIFICATIONS: 5 enregistrements\n  PAPIERS_IMPRIMEURS: 285 enregistrements\n  PAPIERS_PARAM: 1 enregistrements\n  PAPIERS_PARAM_TARIF: 3 enregistrements\n  PAPIER_CATEG_TYPES_ENCRE: 0 enregistrements\n  PAPIER_MACROS: 0 enregistrements\n  PAPIER_SELECTIONS: 0 enregistrements\n  PAPIER_TYPES_ENCRE: 0 enregistrements\n  PAP_CERTIF_FAMILLES: 3 enregistrements\n  PAP_CERTIF_FAM_SOCUTIL: 1 enregistrements\n  PARAM_CALCDEV_IMPRIM: 1 enregistrements\n  PARAM_GENERAL: 1 enregistrements\n  PARTNER_NUM_ADRESSE: 0 enregistrements\n  PAYS: 98 enregistrements\n  PERSONNES_FONCTIONS: 168 enregistrements\n  PERSONNES_MAIL: 677 enregistrements\n  PERSONNES_SAUVEGARDE_20240423: 9762 enregistrements\n  PLIEUSES: 18 enregistrements\n  PLIEUSES_TARIF: 54 enregistrements\n  PLIEUSES_TYPESCAHIER: 0 enregistrements\n  PREP_CHEMINS: 7 enregistrements\n  PREP_CHEMINS_MACH: 25 enregistrements\n  PREP_CHEMINS_TYPES: 7 enregistrements\n  PREP_CHEM_OPP: 4 enregistrements\n  PREP_COMPLEXITES: 10 enregistrements\n  PREP_MARGES: 1 enregistrements\n  PREP_MARGES_TARIF: 3 enregistrements\n  PREP_TYPES: 3 enregistrements\n  PRESSESF_TYPESCAHIER: 0 enregistrements\n  PRESSES_FEUILLES: 37 enregistrements\n  PRESSES_FEUILLES_TYPES_ENCRE: 37 enregistrements\n  PRESSES_FEUILLES_VERNIS: 13 enregistrements\n  PRESSES_FEUIL_TARIF: 111 enregistrements\n  PRIORITES_ACTION: 4 enregistrements\n  PRODUITS: 60 enregistrements\n  PROJET5_2_FICHES: 106 enregistrements\n  PROJET5_2_POSTES_OPERATIONS: 287 enregistrements\n  PROJET5_2_SERVICES_POSTES: 122 enregistrements\n  PROJET5_2_TEST: 1 enregistrements\n  PROJET5_2_TRAITEMENTS: 0 enregistrements\n  PV_OP: 18 enregistrements\n  PV_OP_BORNES_TARIFS: 46 enregistrements\n  PV_OP_FAM: 7 enregistrements\n  PV_OP_MACH: 17 enregistrements\n  PV_OP_MACH_TARIF: 51 enregistrements\n  PV_OP_MATIERE: 54 enregistrements\n  RELEVES: 2 enregistrements\n  REPETER: 1 enregistrements\n  REPETER_TARIF: 3 enregistrements\n  ROTATIVES: 0 enregistrements\n  ROTATIVES_TARIF: 0 enregistrements\n  ROTATIVES_TYPESCAHIER: 0 enregistrements\n  ROTATIVES_TYPES_ENCRE: 0 enregistrements\n  SAIDEV_PREF: 1 enregistrements\n  SECTEURS_GEO: 0 enregistrements\n  SERIGRAPHIE: 0 enregistrements\n  SERIGRAPHIE_TARIF: 0 enregistrements\n  SERIGRAPHIE_TYPES_ENCRE: 0 enregistrements\n  SOCIETES: 7417 enregistrements\n  SOCIETES_ADR_COMMENT: 0 enregistrements\n  SOCIETES_CPTA: 4 enregistrements\n  SOCIETES_FACTURATIONS: 99 enregistrements\n  SOCIETES_IMPORTANCE: 2 enregistrements\n  SOCIETES_INFO_COMP: 0 enregistrements\n  SOCIETES_LICENCE: 1 enregistrements\n  SOCIETES_LIENS: 0 enregistrements\n  SOCIETES_MACROS_IMP: 0 enregistrements\n  SOCIETES_MARGES: 0 enregistrements\n  SOCIETES_PERSONNES: 2533 enregistrements\n  SOCIETES_PRODUITS: 60 enregistrements\n  SOCIETES_SOCUTIL: 7416 enregistrements\n  SOCIETES_UTIL: 1 enregistrements\n  SOCIETES_UTIL_SERVICES: 0 enregistrements\n  SPECIALITES_PERS: 0 enregistrements\n  STADES: 0 enregistrements\n  STATUTS_ACTION: 4 enregistrements\n  SUIVI_PRODUCTION: 0 enregistrements\n  TABLE_CORRESPONDANCES: 8 enregistrements\n  TARIFS: 3 enregistrements\n  TIERS: 261 enregistrements\n  TIERS_SOCUTIL: 261 enregistrements\n  TIERS_TYPES: 278 enregistrements\n  TYPES_AFFAIRE: 0 enregistrements\n  TYPES_CAHIER: 21 enregistrements\n  TYPES_ENCRE: 3 enregistrements\n  TYPES_ENCRE_TARIF: 9 enregistrements\n  TYPES_LIEN: 0 enregistrements\n  TYPES_OUTILS: 2 enregistrements\n  TYPES_SUPPORTS: 3 enregistrements\n  TYPOS: 14 enregistrements\n  TYPOS_CUSTOM: 1 enregistrements\n  TYPOS_TARIF: 42 enregistrements\n  TYPOS_TYPES_ENCRE: 3 enregistrements\n  USINES: 1 enregistrements\n  VISITES_CLIENTS: 64 enregistrements\n  VISITES_PERSONNES: 0 enregistrements\n  VOYAGES: 214 enregistrements\n  VOYAGE_LIGNES: 926 enregistrements\n  WEB_PAPETIERS: 2 enregistrements\n  WEB_PAPETIERS_COMPTES: 0 enregistrements\n  __EFMigrationsHistory: 1 enregistrements\n\n🔴 ÉCARTS CRITIQUES - ENREGISTREMENTS MANQUANTS (1):\n  ⚠️ Ces tables ont des enregistrements de la source ABSENTS de la cible\n  GS_INVENTAIRES: Source=15, Cible=109, MANQUE=15 enregistrements\n    Exemples de clés manquantes: [54368, 54435, 54372, 54406, 54374]\n\n🟢 DONNÉES SUPPLÉMENTAIRES DANS LA CIBLE (78):\n  ✓ Ces tables ont des enregistrements supplémentaires dans la cible (données ajoutées localement)\n  BONS_LIV: Source=2718, Cible=2719, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [47675]\n  BONS_LIV_LIGNES: Source=3005, Cible=3006, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [50156]\n  BROCH_CHEMINS_MACH: Source=14, Cible=22, Supplément=8 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(18, 6, 3), (18, 7, 3), (18, 9, 3), (18, 26, 1), (18, 22, 1)]\n  CMDES_MATIERE: Source=15025, Cible=15092, Supplément=67 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [45568, 45440, 45441, 31753, 48783]\n  COMMANDES_DESCR: Source=359, Cible=371, Supplément=12 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(81089, 1036), (82173, 1036), (79982, 1036), (82190, 1036), (61778, 1036)]\n  COMMANDES_INFO_COMP: Source=1094, Cible=1097, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(61778, 4), (64855, 4), (57224, 4)]\n  COMMANDES_OPTIONS: Source=1363, Cible=1367, Supplément=4 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(79970, 2), (79971, 2), (79982, 3), (79982, 4)]\n  CPTA_GRPE_DEFAUT: Source=737, Cible=739, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(0, 6988, 0), (0, 6708, 8)]\n  CTRL_RES: Source=4, Cible=95, Supplément=91 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [115200, 121090, 121091, 120068, 120069]\n  DEVIS: Source=52972, Cible=52977, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [290056, 287472, 282613, 287615, 290143]\n  DEV_AFF: Source=35978, Cible=35983, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [290056, 287472, 287636, 287615, 290143]\n  DEV_BROCH: Source=7813, Cible=7814, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [282613]\n  DEV_CAHIERS: Source=12932, Cible=12933, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [130452]\n  DEV_COUTS: Source=423776, Cible=423824, Supplément=48 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(290143, 3), (290056, 8), (287636, 6), (287636, 3), (287615, 1)]\n  DEV_COUT_PV: Source=46720, Cible=46723, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [236985, 237149, 231961]\n  DEV_DESCR: Source=17125, Cible=17127, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(287636, 1036), (287472, 1036)]\n  DEV_ELEM: Source=72827, Cible=72836, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [401856, 401857, 401729, 399114, 392977]\n  DEV_ELEM_CHANGEMENTS: Source=81705, Cible=81714, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [417121, 419915, 417100, 419789, 419916]\n  DEV_ELEM_PAP: Source=72827, Cible=72836, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [401856, 401857, 401729, 399114, 392977]\n  DEV_FACONNAGES: Source=58471, Cible=58481, Supplément=10 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [280705, 283777, 280706, 280940, 280941]\n  DEV_FORMATS_PAP: Source=50513, Cible=50530, Supplément=17 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [136322, 136323, 136324, 136325, 136326]\n  DEV_IMPOSITION_ELEMS: Source=687417, Cible=687431, Supplément=14 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [2640512, 2640513, 2640514, 2640515, 2672066]\n  DEV_IMPOS_ENCRE: Source=72205, Cible=72214, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [401856, 401857, 401729, 399114, 392977]\n  DEV_IMPRESSIONS: Source=78305, Cible=78309, Supplément=4 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [422272, 428346, 428540, 422271]\n  DEV_IMP_FEUILLES: Source=78305, Cible=78309, Supplément=4 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [422272, 428346, 428540, 422271]\n  DEV_IMP_FLASHAGE: Source=20492, Cible=20494, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [422272, 422271]\n  DEV_LIVRAISONS: Source=53070, Cible=53076, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [288544, 288456, 285871, 286035, 281011]\n  DEV_LIV_VERSIONS: Source=59442, Cible=59448, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(285871, 307994), (286014, 308139), (288544, 310740), (288456, 310653), (281011, 302856)]\n  DEV_LIV_VERSIONS_COND: Source=59158, Cible=59163, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(291751, 281011, 302856), (296853, 286014, 308139), (299408, 288544, 310740), (296875, 286035, 308160), (296709, 285871, 307994)]\n  DEV_OP_TYPO: Source=32832, Cible=32834, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(428540, 1), (428346, 1)]\n  DEV_PLIAGES: Source=18967, Cible=18968, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [143227]\n  DEV_SAISIE_PV: Source=45376, Cible=45383, Supplément=7 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(398936, 1), (399135, 1), (399114, 1), (401855, 1), (401856, 1)]\n  DEV_VERSIONS: Source=61990, Cible=61996, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [308160, 302856, 308139, 310740, 307994]\n  DEV_VERSIONS_COND: Source=59053, Cible=59059, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [296577, 291618, 296743, 299274, 296721]\n  DEV_VERSIONS_ELEM: Source=91240, Cible=91249, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [416804, 416805, 426792, 426793, 426666]\n  ECHEANCES: Source=3422, Cible=4975, Supplément=1553 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [123040, 123234, 164442, 164459, 164462]\n  EDITIONS: Source=59894, Cible=59896, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [190632, 190734]\n  EDITIONS_BLOCS: Source=243289, Cible=245959, Supplément=2670 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [581633, 581634, 581635, 581636, 581637]\n  EDITIONS_LETTRE: Source=9170, Cible=9172, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [190632, 190734]\n  EDITIONS_MODELES_DEF: Source=37, Cible=38, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(36, 22, 2, 1)]\n  EDMOD_BLOCS: Source=294, Cible=324, Supplément=30 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [3250, 3251, 3252, 3253, 3254]\n  FACTURES_TAXES: Source=16895, Cible=16898, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(33023, 2), (32980, 3), (31952, 3)]\n  FACTURES_TVA: Source=9065, Cible=9066, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(31952, 0)]\n  FACTURE_ELEM_BL: Source=2649, Cible=2650, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(46656, 51422)]\n  FACT_ELEM_INFO_COMP: Source=16067, Cible=16078, Supplément=11 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(6381, 4), (35200, 4), (6383, 4), (6384, 4), (6382, 4)]\n  GP_COUTS: Source=10544, Cible=10598, Supplément=54 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(59638, 9), (81052, 1), (59640, 9), (59641, 8), (81086, 6)]\n  GP_FACT_ACHATS_SSTR: Source=6740, Cible=8080, Supplément=1340 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [221184, 221185, 221186, 221187, 221188]\n  GP_FICHES_OPERATIONS: Source=4554, Cible=4583, Supplément=29 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(417126, 11), (440024, 750), (439539, 40), (435888, 750), (437886, 40)]\n  GP_FICHES_TRAVAIL: Source=15330, Cible=15472, Supplément=142 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [438272, 438278, 438279, 431625, 431672]\n  GP_FICHTRA_INT: Source=14778, Cible=14903, Supplément=125 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [438272, 438278, 438279, 431625, 431672]\n  GP_FICHTRA_SPEC: Source=18341, Cible=18450, Supplément=109 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(403308, 64, 1), (439976, 56, 1), (439976, 97, 2), (408791, 115, 2), (441240, 36, 1)]\n  GP_FICHTRA_SSTR: Source=551, Cible=566, Supplément=15 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [408835, 408808, 439800, 441226, 439980]\n  GP_RESSOURCES: Source=15664, Cible=15926, Supplément=262 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [609283, 607757, 607758, 607760, 607762]\n  GP_RESSOURCES_SPEC: Source=5124, Cible=5179, Supplément=55 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(580166, 19, 1), (580127, 17, 1), (580114, 23, 1), (575394, 16, 1), (580192, 23, 1)]\n  GP_RESSOURCES_TRAV: Source=5868, Cible=5993, Supplément=125 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(441592, 610658), (435885, 607451), (432430, 603042), (441743, 610774), (438261, 607757)]\n  GP_TRAITEMENTS: Source=887, Cible=892, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [407363, 407364, 414546, 407161, 414490]\n  GP_TRAVAUX_SPEC: Source=18437, Cible=18440, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(162523, 139, 1), (162491, 139, 1), (162523, 140, 1)]\n  GS_TAMPONS_LIGNES: Source=1815, Cible=2615, Supplément=800 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [268291, 268292, 292876, 292884, 292885]\n  GS_TAMPONS_PIECES: Source=1416, Cible=1976, Supplément=560 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [194567, 192520, 192521, 194568, 194569]\n  HISTORIQUE_LIVRAISON: Source=10, Cible=21, Supplément=11 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [11, 12, 13, 14, 15]\n  IMPRIMANTES: Source=59956, Cible=59958, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [190824, 190722]\n  JDF_ENVOYES: Source=458, Cible=1156, Supplément=698 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [73730, 73732, 73733, 73734, 57351]\n  LIVRAISONS_CMDE: Source=2388, Cible=2394, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [83087, 83088, 83091, 81493, 84218]\n  LIVR_CMDE_VERSIONS: Source=2682, Cible=2688, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [87392, 87393, 87396, 85739, 87212]\n  LIVR_COND: Source=2406, Cible=2407, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [83647]\n  LIVR_ETIQ: Source=2782, Cible=2783, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [46827]\n  PAPIERS_ARTICLES: Source=1158, Cible=1248, Supplément=90 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [86623, 80497, 80498, 80500, 80506]\n  PAPIERS_TARIF_FMT: Source=1159, Cible=2050, Supplément=891 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(89501, 8332, 1), (89048, 8494, 1), (91457, 8372, 0), (90249, 8458, 1), (89489, 8332, 1)]\n  PAPIERS_TARIF_GRAM: Source=553, Cible=866, Supplément=313 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(8368, 350), (6035, 335), (8372, 73), (8488, 275), (8225, 310)]\n  PERSONNES: Source=9825, Cible=9838, Supplément=13 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [18534, 18503, 18536, 18476, 18481]\n  SOCIETES_ADRESSES: Source=7469, Cible=7470, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [289]\n  SOCIETES_ADR_PERSON: Source=376, Cible=389, Supplément=13 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(15451, 18481, 15411), (11339, 18534, 11341), (17545, 18536, 17500), (6708, 18476, 6714), (15451, 18489, 15411)]\n  SOCIETES_LIVRAISONS: Source=7301, Cible=7302, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(289, 263)]\n  SOCIETES_MODELES: Source=12, Cible=13, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [1031]\n  TELEPHONES: Source=7323, Cible=7477, Supplément=154 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [24587, 13839, 13840, 3618, 3619]\n  VENDEURS: Source=5892, Cible=5895, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(7003, 7451), (4994, 1), (3966, 1)]\n  personel: Source=77, Cible=89, Supplément=12 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [321, 386, 390, 391, 392]\n  sysdiagrams: Source=2, Cible=7, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [8, 9, 10, 11, 12]\n\nℹ TABLES SPÉCIFIQUES À LA CIBLE (conservées) (20):\n  TOLERANCES_CONTROLE: 75 enregistrements\n  WEB_ACTIONS: 31 enregistrements\n  WEB_ATELIER_ACCES: 10 enregistrements\n  WEB_CONTROLES_QUALITE: 40 enregistrements\n  WEB_Coor_CH_dech: 10 enregistrements\n  WEB_DROITS_ACCES: 205 enregistrements\n  WEB_GMAO: 2 enregistrements\n  WEB_GMAO_ARTICLES: 3 enregistrements\n  WEB_GMAO_EMach: 2 enregistrements\n  WEB_GMAO_PREVENTIVE: 128 enregistrements\n  WEB_GMAO_REPARATION: 8 enregistrements\n  WEB_GMAO_StatDemIn: 2 enregistrements\n  WEB_GMAO_StatRep: 4 enregistrements\n  WEB_PROJETS: 23 enregistrements\n  WEB_PdtNC_RecClt: 15 enregistrements\n  WEB_SECTIONS: 17 enregistrements\n  WEB_S_DOS_ENCOURS: 73 enregistrements\n  WEB_Suivi_Dechets: 315 enregistrements\n  WEB_TRAITEMENTS: 287 enregistrements\n  WEB_TRAITEMENTS_OUVERTURE: 0 enregistrements\n\n================================================================================\nRÉSUMÉ:\n  ✓ Tables parfaitement synchronisées: 382\n  🔴 Tables avec enregistrements manquants (CRITIQUE): 1\n  🟢 Tables avec données supplémentaires (OK): 78\n  ⚠️ Tables avec doublons de PK (CRITIQUE): 0\n  ✗ Tables manquantes dans cible: 0\n  ℹ Tables spécifiques à la cible (conservées): 20\n\n⚠️ TOTAL D'ENREGISTREMENTS MANQUANTS: 15\n  → Relancer la synchronisation pour corriger ces écarts\n================================================================================"
+    "output": "================================================================================\nVÉRIFICATION DE LA SYNCHRONISATION\n================================================================================\n\nTables source: 461\nTables cible: 482\n\n================================================================================\n\n================================================================================\n🔍 VÉRIFICATION DES DOUBLONS DE CLÉ PRIMAIRE (CIBLE)\n================================================================================\n\n✓ TABLES SYNCHRONISÉES (380):\n   #temp_personnes: 77 enregistrements\n  ACTIONS_A_EFFECTUER: 5 enregistrements\n  ACTIONS_PREDEFINIES: 32 enregistrements\n  ACTIONS_VISITE: 3 enregistrements\n  ACTIVITES: 0 enregistrements\n  AFFAIRES: 0 enregistrements\n  AFFAIRES_PRODUITS: 0 enregistrements\n  AFFAIRES_SOCIETES: 0 enregistrements\n  AFFECT_ACTIVITES: 0 enregistrements\n  AFFECT_PAYS: 0 enregistrements\n  AFFECT_PROD_SOC: 0 enregistrements\n  AFFECT_SECTEURS: 0 enregistrements\n  AMALGAMES_CAHIERS: 22 enregistrements\n  AMALGAMES_TYPES: 72 enregistrements\n  ARRONDIS: 8 enregistrements\n  ARTICLES_DESCRIPTION: 0 enregistrements\n  ASSISTANT: 0 enregistrements\n  ASS_CAHIERS: 6 enregistrements\n  ASS_CAHIERS_TARIF: 18 enregistrements\n  ASS_CONTINU: 1 enregistrements\n  ASS_CONTINU_OPF: 0 enregistrements\n  ASS_CONTINU_TARIF: 3 enregistrements\n  ASS_CONT_OPF_TARIF: 0 enregistrements\n  ASS_CONT_PERFO: 10 enregistrements\n  ASS_FEUILLES: 6 enregistrements\n  ASS_FEUILLES_TARIF: 18 enregistrements\n  BAREME_FAMILLES: 1 enregistrements\n  BAREME_OPERATIONS: 0 enregistrements\n  BAREME_TARIFS: 0 enregistrements\n  BONS_CMDE: 619 enregistrements\n  BROCH_CHEMINS: 19 enregistrements\n  BROCH_CHEMINS_TYPES: 14 enregistrements\n  BROCH_CHEM_OPF: 17 enregistrements\n  BROCH_TYPES: 14 enregistrements\n  BROCH_TYPES_CAHIERS: 14 enregistrements\n  CAMIONS: 18 enregistrements\n  CATEGORIES_INFO_COMP: 0 enregistrements\n  CATEGORIES_SOCIETES: 29 enregistrements\n  CENTRES_COUT: 9 enregistrements\n  CLIENTS_SOC_FACT: 0 enregistrements\n  CMDE_BAREMES: 0 enregistrements\n  CMDE_CONTROLES: 0 enregistrements\n  CMDE_CTRL_LIENS: 0 enregistrements\n  CMDE_VERSIONS: 2559 enregistrements\n  COMMANDES: 2264 enregistrements\n  COMMANDES_COMMENT: 2 enregistrements\n  COMMANDES_FICHIERS: 0 enregistrements\n  CONDITIONNEMENTS: 21 enregistrements\n  COND_IMPRIM: 21 enregistrements\n  COND_IMPRIM_TARIF: 63 enregistrements\n  COUTURE: 1 enregistrements\n  COUTURE_TARIF: 3 enregistrements\n  CPTA_ACHATS: 0 enregistrements\n  CPTA_BANQUES: 6612 enregistrements\n  CPTA_CLOTURES: 2 enregistrements\n  CPTA_CPTE: 54 enregistrements\n  CPTA_GRPE_CPTE: 6 enregistrements\n  CPTA_TAXES: 5 enregistrements\n  CPTA_TAX_DEFAUT: 736 enregistrements\n  CPTA_TAX_SCHEMA: 5 enregistrements\n  CPTA_TAX_SCHEMA_ELEM: 7 enregistrements\n  CTRL_ATEL_COLONNES: 0 enregistrements\n  CTRL_ATEL_MODELES: 0 enregistrements\n  DEVISES: 8 enregistrements\n  DEVIS_INFO_COMP: 2 enregistrements\n  DEVIS_OPTIPLUS: 0 enregistrements\n  DEV_BAREMES: 0 enregistrements\n  DEV_COMMENT: 23 enregistrements\n  DEV_ELEM_IMP: 0 enregistrements\n  DEV_ELEM_OPP: 0 enregistrements\n  DEV_ETIQ_CONT: 0 enregistrements\n  DEV_FACONNAGES_ELEM: 20 enregistrements\n  DEV_GROUPES: 3315 enregistrements\n  DEV_GROUPES_ELEM: 8797 enregistrements\n  DEV_IMP_CONT: 0 enregistrements\n  DEV_IMP_NUMERIQUE: 305 enregistrements\n  DEV_IMP_OPP: 65967 enregistrements\n  DEV_IMP_ROTO: 0 enregistrements\n  DEV_LIA_CONT: 0 enregistrements\n  DEV_LIA_FE: 2142 enregistrements\n  DEV_LIVRAISONS_COND: 0 enregistrements\n  DEV_OPP: 0 enregistrements\n  DEV_SEL_AMALGAMES: 975 enregistrements\n  DEV_SEL_CAHIERS: 3281 enregistrements\n  DEV_SEL_CATEGORIES: 0 enregistrements\n  DEV_SEL_CERTIFICATIONS: 73 enregistrements\n  DEV_SEL_IMPCONTINU: 0 enregistrements\n  DEV_SEL_IMPNUMERIQUE: 206 enregistrements\n  DEV_SEL_IMPRIMEURS: 0 enregistrements\n  DEV_SEL_OFFSETS: 22987 enregistrements\n  DEV_SEL_PAYS: 0 enregistrements\n  DEV_SEL_PLIEUSES: 787 enregistrements\n  DEV_SEL_ROTATIVES: 0 enregistrements\n  DEV_SEL_SECTEURS: 0 enregistrements\n  DEV_SEL_SERI: 0 enregistrements\n  DEV_SEL_TYPOS: 9013 enregistrements\n  DEV_SOL_IMPRIM: 0 enregistrements\n  DEV_TYPES: 10 enregistrements\n  DICTIONNAIRE: 203 enregistrements\n  DOSSIERS_NOTES: 29 enregistrements\n  DROITS: 2309 enregistrements\n  DROITS_ENTITES: 78 enregistrements\n  Devis: 0 enregistrements\n  EDITIONS_AR: 85 enregistrements\n  EDITIONS_BL: 2721 enregistrements\n  EDITIONS_BON_CMDE: 98 enregistrements\n  EDITIONS_EDITION: 19860 enregistrements\n  EDITIONS_FACTURE: 7256 enregistrements\n  EDITIONS_IMAGES: 10 enregistrements\n  EDITIONS_MODELES: 20 enregistrements\n  EDITIONS_POCH_FAB: 0 enregistrements\n  EDITIONS_RELEVE: 0 enregistrements\n  EDMOD_DESCRIPTIF: 8 enregistrements\n  EDMOD_ETIQUETTE: 6 enregistrements\n  EDMOD_FACTURE: 9 enregistrements\n  EDMOD_LETTRE_AR: 21 enregistrements\n  EDT_CALC: 0 enregistrements\n  EDT_CALC_PERIODES: 0 enregistrements\n  EDT_CALC_POSTES: 0 enregistrements\n  EDT_EMPLOIS_TEMPS: 2 enregistrements\n  EDT_PAYS: 1 enregistrements\n  EDT_PERIODES: 7 enregistrements\n  EDT_PERIODES_EMPLTPS: 6 enregistrements\n  EDT_PERIODES_PAYS: 0 enregistrements\n  EDT_PERIODES_POSTES: 1 enregistrements\n  EDT_PERIODES_SERVICE: 0 enregistrements\n  EDT_PERIODES_SOC: 0 enregistrements\n  EDT_POSTES_PERIPERS: 0 enregistrements\n  EDT_SOC: 1 enregistrements\n  EDT_SOCUTIL: 2 enregistrements\n  ED_MODELES: 70 enregistrements\n  EMAPLAN_EVT: 0 enregistrements\n  EMPLOYES: 103 enregistrements\n  EMPLOYES_SAUVEGARDE_20240423: 103 enregistrements\n  ENCARTEUSES: 11 enregistrements\n  ENCARTEUSES_TARIF: 33 enregistrements\n  ENCOLLAGE: 2 enregistrements\n  ENCOLLAGE_TARIF: 6 enregistrements\n  ENCRAGES_DEFAUT: 50 enregistrements\n  ETAPES_PRODUCTION: 0 enregistrements\n  FACTURES: 9034 enregistrements\n  FACTURES_COMMENT: 4 enregistrements\n  FACTURES_ELEM: 21240 enregistrements\n  FACTURES_ELEM_OPTIONS: 0 enregistrements\n  FACTURES_ELEM_VENTIL: 74393 enregistrements\n  FACTURES_STEG: 8 enregistrements\n  FACTYPES_TYPESDEVIS: 34 enregistrements\n  FACT_ELEM_BAREMES: 0 enregistrements\n  FAC_MARGES: 1 enregistrements\n  FAC_MARGES_TARIF: 3 enregistrements\n  FILMS_FORMATS: 0 enregistrements\n  FILMS_FORMATS_TARIF: 0 enregistrements\n  FILMS_TARIF: 3 enregistrements\n  FLASHEUSES: 27 enregistrements\n  FLASHEUSES_TARIF: 81 enregistrements\n  FLASH_TARIF_COMPLEX: 810 enregistrements\n  FONCTIONS: 31 enregistrements\n  FORMATS_PAPIERS_HF: 4 enregistrements\n  FORMATS_STD: 10 enregistrements\n  FORMES_COUTS: 3 enregistrements\n  FORMES_DECOUPE: 306 enregistrements\n  FORMES_ETIQ: 0 enregistrements\n  GP_ACCES_POSTES: 1460 enregistrements\n  GP_CONTROLES: 1 enregistrements\n  GP_CTRL_NOTIF_TEXTES: 1 enregistrements\n  GP_FICHES_ORDRE: 0 enregistrements\n  GP_GROUPES: 125 enregistrements\n  GP_GROUPES_MODELES: 3 enregistrements\n  GP_LIENS_DEVIS: 408 enregistrements\n  GP_MACROS: 85 enregistrements\n  GP_MACROS_ANOMALIES: 0 enregistrements\n  GP_MACROS_ANOMAL_COL: 0 enregistrements\n  GP_MACROS_COL: 948 enregistrements\n  GP_OCCUPATIONS: 1203 enregistrements\n  GP_PARAM_MATIERES: 12 enregistrements\n  GP_POSTES: 163 enregistrements\n  GP_POSTES_OP: 455 enregistrements\n  GP_POSTES_TARIF: 259 enregistrements\n  GP_PRESENCES: 7 enregistrements\n  GP_RETFICH_PREF: 44 enregistrements\n  GP_SERVICES: 17 enregistrements\n  GP_TRAVAUX: 3303 enregistrements\n  GROUPES_MACROS: 6 enregistrements\n  GS_ARTICLES: 5809 enregistrements\n  GS_ARTICLES_FOUR: 1207 enregistrements\n  GS_CODES_BARRES_FOUR: 4 enregistrements\n  GS_CODE_BARRE_TERM: 0 enregistrements\n  GS_DEVIS_STOCKS: 49 enregistrements\n  GS_FAMILLES: 553 enregistrements\n  GS_INVENTAIRE_VERROU: 2 enregistrements\n  GS_LOTS: 10 enregistrements\n  GS_MACROS: 52 enregistrements\n  GS_MACROS_COL: 409 enregistrements\n  GS_MVT_LOTS: 4 enregistrements\n  GS_PIECES: 46242 enregistrements\n  GS_STOCKS: 3837 enregistrements\n  GS_STOCKS_INFO_COMP: 0 enregistrements\n  GS_STOCKS_PVENTE: 0 enregistrements\n  GS_TAMPONS_LOTS: 0 enregistrements\n  GS_TYPES_ARTICLE: 20 enregistrements\n  IMPORTANCE_CLIENT: 5 enregistrements\n  IMPRIMEURS: 1 enregistrements\n  IMPRIMEURS_TARIFS: 1 enregistrements\n  IMP_CONTINU: 1 enregistrements\n  IMP_CONTINU_OPF: 0 enregistrements\n  IMP_CONTINU_TARIF: 3 enregistrements\n  IMP_CONT_CHARGEURS: 6 enregistrements\n  IMP_CONT_CHARGEURS_IMPR: 6 enregistrements\n  IMP_CONT_CHARGEURS_TARIF: 13 enregistrements\n  IMP_CONT_OPF_TARIF: 0 enregistrements\n  IMP_CONT_PERFO: 6 enregistrements\n  IMP_CONT_TYPES_ENCRE: 0 enregistrements\n  IMP_NUMERIQUE: 6 enregistrements\n  IMP_NUMERIQUE_TARIF: 18 enregistrements\n  IMP_NUMERIQUE_TYPES_ENCRE: 1 enregistrements\n  INFO_CMDE_CHOIX: 2 enregistrements\n  INFO_COMMANDES: 5 enregistrements\n  INTERETS: 0 enregistrements\n  INTERMEDIAIRES: 0 enregistrements\n  JDF_CONNEXIONS: 1 enregistrements\n  JDF_PARAM_OPERATION: 63 enregistrements\n  JDF_PARAM_POSTE: 32 enregistrements\n  JDF_QUEUE_ID: 0 enregistrements\n  JMF_PARAM_GEN: 1 enregistrements\n  JMF_PARAM_OPERATION: 12 enregistrements\n  JMF_RECUS: 0 enregistrements\n  JOURNAL: 308285 enregistrements\n  LIVR_FAMILLES: 1 enregistrements\n  LIVR_POINTS: 6 enregistrements\n  LIVR_PT_IMPRIM: 6 enregistrements\n  LIVR_PT_IMPRIM_TARIF: 18 enregistrements\n  LIVR_PT_TARIFS: 17 enregistrements\n  LIVR_TRANSPORT: 0 enregistrements\n  LIVR_TRANSPORT_TARIF: 0 enregistrements\n  LignesDevis: 0 enregistrements\n  MACROS: 144 enregistrements\n  MACROS_COLONNES: 1142 enregistrements\n  MACROS_FILTRES: 184 enregistrements\n  MASSICOTS: 1 enregistrements\n  MASSICOTS_TARIF: 3 enregistrements\n  MODELES_PLANNING: 0 enregistrements\n  MODELES_PLAN_ETAPES: 0 enregistrements\n  MOYENS_CONTACT: 12 enregistrements\n  MSG_COMPTES: 1 enregistrements\n  MSG_COMPTES_EMPLOYES: 7 enregistrements\n  MSG_MANDATAIRES: 0 enregistrements\n  NOTES: 37109 enregistrements\n  NOTES_AFFAIRES: 0 enregistrements\n  NOTES_CMDE_CONTROLES: 0 enregistrements\n  NOTES_COMMANDES: 0 enregistrements\n  NOTES_DESTINATAIRES: 3673 enregistrements\n  NOTES_DEVIS: 13 enregistrements\n  NOTES_DOSSIERS: 3634 enregistrements\n  NOTES_EVENEMENTS: 7 enregistrements\n  NOTES_FICHIERS: 38 enregistrements\n  NOTES_LECTEURS: 4780 enregistrements\n  NOTES_MAILS: 1 enregistrements\n  NOTES_MAILS_ID_POP: 0 enregistrements\n  NOTES_MAILS_POP: 0 enregistrements\n  NOTES_MODELES: 0 enregistrements\n  NOTES_NOTES: 0 enregistrements\n  NOTES_PIECES_JOINTES: 0 enregistrements\n  NOTES_POSTES: 2 enregistrements\n  NOTES_SOCIETES: 37066 enregistrements\n  NOTES_TEXTES: 36966 enregistrements\n  NOTES_TYPES: 4 enregistrements\n  OPF: 67 enregistrements\n  OPF_FAMILLES: 17 enregistrements\n  OPF_IMPRIM: 67 enregistrements\n  OPF_IMPRIM_TARIF: 201 enregistrements\n  OPP: 3 enregistrements\n  OPP_FAMILLES: 6 enregistrements\n  OPP_IMPRIM: 3 enregistrements\n  OPP_IMPRIM_TARIF: 9 enregistrements\n  OPP_TARIF_COMPLEX: 90 enregistrements\n  ORDRE_PRODUCTION: 0 enregistrements\n  P2B_COMPTES: 0 enregistrements\n  PAPIERS: 285 enregistrements\n  PAPIERS_CATEG: 41 enregistrements\n  PAPIERS_CERTIFICATIONS: 5 enregistrements\n  PAPIERS_IMPRIMEURS: 285 enregistrements\n  PAPIERS_PARAM: 1 enregistrements\n  PAPIERS_PARAM_TARIF: 3 enregistrements\n  PAPIER_CATEG_TYPES_ENCRE: 0 enregistrements\n  PAPIER_MACROS: 0 enregistrements\n  PAPIER_SELECTIONS: 0 enregistrements\n  PAPIER_TYPES_ENCRE: 0 enregistrements\n  PAP_CERTIF_FAMILLES: 3 enregistrements\n  PAP_CERTIF_FAM_SOCUTIL: 1 enregistrements\n  PARAM_CALCDEV_IMPRIM: 1 enregistrements\n  PARAM_GENERAL: 1 enregistrements\n  PARTNER_NUM_ADRESSE: 0 enregistrements\n  PAYS: 98 enregistrements\n  PERSONNES_FONCTIONS: 168 enregistrements\n  PERSONNES_MAIL: 677 enregistrements\n  PERSONNES_SAUVEGARDE_20240423: 9762 enregistrements\n  PLIEUSES: 18 enregistrements\n  PLIEUSES_TARIF: 54 enregistrements\n  PLIEUSES_TYPESCAHIER: 0 enregistrements\n  PREP_CHEMINS: 7 enregistrements\n  PREP_CHEMINS_MACH: 25 enregistrements\n  PREP_CHEMINS_TYPES: 7 enregistrements\n  PREP_CHEM_OPP: 4 enregistrements\n  PREP_COMPLEXITES: 10 enregistrements\n  PREP_MARGES: 1 enregistrements\n  PREP_MARGES_TARIF: 3 enregistrements\n  PREP_TYPES: 3 enregistrements\n  PRESSESF_TYPESCAHIER: 0 enregistrements\n  PRESSES_FEUILLES: 37 enregistrements\n  PRESSES_FEUILLES_TYPES_ENCRE: 37 enregistrements\n  PRESSES_FEUILLES_VERNIS: 13 enregistrements\n  PRESSES_FEUIL_TARIF: 111 enregistrements\n  PRIORITES_ACTION: 4 enregistrements\n  PRODUITS: 60 enregistrements\n  PROJET5_2_FICHES: 106 enregistrements\n  PROJET5_2_POSTES_OPERATIONS: 287 enregistrements\n  PROJET5_2_SERVICES_POSTES: 122 enregistrements\n  PROJET5_2_TEST: 1 enregistrements\n  PROJET5_2_TRAITEMENTS: 0 enregistrements\n  PV_OP: 18 enregistrements\n  PV_OP_BORNES_TARIFS: 46 enregistrements\n  PV_OP_FAM: 7 enregistrements\n  PV_OP_MACH: 17 enregistrements\n  PV_OP_MACH_TARIF: 51 enregistrements\n  PV_OP_MATIERE: 54 enregistrements\n  RELEVES: 2 enregistrements\n  REPETER: 1 enregistrements\n  REPETER_TARIF: 3 enregistrements\n  ROTATIVES: 0 enregistrements\n  ROTATIVES_TARIF: 0 enregistrements\n  ROTATIVES_TYPESCAHIER: 0 enregistrements\n  ROTATIVES_TYPES_ENCRE: 0 enregistrements\n  SAIDEV_PREF: 1 enregistrements\n  SECTEURS_GEO: 0 enregistrements\n  SERIGRAPHIE: 0 enregistrements\n  SERIGRAPHIE_TARIF: 0 enregistrements\n  SERIGRAPHIE_TYPES_ENCRE: 0 enregistrements\n  SOCIETES: 7419 enregistrements\n  SOCIETES_ADR_COMMENT: 0 enregistrements\n  SOCIETES_CPTA: 4 enregistrements\n  SOCIETES_FACTURATIONS: 99 enregistrements\n  SOCIETES_IMPORTANCE: 2 enregistrements\n  SOCIETES_INFO_COMP: 0 enregistrements\n  SOCIETES_LICENCE: 1 enregistrements\n  SOCIETES_LIENS: 0 enregistrements\n  SOCIETES_MACROS_IMP: 0 enregistrements\n  SOCIETES_MARGES: 0 enregistrements\n  SOCIETES_PERSONNES: 2533 enregistrements\n  SOCIETES_PRODUITS: 60 enregistrements\n  SOCIETES_SOCUTIL: 7418 enregistrements\n  SOCIETES_UTIL: 1 enregistrements\n  SOCIETES_UTIL_SERVICES: 0 enregistrements\n  SPECIALITES_PERS: 0 enregistrements\n  STADES: 0 enregistrements\n  STATUTS_ACTION: 4 enregistrements\n  SUIVI_PRODUCTION: 0 enregistrements\n  TABLE_CORRESPONDANCES: 8 enregistrements\n  TARIFS: 3 enregistrements\n  TIERS: 261 enregistrements\n  TIERS_SOCUTIL: 261 enregistrements\n  TIERS_TYPES: 278 enregistrements\n  TYPES_AFFAIRE: 0 enregistrements\n  TYPES_CAHIER: 21 enregistrements\n  TYPES_ENCRE: 3 enregistrements\n  TYPES_ENCRE_TARIF: 9 enregistrements\n  TYPES_LIEN: 0 enregistrements\n  TYPES_OUTILS: 2 enregistrements\n  TYPES_SUPPORTS: 3 enregistrements\n  TYPOS: 14 enregistrements\n  TYPOS_CUSTOM: 1 enregistrements\n  TYPOS_TARIF: 42 enregistrements\n  TYPOS_TYPES_ENCRE: 3 enregistrements\n  USINES: 1 enregistrements\n  VISITES_CLIENTS: 64 enregistrements\n  VISITES_PERSONNES: 0 enregistrements\n  VOYAGES: 216 enregistrements\n  VOYAGE_LIGNES: 928 enregistrements\n  WEB_PAPETIERS: 2 enregistrements\n  WEB_PAPETIERS_COMPTES: 0 enregistrements\n  __EFMigrationsHistory: 1 enregistrements\n\n🔴 ÉCARTS CRITIQUES - ENREGISTREMENTS MANQUANTS (1):\n  ⚠️ Ces tables ont des enregistrements de la source ABSENTS de la cible\n  GS_INVENTAIRES: Source=15, Cible=109, MANQUE=15 enregistrements\n    Exemples de clés manquantes: [54368, 54435, 54372, 54406, 54374]\n\n🟢 DONNÉES SUPPLÉMENTAIRES DANS LA CIBLE (80):\n  ✓ Ces tables ont des enregistrements supplémentaires dans la cible (données ajoutées localement)\n  BONS_LIV: Source=2739, Cible=2740, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [47675]\n  BONS_LIV_LIGNES: Source=3026, Cible=3027, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [50156]\n  BROCH_CHEMINS_MACH: Source=14, Cible=22, Supplément=8 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(18, 6, 3), (18, 7, 3), (18, 9, 3), (18, 26, 1), (18, 22, 1)]\n  CMDES_MATIERE: Source=15051, Cible=15121, Supplément=70 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [45568, 45440, 45441, 45831, 45832]\n  COMMANDES_DESCR: Source=363, Cible=375, Supplément=12 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(81089, 1036), (82173, 1036), (79982, 1036), (82190, 1036), (61778, 1036)]\n  COMMANDES_INFO_COMP: Source=1094, Cible=1097, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(61778, 4), (64855, 4), (57224, 4)]\n  COMMANDES_OPTIONS: Source=1371, Cible=1375, Supplément=4 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(79970, 2), (79971, 2), (79982, 3), (79982, 4)]\n  CPTA_GRPE_DEFAUT: Source=738, Cible=740, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(0, 6988, 0), (0, 6708, 8)]\n  CTRL_RES: Source=5, Cible=98, Supplément=93 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [115200, 121090, 121091, 120068, 120069]\n  DEVIS: Source=53023, Cible=53028, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [290056, 287472, 282613, 287615, 290143]\n  DEV_AFF: Source=36024, Cible=36029, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [290056, 287472, 287636, 287615, 290143]\n  DEV_BROCH: Source=7814, Cible=7815, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [282613]\n  DEV_CAHIERS: Source=12933, Cible=12934, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [130452]\n  DEV_COUTS: Source=424184, Cible=424232, Supplément=48 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(290143, 3), (290056, 8), (287636, 6), (287636, 3), (287615, 1)]\n  DEV_COUT_PV: Source=46775, Cible=46778, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [236985, 237149, 231961]\n  DEV_DESCR: Source=17136, Cible=17138, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(287636, 1036), (287472, 1036)]\n  DEV_ELEM: Source=72880, Cible=72889, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [401856, 401857, 401729, 399114, 392977]\n  DEV_ELEM_CHANGEMENTS: Source=81758, Cible=81767, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [417121, 419915, 417100, 419789, 419916]\n  DEV_ELEM_PAP: Source=72880, Cible=72889, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [401856, 401857, 401729, 399114, 392977]\n  DEV_FACONNAGES: Source=58548, Cible=58558, Supplément=10 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [280705, 283777, 280706, 280940, 280941]\n  DEV_FORMATS_PAP: Source=50555, Cible=50572, Supplément=17 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [136322, 136323, 136324, 136325, 136326]\n  DEV_IMPOSITION_ELEMS: Source=687755, Cible=687769, Supplément=14 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [2640512, 2640513, 2640514, 2640515, 2672066]\n  DEV_IMPOS_ENCRE: Source=72258, Cible=72267, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [401856, 401857, 401729, 399114, 392977]\n  DEV_IMPRESSIONS: Source=78358, Cible=78362, Supplément=4 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [422272, 428346, 428540, 422271]\n  DEV_IMP_FEUILLES: Source=78358, Cible=78362, Supplément=4 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [422272, 428346, 428540, 422271]\n  DEV_IMP_FLASHAGE: Source=20496, Cible=20498, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [422272, 422271]\n  DEV_LIVRAISONS: Source=53121, Cible=53127, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [288544, 288456, 285871, 286035, 281011]\n  DEV_LIV_VERSIONS: Source=59493, Cible=59499, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(285871, 307994), (286014, 308139), (288544, 310740), (288456, 310653), (281011, 302856)]\n  DEV_LIV_VERSIONS_COND: Source=59201, Cible=59206, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(291751, 281011, 302856), (296853, 286014, 308139), (299408, 288544, 310740), (296875, 286035, 308160), (296709, 285871, 307994)]\n  DEV_OP_TYPO: Source=32878, Cible=32880, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(428540, 1), (428346, 1)]\n  DEV_PLIAGES: Source=18973, Cible=18974, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [143227]\n  DEV_SAISIE_PV: Source=45431, Cible=45438, Supplément=7 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(398936, 1), (399135, 1), (399114, 1), (401855, 1), (401856, 1)]\n  DEV_VERSIONS: Source=62041, Cible=62047, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [308160, 302856, 308139, 310740, 307994]\n  DEV_VERSIONS_COND: Source=59096, Cible=59102, Supplément=6 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [296577, 291618, 296743, 299274, 296721]\n  DEV_VERSIONS_ELEM: Source=91293, Cible=91302, Supplément=9 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [416804, 416805, 426792, 426793, 426666]\n  ECHEANCES: Source=3437, Cible=5032, Supplément=1595 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [123040, 123234, 164442, 164459, 164462]\n  EDITIONS: Source=59934, Cible=59936, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [190632, 190734]\n  EDITIONS_BLOCS: Source=243566, Cible=246298, Supplément=2732 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [581633, 581634, 581635, 581636, 581637]\n  EDITIONS_LETTRE: Source=9177, Cible=9179, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [190632, 190734]\n  EDITIONS_MODELES_DEF: Source=37, Cible=38, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(36, 22, 2, 1)]\n  EDMOD_BLOCS: Source=294, Cible=324, Supplément=30 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [3250, 3251, 3252, 3253, 3254]\n  FACTURES_TAXES: Source=16916, Cible=16919, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(33023, 2), (32980, 3), (31952, 3)]\n  FACTURES_TVA: Source=9075, Cible=9076, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(31952, 0)]\n  FACTURE_ELEM_BL: Source=2662, Cible=2663, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(46656, 51422)]\n  FACT_ELEM_INFO_COMP: Source=16067, Cible=16078, Supplément=11 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(6381, 4), (35200, 4), (6383, 4), (6384, 4), (6382, 4)]\n  GP_COUTS: Source=10599, Cible=10653, Supplément=54 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(59638, 9), (81052, 1), (59640, 9), (59641, 8), (81086, 6)]\n  GP_FACT_ACHATS_SSTR: Source=6759, Cible=8184, Supplément=1425 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [221184, 221185, 221186, 221187, 221188]\n  GP_FICHES_OPERATIONS: Source=4574, Cible=4606, Supplément=32 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(417126, 11), (440024, 750), (439539, 40), (435888, 750), (437886, 40)]\n  GP_FICHES_TRAVAIL: Source=15405, Cible=15555, Supplément=150 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [438272, 438278, 438279, 431625, 441870]\n  GP_FICHTRA_INT: Source=14850, Cible=14983, Supplément=133 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [438272, 438278, 438279, 431625, 441870]\n  GP_FICHTRA_SPEC: Source=18359, Cible=18468, Supplément=109 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(403308, 64, 1), (439976, 56, 1), (439976, 97, 2), (408791, 115, 2), (441240, 36, 1)]\n  GP_FICHTRA_SSTR: Source=554, Cible=569, Supplément=15 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [408835, 408808, 439800, 441226, 439980]\n  GP_GROUPES_ELEM: Source=190, Cible=192, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [1272, 1298]\n  GP_RESSOURCES: Source=15719, Cible=15985, Supplément=266 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [609283, 580157, 607757, 607758, 607760]\n  GP_RESSOURCES_SPEC: Source=5124, Cible=5179, Supplément=55 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(580166, 19, 1), (580127, 17, 1), (580114, 23, 1), (575394, 16, 1), (580192, 23, 1)]\n  GP_RESSOURCES_TRAV: Source=5919, Cible=6052, Supplément=133 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(441592, 610658), (435885, 607451), (432430, 603042), (441743, 610774), (438261, 607757)]\n  GP_TRAITEMENTS: Source=887, Cible=892, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [407363, 407364, 414546, 407161, 414490]\n  GP_TRAVAUX_SPEC: Source=18499, Cible=18502, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(162523, 139, 1), (162491, 139, 1), (162523, 140, 1)]\n  GS_MVT_STOCKS: Source=78502, Cible=78504, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [205209, 204933]\n  GS_TAMPONS_LIGNES: Source=1790, Cible=2641, Supplément=851 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [268291, 268292, 292876, 292880, 292881]\n  GS_TAMPONS_PIECES: Source=1389, Cible=1996, Supplément=607 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [194567, 192520, 192521, 194568, 194569]\n  HISTORIQUE_LIVRAISON: Source=10, Cible=21, Supplément=11 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [11, 12, 13, 14, 15]\n  IMPRIMANTES: Source=59996, Cible=59998, Supplément=2 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [190824, 190722]\n  JDF_ENVOYES: Source=403, Cible=1169, Supplément=766 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [73730, 73732, 73733, 73734, 57351]\n  LIVRAISONS_CMDE: Source=2405, Cible=2412, Supplément=7 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [82953, 83087, 83088, 83091, 81493]\n  LIVR_CMDE_VERSIONS: Source=2699, Cible=2706, Supplément=7 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [87392, 87393, 87396, 85739, 87212]\n  LIVR_COND: Source=2417, Cible=2418, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [83647]\n  LIVR_ETIQ: Source=2803, Cible=2804, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [46827]\n  PAPIERS_ARTICLES: Source=1159, Cible=1249, Supplément=90 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [86623, 80497, 80498, 80500, 80506]\n  PAPIERS_TARIF_FMT: Source=1160, Cible=2051, Supplément=891 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(89501, 8332, 1), (89048, 8494, 1), (91457, 8372, 0), (90249, 8458, 1), (89489, 8332, 1)]\n  PAPIERS_TARIF_GRAM: Source=553, Cible=866, Supplément=313 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(8368, 350), (6035, 335), (8372, 73), (8488, 275), (8225, 310)]\n  PERSONNES: Source=9825, Cible=9839, Supplément=14 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [18533, 18534, 18503, 18536, 18476]\n  SOCIETES_ADRESSES: Source=7471, Cible=7472, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [289]\n  SOCIETES_ADR_PERSON: Source=376, Cible=390, Supplément=14 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(15451, 18481, 15411), (11339, 18534, 11341), (17545, 18536, 17500), (6708, 18476, 6714), (15451, 18489, 15411)]\n  SOCIETES_LIVRAISONS: Source=7303, Cible=7304, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(289, 263)]\n  SOCIETES_MODELES: Source=12, Cible=13, Supplément=1 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [1031]\n  TELEPHONES: Source=7324, Cible=7479, Supplément=155 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [24587, 13839, 13840, 3618, 3619]\n  VENDEURS: Source=5894, Cible=5897, Supplément=3 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [(7003, 7451), (4994, 1), (3966, 1)]\n  personel: Source=77, Cible=89, Supplément=12 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [321, 386, 390, 391, 392]\n  sysdiagrams: Source=2, Cible=7, Supplément=5 enregistrements\n    Exemples de clés présentes en cible mais absentes en source: [8, 9, 10, 11, 12]\n\nℹ TABLES SPÉCIFIQUES À LA CIBLE (conservées) (21):\n  TOLERANCES_CONTROLE: 75 enregistrements\n  WEB_ACTIONS: 31 enregistrements\n  WEB_ATELIER_ACCES: 10 enregistrements\n  WEB_CONTROLES_QUALITE: 40 enregistrements\n  WEB_Coor_CH_dech: 10 enregistrements\n  WEB_DROITS_ACCES: 205 enregistrements\n  WEB_GMAO: 2 enregistrements\n  WEB_GMAO_ARTICLES: 2 enregistrements\n  WEB_GMAO_EMach: 2 enregistrements\n  WEB_GMAO_PREVENTIVE: 128 enregistrements\n  WEB_GMAO_REPARATION: 13 enregistrements\n  WEB_GMAO_REPARATION_JOURS: 4 enregistrements\n  WEB_GMAO_StatDemIn: 2 enregistrements\n  WEB_GMAO_StatRep: 4 enregistrements\n  WEB_PROJETS: 23 enregistrements\n  WEB_PdtNC_RecClt: 15 enregistrements\n  WEB_SECTIONS: 17 enregistrements\n  WEB_S_DOS_ENCOURS: 73 enregistrements\n  WEB_Suivi_Dechets: 315 enregistrements\n  WEB_TRAITEMENTS: 327 enregistrements\n  WEB_TRAITEMENTS_OUVERTURE: 0 enregistrements\n\n================================================================================\nRÉSUMÉ:\n  ✓ Tables parfaitement synchronisées: 380\n  🔴 Tables avec enregistrements manquants (CRITIQUE): 1\n  🟢 Tables avec données supplémentaires (OK): 80\n  ⚠️ Tables avec doublons de PK (CRITIQUE): 0\n  ✗ Tables manquantes dans cible: 0\n  ℹ Tables spécifiques à la cible (conservées): 21\n\n⚠️ TOTAL D'ENREGISTREMENTS MANQUANTS: 15\n  → Relancer la synchronisation pour corriger ces écarts\n================================================================================"
   },
   "has_problems": false
 }

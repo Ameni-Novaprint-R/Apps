@@ -401,17 +401,25 @@
         color: #e65100;
     }
 
+    /* Badges statut : fond clair + texte coloré (même style), couleurs harmonisées avec les boutons */
     .badge.statut-nouveau {
-        background: #e3f2fd;
-        color: #1976d2;
+        background: #e8eaf6;
+        color: #3949ab;
     }
-
     .badge.statut-encours {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+    .badge.statut-en-attente {
         background: #fff3e0;
         color: #f57c00;
     }
-
-    .badge.statut-termine {
+    .badge.statut-temporaire {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    .badge.statut-termine,
+    .badge.statut-cloturee {
         background: #e8f5e9;
         color: #388e3c;
     }
@@ -874,6 +882,69 @@
 
     .article-dynamic-row .form-group:first-child {
         flex: 2;
+    }
+
+    /* Jours d'intervention */
+    .intervention-jour-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        margin-bottom: 10px;
+        padding: 10px 15px;
+        background: #f0f7ff;
+        border-radius: 8px;
+        border: 1px solid #bbdefb;
+    }
+    .intervention-jour-row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+    }
+    .intervention-jour-row .form-group:first-child {
+        flex: 2;
+    }
+    .intervention-jour-row .jour-tps-total-input,
+    .intervention-jour-row .jour-tps-total-val {
+        background: #fff !important;
+        border: 1px solid #ddd;
+    }
+    .intervention-jour-row .jour-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+        justify-content: flex-end;
+    }
+    .btn-remove-jour, .btn-add-jour-inline {
+        padding: 3px 6px;
+        width: 28px;
+        min-width: 28px;
+        height: 24px;
+        font-size: 0.95em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        cursor: pointer;
+        box-sizing: border-box;
+    }
+    .btn-remove-jour {
+        background: #ffebee;
+        color: #c62828;
+        border: 1px solid #ef9a9a;
+    }
+    .btn-remove-jour:hover {
+        background: #ffcdd2;
+        color: #b71c1c;
+    }
+    .btn-add-jour-inline {
+        background: #f3e5f5;
+        color: #7b1fa2;
+        border: 1px solid #ce93d8;
+        font-weight: 600;
+    }
+    .btn-add-jour-inline:hover {
+        background: #e1bee7;
+        color: #6a1b9a;
     }
 
     .article-actions {
@@ -1448,29 +1519,16 @@
                 <input type="hidden" id="mat_inter" name="mat_inter">
             </div>
 
-            <!-- 3. Date/Heure Début, Fin et Temps Réel -->
-            <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
-                <div class="form-group">
-                    <label for="dte_deb">Date/Heure Début *</label>
-                    <div class="input-wrapper no-indicator">
-                        <input type="datetime-local" id="dte_deb" name="dte_deb" required>
-                    </div>
+            <!-- 2b. Jours d'intervention -->
+            <div class="form-group" id="intervention-jours-section">
+                <h4 style="margin: 0 0 15px 0;">📅 Jours d'intervention</h4>
+                <div id="intervention-jours-container">
+                    <!-- Lignes Date début / Heure fin / Temps réel / Temps total ajoutées dynamiquement -->
                 </div>
-
-                <div class="form-group">
-                    <label for="dte_fin">Date/Heure Fin</label>
-                    <div class="input-wrapper no-indicator">
-                        <input type="datetime-local" id="dte_fin" name="dte_fin">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="tps_reel">Temps Réel</label>
-                    <div class="input-wrapper no-indicator">
-                        <input type="text" id="tps_reel" name="tps_reel" placeholder="00:00" pattern="[0-9]{1,2}:[0-5][0-9]" maxlength="5">
-                    </div>
-                    <small style="color: #666; font-size: 0.85em;">Format HH:MM (ex: 01:30 = 1h30)</small>
-                </div>
+                <!-- Champs cachés pour formData et validation -->
+                <input type="hidden" id="dte_deb" name="dte_deb">
+                <input type="hidden" id="dte_fin" name="dte_fin">
+                <input type="hidden" id="tps_reel" name="tps_reel">
             </div>
 
             <!-- 5. Articles / Pièces Détachées -->
@@ -1512,7 +1570,13 @@
                     </label>
                 </div>
                 <input type="hidden" id="nat_rep_value" name="nat_rep" required>
-                <small style="color: #666; font-size: 0.9em;">Type de réparation effectuée</small>
+                <small style="color: #666; font-size: 0.9em;">Une panne peut être à la fois mécanique et électrique</small>
+            </div>
+
+            <!-- 7. Description du problème -->
+            <div class="form-group">
+                <label for="desc_prob_rep">Description</label>
+                <textarea id="desc_prob_rep" name="desc_prob_rep" rows="3" placeholder="Description du problème ou de l'intervention (optionnel)" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; font-family: inherit; resize: vertical;"></textarea>
             </div>
 
             <!-- Boutons de statut -->
@@ -1524,14 +1588,14 @@
                     <button type="button" class="status-btn btn-enregistrer" onclick="enregistrerReparation('enregistrer')" style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); flex: 1; min-width: 0;">
                         💾 Enregistrer
                     </button>
-                    <button type="button" class="status-btn btn-cloturer" onclick="enregistrerReparation('cloturer')" style="background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); flex: 1; min-width: 0;">
-                        ✅ Clôturer
-                    </button>
                     <button type="button" class="status-btn btn-en-attente" onclick="enregistrerReparation('en_attente')" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); flex: 1; min-width: 0;">
                         ⏸️ En Attente
                     </button>
                     <button type="button" class="status-btn btn-temporaire" onclick="enregistrerReparation('temporaire')" style="background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); flex: 1; min-width: 0;">
                         ⏱️ Temporaire
+                    </button>
+                    <button type="button" class="status-btn btn-cloturer" onclick="enregistrerReparation('cloturer')" style="background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); flex: 1; min-width: 0;">
+                        ✅ Clôturer
                     </button>
                 </div>
             </div>
@@ -1614,6 +1678,9 @@
         window._selectMaintenanceTypeImpl = selectMaintenanceType;
         window.selectMaintenanceType = selectMaintenanceType;
         if (type === 'corrective') {
+            // Toujours masquer les sections préventives quand on passe en corrective
+            $('#preventive-section').slideUp(300);
+            $('#preventive-tracking').slideUp(300);
             // Toggle: si déjà visible, on cache, sinon on affiche
             if ($('#corrective-options').is(':visible')) {
                 $('#corrective-options').slideUp(300);
@@ -1767,6 +1834,9 @@
                         $('#nature_mecanique').prop('checked', true);
                     } else if (demande.nat === 'Elec') {
                         $('#nature_electrique').prop('checked', true);
+                    } else if (demande.nat === 'E.M.') {
+                        $('#nature_mecanique').prop('checked', true);
+                        $('#nature_electrique').prop('checked', true);
                     }
                     $('#nat_rep_value').val(demande.nat);
                 }
@@ -1777,6 +1847,9 @@
                     $('#intervenant_input').val(texteIntervenant).attr('data-matricule', demande.mat_inter);
                     $('#mat_inter').val(demande.mat_inter);
                 }
+                
+                // Pré-remplir la description (reparation)
+                $('#desc_prob_rep').val(demande.desc_prob || '');
                 
                 // Pré-remplir les dates si une réparation existe déjà
                 if (demande.dte_deb) {
@@ -1800,9 +1873,17 @@
                     checkAndCreateFicheEnCours();
                 }
                 
-                // Pré-remplir le temps réel si disponible (format HH:MM)
-                if (demande.tps_reel) {
-                    $('#tps_reel').val(demande.tps_reel);
+                // Charger les jours d'intervention
+                $('#intervention-jours-container').empty();
+                interventionJourCounter = 0;
+                if (demande.intervention_jours && demande.intervention_jours.length > 0) {
+                    demande.intervention_jours.forEach(function(j) {
+                        ajouterJourIntervention(j);
+                    });
+                } else {
+                    const now = new Date();
+                    const defaultDeb = demande.dte_deb || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'));
+                    ajouterJourIntervention({ date_intervention: defaultDeb, dte_fin: demande.dte_fin || '', tps_reel: demande.tps_reel || demande.tps_reel_hhmm || '00:00' });
                 }
                 
                 // Charger les articles de la fiche
@@ -1824,6 +1905,12 @@
         currentInterventionMode = 'corrective';
         $('#type_in_reparation').val('R');
         $('#reparationModal').removeClass('preventive-mode');
+        $('#intervention-jours-container').empty();
+        interventionJourCounter = 0;
+        ajouterJourIntervention();
+        $('#articles-container').empty();
+        $('#no-articles-message').show();
+        articleCounter = 0;
         
         // Masquer le champ de sélection du préventif pour les réparations correctives
         $('#preventive-task-selection-group').hide();
@@ -1877,14 +1964,7 @@
             }
         });
         
-        // Mettre la date et heure actuelles
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        document.getElementById('dte_deb').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        // La première ligne a déjà la date actuelle par défaut (via ajouterJourIntervention)
         
         // Ouvrir le modal
         document.getElementById('reparationModal').classList.add('active');
@@ -1897,6 +1977,12 @@
         reparationEnCoursId = null;
         currentInterventionMode = 'preventive';
         $('#type_in_reparation').val('P');
+        $('#intervention-jours-container').empty();
+        interventionJourCounter = 0;
+        ajouterJourIntervention();
+        $('#articles-container').empty();
+        $('#no-articles-message').show();
+        articleCounter = 0;
         $('#reparationModal').addClass('preventive-mode');
         $('#reparationModal .modal-header h3').text('🛡️ Fiche d’intervention préventive');
         
@@ -2047,18 +2133,37 @@
                         $('#nature_mecanique').prop('checked', true);
                     } else if (demande.nat === 'Elec') {
                         $('#nature_electrique').prop('checked', true);
+                    } else if (demande.nat === 'E.M.') {
+                        $('#nature_mecanique').prop('checked', true);
+                        $('#nature_electrique').prop('checked', true);
                     }
                     $('#nat_rep_value').val(demande.nat);
+                }
+                if (demande.desc_prob != null && demande.desc_prob !== undefined) {
+                    $('#desc_prob_rep').val(demande.desc_prob);
+                }
+                
+                // Charger les jours d'intervention (mode lecture seule)
+                $('#intervention-jours-container').empty();
+                interventionJourCounter = 0;
+                if (demande.intervention_jours && demande.intervention_jours.length > 0) {
+                    demande.intervention_jours.forEach(function(j) { ajouterJourIntervention(j); });
+                } else {
+                    ajouterJourIntervention({ date_intervention: demande.dte_deb, dte_fin: demande.dte_fin, tps_reel: demande.tps_reel || '00:00' });
                 }
                 
                 // Charger les articles
                 chargerArticlesDeFiche(reparationId);
                 
-                // Masquer les boutons d'action des articles après chargement
+                // Masquer les boutons d'action des articles et des jours après chargement
                 setTimeout(function() {
                     $('.btn-remove-article').hide();
                     $('.btn-add-article-inline').hide();
                     $('#articles-container input, #articles-container select').prop('readonly', true).prop('disabled', true).css('background-color', '#f0f0f0').css('cursor', 'not-allowed');
+                    $('.btn-add-jour').hide();
+                    $('.btn-add-jour-inline').hide();
+                    $('.btn-remove-jour').hide();
+                    $('#intervention-jours-container input').prop('readonly', true).prop('disabled', true).css('background-color', '#f0f0f0').css('cursor', 'not-allowed');
                 }, 500);
                 
                 // Stocker l'ID pour référence
@@ -2102,8 +2207,12 @@
         $('#mat_inter').val('');
         $('.checkbox-nature input[type="checkbox"]').prop('checked', false);
         $('#nat_rep_value').val('');
+        $('#desc_prob_rep').val('');
         $('#alert-reparation').removeClass('active');
-        $('#tps_reel').val('');
+        // Vider les jours d'intervention et en créer une
+        $('#intervention-jours-container').empty();
+        interventionJourCounter = 0;
+        ajouterJourIntervention();
         // Vider les articles
         $('#articles-container').empty();
         $('#no-articles-message').show();
@@ -2436,9 +2545,9 @@
         });
     }
 
-    // Supprimer une demande
+    // Supprimer une demande d'intervention (impossible si réparation associée)
     function supprimerDemande(demandeId) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette demande d\'intervention ? Cette action supprimera également les informations de réparation associées.')) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette demande d\'intervention ?\n\nNote : la suppression est impossible si une fiche de réparation est associée.')) {
             $.ajax({
                 url: '/projet16/api/delete_demande/' + demandeId,
                 method: 'DELETE',
@@ -2463,24 +2572,15 @@
         }
     }
 
-    // Supprimer une réparation (remet à NULL les champs de réparation, la demande reste)
-    function supprimerReparation(demandeId) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer les informations de réparation ? La demande d\'intervention restera enregistrée.')) {
+    // Supprimer une fiche de réparation (uniquement la réparation, pas la demande)
+    function supprimerReparation(reparationId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette fiche de réparation ?\n\nLa fiche de demande d\'intervention associée (si elle existe) ne sera pas supprimée.')) {
             $.ajax({
-                url: '/projet16/api/delete_reparation/' + demandeId,
+                url: '/projet16/api/delete_reparation/' + reparationId,
                 method: 'DELETE',
                 success: function() {
-                    alert('Informations de réparation supprimées avec succès');
-                    // Recharger la liste actuellement affichée
-                    const activeFilter = $('.filter-btn.active');
-                    if (activeFilter.length > 0) {
-                        const filterType = activeFilter.attr('onclick').includes('demandes') ? 'demandes' : 'reparations';
-                        if (filterType === 'demandes') {
-                            loadDemandes();
-                        } else {
-                            loadReparations();
-                        }
-                    }
+                    alert('Fiche de réparation supprimée avec succès');
+                    loadReparations();
                 },
                 error: function(xhr) {
                     const error = xhr.responseJSON ? xhr.responseJSON.error : 'Erreur lors de la suppression';
@@ -2497,10 +2597,22 @@
         alert.className = `alert ${type} active`;
     }
 
-    // Charger les demandes
+    function statutRepClassFromDesignation(designation, id) {
+        const d = (designation || '').toLowerCase();
+        if (d.includes('clôtur') || d.includes('clotur')) return 'statut-termine';
+        if (d.includes('temporaire')) return 'statut-temporaire';
+        if (d.includes('attente')) return 'statut-en-attente';
+        if (d.includes('en cours') || d.includes('encours')) return 'statut-encours';
+        if (id === 0 || id === 1) return 'statut-encours';
+        if (id === 2) return 'statut-termine';
+        return 'statut-nouveau';
+    }
+
+    // Charger les demandes (fiches de demande d'intervention uniquement)
     function loadDemandes() {
         $.ajax({
             url: '/projet16/api/demandes',
+            data: { type: 'demandes' },
             method: 'GET',
             success: function(demandes) {
                 $('#demandes-loading').hide();
@@ -2523,28 +2635,19 @@
                 const tbody = $('#demandes-tbody');
                 tbody.empty();
                 
-                // Filtrer pour n'afficher que les demandes d'intervention
-                // Une demande d'intervention est identifiée par : MatrOpDem, OperDem, DteDemIn renseignés
-                const demandesFiltrees = demandes.filter(function(d) {
-                    return d.matr_op_dem && d.matr_op_dem !== '' && 
-                           d.oper_dem && d.oper_dem !== '' && 
-                           d.dte_dem_in && d.dte_dem_in !== '';
-                });
-                
-                if (demandesFiltrees.length === 0) {
+                // Le backend ne retourne que les fiches de demande d'intervention (OperDem, MatrOpDem, DteDemIn renseignés)
+                if (demandes.length === 0) {
                     tbody.append('<tr><td colspan="9" style="text-align: center; color: #666;">Aucune demande d\'intervention enregistrée</td></tr>');
                     return;
                 }
                 
-                demandesFiltrees.forEach(function(demande) {
+                demandes.forEach(function(demande) {
                     let statutDemClass = 'statut-nouveau';
                     if (demande.statut_demande_id === 1) statutDemClass = 'statut-encours';
                     if (demande.statut_demande_id === 2) statutDemClass = 'statut-termine';
                     const statutDemBadge = '<span class="badge ' + statutDemClass + '">' + demande.statut_demande + '</span>';
                     
-                    let statutRepClass = 'statut-nouveau';
-                    if (demande.statut_reparation_id === 1) statutRepClass = 'statut-encours';
-                    if (demande.statut_reparation_id === 2) statutRepClass = 'statut-termine';
+                    let statutRepClass = statutRepClassFromDesignation(demande.statut_reparation, demande.statut_reparation_id);
                     const statutRepBadge = '<span class="badge ' + statutRepClass + '">' + demande.statut_reparation + '</span>';
                     
                     const dateStr = demande.dte_dem_in ? new Date(demande.dte_dem_in).toLocaleString('fr-FR', {
@@ -2607,25 +2710,27 @@
         });
     }
 
-    // Charger les réparations (fiches avec réparation uniquement)
+    // Charger les réparations (fiches de la table WEB_GMAO_REPARATION)
     function loadReparations() {
         $.ajax({
-            url: '/projet16/api/demandes',
+            url: '/projet16/api/reparations',
             method: 'GET',
-            success: function(demandes) {
+            success: function(reparations) {
                 $('#demandes-loading').hide();
                 $('#demandes-table').show();
                 
-                // Modifier l'en-tête du tableau pour les réparations
+                // En-tête du tableau : ID = fiche réparation, ID demande = fiche demande d'intervention
                 const thead = $('#demandes-table thead tr');
                 thead.html(`
                     <th>ID</th>
+                    <th>ID demande</th>
                     <th>Date Demande</th>
                     <th>Date de Réparation</th>
                     <th>Temps</th>
                     <th>Machine</th>
                     <th>Intervenant</th>
                     <th>Nature</th>
+                    <th>Description</th>
                     <th>Statut Réparation</th>
                     <th>Actions</th>
                 `);
@@ -2633,23 +2738,13 @@
                 const tbody = $('#demandes-tbody');
                 tbody.empty();
                 
-                // Filtrer pour n'afficher que les fiches de réparation
-                // Une réparation est identifiée par : MatInter et Internvenant renseignés
-                const reparations = demandes.filter(function(d) {
-                    return d.mat_inter && d.mat_inter !== '' && 
-                           d.intervenant && d.intervenant !== '';
-                });
-                
                 if (reparations.length === 0) {
-                    tbody.append('<tr><td colspan="9" style="text-align: center; color: #666;">Aucune fiche de réparation enregistrée</td></tr>');
+                    tbody.append('<tr><td colspan="11" style="text-align: center; color: #666;">Aucune fiche de réparation enregistrée</td></tr>');
                     return;
                 }
                 
                 reparations.forEach(function(demande) {
-                    let statutRepClass = 'statut-nouveau';
-                    if (demande.statut_reparation_id === 0) statutRepClass = 'statut-encours'; // En cours
-                    else if (demande.statut_reparation_id === 1) statutRepClass = 'statut-encours';
-                    else if (demande.statut_reparation_id === 2) statutRepClass = 'statut-termine';
+                    let statutRepClass = statutRepClassFromDesignation(demande.statut_reparation, demande.statut_reparation_id);
                     const statutRepBadge = '<span class="badge ' + statutRepClass + '">' + demande.statut_reparation + '</span>';
                     
                     const dateStr = demande.dte_dem_in ? new Date(demande.dte_dem_in).toLocaleString('fr-FR', {
@@ -2688,15 +2783,25 @@
                         }
                     }
                     
+                    // Nature : afficher "Mec et Elec" si E.M.
+                    const natDisplay = (demande.nat === 'E.M.') ? 'Mec et Elec' : (demande.nat || '-');
+                    const descProb = (demande.desc_prob != null && demande.desc_prob !== '') ? String(demande.desc_prob) : '';
+                    const descShort = descProb.length > 40 ? descProb.substring(0, 40) + '...' : descProb;
+                    
+                    // id = ID réparation, id_demande = ID fiche demande (peut être vide pour réparation directe)
+                    const idDemandeDisplay = (demande.id_demande != null && demande.id_demande !== '') ? demande.id_demande : '-';
+                    
                     tbody.append(`
                         <tr>
                             <td>${demande.id}</td>
+                            <td>${idDemandeDisplay}</td>
                             <td>${dateStr}</td>
                             <td>${dateRepStr}</td>
                             <td>${tempsStr}</td>
                             <td>${demande.postes_reel || '-'}</td>
                             <td>${demande.intervenant || '-'}</td>
-                            <td>${demande.nat || '-'}</td>
+                            <td>${natDisplay}</td>
+                            <td class="cell-description" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(descProb || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}">${(descShort || '-').replace(/</g, '&lt;').replace(/&/g, '&amp;')}</td>
                             <td>${statutRepBadge}</td>
                             <td>
                                 <div class="button-group">
@@ -2711,7 +2816,7 @@
                                             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
                                         </svg>
                                     </button>
-                                    <button class="btn-delete" onclick="supprimerDemande(${demande.id})" title="Supprimer">
+                                    <button class="btn-delete" onclick="supprimerReparation(${demande.id})" title="Supprimer la fiche de réparation">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polyline points="3 6 5 6 21 6"></polyline>
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -2734,8 +2839,24 @@
     // ========== VARIABLES GLOBALES ==========
     let reparationEnCoursId = null; // ID de la fiche "En cours" créée automatiquement
     let articleCounter = 0; // Compteur pour générer des IDs uniques pour les articles
+    let interventionJourCounter = 0; // Compteur pour les lignes Jours d'intervention
     let selectedPreventiveTask = null; // Tâche préventive sélectionnée pour pré-remplissage
     let currentInterventionMode = 'corrective'; // corrective ou preventive
+    let pendingMettreAJourTimeout = null;
+
+    function scheduleMettreAJourFicheEnCours() {
+        if (pendingMettreAJourTimeout) clearTimeout(pendingMettreAJourTimeout);
+        pendingMettreAJourTimeout = setTimeout(function() {
+            pendingMettreAJourTimeout = null;
+            mettreAJourFicheEnCours();
+        }, 500);
+    }
+    function cancelMettreAJourFicheEnCours() {
+        if (pendingMettreAJourTimeout) {
+            clearTimeout(pendingMettreAJourTimeout);
+            pendingMettreAJourTimeout = null;
+        }
+    }
 
     // ========== FONCTIONS ARTICLES DYNAMIQUES ==========
     function ajouterLigneArticle(articleData = null) {
@@ -2787,7 +2908,7 @@
         $('#articles-container').append(articleRow);
         $('#no-articles-message').hide();
         
-        // Pré-remplir si données fournies
+        // Pré-remplir si données fournies (articleData)
         if (articleData && articleData.designation) {
             $(`#${articleId}_input`).val(articleData.designation);
             $(`#${articleId}_id_hidden`).val(articleData.id_article || '');
@@ -2984,6 +3105,181 @@
         });
     }
 
+    // ========== JOURS D'INTERVENTION ==========
+    function ajouterJourIntervention(jourData = null, afterJourId = null) {
+        interventionJourCounter++;
+        const jourId = 'jour_' + interventionJourCounter;
+        const now = new Date();
+        const defaultDeb = (jourData && jourData.date_intervention) ? jourData.date_intervention : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        let defaultTps = (jourData && (jourData.tps_reel_hhmm || jourData.tps_reel)) ? (jourData.tps_reel_hhmm || jourData.tps_reel) : '00:00';
+        if (typeof defaultTps === 'number') defaultTps = heuresDecimalesVersHHMM(defaultTps);
+        let defaultFin = jourData && jourData.dte_fin ? String(jourData.dte_fin) : '';
+        if (defaultFin) {
+            const m = defaultFin.match(/(\d{1,2}):(\d{2})/);
+            if (m) defaultFin = String(parseInt(m[1],10)).padStart(2,'0') + ':' + String(parseInt(m[2],10)).padStart(2,'0');
+            else defaultFin = '';
+        }
+        const isFirst = $('#intervention-jours-container .intervention-jour-row').length === 0;
+        const idDeb = isFirst ? 'dte_deb_visible' : jourId + '_deb';
+        const idFin = isFirst ? 'heure_fin_visible' : jourId + '_fin';
+        const idTps = jourId + '_tps';
+        const tpsTotalHtml = isFirst
+            ? `<div class="form-group"><label>Temps Total</label><div class="input-wrapper no-indicator"><input type="text" id="tps_total" readonly placeholder="00:00" class="jour-tps-total-input" style="min-width: 60px;"></div></div>`
+            : `<div class="form-group jour-tps-total-placeholder"><label>&nbsp;</label><div class="input-wrapper no-indicator"><input type="text" class="jour-tps-total-val" readonly placeholder="—" style="min-width: 60px;"></div></div>`;
+        const row = $(`
+            <div class="intervention-jour-row" data-jour-id="${jourId}">
+                <div class="form-group">
+                    <label>Date/Heure Début *</label>
+                    <div class="input-wrapper no-indicator">
+                        <input type="datetime-local" class="jour-dte-deb" id="${idDeb}" ${isFirst ? 'required' : ''} value="${defaultDeb}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Heure Fin</label>
+                    <div class="input-wrapper no-indicator">
+                        <input type="time" class="jour-dte-fin" id="${idFin}" value="${defaultFin || ''}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Temps Réel</label>
+                    <div class="input-wrapper no-indicator">
+                        <input type="text" class="jour-tps" id="${idTps}" placeholder="00:00" pattern="[0-9]{1,2}:[0-5][0-9]" maxlength="5" value="${typeof defaultTps === 'string' ? defaultTps : '00:00'}">
+                    </div>
+                </div>
+                ${tpsTotalHtml}
+                <div class="jour-actions">
+                    <button type="button" class="btn-add-jour-inline" onclick="ajouterJourIntervention(null, '${jourId}')" title="Ajouter une ligne">➕</button>
+                    <button type="button" class="btn-remove-jour" onclick="supprimerJourIntervention('${jourId}')" title="Supprimer">✕</button>
+                </div>
+            </div>
+        `);
+        if (afterJourId) {
+            const refRow = $(`.intervention-jour-row[data-jour-id="${afterJourId}"]`);
+            if (refRow.length) row.insertAfter(refRow);
+            else $('#intervention-jours-container').append(row);
+        } else {
+            $('#intervention-jours-container').append(row);
+        }
+        bindJourRowEvents(row);
+        if (defaultTps && !defaultFin) {
+            const deb = row.find('.jour-dte-deb').val();
+            if (deb) calculerDteFinPourLigne(row);
+        } else if (defaultDeb && defaultFin) {
+            calculerTpsReelPourLigne(row);
+        }
+        updateFromInterventionJours();
+    }
+    function bindJourRowEvents(row) {
+        row.find('.jour-dte-deb').on('change', function() {
+            if (row.find('.jour-dte-fin').val()) calculerTpsReelPourLigne(row);
+            else if (row.find('.jour-tps').val()) calculerDteFinPourLigne(row);
+            updateFromInterventionJours();
+        });
+        row.find('.jour-dte-fin').on('change', function() {
+            calculerTpsReelPourLigne(row);
+            updateFromInterventionJours();
+        });
+        row.find('.jour-tps').on('input', function() { formaterHHMM(this); });
+        row.find('.jour-tps').on('change blur', function() {
+            if (!row.find('.jour-dte-fin').val()) calculerDteFinPourLigne(row);
+            updateFromInterventionJours();
+        });
+    }
+    function calculerTpsReelPourLigne(row) {
+        const deb = row.find('.jour-dte-deb').val();
+        const fin = row.find('.jour-dte-fin').val(); // HH:MM (type time)
+        if (deb && fin) {
+            const d = new Date(deb);
+            const [fh, fm] = fin.split(':').map(function(x) { return parseInt(x, 10) || 0; });
+            const f = new Date(d.getFullYear(), d.getMonth(), d.getDate(), fh, fm, 0);
+            if (f > d) row.find('.jour-tps').val(heuresDecimalesVersHHMM((f - d) / 3600000));
+            else row.find('.jour-tps').val('');
+        }
+    }
+    function calculerDteFinPourLigne(row) {
+        const deb = row.find('.jour-dte-deb').val();
+        const tps = row.find('.jour-tps').val();
+        if (deb && tps) {
+            const h = HHMMVersHeuresDecimales(tps);
+            if (h > 0) {
+                const d = new Date(deb);
+                const f = new Date(d.getTime() + h * 3600000);
+                row.find('.jour-dte-fin').val(String(f.getHours()).padStart(2,'0') + ':' + String(f.getMinutes()).padStart(2,'0'));
+            }
+        }
+    }
+    function supprimerJourIntervention(jourId) {
+        $(`.intervention-jour-row[data-jour-id="${jourId}"]`).remove();
+        if ($('#intervention-jours-container .intervention-jour-row').length === 0) {
+            ajouterJourIntervention();
+        } else {
+            fixFirstRowIds();
+            updateFromInterventionJours();
+        }
+    }
+    function fixFirstRowIds() {
+        const first = $('#intervention-jours-container .intervention-jour-row').first();
+        if (first.length) {
+            first.find('.jour-dte-deb').attr('id', 'dte_deb_visible').prop('required', true);
+            first.find('.jour-dte-fin').attr('id', 'heure_fin_visible');
+            if (first.find('#tps_total').length === 0) {
+                const ph = first.find('.jour-tps-total-placeholder');
+                if (ph.length) ph.replaceWith('<div class="form-group"><label>Temps Total</label><div class="input-wrapper no-indicator"><input type="text" id="tps_total" readonly placeholder="00:00" class="jour-tps-total-input" style="min-width: 60px;"></div></div>');
+            }
+        }
+    }
+    function getInterventionJoursData() {
+        const jours = [];
+        $('#intervention-jours-container .intervention-jour-row').each(function() {
+            const j = $(this);
+            const deb = j.find('.jour-dte-deb').val();
+            const tps = j.find('.jour-tps').val();
+            if (deb) {
+                jours.push({ date_intervention: deb, tps_reel: tps || '00:00' });
+            }
+        });
+        return jours;
+    }
+    function updateFromInterventionJours() {
+        const rows = $('#intervention-jours-container .intervention-jour-row');
+        let totalHeures = 0;
+        let dteDeb = '', dteFin = '';
+        const allFinDt = [];
+        rows.each(function() {
+            const j = $(this);
+            const deb = j.find('.jour-dte-deb').val();
+            const fin = j.find('.jour-dte-fin').val(); // HH:MM
+            const tps = j.find('.jour-tps').val();
+            if (deb) {
+                if (!dteDeb) dteDeb = deb;
+                totalHeures += HHMMVersHeuresDecimales(tps || '00:00');
+                var fullEnd = deb;
+                if (fin) {
+                    const d = new Date(deb);
+                    const [fh, fm] = fin.split(':').map(function(x) { return parseInt(x, 10) || 0; });
+                    const f = new Date(d.getFullYear(), d.getMonth(), d.getDate(), fh, fm, 0);
+                    fullEnd = f.getFullYear() + '-' + String(f.getMonth()+1).padStart(2,'0') + '-' + String(f.getDate()).padStart(2,'0') + 'T' + String(f.getHours()).padStart(2,'0') + ':' + String(f.getMinutes()).padStart(2,'0');
+                } else if (tps) {
+                    const h = HHMMVersHeuresDecimales(tps);
+                    if (h > 0) {
+                        const d = new Date(deb);
+                        const f = new Date(d.getTime() + h * 3600000);
+                        fullEnd = f.getFullYear() + '-' + String(f.getMonth()+1).padStart(2,'0') + '-' + String(f.getDate()).padStart(2,'0') + 'T' + String(f.getHours()).padStart(2,'0') + ':' + String(f.getMinutes()).padStart(2,'0');
+                    }
+                }
+                allFinDt.push(fullEnd);
+            }
+        });
+        if (allFinDt.length) dteFin = allFinDt.sort().pop();
+        $('#dte_deb').val(dteDeb);
+        $('#dte_fin').val(dteFin);
+        $('#tps_reel').val(heuresDecimalesVersHHMM(totalHeures));
+        const tpsTotalVal = heuresDecimalesVersHHMM(totalHeures);
+        if ($('#tps_total').length) $('#tps_total').val(tpsTotalVal);
+        $('.jour-tps-total-val').val(tpsTotalVal);
+        if (reparationEnCoursId) scheduleMettreAJourFicheEnCours();
+    }
+
     // ========== FONCTIONS DE CALCUL TEMPS ==========
     function heuresDecimalesVersHHMM(heuresDecimales) {
         const heures = Math.floor(heuresDecimales);
@@ -3111,7 +3407,7 @@
             demandeId = $('#select_demande_hidden').val();
         }
 
-        // Convertir TpsReel de HH:MM en heures décimales pour le backend
+        updateFromInterventionJours();
         const tpsReelHHMM = $('#tps_reel').val();
         const tpsReelDecimal = tpsReelHHMM ? HHMMVersHeuresDecimales(tpsReelHHMM) : null;
         
@@ -3124,7 +3420,9 @@
             id_stat_rep: 0, // En cours
             tps_reel: tpsReelDecimal,
             type_in: $('#type_in_reparation').val() || 'R',
-            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
+            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
+            desc_prob: $('#desc_prob_rep').val() || '',
+            intervention_jours: getInterventionJoursData()
         };
 
         // Si une demande est sélectionnée, mettre à jour cette demande
@@ -3170,7 +3468,7 @@
         // Mettre à jour la fiche en cours avec les données actuelles
         if (!reparationEnCoursId) return;
 
-        // Convertir TpsReel de HH:MM en heures décimales pour le backend
+        updateFromInterventionJours();
         const tpsReelHHMM = $('#tps_reel').val();
         const tpsReelDecimal = tpsReelHHMM ? HHMMVersHeuresDecimales(tpsReelHHMM) : null;
         
@@ -3183,7 +3481,9 @@
             id_stat_rep: 0, // Rester en cours
             tps_reel: tpsReelDecimal,
             type_in: $('#type_in_reparation').val() || 'R',
-            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
+            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
+            desc_prob: $('#desc_prob_rep').val() || '',
+            intervention_jours: getInterventionJoursData()
         };
 
         $.ajax({
@@ -3243,7 +3543,7 @@
             demandeId = $('#select_demande_hidden').val();
         }
 
-        // Convertir TpsReel de HH:MM en heures décimales pour le backend
+        updateFromInterventionJours();
         const tpsReelHHMM = $('#tps_reel').val();
         const tpsReelDecimal = tpsReelHHMM ? HHMMVersHeuresDecimales(tpsReelHHMM) : null;
         
@@ -3276,7 +3576,9 @@
                 id_stat_rep: 0, // En cours
                 tps_reel: tpsReelDecimal,
                 type_in: $('#type_in_reparation').val() || 'R',
-                id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
+                id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
+                desc_prob: $('#desc_prob_rep').val() || '',
+                intervention_jours: getInterventionJoursData()
             };
 
             // Si pas de demandeId, créer une nouvelle fiche
@@ -3380,7 +3682,8 @@
             return;
         }
 
-        // Pour les autres statuts (cloturer, en_attente, temporaire)
+        // Pour les autres statuts (cloturer, en_attente, temporaire) : annuler toute mise à jour en attente
+        cancelMettreAJourFicheEnCours();
         if (!demandeId) {
             showAlert('alert-reparation', 'Erreur: Impossible de déterminer l\'ID de la réparation', 'error');
             return;
@@ -3395,7 +3698,9 @@
             statut: statut, // 'cloturer', 'en_attente', 'temporaire'
             tps_reel: tpsReelDecimal,
             type_in: $('#type_in_reparation').val() || 'R',
-            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null
+            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
+            desc_prob: $('#desc_prob_rep').val() || '',
+            intervention_jours: getInterventionJoursData()
         };
 
         // Sauvegarder les articles avant de finaliser
@@ -3554,17 +3859,17 @@
             }
         });
 
-        // Gestion des checkboxes Nature (identique à État de la Machine)
+        // Gestion des checkboxes Nature : autoriser les deux (mécanique et électrique)
         $('.checkbox-nature input[type="checkbox"]').on('change', function() {
-            const estCoche = $(this).is(':checked');
-            
-            if (estCoche) {
-                // Décocher l'autre checkbox
-                $('.checkbox-nature input[type="checkbox"]').not(this).prop('checked', false);
-                // Mettre à jour la valeur dans le champ caché
-                $('#nat_rep_value').val($(this).val());
+            const mec = $('#nature_mecanique').is(':checked');
+            const elec = $('#nature_electrique').is(':checked');
+            if (mec && elec) {
+                $('#nat_rep_value').val('E.M.');
+            } else if (mec) {
+                $('#nat_rep_value').val('Mec');
+            } else if (elec) {
+                $('#nat_rep_value').val('Elec');
             } else {
-                // Si on décoche, vider le champ caché
                 $('#nat_rep_value').val('');
             }
         });
@@ -3609,6 +3914,9 @@
                         $('#nature_mecanique').prop('checked', true);
                     } else if (nature === 'Elec') {
                         $('#nature_electrique').prop('checked', true);
+                    } else if (nature === 'E.M.') {
+                        $('#nature_mecanique').prop('checked', true);
+                        $('#nature_electrique').prop('checked', true);
                     }
                     $('#nat_rep_value').val(nature);
                 }
@@ -3649,7 +3957,7 @@
             checkAndCreateFicheEnCours();
             // Mettre à jour la fiche en cours si elle existe
             if (reparationEnCoursId) {
-                setTimeout(mettreAJourFicheEnCours, 500);
+                scheduleMettreAJourFicheEnCours();
             }
         });
 
@@ -3666,62 +3974,22 @@
             }
             // Mettre à jour la fiche en cours si elle existe
             if (reparationEnCoursId) {
-                setTimeout(mettreAJourFicheEnCours, 500);
+                scheduleMettreAJourFicheEnCours();
             }
         });
         
-        // Calculs automatiques selon les règles :
-        // - Si DteFin est saisi → TpsReel = DteFin - DteDeb
-        // - Si TpsReel est saisi et DteFin vide → DteFin = DteDeb + TpsReel
-        // - Si DteFin et TpsReel sont tous les deux saisis → prioriser DteFin et recalculer TpsReel
-        
-        $('#dte_deb').on('change', function() {
-            // Si DteFin est renseigné, recalculer TpsReel
-            if ($('#dte_fin').val()) {
-                calculerTpsReel();
-            }
-            // Si TpsReel est renseigné et DteFin vide, recalculer DteFin
-            else if ($('#tps_reel').val()) {
-                calculerDteFin();
-            }
-        });
-        
-        $('#dte_fin').on('change', function() {
-            // Si DteFin est saisi, toujours recalculer TpsReel (priorité à DteFin)
-            calculerTpsReel();
-        });
-        
-        // Formatage automatique et calcul DteFin pour le champ Temps Réel
-        $('#tps_reel').on('input', function() {
-            formaterHHMM(this);
-        });
-        
-        $('#tps_reel').on('change blur', function() {
-            // Si DteFin n'est pas renseigné, calculer DteFin à partir de TpsReel
-            // Si DteFin est déjà renseigné, on ne le modifie pas (priorité à la saisie manuelle)
-            if (!$('#dte_fin').val()) {
-                calculerDteFin();
-            }
-            // Si DteFin est renseigné, on recalcule TpsReel (priorité à DteFin)
-            else {
-                calculerTpsReel();
-            }
-            // Mettre à jour la fiche en cours si elle existe
-            if (reparationEnCoursId) {
-                setTimeout(mettreAJourFicheEnCours, 500);
-            }
-        });
+        // Calculs par ligne : gérés dans bindJourRowEvents (Date début, Date fin, Temps réel)
 
         // Mettre à jour la fiche en cours lors des changements de champs
         $('#nat_rep_value').on('change', function() {
             if (reparationEnCoursId) {
-                setTimeout(mettreAJourFicheEnCours, 500);
+                scheduleMettreAJourFicheEnCours();
             }
         });
 
         $('#dte_deb, #dte_fin').on('change', function() {
             if (reparationEnCoursId) {
-                setTimeout(mettreAJourFicheEnCours, 500);
+                scheduleMettreAJourFicheEnCours();
             }
         });
 
