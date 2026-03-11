@@ -12,6 +12,10 @@
 <!-- DataTables JS -->
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<!-- Chart.js pour la section Rapports CQ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- html2pdf pour export PDF de l'analyse CQ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
     .table-filters input {
         width: 100%;
@@ -110,6 +114,11 @@
         background-color: rgba(0, 0, 0, 0.5);
         overflow-y: auto;
         padding: 15px;
+    }
+    .p10-modal:not(.active) {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
     }
     .p10-modal.active {
         display: flex;
@@ -391,7 +400,8 @@
         /* S'assurer que seule la section active est visible */
         #section-controles:not(.active),
         #section-nouveau:not(.active),
-        #section-statistiques:not(.active) {
+        #section-statistiques:not(.active),
+        #section-rapports-cq:not(.active) {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
@@ -795,6 +805,47 @@
             visibility: visible !important;
         }
 
+        /* Section Rapports CQ : forcer l'affichage quand active (comme section-statistiques) */
+        #section-rapports-cq.active {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            min-height: auto !important;
+            height: auto !important;
+            max-height: none !important;
+            width: 100% !important;
+            overflow: visible !important;
+        }
+        #section-rapports-cq.active * {
+            visibility: visible !important;
+            max-height: none !important;
+        }
+        #section-rapports-cq #btnRapportCqPdf.rapport-cq-pdf-hidden {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        #section-rapports-cq.active .card,
+        #section-rapports-cq.active .row,
+        #section-rapports-cq.active canvas {
+            display: block !important;
+        }
+        #section-rapports-cq.active .row {
+            display: flex !important;
+            flex-wrap: wrap !important;
+        }
+        #section-rapports-cq.active .col-md-6 {
+            display: block !important;
+        }
+        body .container-fluid #section-rapports-cq.active {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 1 !important;
+            min-height: 200px !important;
+        }
+
         @media (max-width: 992px) {
             .section-options {
                 flex-direction: column;
@@ -826,10 +877,16 @@
                 <span>Statistiques</span>
             </div>
             {% endif %}
+            {% if show_rapports_cq %}
+            <div class="section-btn" id="toggle-rapports-cq" data-section="rapports-cq">
+                <span>📄</span>
+                <span>Rapports CQ</span>
+            </div>
+            {% endif %}
         </div>
     </div>
     
-    {% if not show_liste_controles and not show_nouveau_controle and not show_statistiques %}
+    {% if not show_liste_controles and not show_nouveau_controle and not show_statistiques and not show_rapports_cq %}
     <div class="alert alert-warning mt-4">
         <i class="fas fa-exclamation-triangle"></i>
         Vous n'avez accès à aucune section du Projet 10. Veuillez contacter l'administrateur pour obtenir les droits nécessaires.
@@ -868,6 +925,112 @@
                     </tbody>
                 </table>
             </div>
+    </div>
+    {% endif %}
+
+    <!-- Section Statistiques (avant le modal pour éviter les conflits d'affichage) -->
+    {% if show_statistiques %}
+    <div class="content-section" id="section-statistiques">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Statistiques de Contrôle Qualité</h3>
+            <button class="btn btn-primary btn-sm" onclick="chargerStatistiques()">
+                🔄 Actualiser les statistiques
+            </button>
+        </div>
+        <div class="row" id="statistiques-container">
+            <div class="col-12 text-center text-muted py-4" id="stats-placeholder">
+                <p>Les statistiques vont se charger automatiquement...</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section Rapports CQ (avant le modal pour éviter les conflits d'affichage) -->
+    {% if show_rapports_cq %}
+    <div class="content-section" id="section-rapports-cq">
+        <h4>Analyse des rapports de la machine de contrôle qualité</h4>
+        <p class="text-muted small">Téléchargez un rapport PDF généré par la machine de contrôle qualité (Focusight). Le système extrait les données et affiche des graphiques pour faciliter la lecture des résultats.</p>
+        <div class="card mb-4">
+            <div class="card-body">
+                <label for="rapportCqFile" class="form-label">Fichier PDF</label>
+                <input type="file" class="form-control" id="rapportCqFile" accept=".pdf">
+                <p class="text-muted small mt-1 mb-0">Rapport au format Defect Statics Information (Machine, BatchCode, ModelNam, Total, Pass, Bad, PassRate, BadRate, DefectType, Side, IPU).</p>
+                <button type="button" class="btn btn-primary mt-2" id="btnAnalyserRapportCq">Analyser le rapport</button>
+                <button type="button" class="btn btn-outline-danger btn-sm mt-2 ms-2 rapport-cq-pdf-hidden" id="btnRapportCqPdf" title="Télécharger l'analyse en PDF"><i class="fas fa-file-pdf"></i> Télécharger en PDF</button>
+                <span id="rapportCqLoader" class="ms-2" style="display:none;"><i class="fas fa-spinner fa-spin"></i> Analyse en cours…</span>
+                <div id="rapportCqErreur" class="text-danger mt-2" style="display:none;"></div>
+            </div>
+        </div>
+        <div id="rapportCqResultats" style="display:none;">
+            <h5 class="mb-3">Résumé du rapport</h5>
+            <div class="row g-2 mb-4" id="rapportCqSummary"></div>
+            <div id="rapportCqVerification" class="alert alert-info small mb-4" style="display:none;">
+                <strong>Vérification :</strong> <span id="rapportCqVerificationText"></span>
+            </div>
+            <h5 class="mb-3 mt-2">Indicateurs</h5>
+            <div class="row mb-4">
+                <div class="col-lg-6 mb-3">
+                    <h6 class="text-muted small mb-2">Tableau récapitulatif par type de défaut</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" id="rapportCqTableauRecap">
+                            <thead><tr><th>Type de défaut</th><th>Effectif</th><th>%</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-3">
+                    <h6 class="text-muted small mb-2">Top défauts</h6>
+                    <div id="rapportCqTopDefauts"></div>
+                </div>
+            </div>
+            <div class="row mb-4">
+                <div class="col-lg-6 mb-3">
+                    <h6 class="text-muted small mb-2">Répartition par côté</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" id="rapportCqTableauCote">
+                            <thead><tr><th>Côté</th><th>Effectif</th><th>%</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-3" id="rapportCqAreaEnergyWrap" style="display:none;">
+                    <h6 class="text-muted small mb-2">Indicateurs Area / Energy</h6>
+                    <div id="rapportCqAreaEnergy"></div>
+                </div>
+            </div>
+            <h5 class="mb-3 mt-4 rapport-cq-titre-graphiques">Graphiques</h5>
+            <div class="row rapport-cq-graphiques-row">
+                <div class="col-md-6 mb-4">
+                    <p class="text-muted small mb-1">Pass / Bad — Conformes vs défectueux</p>
+                    <div class="rapport-cq-pie-wrap" style="max-height: 140px; max-width: 280px; margin: 0 auto;">
+                        <canvas id="chartCqPassBad" height="120"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <p class="text-muted small mb-1">DefectType — Répartition par type de défaut</p>
+                    <canvas id="chartCqDefectType" height="200"></canvas>
+                </div>
+            </div>
+            <div class="row rapport-cq-graphiques-row rapport-cq-graphiques-page2">
+                <div class="col-md-6 mb-4">
+                    <p class="text-muted small mb-1">Side — Répartition par côté / caméra</p>
+                    <canvas id="chartCqSide" height="200"></canvas>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <p class="text-muted small mb-1">IPU — Répartition par unité d'inspection</p>
+                    <canvas id="chartCqIpu" height="200"></canvas>
+                </div>
+            </div>
+            <div id="rapportCqExclurePdf">
+            <h5 class="mb-3 mt-4">Rapport descriptif pour le client</h5>
+            <p class="text-muted small mb-2">Synthèse écrite à copier ou télécharger pour envoi au client.</p>
+            <div class="mb-2">
+                <button type="button" class="btn btn-outline-primary btn-sm me-2" id="btnRapportCqCopier"><i class="fas fa-copy"></i> Copier</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm me-2" id="btnRapportCqTelecharger"><i class="fas fa-download"></i> Télécharger (.txt)</button>
+            </div>
+            <pre id="rapportCqTexte" class="bg-light border rounded p-3 small" style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-wrap: break-word;"></pre>
+            </div>
+        </div>
     </div>
     {% endif %}
 
@@ -1226,23 +1389,6 @@
                 </div>
                 </div>
     </div>
-
-    <!-- Section Statistiques -->
-    {% if show_statistiques %}
-    <div class="content-section" id="section-statistiques">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3>Statistiques de Contrôle Qualité</h3>
-            <button class="btn btn-primary btn-sm" onclick="chargerStatistiques()">
-                🔄 Actualiser les statistiques
-            </button>
-        </div>
-        <div class="row" id="statistiques-container">
-            <div class="col-12 text-center text-muted py-4" id="stats-placeholder">
-                <p>Les statistiques vont se charger automatiquement...</p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 
     <!-- Styles pour optimiser la hauteur des champs dans le popup et plein écran -->
     <style id="styles-optimisation-hauteurs">
@@ -1654,16 +1800,23 @@
             
             document.body.classList.add('modal-open');
             modalNouveauControle.classList.add('active');
+            modalNouveauControle.style.removeProperty('display');
+            modalNouveauControle.style.removeProperty('visibility');
             modalNouveauControle.setAttribute('aria-hidden', 'false');
         };
         
         window.fermerModalNouveauControle = function() {
             const modalNouveauControle = document.getElementById('modalNouveauControle');
             if (!modalNouveauControle) return;
-            
             modalNouveauControle.classList.remove('active');
             modalNouveauControle.setAttribute('aria-hidden', 'true');
+            modalNouveauControle.style.setProperty('display', 'none', 'important');
+            modalNouveauControle.style.setProperty('visibility', 'hidden', 'important');
             document.body.classList.remove('modal-open');
+            const sectionNouveau = document.getElementById('section-nouveau');
+            if (sectionNouveau) {
+                sectionNouveau.style.setProperty('display', 'none', 'important');
+            }
         };
         
         document.addEventListener('DOMContentLoaded', function() {
@@ -1748,6 +1901,17 @@
                         return;
                     }
                     
+                    // En ouvrant une autre section, fermer le modal "Nouveau contrôle" s'il est ouvert
+                    if (typeof window.fermerModalNouveauControle === 'function') {
+                        window.fermerModalNouveauControle();
+                    }
+                    // Garder la section-nouveau masquée (elle sert de source pour le modal)
+                    const sectionNouveau = document.getElementById('section-nouveau');
+                    if (sectionNouveau) {
+                        sectionNouveau.style.setProperty('display', 'none', 'important');
+                        sectionNouveau.classList.remove('active');
+                    }
+                    
                     // Si la section est déjà ouverte, la fermer
                     if (section.classList.contains('active')) {
                         console.log('Fermeture de la section:', sectionId);
@@ -1799,7 +1963,24 @@
                         section.style.setProperty('overflow', 'visible', 'important');
                         section.style.setProperty('padding', '25px 20px', 'important');
                         section.style.setProperty('margin-bottom', '20px', 'important');
+                        section.style.setProperty('position', 'relative', 'important');
+                        section.style.setProperty('z-index', '1', 'important');
                         this.classList.add('active');
+                        // Réafficher les enfants (sauf loader, erreur, résultats qui doivent rester masqués)
+                        var idsToKeepHidden = ['rapportCqLoader', 'rapportCqErreur', 'rapportCqResultats'];
+                        const children = section.querySelectorAll('*');
+                        children.forEach(child => {
+                            if (child.id && idsToKeepHidden.indexOf(child.id) >= 0) {
+                                child.style.setProperty('display', 'none', 'important');
+                            } else {
+                                child.style.removeProperty('display');
+                                child.style.removeProperty('visibility');
+                            }
+                        });
+                        // Faire défiler jusqu'à la section pour qu'elle soit bien visible
+                        setTimeout(function() {
+                            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 50);
                         
                         // Vérifier une dernière fois que les autres sections sont bien fermées
                         setTimeout(() => {
@@ -5821,5 +6002,413 @@ document.addEventListener('click', function(e) {
         }, 800);
     }
 });
+
+// --- Section Rapports CQ (analyse des rapports PDF machine de contrôle qualité) ---
+(function() {
+    const RAPPORT_CQ_LABELS = {
+        Machine: 'Identifiant de la machine',
+        BatchCode: 'Code du lot',
+        ModelNam: 'Nom du modèle',
+        ModelPath: 'Chemin du modèle',
+        Total: 'Nombre total contrôlé',
+        Pass: 'Conformes',
+        PassRate: 'Taux de conformité',
+        Bad: 'Défectueux',
+        BadRate: 'Taux de défauts',
+        Team: 'Équipe',
+        ReportTime: 'Date et heure du rapport',
+        CreateDate: 'Date de création',
+        SideCount: 'Nombre de côtés',
+        IPUCount: 'Nombre d\'unités d\'inspection (IPU)'
+    };
+    let chartCqPassBad = null, chartCqDefectType = null, chartCqSide = null, chartCqIpu = null;
+    function destroyChartsCq() {
+        [chartCqPassBad, chartCqDefectType, chartCqSide, chartCqIpu].forEach(function(c) { if (c && typeof c.destroy === 'function') c.destroy(); });
+        chartCqPassBad = chartCqDefectType = chartCqSide = chartCqIpu = null;
+    }
+    function afficherSummaryRapportCq(summary) {
+        var order = ['Machine', 'BatchCode', 'ModelNam', 'Total', 'Pass', 'PassRate', 'Bad', 'BadRate', 'Team', 'ReportTime', 'SideCount', 'IPUCount', 'ModelPath', 'CreateDate'];
+        var container = document.getElementById('rapportCqSummary');
+        if (!container) return;
+        container.innerHTML = '';
+        order.forEach(function(key) {
+            var v = summary[key];
+            if (v === undefined || v === '') return;
+            var labelFr = RAPPORT_CQ_LABELS[key] || key;
+            var card = document.createElement('div');
+            card.className = 'col-6 col-md-4 col-lg-3';
+            card.innerHTML = '<div class="card h-100"><div class="card-body py-2"><strong>' + key + '</strong>: ' + v + '<br><span class="text-muted small">' + labelFr + '</span></div></div>';
+            container.appendChild(card);
+        });
+    }
+    function dessinerGraphiquesCq(data) {
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js non chargé - graphiques ignorés');
+            return;
+        }
+        destroyChartsCq();
+        var summary = data.summary || {};
+        var pass = parseInt(summary.Pass, 10) || 0;
+        var bad = parseInt(summary.Bad, 10) || 0;
+        var ctx;
+        if (pass + bad > 0 && (ctx = document.getElementById('chartCqPassBad'))) {
+            var total = pass + bad;
+            var passPct = summary.PassRate || (total ? (Math.round(pass / total * 1000) / 10) + ' %' : '0 %');
+            var badPct = summary.BadRate || (total ? (Math.round(bad / total * 1000) / 10) + ' %' : '0 %');
+            if (typeof passPct === 'number') passPct = passPct + ' %';
+            if (typeof badPct === 'number') badPct = badPct + ' %';
+            chartCqPassBad = new Chart(ctx.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: ['Pass (conformes) — ' + passPct, 'Bad (défectueux) — ' + badPct],
+                    datasets: [{ data: [pass, bad], backgroundColor: ['#28a745', '#dc3545'] }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    layout: { padding: 8 },
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+        }
+        var dt = data.defect_types || {};
+        if (Object.keys(dt).length && (ctx = document.getElementById('chartCqDefectType'))) {
+            chartCqDefectType = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: { labels: Object.keys(dt), datasets: [{ label: 'DefectType', data: Object.values(dt), backgroundColor: '#17a2b8' }] },
+                options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2, indexAxis: 'y', plugins: { legend: { display: false } } }
+            });
+        }
+        var sides = data.by_side || {};
+        if (Object.keys(sides).length && (ctx = document.getElementById('chartCqSide'))) {
+            chartCqSide = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: { labels: Object.keys(sides), datasets: [{ label: 'Side', data: Object.values(sides), backgroundColor: '#6f42c1' }] },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+        var ipu = data.by_ipu || {};
+        if (Object.keys(ipu).length && (ctx = document.getElementById('chartCqIpu'))) {
+            chartCqIpu = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: { labels: Object.keys(ipu).map(function(k) { return 'IPU ' + k; }), datasets: [{ label: 'IPU', data: Object.values(ipu), backgroundColor: '#fd7e14' }] },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+    }
+    function afficherIndicateursRapportCq(data) {
+        var dt = data.defect_types || {};
+        var sides = data.by_side || {};
+        var totalDefect = Object.values(dt).reduce(function(a,b){ return a+b; }, 0);
+        var totalSide = Object.values(sides).reduce(function(a,b){ return a+b; }, 0);
+        function pct(v, tot) { return tot ? (Math.round(v / tot * 1000) / 10) + ' %' : '—'; }
+        var tbodyRecap = document.querySelector('#rapportCqTableauRecap tbody');
+        if (tbodyRecap) {
+            tbodyRecap.innerHTML = '';
+            var sorted = Object.entries(dt).sort(function(a,b){ return b[1] - a[1]; });
+            sorted.forEach(function(e) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + e[0] + '</td><td>' + e[1] + '</td><td>' + pct(e[1], totalDefect) + '</td>';
+                tbodyRecap.appendChild(tr);
+            });
+        }
+        var topEl = document.getElementById('rapportCqTopDefauts');
+        if (topEl) {
+            topEl.innerHTML = '';
+            var top5 = Object.entries(dt).sort(function(a,b){ return b[1] - a[1]; }).slice(0, 5);
+            top5.forEach(function(e, i) {
+                var d = document.createElement('div');
+                d.className = 'd-flex justify-content-between align-items-center py-1 border-bottom';
+                d.innerHTML = '<span><strong>' + (i+1) + '.</strong> ' + e[0] + '</span><span>' + e[1] + ' (' + pct(e[1], totalDefect) + ')</span>';
+                topEl.appendChild(d);
+            });
+            if (top5.length === 0) topEl.innerHTML = '<p class="text-muted small mb-0">Aucun défaut.</p>';
+        }
+        var tbodyCote = document.querySelector('#rapportCqTableauCote tbody');
+        if (tbodyCote) {
+            tbodyCote.innerHTML = '';
+            var sortedSide = Object.entries(sides).sort(function(a,b){ return b[1] - a[1]; });
+            sortedSide.forEach(function(e) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + e[0] + '</td><td>' + e[1] + '</td><td>' + pct(e[1], totalSide) + '</td>';
+                tbodyCote.appendChild(tr);
+            });
+        }
+        var ae = data.area_energy;
+        var wrapAE = document.getElementById('rapportCqAreaEnergyWrap');
+        var divAE = document.getElementById('rapportCqAreaEnergy');
+        if (wrapAE && divAE) {
+            if (ae && ae.global) {
+                wrapAE.style.display = 'block';
+                var g = ae.global;
+                var html = '<div class="small">';
+                html += '<p class="mb-1"><strong>Global</strong> — ';
+                if (g.mean_area != null) html += 'Area moy. ' + g.mean_area + ' ';
+                if (g.max_area != null) html += 'max ' + g.max_area + ' &nbsp; ';
+                if (g.mean_energy != null) html += 'Energy moy. ' + g.mean_energy + ' ';
+                if (g.max_energy != null) html += 'max ' + g.max_energy;
+                html += '</p>';
+                if (ae.by_type && Object.keys(ae.by_type).length) {
+                    html += '<p class="mb-1 mt-2"><strong>Par type</strong></p><ul class="list-unstyled mb-0 small">';
+                    Object.entries(ae.by_type).forEach(function(entry) {
+                        var t = entry[1];
+                        html += '<li>' + entry[0] + ': ';
+                        if (t.mean_area != null) html += 'Area moy. ' + t.mean_area + ' (max ' + (t.max_area || '—') + ') ';
+                        if (t.mean_energy != null) html += 'Energy moy. ' + t.mean_energy + ' (max ' + (t.max_energy || '—') + ')';
+                        html += '</li>';
+                    });
+                    html += '</ul>';
+                }
+                html += '</div>';
+                divAE.innerHTML = html;
+            } else {
+                wrapAE.style.display = 'none';
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        var btn = document.getElementById('btnAnalyserRapportCq');
+        if (!btn) return;
+        var lastRapportTexte = '';
+        var lastBatchCode = '';
+        var lastCqData = null;
+        var btnPdfEl = document.getElementById('btnRapportCqPdf');
+        if (btnPdfEl) btnPdfEl.classList.add('rapport-cq-pdf-hidden');
+        btn.addEventListener('click', function() {
+            var input = document.getElementById('rapportCqFile');
+            var loader = document.getElementById('rapportCqLoader');
+            var errDiv = document.getElementById('rapportCqErreur');
+            var resultats = document.getElementById('rapportCqResultats');
+            if (!input || !input.files || !input.files[0]) {
+                if (errDiv) { errDiv.textContent = 'Veuillez sélectionner un fichier PDF.'; errDiv.style.display = 'block'; }
+                return;
+            }
+            if (errDiv) errDiv.style.display = 'none';
+            if (loader) loader.style.display = 'inline';
+            var formData = new FormData();
+            formData.append('fichier', input.files[0]);
+            fetch('/projet10/api/rapport_cq/analyser', { method: 'POST', body: formData })
+                .then(function(res) {
+                    return res.text().then(function(text) {
+                        try {
+                            var data = JSON.parse(text);
+                            if (!res.ok) {
+                                data.success = false;
+                                data.error = data.error || 'Erreur serveur (' + res.status + ')';
+                            }
+                            return data;
+                        } catch (e) {
+                            return { success: false, error: 'Réponse invalide du serveur. Vérifiez la console (F12).' };
+                        }
+                    });
+                })
+                .then(function(data) {
+                    if (!data.success) {
+                        if (errDiv) { errDiv.textContent = data.error || 'Erreur lors de l\'analyse.'; errDiv.style.display = 'block'; }
+                        return;
+                    }
+                    try {
+                        afficherSummaryRapportCq(data.summary || {});
+                        afficherIndicateursRapportCq(data);
+                        dessinerGraphiquesCq(data);
+                        var nbLignes = data.nb_lignes_defaut || 0;
+                        var nbSheets = data.nb_sheets_uniques;
+                        var bad = parseInt((data.summary || {}).Bad, 10) || 0;
+                        var totalDefect = Object.values(data.defect_types || {}).reduce(function(a,b){ return a+b; }, 0);
+                        var verifEl = document.getElementById('rapportCqVerification');
+                        var verifText = document.getElementById('rapportCqVerificationText');
+                        if (verifEl && verifText) {
+                            var msg = 'Bad = nombre d\'articles rejetés (' + bad + '). Les chiffres par DefectType sont le nombre d\'enregistrements de défauts (total ' + totalDefect + ') : un même article peut générer plusieurs lignes (plusieurs contrôles ou caméras).';
+                            if (nbLignes) msg += ' Lignes de défaut dans le PDF : ' + nbLignes + '.';
+                            if (nbSheets != null) msg += ' Articles défectueux distincts (SheetNum uniques) : ' + nbSheets + '.';
+                            verifText.textContent = msg;
+                            verifEl.style.display = 'block';
+                        }
+                        var rapportPre = document.getElementById('rapportCqTexte');
+                        if (rapportPre) rapportPre.textContent = data.rapport_texte || 'Aucun rapport généré.';
+                        lastRapportTexte = data.rapport_texte || '';
+                        lastBatchCode = (data.summary && data.summary.BatchCode) ? String(data.summary.BatchCode) : '';
+                        lastCqData = data;
+                        if (resultats) { resultats.style.display = 'block'; resultats.style.visibility = 'visible'; }
+                        if (btnPdfEl) btnPdfEl.classList.remove('rapport-cq-pdf-hidden');
+                    } catch (e) {
+                        if (errDiv) { errDiv.textContent = 'Erreur affichage : ' + (e.message || e); errDiv.style.display = 'block'; }
+                    }
+                })
+                .catch(function(e) {
+                    if (errDiv) { errDiv.textContent = 'Erreur réseau ou timeout : ' + (e.message || e); errDiv.style.display = 'block'; }
+                })
+                .finally(function() {
+                    if (loader) loader.style.display = 'none';
+                });
+        });
+        var btnCopier = document.getElementById('btnRapportCqCopier');
+        if (btnCopier) {
+            btnCopier.addEventListener('click', function() {
+                var pre = document.getElementById('rapportCqTexte');
+                var t = pre ? pre.textContent : lastRapportTexte || '';
+                if (!t) return;
+                navigator.clipboard.writeText(t).then(function() {
+                    var lbl = btnCopier.querySelector('.btn-label') || document.createElement('span');
+                    if (!lbl.classList) lbl = btnCopier;
+                    var orig = btnCopier.innerHTML;
+                    btnCopier.innerHTML = '<i class="fas fa-check"></i> Copié';
+                    setTimeout(function() { btnCopier.innerHTML = orig; }, 2000);
+                }).catch(function() { alert('Copie impossible (autorisez le presse-papiers).'); });
+            });
+        }
+        var btnTel = document.getElementById('btnRapportCqTelecharger');
+        if (btnTel) {
+            btnTel.addEventListener('click', function() {
+                var t = (document.getElementById('rapportCqTexte') && document.getElementById('rapportCqTexte').textContent) || lastRapportTexte || '';
+                if (!t) { alert('Aucun rapport à télécharger. Lancez d\'abord une analyse.'); return; }
+                var blob = new Blob([t], { type: 'text/plain;charset=utf-8' });
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'rapport_controle_qualite.txt';
+                a.click();
+                URL.revokeObjectURL(a.href);
+            });
+        }
+        var btnPdf = document.getElementById('btnRapportCqPdf');
+        if (btnPdf && typeof html2pdf !== 'undefined') {
+            btnPdf.addEventListener('click', function() {
+                var el = document.getElementById('rapportCqResultats');
+                if (!el || el.style.display === 'none' || !lastCqData) {
+                    alert('Aucune analyse à exporter. Lancez d\'abord une analyse.'); return;
+                }
+                var fn = 'analyse_CQ_' + (lastBatchCode || 'rapport') + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+                btnPdf.disabled = true;
+                btnPdf.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération…';
+
+                var replacements = [];
+                var canvases = el.querySelectorAll('canvas');
+                canvases.forEach(function(cv) {
+                    try {
+                        var dataUrl = cv.toDataURL('image/png');
+                        var img = document.createElement('img');
+                        img.src = dataUrl;
+                        img.style.cssText = 'display:block;max-width:100%;';
+                        if (cv.id === 'chartCqPassBad') {
+                            img.style.objectFit = 'contain';
+                            img.style.aspectRatio = '1';
+                        }
+                        img.width = cv.width;
+                        img.height = cv.height;
+                        replacements.push({ canvas: cv, img: img, parent: cv.parentNode });
+                        cv.parentNode.replaceChild(img, cv);
+                    } catch (e) { console.warn('Canvas export:', e); }
+                });
+
+                var exclPdf = document.getElementById('rapportCqExclurePdf');
+                var exclDisplay = '';
+                if (exclPdf) { exclDisplay = exclPdf.style.display || ''; exclPdf.style.display = 'none'; }
+
+                var stylePdf = document.createElement('style');
+                stylePdf.id = 'rapportCqPdfCompact';
+                stylePdf.textContent = '.rapport-cq-titre-graphiques{margin:0!important;margin-bottom:2px!important;padding:0!important;line-height:1.2!important}.rapport-cq-graphiques-row{margin-top:-16px!important;margin-bottom:0!important;padding-top:0!important}.rapport-cq-graphiques-page2{page-break-before:always!important;break-before:page!important}';
+                el.insertBefore(stylePdf, el.firstChild);
+
+                var titreGr = el.querySelector('.rapport-cq-titre-graphiques');
+                var grRow = el.querySelector('.rapport-cq-graphiques-row');
+                var savedGr = { mb: '' };
+                if (grRow) { savedGr.mb = grRow.style.marginBottom; grRow.style.setProperty('margin-top', '-8px', 'important'); }
+
+                var doCapture = function() {
+                    var done = function(wrapper) {
+                        try {
+                            replacements.forEach(function(r) {
+                                if (r.parent && r.canvas && r.img) r.parent.replaceChild(r.canvas, r.img);
+                            });
+                            if (stylePdf && stylePdf.parentNode) stylePdf.remove();
+                            if (grRow) { grRow.style.marginTop = ''; grRow.style.marginBottom = savedGr.mb || ''; }
+                            if (exclPdf) exclPdf.style.display = exclDisplay;
+                            if (lastCqData) dessinerGraphiquesCq(lastCqData);
+                            if (wrapper && wrapper.parentNode) {
+                                wrapper.parentNode.insertBefore(el, wrapper);
+                                wrapper.remove();
+                            }
+                        } catch (e) { console.warn('Restore PDF:', e); }
+                        btnPdf.disabled = false;
+                        btnPdf.innerHTML = '<i class="fas fa-file-pdf"></i> Télécharger en PDF';
+                    };
+                    try {
+                        var baseW = Math.max(el.scrollWidth || 900, el.offsetWidth || 900, 900);
+                        var fullW = Math.min(baseW + 140, 1800);
+                        var padLeft = 35;
+                        var wrapper = document.createElement('div');
+                        wrapper.style.cssText = 'width:' + (fullW + padLeft) + 'px;overflow:visible;padding-left:' + padLeft + 'px;box-sizing:border-box;margin:0;';
+                        el.parentNode.insertBefore(wrapper, el);
+                        wrapper.appendChild(el);
+                        var opt = {
+                            margin: [6, 8, 6, 8],
+                            filename: fn,
+                            image: { type: 'jpeg', quality: 0.95 },
+                            html2canvas: {
+                                scale: 1.3,
+                                useCORS: true,
+                                logging: false,
+                                scrollX: 0,
+                                scrollY: 0,
+                                width: fullW + padLeft,
+                                windowWidth: fullW + padLeft,
+                                onclone: function(doc, node) {
+                                    try {
+                                        var titreGr = node.querySelector ? node.querySelector('.rapport-cq-titre-graphiques') : null;
+                                        if (titreGr) {
+                                            titreGr.style.setProperty('margin-top', '0', 'important');
+                                            titreGr.style.setProperty('margin-bottom', '4px', 'important');
+                                        }
+                                        var grPage2 = node.querySelector ? node.querySelector('.rapport-cq-graphiques-page2') : null;
+                                        if (grPage2) {
+                                            grPage2.style.setProperty('page-break-before', 'always', 'important');
+                                            grPage2.style.setProperty('break-before', 'page', 'important');
+                                        }
+                                        var grRows = node.querySelectorAll ? node.querySelectorAll('.rapport-cq-graphiques-row') : [];
+                                        for (var r = 0; r < grRows.length; r++) {
+                                            var gr = grRows[r];
+                                            gr.style.pageBreakInside = 'avoid';
+                                            gr.style.breakInside = 'avoid';
+                                            var cols = gr.querySelectorAll ? gr.querySelectorAll('.col-md-6') : [];
+                                            for (var i = 0; i < cols.length; i++) {
+                                                cols[i].style.pageBreakInside = 'avoid';
+                                                cols[i].style.breakInside = 'avoid';
+                                            }
+                                            var imgs = gr.querySelectorAll ? gr.querySelectorAll('img') : [];
+                                            var isPage2 = gr.classList && gr.classList.contains('rapport-cq-graphiques-page2');
+                                            for (var j = 0; j < imgs.length; j++) {
+                                                imgs[j].style.display = 'block';
+                                                if (!isPage2) {
+                                                    imgs[j].style.maxHeight = '100px';
+                                                    imgs[j].style.width = 'auto';
+                                                    imgs[j].style.objectFit = 'contain';
+                                                }
+                                            }
+                                        }
+                                        var pie = node.querySelector ? node.querySelector('.rapport-cq-pie-wrap') : null;
+                                        if (pie) pie.style.cssText = 'width:100px;height:100px;max-width:100px;max-height:100px;margin:0 auto;aspect-ratio:1;';
+                                    } catch (e) {}
+                                }
+                            },
+                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                            pagebreak: { mode: ['avoid-all', 'css'] }
+                        };
+                        html2pdf().set(opt).from(wrapper).save().then(function() { done(wrapper); }).catch(function(err) {
+                            alert('Erreur lors de la génération du PDF : ' + (err && err.message ? err.message : String(err)));
+                            done(wrapper);
+                        });
+                    } catch (err) {
+                        alert('Erreur : ' + (err && err.message ? err.message : String(err)));
+                        done(typeof wrapper !== 'undefined' ? wrapper : null);
+                    }
+                };
+                setTimeout(doCapture, 100);
+            });
+        } else if (btnPdf) {
+            btnPdf.style.display = 'none';
+        }
+    });
+})();
 </script>
 {% endblock %}

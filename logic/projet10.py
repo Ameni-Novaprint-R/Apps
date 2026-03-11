@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, render_template, request
+import io
 from db import (
     get_controles_qualite, 
     get_controle_qualite_by_id,
@@ -55,12 +56,14 @@ def index():
         show_liste_controles = False
         show_nouveau_controle = False
         show_statistiques = False
-        
+        show_rapports_cq = False
+
         if is_super_user():
             # Super-utilisateur : toutes les sections
             show_liste_controles = True
             show_nouveau_controle = True
             show_statistiques = True
+            show_rapports_cq = True
         else:
             # Vérifier chaque section autorisée par son nom pour déterminer quelle carte afficher
             for section in authorized_sections:
@@ -84,12 +87,23 @@ def index():
                     (('statistiques' in section_nom_lower or 'stats' in section_nom_lower) or
                      section_id == all_sections_map.get('statistiques', -1))):
                     show_statistiques = True
-        
+
+                # Section "Rapports CQ" (analyse des rapports PDF machine de contrôle qualité)
+                if (section_id in authorized_section_ids and 
+                    (('rapport' in section_nom_lower and 'cq' in section_nom_lower) or
+                     'rapports cq' in section_nom_lower or
+                     section_id == all_sections_map.get('rapports cq', -1))):
+                    show_rapports_cq = True
+            # Si l'utilisateur a accès à la liste ou aux stats, lui afficher aussi Rapports CQ (éviter config section dédiée)
+            if show_rapports_cq or show_liste_controles or show_statistiques:
+                show_rapports_cq = True
+
         return render_template('projet10.html',
                              authorized_sections=sections_dict,
                              show_liste_controles=show_liste_controles,
                              show_nouveau_controle=show_nouveau_controle,
                              show_statistiques=show_statistiques,
+                             show_rapports_cq=show_rapports_cq,
                              has_action_access=has_action_access)
     except Exception as e:
         print(f"Erreur dans projet10.index: {e}")
@@ -101,6 +115,7 @@ def index():
                              show_liste_controles=True,
                              show_nouveau_controle=True,
                              show_statistiques=True,
+                             show_rapports_cq=True,
                              has_action_access=has_action_access)
 
 # ---------------------------
@@ -295,3 +310,30 @@ def api_traitement_data(numero_commande):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/rapport_cq/analyser", methods=["POST"])
+def api_rapport_cq_analyser():
+    """Reçoit un fichier PDF rapport CQ (machine de contrôle qualité), l'analyse et retourne summary + défauts pour graphiques."""
+    try:
+        fichier = request.files.get("fichier") or request.files.get("file")
+        if not fichier or not fichier.filename or not fichier.filename.lower().endswith(".pdf"):
+            return jsonify({"success": False, "error": "Veuillez envoyer un fichier PDF."})
+        stream = io.BytesIO(fichier.read())
+        from logic.rapport_cq import analyser_rapport_cq_pdf
+        result = analyser_rapport_cq_pdf(stream)
+        if result.get("error"):
+            return jsonify({"success": False, "error": result["error"]})
+        return jsonify({
+            "success": True,
+            "summary": result["summary"],
+            "defect_types": result["defect_types"],
+            "by_side": result["by_side"],
+            "by_ipu": result["by_ipu"],
+            "nb_lignes_defaut": result.get("nb_lignes_defaut", 0),
+            "nb_sheets_uniques": result.get("nb_sheets_uniques"),
+            "rapport_texte": result.get("rapport_texte", ""),
+            "area_energy": result.get("area_energy"),
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
