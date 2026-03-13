@@ -15,7 +15,7 @@ except ImportError:
     print("Installez-le avec: pip install bcrypt")
 
 # Matricules des super-utilisateurs (accès complet sans passer par WEB_DROITS_ACCES)
-SUPER_USER_MATRICULES = [321, 179]
+SUPER_USER_MATRICULES = [321, 179, 1]
 
 def hash_password(password):
     """

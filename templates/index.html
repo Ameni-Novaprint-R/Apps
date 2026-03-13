@@ -32,6 +32,7 @@
             <li><a href="/projet20/">🔍 Projet 20 – Analyse des Dossiers</a></li>
             <li><a href="/projet21/">🔄 Projet 21 – Mise à jour Base de Données</a></li>
             <li><a href="{{ url_for('projet22.index') }}">👥 Projet 22 – Gestion des Employés et des Ateliers</a></li>
+            <li><a href="{{ url_for('projet23.index') }}">💰 Projet 23 – Tableau de bord de la situation de la trésorerie</a></li>
         </ul>
     {% elif user_projects and user_projects|length > 0 %}
         {# Utilisateur avec droits : afficher uniquement ses projets avec icônes #}

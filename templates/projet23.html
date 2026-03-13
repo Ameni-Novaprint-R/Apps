@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}Situation de la Trésorerie{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .p23-container { padding: 25px; background: #f5f5f5; min-height: 100vh; }
+    .p23-header {
+        background: #2d5a3d;
+        color: white;
+        padding: 20px 24px;
+        margin: -25px -25px 24px -25px;
+        border-radius: 0 0 8px 8px;
+    }
+    .p23-header h1 { margin: 0; font-size: 1.4rem; font-weight: 700; text-transform: uppercase; }
+    .p23-header .subtitle { font-size: 0.9rem; opacity: 0.9; margin-top: 4px; }
+    .p23-row { display: flex; gap: 24px; flex-wrap: wrap; }
+    .p23-col { flex: 1; min-width: 380px; }
+    .p23-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        padding: 20px 24px;
+        margin-bottom: 24px;
+    }
+    .p23-card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; color: #333; }
+    .p23-source { font-size: 0.8rem; color: #666; margin-bottom: 16px; }
+    .p23-select, .p23-file-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
+    }
+    .p23-file-input { cursor: pointer; background: #fff; }
+    .p23-chart-container { position: relative; height: 280px; margin-bottom: 20px; }
+    .p23-texte {
+        background: #fafafa;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 16px 18px;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #333;
+    }
+    .p23-texte h3 { font-size: 1rem; font-weight: 600; margin-bottom: 10px; color: #2d5a3d; }
+    .p23-texte ul { margin: 0; padding-left: 20px; }
+    .p23-texte li { margin-bottom: 6px; }
+    .p23-texte strong { color: #1a3d26; }
+    .p23-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #2d5a3d; margin-bottom: 12px; }
+    .p23-badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #4caf50; }
+    .p23-empty { color: #999; font-style: italic; padding: 40px 20px; text-align: center; }
+    .p23-error { color: #c62828; background: #ffebee; padding: 12px; border-radius: 6px; margin-top: 12px; font-size: 0.9rem; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="p23-container">
+    <div class="p23-header">
+        <h1>Situation de la Trésorerie</h1>
+        <div class="subtitle">Synthèse graphique des soldes bancaires et de l'utilisation des lignes de financement XRT.</div>
+    </div>
+
+    <div class="p23-row">
+        <!-- GAUCHE : Évolution du solde de trésorerie -->
+        <div class="p23-col">
+            <div class="p23-card">
+                <h2>Évolution du solde de trésorerie</h2>
+                <div class="p23-source" id="sourceSolde">Source : —</div>
+                <label for="fileSolde" class="form-label">Fichier PDF</label>
+                <input type="file" class="p23-file-input form-control" id="fileSolde" accept=".pdf">
+                <span id="loaderSolde" class="text-muted small ms-2" style="display:none;"><i class="fas fa-spinner fa-spin"></i> Analyse en cours…</span>
+                <div class="p23-chart-container">
+                    <canvas id="chartSolde"></canvas>
+                </div>
+                <div id="texteSolde" class="p23-texte" style="display: none;">
+                    <h3>Lecture de la courbe de trésorerie</h3>
+                    <ul id="listeSolde"></ul>
+                </div>
+                <div id="emptySolde" class="p23-empty">Sélectionnez un fichier PDF pour afficher l'analyse.</div>
+                <div id="errorSolde" class="p23-error" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- DROITE : Utilisation des lignes de financement -->
+        <div class="p23-col">
+            <div class="p23-card">
+                <h2>Utilisation des lignes de financement</h2>
+                <div class="p23-source" id="sourceLignes">Source : —</div>
+                <div class="p23-badge">Données issues de XRT (extraction PDF)</div>
+                <label for="fileLignes" class="form-label">Fichier PDF</label>
+                <input type="file" class="p23-file-input form-control" id="fileLignes" accept=".pdf">
+                <span id="loaderLignes" class="text-muted small ms-2" style="display:none;"><i class="fas fa-spinner fa-spin"></i> Analyse en cours…</span>
+                <div class="p23-chart-container">
+                    <canvas id="chartLignes"></canvas>
+                </div>
+                <div id="texteLignes" class="p23-texte" style="display: none;">
+                    <h3>Lecture de l'utilisation des lignes</h3>
+                    <ul id="listeLignes"></ul>
+                </div>
+                <div id="emptyLignes" class="p23-empty">Sélectionnez un fichier PDF pour afficher l'analyse.</div>
+                <div id="errorLignes" class="p23-error" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    let chartSolde = null;
+    let chartLignes = null;
+    let lastSoldeData = null;
+    let lastLignesData = null;
+
+    function markdownToHtml(s) {
+        if (!s) return '';
+        return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    }
+
+    function renderSolde(data) {
+        if (!data || !data.dates || !data.soldes) return;
+        const sourceEl = document.getElementById('sourceSolde');
+        const texteEl = document.getElementById('texteSolde');
+        const emptyEl = document.getElementById('emptySolde');
+        const listeEl = document.getElementById('listeSolde');
+        sourceEl.textContent = 'Source : ' + (data.source || '—');
+        emptyEl.style.display = 'none';
+        const ctx = document.getElementById('chartSolde').getContext('2d');
+        if (chartSolde) chartSolde.destroy();
+        chartSolde = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.dates,
+                datasets: [{
+                    label: 'Solde Trésorerie (TND)',
+                    data: data.soldes,
+                    borderColor: '#2196f3',
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const v = ctx.raw;
+                                return (v >= 0 ? '' : '-') + Math.abs(v).toLocaleString('fr-FR', {minimumFractionDigits: 2}) + ' TND';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: { callback: v => (v >= 0 ? '' : '-') + Math.abs(v).toLocaleString('fr-FR', {maximumFractionDigits: 0}) }
+                    }
+                }
+            }
+        });
+        listeEl.innerHTML = '';
+        [data.texte_lecture, data.texte_interpretation, data.texte_conclusion].forEach(t => {
+            if (t) {
+                const li = document.createElement('li');
+                li.innerHTML = markdownToHtml(t);
+                listeEl.appendChild(li);
+            }
+        });
+        texteEl.style.display = 'block';
+    }
+
+    function renderLignes(data) {
+        if (!data) return;
+        const sourceEl = document.getElementById('sourceLignes');
+        const texteEl = document.getElementById('texteLignes');
+        const emptyEl = document.getElementById('emptyLignes');
+        const listeEl = document.getElementById('listeLignes');
+        sourceEl.textContent = 'Source : ' + (data.source || '—');
+        emptyEl.style.display = 'none';
+        const u = data.utilisation || 0;
+        const d = Math.max(0, data.disponible || 0);
+        const ctx = document.getElementById('chartLignes').getContext('2d');
+        if (chartLignes) chartLignes.destroy();
+        chartLignes = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Utilisation', 'Disponible'],
+                datasets: [{ data: [u, d], backgroundColor: ['#2d5a3d', '#d4a84b'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const v = ctx.raw;
+                                const tot = ctx.dataset.data.reduce((a,b)=>a+b, 0);
+                                const pct = tot ? (v/tot*100).toFixed(1) : 0;
+                                return ctx.label + ': ' + v.toLocaleString('fr-FR', {minimumFractionDigits: 2}) + ' TND (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        listeEl.innerHTML = '';
+        (data.texte_lecture || '').split('\n').filter(Boolean).forEach(p => {
+            const li = document.createElement('li');
+            li.innerHTML = markdownToHtml(p);
+            listeEl.appendChild(li);
+        });
+        if (data.texte_conclusion) {
+            const li = document.createElement('li');
+            li.innerHTML = markdownToHtml(data.texte_conclusion);
+            listeEl.appendChild(li);
+        }
+        texteEl.style.display = 'block';
+    }
+
+    async function trySaveSynthese() {
+        if (!lastSoldeData || !lastLignesData) return;
+        try {
+            const res = await fetch('{{ url_for("projet23.api_save_synthese") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ solde: lastSoldeData, lignes: lastLignesData })
+            });
+            const j = await res.json();
+            if (j.success) console.log('Synthèse enregistrée.');
+        } catch (e) { console.warn('Enregistrement synthèse:', e); }
+    }
+
+    // Chargement de la dernière synthèse au démarrage
+    (async function loadSynthese() {
+        try {
+            const res = await fetch('{{ url_for("projet23.api_get_synthese") }}');
+            const j = await res.json();
+            if (j.success && j.solde && j.lignes) {
+                lastSoldeData = j.solde;
+                lastLignesData = j.lignes;
+                renderSolde(j.solde);
+                renderLignes(j.lignes);
+            }
+        } catch (e) { console.warn('Chargement synthèse:', e); }
+    })();
+
+    // Analyser solde (parcourir / upload PDF)
+    document.getElementById('fileSolde').addEventListener('change', async function() {
+        const file = this.files && this.files[0];
+        const sourceEl = document.getElementById('sourceSolde');
+        const texteEl = document.getElementById('texteSolde');
+        const emptyEl = document.getElementById('emptySolde');
+        const errorEl = document.getElementById('errorSolde');
+        const listeEl = document.getElementById('listeSolde');
+
+        errorEl.style.display = 'none';
+        emptyEl.style.display = file ? 'none' : 'block';
+        texteEl.style.display = 'none';
+
+        if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
+            if (chartSolde) chartSolde.destroy();
+            chartSolde = null;
+            sourceEl.textContent = 'Source : —';
+            if (file && !file.name.toLowerCase().endsWith('.pdf')) {
+                errorEl.textContent = 'Veuillez sélectionner un fichier PDF.';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        const loaderSolde = document.getElementById('loaderSolde');
+        if (loaderSolde) loaderSolde.style.display = 'inline';
+        try {
+            const formData = new FormData();
+            formData.append('fichier', file);
+            const res = await fetch('{{ url_for("projet23.api_analyser_solde") }}', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (loaderSolde) loaderSolde.style.display = 'none';
+
+            if (!data.success) {
+                errorEl.textContent = data.error || 'Erreur d\'analyse';
+                errorEl.style.display = 'block';
+                sourceEl.textContent = 'Source : —';
+                return;
+            }
+
+            lastSoldeData = data;
+            renderSolde(data);
+            trySaveSynthese();
+        } catch (e) {
+            if (loaderSolde) loaderSolde.style.display = 'none';
+            errorEl.textContent = 'Erreur : ' + e.message;
+            errorEl.style.display = 'block';
+        }
+    });
+
+    // Analyser lignes (parcourir / upload PDF)
+    document.getElementById('fileLignes').addEventListener('change', async function() {
+        const file = this.files && this.files[0];
+        const sourceEl = document.getElementById('sourceLignes');
+        const texteEl = document.getElementById('texteLignes');
+        const emptyEl = document.getElementById('emptyLignes');
+        const errorEl = document.getElementById('errorLignes');
+        const listeEl = document.getElementById('listeLignes');
+
+        errorEl.style.display = 'none';
+        emptyEl.style.display = file ? 'none' : 'block';
+        texteEl.style.display = 'none';
+
+        if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
+            if (chartLignes) chartLignes.destroy();
+            chartLignes = null;
+            sourceEl.textContent = 'Source : —';
+            if (file && !file.name.toLowerCase().endsWith('.pdf')) {
+                errorEl.textContent = 'Veuillez sélectionner un fichier PDF.';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        const loaderLignes = document.getElementById('loaderLignes');
+        if (loaderLignes) loaderLignes.style.display = 'inline';
+        try {
+            const formData = new FormData();
+            formData.append('fichier', file);
+            const res = await fetch('{{ url_for("projet23.api_analyser_lignes") }}', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (loaderLignes) loaderLignes.style.display = 'none';
+
+            if (!data.success) {
+                errorEl.textContent = data.error || 'Erreur d\'analyse';
+                errorEl.style.display = 'block';
+                sourceEl.textContent = 'Source : —';
+                return;
+            }
+
+            lastLignesData = data;
+            renderLignes(data);
+            trySaveSynthese();
+        } catch (e) {
+            if (loaderLignes) loaderLignes.style.display = 'none';
+            errorEl.textContent = 'Erreur : ' + e.message;
+            errorEl.style.display = 'block';
+        }
+    });
+})();
+</script>
+{% endblock %}

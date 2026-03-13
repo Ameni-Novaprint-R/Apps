@@ -34,6 +34,7 @@ NUM_TO_URL = {
     20: '/projet20/',
     21: '/projet21/',
     22: '/projet22/',
+    23: '/projet23/',
 }
 
 
@@ -51,11 +52,14 @@ def api_navigation_menu():
             url = get_project_url(num) or NUM_TO_URL.get(num, f'/projet{num}/' if num else '#')
             sections_raw = get_user_sections(p.get('id') or num)
             sections = [{'nom': s.get('nom', s.get('Nom', '')), 'url': url} for s in sections_raw]
+            nom = p.get('nom', p.get('Nom', ''))
+            if num == 23:
+                nom = 'Projet 23 – TBD de la situation de la trésorerie'
             projects.append({
                 'id': p.get('id'),
                 'url': url,
                 'icon': get_project_icon(num) if num else '📌',
-                'nom': p.get('nom', p.get('Nom', '')),
+                'nom': nom,
                 'sections': sections if sections else None,
             })
         return jsonify({'projects': projects})
@@ -84,6 +88,9 @@ def inject_template_context():
 def index():
     """Page d'accueil du portail"""
     user_projects = get_user_projects() if is_authenticated() else []
+    for p in user_projects:
+        if (p.get('num') or p.get('NumProj')) == 23:
+            p['nom'] = 'Tableau de bord de la situation de la trésorerie'
     return render_template('index.html', user_projects=user_projects)
 
 
@@ -127,6 +134,7 @@ from routes.projet19_routes import projet19_bp
 from routes.projet20_routes import projet20_bp
 from routes.projet21_routes import projet21_bp
 from routes.projet22_routes import projet22_bp
+from routes.projet23_routes import projet23_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
 from routes.renommer_table_route import renommer_bp
@@ -143,6 +151,7 @@ app.register_blueprint(projet19_bp)
 app.register_blueprint(projet20_bp)
 app.register_blueprint(projet21_bp)
 app.register_blueprint(projet22_bp)
+app.register_blueprint(projet23_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
 app.register_blueprint(renommer_bp)
