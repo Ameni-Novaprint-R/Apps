@@ -1,5 +1,6 @@
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, Response
 import io
+import base64
 from db import (
     get_controles_qualite, 
     get_controle_qualite_by_id,
@@ -337,3 +338,174 @@ def api_rapport_cq_analyser():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+def _generer_pdf_rapport_cq(data, images):
+    """Génère le PDF côté serveur avec ReportLab (identique à l'affichage web)."""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm, mm
+        from reportlab.platypus import (
+            SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+            Image, PageBreak
+        )
+    except ImportError:
+        return None, "reportlab non installé"
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=1.5*cm,
+                            leftMargin=1.5*cm, rightMargin=1.5*cm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    RAPPORT_CQ_LABELS = {
+        'Machine': 'Identifiant de la machine', 'BatchCode': 'Code du lot',
+        'ModelNam': 'Nom du modèle', 'ModelPath': 'Chemin du modèle',
+        'Total': 'Nombre total contrôlé', 'Pass': 'Conformes',
+        'PassRate': 'Taux de conformité', 'Bad': 'Défectueux',
+        'BadRate': 'Taux de défauts', 'Team': 'Équipe',
+        'ReportTime': 'Date et heure du rapport', 'CreateDate': 'Date de création',
+        'SideCount': 'Nombre de côtés', 'IPUCount': "Nombre d'unités d'inspection (IPU)"
+    }
+    order = ['Machine', 'BatchCode', 'ModelNam', 'Total', 'Pass', 'PassRate', 'Bad', 'BadRate',
+             'Team', 'ReportTime', 'SideCount', 'IPUCount', 'ModelPath', 'CreateDate']
+
+    summary = data.get('summary') or {}
+    defect_types = data.get('defect_types') or {}
+    by_side = data.get('by_side') or {}
+    by_ipu = data.get('by_ipu') or {}
+    area_energy = data.get('area_energy')
+    nb_lignes = data.get('nb_lignes_defaut', 0)
+    nb_sheets = data.get('nb_sheets_uniques')
+    bad = int(summary.get('Bad') or 0)
+    total_defect = sum(defect_types.values())
+
+    title_style = ParagraphStyle('Titre', parent=styles['Heading2'], fontSize=14, spaceAfter=8)
+    sub_style = ParagraphStyle('Sous', parent=styles['Normal'], fontSize=9, textColor=colors.grey, spaceAfter=4)
+
+    elements.append(Paragraph("Résumé du rapport", title_style))
+    summary_data = []
+    for key in order:
+        v = summary.get(key)
+        if v is None or v == '':
+            continue
+        label = RAPPORT_CQ_LABELS.get(key, key)
+        summary_data.append([key + ': ' + str(v), label])
+    if summary_data:
+        t = Table(summary_data, colWidths=[8*cm, 8*cm])
+        t.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ]))
+        elements.append(t)
+    elements.append(Spacer(1, 0.5*cm))
+
+    verif_msg = "Bad = nombre d'articles rejetés ({})".format(bad)
+    verif_msg += ". Les chiffres par DefectType : total {} enregistrements.".format(total_defect)
+    if nb_lignes:
+        verif_msg += " Lignes de défaut : {}.".format(nb_lignes)
+    if nb_sheets is not None:
+        verif_msg += " Articles défectueux distincts : {}.".format(nb_sheets)
+    elements.append(Paragraph("<b>Vérification :</b> " + verif_msg, ParagraphStyle('Verif', fontSize=8, textColor=colors.HexColor('#0c5460'))))
+    elements.append(Spacer(1, 0.5*cm))
+
+    elements.append(Paragraph("Indicateurs", title_style))
+    if defect_types:
+        total_dt = sum(defect_types.values())
+        recap_data = [['Type de défaut', 'Effectif', '%']]
+        for k, v in sorted(defect_types.items(), key=lambda x: -x[1]):
+            pct = (v / total_dt * 100) if total_dt else 0
+            recap_data.append([k, str(v), "{:.1f}".format(pct) + '%'])
+        t = Table(recap_data, colWidths=[8*cm, 3*cm, 3*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e9ecef')),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 0.3*cm))
+
+    if by_side:
+        total_side = sum(by_side.values())
+        side_data = [['Côté', 'Effectif', '%']]
+        for k, v in sorted(by_side.items(), key=lambda x: -x[1]):
+            pct = (v / total_side * 100) if total_side else 0
+            side_data.append([k, str(v), "{:.1f}".format(pct) + '%'])
+        t = Table(side_data, colWidths=[8*cm, 3*cm, 3*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e9ecef')),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 0.3*cm))
+
+    if area_energy and area_energy.get('global'):
+        g = area_energy['global']
+        ae_lines = ['Global: Area moy. {} (max {})  Energy moy. {} (max {})'.format(
+            g.get('mean_area', '-'), g.get('max_area', '-'),
+            g.get('mean_energy', '-'), g.get('max_energy', '-'))]
+        if area_energy.get('by_type'):
+            for typ, t in area_energy['by_type'].items():
+                ae_lines.append('  {}: Area moy. {}  Energy moy. {}'.format(
+                    typ, t.get('mean_area', '-'), t.get('mean_energy', '-')))
+        elements.append(Paragraph('<br/>'.join(ae_lines), sub_style))
+        elements.append(Spacer(1, 0.5*cm))
+
+    elements.append(Paragraph("Graphiques", title_style))
+    elements.append(Spacer(1, 0.3*cm))
+
+    def _add_image(data_url, w_cm=6, h_cm=None, label=''):
+        if not data_url or not isinstance(data_url, str) or 'base64,' not in data_url:
+            return
+        try:
+            b64 = data_url.split('base64,', 1)[1]
+            img_bytes = base64.b64decode(b64)
+            h = (h_cm or w_cm * 0.7) * cm
+            img = Image(io.BytesIO(img_bytes), width=w_cm*cm, height=h)
+            if label:
+                elements.append(Paragraph(label, sub_style))
+            elements.append(img)
+            elements.append(Spacer(1, 0.3*cm))
+        except Exception:
+            pass
+
+    imgs = images or {}
+    _add_image(imgs.get('passBad'), 5, 5, 'Pass / Bad — Conformes vs défectueux')
+    _add_image(imgs.get('defectType'), 5, 4, 'DefectType — Répartition par type de défaut')
+    elements.append(PageBreak())
+    _add_image(imgs.get('side'), 5, 4, 'Side — Répartition par côté / caméra')
+    _add_image(imgs.get('ipu'), 5, 4, "IPU — Répartition par unité d'inspection")
+
+    try:
+        doc.build(elements)
+        return buffer.getvalue(), None
+    except Exception as e:
+        return None, str(e)
+
+
+@bp.route("/api/rapport_cq/pdf", methods=["POST"])
+def api_rapport_cq_pdf():
+    """Génère le PDF côté serveur (même contenu que l'affichage web)."""
+    try:
+        payload = request.get_json()
+        if not payload:
+            return jsonify({"error": "Données manquantes"}), 400
+        data = payload.get('data') or {}
+        images = payload.get('images') or {}
+        pdf_bytes, err = _generer_pdf_rapport_cq(data, images)
+        if err:
+            return jsonify({"error": err}), 500
+        batch = (data.get('summary') or {}).get('BatchCode', 'rapport')
+        from datetime import date
+        fn = 'analyse_CQ_{}_{}.pdf'.format(batch, date.today().isoformat())
+        return Response(pdf_bytes, mimetype='application/pdf',
+                       headers={'Content-Disposition': 'attachment; filename="' + fn + '"'})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

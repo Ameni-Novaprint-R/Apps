@@ -6272,141 +6272,48 @@ document.addEventListener('click', function(e) {
             });
         }
         var btnPdf = document.getElementById('btnRapportCqPdf');
-        if (btnPdf && typeof html2pdf !== 'undefined') {
+        if (btnPdf) {
             btnPdf.addEventListener('click', function() {
                 var el = document.getElementById('rapportCqResultats');
                 if (!el || el.style.display === 'none' || !lastCqData) {
                     alert('Aucune analyse à exporter. Lancez d\'abord une analyse.'); return;
                 }
-                var fn = 'analyse_CQ_' + (lastBatchCode || 'rapport') + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+                var getDataUrl = function(id) {
+                    var c = document.getElementById(id);
+                    try { return c && c.toDataURL ? c.toDataURL('image/png') : null; } catch (e) { return null; }
+                };
+                var images = {
+                    passBad: getDataUrl('chartCqPassBad'),
+                    defectType: getDataUrl('chartCqDefectType'),
+                    side: getDataUrl('chartCqSide'),
+                    ipu: getDataUrl('chartCqIpu')
+                };
                 btnPdf.disabled = true;
                 btnPdf.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération…';
-
-                var replacements = [];
-                var canvases = el.querySelectorAll('canvas');
-                canvases.forEach(function(cv) {
-                    try {
-                        var dataUrl = cv.toDataURL('image/png');
-                        var img = document.createElement('img');
-                        img.src = dataUrl;
-                        img.style.cssText = 'display:block;max-width:100%;';
-                        if (cv.id === 'chartCqPassBad') {
-                            img.style.objectFit = 'contain';
-                            img.style.aspectRatio = '1';
-                        }
-                        img.width = cv.width;
-                        img.height = cv.height;
-                        replacements.push({ canvas: cv, img: img, parent: cv.parentNode });
-                        cv.parentNode.replaceChild(img, cv);
-                    } catch (e) { console.warn('Canvas export:', e); }
+                fetch('/projet10/api/rapport_cq/pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: lastCqData, images: images })
+                })
+                .then(function(res) {
+                    if (!res.ok) return res.json().then(function(j) { throw new Error(j.error || 'Erreur serveur'); });
+                    return res.blob();
+                })
+                .then(function(blob) {
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'analyse_CQ_' + (lastBatchCode || 'rapport') + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                })
+                .catch(function(e) {
+                    alert('Erreur : ' + (e.message || e));
+                })
+                .finally(function() {
+                    btnPdf.disabled = false;
+                    btnPdf.innerHTML = '<i class="fas fa-file-pdf"></i> Télécharger en PDF';
                 });
-
-                var exclPdf = document.getElementById('rapportCqExclurePdf');
-                var exclDisplay = '';
-                if (exclPdf) { exclDisplay = exclPdf.style.display || ''; exclPdf.style.display = 'none'; }
-
-                var stylePdf = document.createElement('style');
-                stylePdf.id = 'rapportCqPdfCompact';
-                stylePdf.textContent = '.rapport-cq-titre-graphiques{margin:0!important;margin-bottom:2px!important;padding:0!important;line-height:1.2!important}.rapport-cq-graphiques-row{margin-top:-16px!important;margin-bottom:0!important;padding-top:0!important}.rapport-cq-graphiques-page2{page-break-before:always!important;break-before:page!important}';
-                el.insertBefore(stylePdf, el.firstChild);
-
-                var titreGr = el.querySelector('.rapport-cq-titre-graphiques');
-                var grRow = el.querySelector('.rapport-cq-graphiques-row');
-                var savedGr = { mb: '' };
-                if (grRow) { savedGr.mb = grRow.style.marginBottom; grRow.style.setProperty('margin-top', '-8px', 'important'); }
-
-                var doCapture = function() {
-                    var done = function(wrapper) {
-                        try {
-                            replacements.forEach(function(r) {
-                                if (r.parent && r.canvas && r.img) r.parent.replaceChild(r.canvas, r.img);
-                            });
-                            if (stylePdf && stylePdf.parentNode) stylePdf.remove();
-                            if (grRow) { grRow.style.marginTop = ''; grRow.style.marginBottom = savedGr.mb || ''; }
-                            if (exclPdf) exclPdf.style.display = exclDisplay;
-                            if (lastCqData) dessinerGraphiquesCq(lastCqData);
-                            if (wrapper && wrapper.parentNode) {
-                                wrapper.parentNode.insertBefore(el, wrapper);
-                                wrapper.remove();
-                            }
-                        } catch (e) { console.warn('Restore PDF:', e); }
-                        btnPdf.disabled = false;
-                        btnPdf.innerHTML = '<i class="fas fa-file-pdf"></i> Télécharger en PDF';
-                    };
-                    try {
-                        var baseW = Math.max(el.scrollWidth || 900, el.offsetWidth || 900, 900);
-                        var fullW = Math.min(baseW + 140, 1800);
-                        var padLeft = 35;
-                        var wrapper = document.createElement('div');
-                        wrapper.style.cssText = 'width:' + (fullW + padLeft) + 'px;overflow:visible;padding-left:' + padLeft + 'px;box-sizing:border-box;margin:0;';
-                        el.parentNode.insertBefore(wrapper, el);
-                        wrapper.appendChild(el);
-                        var opt = {
-                            margin: [6, 8, 6, 8],
-                            filename: fn,
-                            image: { type: 'jpeg', quality: 0.95 },
-                            html2canvas: {
-                                scale: 1.3,
-                                useCORS: true,
-                                logging: false,
-                                scrollX: 0,
-                                scrollY: 0,
-                                width: fullW + padLeft,
-                                windowWidth: fullW + padLeft,
-                                onclone: function(doc, node) {
-                                    try {
-                                        var titreGr = node.querySelector ? node.querySelector('.rapport-cq-titre-graphiques') : null;
-                                        if (titreGr) {
-                                            titreGr.style.setProperty('margin-top', '0', 'important');
-                                            titreGr.style.setProperty('margin-bottom', '4px', 'important');
-                                        }
-                                        var grPage2 = node.querySelector ? node.querySelector('.rapport-cq-graphiques-page2') : null;
-                                        if (grPage2) {
-                                            grPage2.style.setProperty('page-break-before', 'always', 'important');
-                                            grPage2.style.setProperty('break-before', 'page', 'important');
-                                        }
-                                        var grRows = node.querySelectorAll ? node.querySelectorAll('.rapport-cq-graphiques-row') : [];
-                                        for (var r = 0; r < grRows.length; r++) {
-                                            var gr = grRows[r];
-                                            gr.style.pageBreakInside = 'avoid';
-                                            gr.style.breakInside = 'avoid';
-                                            var cols = gr.querySelectorAll ? gr.querySelectorAll('.col-md-6') : [];
-                                            for (var i = 0; i < cols.length; i++) {
-                                                cols[i].style.pageBreakInside = 'avoid';
-                                                cols[i].style.breakInside = 'avoid';
-                                            }
-                                            var imgs = gr.querySelectorAll ? gr.querySelectorAll('img') : [];
-                                            var isPage2 = gr.classList && gr.classList.contains('rapport-cq-graphiques-page2');
-                                            for (var j = 0; j < imgs.length; j++) {
-                                                imgs[j].style.display = 'block';
-                                                if (!isPage2) {
-                                                    imgs[j].style.maxHeight = '100px';
-                                                    imgs[j].style.width = 'auto';
-                                                    imgs[j].style.objectFit = 'contain';
-                                                }
-                                            }
-                                        }
-                                        var pie = node.querySelector ? node.querySelector('.rapport-cq-pie-wrap') : null;
-                                        if (pie) pie.style.cssText = 'width:100px;height:100px;max-width:100px;max-height:100px;margin:0 auto;aspect-ratio:1;';
-                                    } catch (e) {}
-                                }
-                            },
-                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                            pagebreak: { mode: ['avoid-all', 'css'] }
-                        };
-                        html2pdf().set(opt).from(wrapper).save().then(function() { done(wrapper); }).catch(function(err) {
-                            alert('Erreur lors de la génération du PDF : ' + (err && err.message ? err.message : String(err)));
-                            done(wrapper);
-                        });
-                    } catch (err) {
-                        alert('Erreur : ' + (err && err.message ? err.message : String(err)));
-                        done(typeof wrapper !== 'undefined' ? wrapper : null);
-                    }
-                };
-                setTimeout(doCapture, 100);
             });
-        } else if (btnPdf) {
-            btnPdf.style.display = 'none';
         }
     });
 })();
