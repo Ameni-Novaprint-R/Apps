@@ -92,88 +92,121 @@
         margin-bottom: 0;
     }
     
-    /* En-tête blanc avec bordures colorées au hover */
-    .table thead th {
-        background: white;
+    /* En-tête style projet11 (table-dark) - entête, champs de recherche, filtre, tri */
+    .table thead.table-dark th,
+    .table thead th.table-header-dark {
+        background: #212529 !important;
+        color: #fff !important;
         font-weight: 600;
         position: relative;
         cursor: pointer;
         user-select: none;
         white-space: nowrap;
-        padding: 16px 12px;
-        color: #333;
-        border-bottom: 2px solid #e0e0e0;
-        font-size: 0.95em;
+        padding: 8px 12px;
+        border-bottom: 1px solid #343a40;
+        font-size: 0.9em;
         text-align: left;
         vertical-align: middle;
-        transition: all 0.2s ease;
+        transition: background 0.2s ease;
     }
-    
-    .table thead th:hover {
-        background: #f8f9fa;
-        border-bottom-color: var(--color-blue);
+    .table thead.table-dark th:hover,
+    .table thead th.table-header-dark:hover {
+        background: #343a40 !important;
     }
-    
     .table thead th.sortable {
         padding-right: 35px;
     }
-    
     .table thead th.sort-asc::after {
         content: " ▲";
         position: absolute;
         right: 12px;
-        color: var(--color-blue);
-        font-size: 0.9em;
+        color: #adb5bd;
+        font-size: 0.85em;
         font-weight: bold;
     }
-    
     .table thead th.sort-desc::after {
         content: " ▼";
         position: absolute;
         right: 12px;
-        color: var(--color-blue);
-        font-size: 0.9em;
+        color: #adb5bd;
+        font-size: 0.85em;
         font-weight: bold;
     }
-    
-    /* Ligne de filtres blanc */
-    .filter-row {
-        background: white;
-        padding: 12px;
-        border-bottom: 1px solid #e0e0e0;
+    /* Ligne de filtres (style projet11 table-filters) */
+    .filter-row,
+    .table-filters {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
     }
-    
-    .filter-row th {
-        padding: 8px 12px;
+    .filter-row th,
+    .table-filters th {
+        padding: 3px 6px !important;
         border: none;
-        background: white;
+        background: #f8f9fa !important;
     }
-    
     .filter-row input,
-    .filter-row select {
+    .filter-row select,
+    .table-filters input,
+    .table-filters select {
         width: 100%;
-        padding: 8px 10px;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        font-size: 0.9em;
+        padding: 3px 6px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 0.85em;
         background: white;
-        transition: all 0.3s ease;
+        box-sizing: border-box;
+        min-height: 28px;
     }
-    
     .filter-row input:focus,
-    .filter-row select:focus {
+    .filter-row select:focus,
+    .table-filters input:focus,
+    .table-filters select:focus {
         outline: none;
         border-color: var(--color-blue);
-        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.15);
+    }
+    /* Barre contrôle (style projet11 DataTables) */
+    .table-control-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9em;
+    }
+    .table-control-bar label {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .table-control-bar select {
+        padding: 4px 8px;
+        font-size: 0.9em;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    .table-control-bar .search-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .table-control-bar .search-wrap input {
+        padding: 4px 8px;
+        font-size: 0.9em;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        min-width: 180px;
     }
     
-    /* Garder les lignes alternées (striped) */
+    /* Garder les lignes alternées (striped) - hauteur minimale */
     .table tbody td {
-        padding: 14px 12px;
+        padding: 6px 12px;
         vertical-align: middle;
         border-top: 1px solid #f0f0f0;
         color: #4a5568;
         font-size: 0.95em;
+        line-height: 1.4;
     }
     
     .table tbody tr {
@@ -568,11 +601,102 @@
         padding: 0 0 25px 0;
         margin-bottom: 20px;
     }
-    .section-content.visible { display: block; }
+    .section-content.visible { display: block !important; }
     
-    /* Ateliers (réutilisation des styles table/modal) */
+    /* Ateliers - lignes ultra-compactes */
     .ateliers-container { padding-top: 15px; }
+    .ateliers-container .table thead.table-dark th {
+        padding: 1px 6px;
+        font-size: 0.82em;
+    }
+    .ateliers-container .table tbody td {
+        padding: 0 6px;
+        font-size: 0.82em;
+        line-height: 1.15;
+    }
+    .ateliers-container .btn-action {
+        width: 22px;
+        height: 22px;
+    }
+    .ateliers-container .btn-action svg {
+        width: 12px;
+        height: 12px;
+    }
+    /* Gestion des employés - mêmes hauteurs compactes */
+    #content-employes .table thead.table-dark th {
+        padding: 1px 6px;
+        font-size: 0.82em;
+    }
+    #content-employes .table tbody td {
+        padding: 0 6px;
+        font-size: 0.82em;
+        line-height: 1.15;
+    }
+    #content-employes .filter-row th {
+        padding: 1px 6px;
+    }
+    #content-employes .filter-row input,
+    #content-employes .filter-row select {
+        padding: 4px 6px;
+        font-size: 0.85em;
+    }
+    #content-employes .btn-action {
+        width: 22px;
+        height: 22px;
+    }
+    #content-employes .btn-action svg {
+        width: 12px;
+        height: 12px;
+    }
+    /* Gestion des droits d'accès - mêmes hauteurs compactes */
+    .droits-container .table thead.table-dark th {
+        padding: 1px 6px;
+        font-size: 0.82em;
+    }
+    .droits-container .table tbody td {
+        padding: 0 6px;
+        font-size: 0.82em;
+        line-height: 1.15;
+    }
+    .droits-container .btn-action {
+        width: 22px;
+        height: 22px;
+    }
+    .droits-container .btn-action svg {
+        width: 12px;
+        height: 12px;
+    }
+    /* Droits - select dans formulaires */
+    .form-group select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 0.95em;
+        background: white;
+    }
     #ateliers-tbody .btn-action-delete svg { fill: var(--color-red); }
+    /* Onglets droits admin */
+    .droits-tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e0e0e0;
+        flex-wrap: wrap;
+    }
+    .droits-tab {
+        padding: 12px 20px;
+        cursor: pointer;
+        font-weight: 600;
+        color: #666;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+    }
+    .droits-tab:hover { color: var(--color-blue); }
+    .droits-tab.active { color: var(--color-blue); border-bottom-color: var(--color-blue); }
+    .droits-panel { display: none; padding-top: 15px; }
+    .droits-panel.visible { display: block; }
 </style>
 {% endblock %}
 
@@ -590,6 +714,12 @@
             <span class="icon">🏭</span>
             <span>Gestion des Ateliers</span>
         </div>
+        {% if is_super_user() %}
+        <div class="section-toggle" id="toggle-droits" data-section="droits">
+            <span class="icon">🔐</span>
+            <span>Gestion des droits d'accès</span>
+        </div>
+        {% endif %}
     </div>
     <div class="section-content" id="content-employes">
     <div class="action-buttons">
@@ -605,10 +735,14 @@
     </div>
     
     <div id="employes-list">
+        <div class="table-control-bar">
+            <label>Afficher <select id="employes-page-length"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select> entrées</label>
+            <div class="search-wrap"><label>Rechercher:</label><input type="text" id="employes-search" placeholder="Rechercher..."></div>
+        </div>
         <div class="table-container">
             <div class="table-responsive">
                 <table class="table table-striped table-hover" id="employes-table">
-                    <thead>
+                    <thead class="table-dark">
                         <tr>
                             <th class="sortable" data-column="matricule">Matricule</th>
                             <th class="sortable" data-column="nom">Nom</th>
@@ -618,7 +752,7 @@
                             <th class="sortable" data-column="archive">Statut</th>
                             <th>Actions</th>
                         </tr>
-                        <tr class="filter-row">
+                        <tr class="filter-row table-filters">
                             <th>
                                 <input type="text" class="filter-input" data-column="matricule" placeholder="Filtrer...">
                             </th>
@@ -666,21 +800,99 @@
             <button class="btn btn-primary" onclick="showAtelierModal()">➕ Ajouter un atelier</button>
             <button class="btn btn-secondary" onclick="loadAteliers()">🔄 Actualiser</button>
         </div>
+        <div class="table-control-bar">
+            <label>Afficher <select id="ateliers-page-length"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select> entrées</label>
+            <div class="search-wrap"><label>Rechercher:</label><input type="text" id="ateliers-search" placeholder="Rechercher..."></div>
+        </div>
         <div class="table-container">
             <div class="table-responsive">
                 <table class="table table-striped table-hover" id="ateliers-table">
-                    <thead>
+                    <thead class="table-dark">
                         <tr>
-                            <th>ID</th>
-                            <th>Nom</th>
-                            <th>Mot de passe</th>
-                            <th>Statut</th>
+                            <th class="sortable" data-column="id">ID</th>
+                            <th class="sortable" data-column="nom">Nom</th>
+                            <th class="sortable" data-column="a_mot_de_passe">Mot de passe</th>
+                            <th class="sortable" data-column="archive">Statut</th>
                             <th>Actions</th>
+                        </tr>
+                        <tr class="filter-row table-filters">
+                            <th><input type="text" class="filter-input" data-column="id" placeholder="Filtrer..."></th>
+                            <th><input type="text" class="filter-input" data-column="nom" placeholder="Filtrer..."></th>
+                            <th><select class="filter-input" data-column="a_mot_de_passe"><option value="">Tous</option><option value="true">Avec</option><option value="false">Sans</option></select></th>
+                            <th><select class="filter-input" data-column="archive"><option value="">Tous</option><option value="false">Actifs</option><option value="true">Archivés</option></select></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody id="ateliers-tbody">
                         <tr><td colspan="5" class="no-results">Chargement des ateliers...</td></tr>
                     </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-content droits-container" id="content-droits">
+        <p class="text-muted" style="margin-bottom: 15px;">Administrer les projets, sections, actions et attribuer les droits d'accès aux employés et ateliers.</p>
+        <div class="droits-tabs">
+            <span class="droits-tab active" data-tab="projets" onclick="switchDroitsTab('projets')">📁 Projets</span>
+            <span class="droits-tab" data-tab="sections" onclick="switchDroitsTab('sections')">📂 Sections</span>
+            <span class="droits-tab" data-tab="actions" onclick="switchDroitsTab('actions')">⚡ Actions</span>
+            <span class="droits-tab" data-tab="droits" onclick="switchDroitsTab('droits')">🔐 Droits d'accès</span>
+        </div>
+        <div id="panel-projets" class="droits-panel visible">
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="showProjetModal()">➕ Ajouter un projet</button>
+                <button class="btn btn-secondary" onclick="loadProjetsAdmin()">🔄 Actualiser</button>
+                <label style="margin-left:10px;"><input type="checkbox" id="projets-show-archives" checked onchange="loadProjetsAdmin()"> Inclure archivés</label>
+            </div>
+            <div class="table-control-bar">
+                <label>Rechercher:</label><input type="text" id="projets-search" placeholder="Rechercher...">
+            </div>
+            <div class="table-container">
+                <table class="table table-striped table-hover" id="projets-table"><thead class="table-dark"><tr><th>ID</th><th>NumProj</th><th>CodeProj</th><th>Nom</th><th>Statut</th><th>Actions</th></tr><tr class="filter-row table-filters"><th><input type="text" placeholder="Filtrer..." data-col="0"></th><th><input type="text" placeholder="Filtrer..." data-col="1"></th><th><input type="text" placeholder="Filtrer..." data-col="2"></th><th><input type="text" placeholder="Filtrer..." data-col="3"></th><th></th><th></th></tr></thead>
+                <tbody id="projets-admin-tbody"><tr><td colspan="6" class="no-results">Chargement...</td></tr></tbody></table>
+            </div>
+        </div>
+        <div id="panel-sections" class="droits-panel">
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="showSectionModal()">➕ Ajouter une section</button>
+                <button class="btn btn-secondary" onclick="loadSectionsAdmin()">🔄 Actualiser</button>
+                <label style="margin-left:10px;"><input type="checkbox" id="sections-show-archives" checked onchange="loadSectionsAdmin()"> Inclure archivés</label>
+            </div>
+            <div class="table-control-bar">
+                <label>Rechercher:</label><input type="text" id="sections-search" placeholder="Rechercher...">
+            </div>
+            <div class="table-container">
+                <table class="table table-striped table-hover" id="sections-table"><thead class="table-dark"><tr><th>ID</th><th>Projet</th><th>Nom</th><th>Statut</th><th>Actions</th></tr><tr class="filter-row table-filters"><th><input type="text" placeholder="Filtrer..." data-col="0"></th><th><input type="text" placeholder="Filtrer..." data-col="1"></th><th><input type="text" placeholder="Filtrer..." data-col="2"></th><th></th><th></th></tr></thead>
+                <tbody id="sections-admin-tbody"><tr><td colspan="5" class="no-results">Chargement...</td></tr></tbody></table>
+            </div>
+        </div>
+        <div id="panel-actions" class="droits-panel">
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="showActionModal()">➕ Ajouter une action</button>
+                <button class="btn btn-secondary" onclick="loadActionsAdmin()">🔄 Actualiser</button>
+                <label style="margin-left:10px;"><input type="checkbox" id="actions-show-archives" checked onchange="loadActionsAdmin()"> Inclure archivés</label>
+            </div>
+            <div class="table-control-bar">
+                <label>Rechercher:</label><input type="text" id="actions-search" placeholder="Rechercher...">
+            </div>
+            <div class="table-container">
+                <table class="table table-striped table-hover" id="actions-table"><thead class="table-dark"><tr><th>ID</th><th>Projet</th><th>Section</th><th>Action</th><th>Statut</th><th>Actions</th></tr><tr class="filter-row table-filters"><th><input type="text" placeholder="Filtrer..." data-col="0"></th><th><input type="text" placeholder="Filtrer..." data-col="1"></th><th><input type="text" placeholder="Filtrer..." data-col="2"></th><th><input type="text" placeholder="Filtrer..." data-col="3"></th><th></th><th></th></tr></thead>
+                <tbody id="actions-admin-tbody"><tr><td colspan="6" class="no-results">Chargement...</td></tr></tbody></table>
+            </div>
+        </div>
+        <div id="panel-droits" class="droits-panel">
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="showDroitModal()">➕ Attribuer un droit</button>
+                <button class="btn btn-secondary" onclick="loadDroits()">🔄 Actualiser</button>
+            </div>
+            <div class="table-control-bar">
+                <label>Rechercher:</label><input type="text" id="droits-search" placeholder="Rechercher...">
+            </div>
+            <div class="table-container">
+                <table class="table table-striped table-hover" id="droits-table">
+                    <thead class="table-dark"><tr><th>Type</th><th>Employé / Atelier</th><th>Projet</th><th>Section</th><th>Action</th><th></th></tr><tr class="filter-row table-filters"><th><input type="text" placeholder="Filtrer..." data-col="0"></th><th><input type="text" placeholder="Filtrer..." data-col="1"></th><th><input type="text" placeholder="Filtrer..." data-col="2"></th><th><input type="text" placeholder="Filtrer..." data-col="3"></th><th><input type="text" placeholder="Filtrer..." data-col="4"></th><th></th></tr></thead>
+                    <tbody id="droits-tbody"><tr><td colspan="6" class="no-results">Chargement...</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -809,6 +1021,120 @@
     </div>
 </div>
 
+<!-- Modal Projet -->
+<div class="modal" id="projetModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="projetModalTitle">Nouveau projet</h5>
+            <span class="close-modal" onclick="closeProjetModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="projetForm">
+                <input type="hidden" id="projetId">
+                <div class="form-group"><label>NumProj *</label><input type="number" id="projetNum" required></div>
+                <div class="form-group"><label>CodeProj *</label><input type="text" id="projetCode" placeholder="ex: Projet 22" required></div>
+                <div class="form-group"><label>Nom *</label><input type="text" id="projetNom" placeholder="ex: Gestion des employés" required></div>
+                <div class="form-group"><label><input type="checkbox" id="projetArchive"> Archivé</label></div>
+                <div id="projetFormAlert"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeProjetModal()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="saveProjet()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+<!-- Modal Section -->
+<div class="modal" id="sectionModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="sectionModalTitle">Nouvelle section</h5>
+            <span class="close-modal" onclick="closeSectionModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="sectionForm">
+                <input type="hidden" id="sectionId">
+                <div class="form-group"><label>Projet *</label><select id="sectionProjet"></select></div>
+                <div class="form-group"><label>Nom *</label><input type="text" id="sectionNom" required></div>
+                <div class="form-group"><label><input type="checkbox" id="sectionArchive"> Archivée</label></div>
+                <div id="sectionFormAlert"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeSectionModal()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="saveSection()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+<!-- Modal Action -->
+<div class="modal" id="actionModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="actionModalTitle">Nouvelle action</h5>
+            <span class="close-modal" onclick="closeActionModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="actionForm">
+                <input type="hidden" id="actionId">
+                <div class="form-group"><label>Section *</label><select id="actionSection"></select></div>
+                <div class="form-group"><label>Action *</label><input type="text" id="actionNom" placeholder="ex: CONSULTATION, SAISIE" required></div>
+                <div class="form-group"><label>CodeProj</label><input type="text" id="actionCodeProj" placeholder="ex: Projet 22"></div>
+                <div class="form-group"><label>Nom_SECTIONS</label><input type="text" id="actionNomSections" placeholder="Nom de la section"></div>
+                <div class="form-group"><label><input type="checkbox" id="actionArchive"> Archivée</label></div>
+                <div id="actionFormAlert"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeActionModal()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="saveAction()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+<!-- Modal attribuer un droit -->
+<div class="modal" id="droitModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Attribuer un droit d'accès</h5>
+            <span class="close-modal" onclick="closeDroitModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="droitForm">
+                <div class="form-group">
+                    <label>Type de cible</label>
+                    <select id="droitCibleType" onchange="droitTypeChange()">
+                        <option value="matricule">Employé (matricule)</option>
+                        <option value="atelier">Atelier</option>
+                    </select>
+                </div>
+                <div class="form-group" id="droitMatriculeGroup">
+                    <label>Employé</label>
+                    <select id="droitMatricule">
+                        <option value="">-- Sélectionner un employé --</option>
+                    </select>
+                </div>
+                <div class="form-group" id="droitAtelierGroup" style="display: none;">
+                    <label>Atelier</label>
+                    <select id="droitAtelier">
+                        <option value="">-- Sélectionner un atelier --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Action</label>
+                    <select id="droitAction">
+                        <option value="">-- Chargement des actions... --</option>
+                    </select>
+                    <small class="text-muted">Projet > Section > Action</small>
+                </div>
+                <div id="droitFormAlert"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDroitModal()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="saveDroit()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal mot de passe atelier -->
 <div class="modal" id="atelierPasswordModal">
     <div class="modal-content">
@@ -858,6 +1184,124 @@ let sortColumn = 'matricule';
 let sortDirection = 'asc';
 let filters = {};
 let ateliersData = [];
+let ateliersFiltered = [];
+let ateliersSortCol = 'id';
+let ateliersSortDir = 'asc';
+let ateliersFilters = {};
+
+function initAteliersFilterSort() {
+    document.querySelectorAll('#ateliers-table .filter-input').forEach(function(inp) {
+        var col = inp.getAttribute('data-column');
+        inp.oninput = inp.onchange = function() {
+            var v = (inp.tagName === 'SELECT' ? inp.value : inp.value.trim()) || '';
+            if (v) ateliersFilters[col] = v; else delete ateliersFilters[col];
+            applyAteliersFilters();
+        };
+    });
+    document.querySelectorAll('#ateliers-table thead th.sortable').forEach(function(th) {
+        th.onclick = function() {
+            var c = th.getAttribute('data-column');
+            if (ateliersSortCol === c) ateliersSortDir = ateliersSortDir === 'asc' ? 'desc' : 'asc';
+            else { ateliersSortCol = c; ateliersSortDir = 'asc'; }
+            applyAteliersFilters();
+        };
+    });
+    var atSearch = document.getElementById('ateliers-search');
+    var atPage = document.getElementById('ateliers-page-length');
+    if (atSearch) atSearch.oninput = function() { applyAteliersFilters(); };
+    if (atPage) atPage.onchange = function() { applyAteliersFilters(); };
+    ['projets-search','sections-search','actions-search','droits-search'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.oninput = function() { filterTableBySearch(id); var tid = id.replace('-search','') + '-table'; if (document.getElementById(tid)) applyDroitsTableColumnFilters(tid); };
+    });
+    initDroitsColumnFilters();
+}
+
+function initDroitsColumnFilters() {
+    ['projets-table','sections-table','actions-table','droits-table'].forEach(function(tblId) {
+        var tbl = document.getElementById(tblId);
+        if (!tbl) return;
+        tbl.querySelectorAll('.table-filters input[data-col], .filter-row input[data-col]').forEach(function(inp) {
+            inp.oninput = inp.onkeyup = inp.onchange = function() { applyDroitsTableColumnFilters(tblId); };
+        });
+    });
+}
+
+function applyDroitsTableColumnFilters(tableId) {
+    var tblMap = { 'projets-table':'projets-admin-tbody','sections-table':'sections-admin-tbody','actions-table':'actions-admin-tbody','droits-table':'droits-tbody' };
+    var tbodyId = tblMap[tableId] || tableId;
+    var tbody = document.getElementById(tbodyId);
+    var tbl = document.getElementById(tableId);
+    if (!tbody || !tbl) return;
+    var filters = [];
+    tbl.querySelectorAll('.table-filters input[data-col], .filter-row input[data-col]').forEach(function(inp) {
+        var col = parseInt(inp.getAttribute('data-col'), 10);
+        var val = (inp.value || '').trim().toLowerCase();
+        if (val) filters.push({ col: col, val: val });
+    });
+    var searchId = tableId.replace('-table','') + '-search';
+    var searchEl = document.getElementById(searchId);
+    var searchVal = (searchEl && searchEl.value ? searchEl.value : '').trim().toLowerCase();
+    tbody.querySelectorAll('tr').forEach(function(tr) {
+        var match = true;
+        if (searchVal) {
+            if ((tr.textContent || '').toLowerCase().indexOf(searchVal) === -1) match = false;
+        }
+        if (match && filters.length) {
+            var cells = tr.querySelectorAll('td');
+            for (var i = 0; i < filters.length; i++) {
+                var fc = filters[i];
+                var cell = cells[fc.col];
+                if (!cell || (cell.textContent || '').toLowerCase().indexOf(fc.val) === -1) { match = false; break; }
+            }
+        }
+        tr.style.display = match ? '' : 'none';
+    });
+}
+
+function filterTableBySearch(searchInputId) {
+    var tblMap = { 'projets-search':'projets-admin-tbody','sections-search':'sections-admin-tbody','actions-search':'actions-admin-tbody','droits-search':'droits-tbody' };
+    var tbodyId = tblMap[searchInputId];
+    var tbody = document.getElementById(tbodyId);
+    var searchVal = (document.getElementById(searchInputId)?.value || '').trim().toLowerCase();
+    if (!tbody) return;
+    var rows = tbody.querySelectorAll('tr');
+    rows.forEach(function(tr) {
+        var txt = tr.textContent || '';
+        tr.style.display = ( searchVal === '' || txt.toLowerCase().indexOf(searchVal) !== -1 ) ? '' : 'none';
+    });
+}
+
+function applyAteliersFilters() {
+    var searchVal = (document.getElementById('ateliers-search')?.value || '').trim().toLowerCase();
+    ateliersFiltered = ateliersData.filter(function(a) {
+        if (searchVal) {
+            var txt = [a.id, a.nom].map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
+            if (txt.indexOf(searchVal) === -1) return false;
+        }
+        for (var k in ateliersFilters) {
+            var v = ateliersFilters[k];
+            if (!v) continue;
+            var av = a[k];
+            if (k === 'a_mot_de_passe' || k === 'archive') {
+                if (String(av) !== v) return false;
+            } else if (String(av || '').toLowerCase().indexOf(v.toLowerCase()) === -1) return false;
+        }
+        return true;
+    });
+    ateliersFiltered.sort(function(a, b) {
+        var av = a[ateliersSortCol], bv = b[ateliersSortCol];
+        if (av == null) av = ''; if (bv == null) bv = '';
+        var cmp = ateliersSortCol === 'id' ? (Number(av) - Number(bv)) : String(av).localeCompare(String(bv));
+        return ateliersSortDir === 'asc' ? cmp : -cmp;
+    });
+    var pageLen = parseInt(document.getElementById('ateliers-page-length')?.value || '25', 10) || 25;
+    displayAteliers(ateliersFiltered.slice(0, pageLen));
+    document.querySelectorAll('#ateliers-table thead th.sortable').forEach(function(th) {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.getAttribute('data-column') === ateliersSortCol) th.classList.add(ateliersSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+    });
+}
 
 // Fonctions pour ouvrir/fermer les modals (style custom comme projet14)
 function openEmployeModal() {
@@ -926,25 +1370,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fermer avec Échap
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            if (document.getElementById('employeModal').classList.contains('show')) {
-                closeEmployeModal();
-            }
-            if (document.getElementById('passwordModal').classList.contains('show')) {
-                closePasswordModal();
-            }
-            if (document.getElementById('atelierModal').classList.contains('show')) {
-                closeAtelierModal();
-            }
-            if (document.getElementById('atelierPasswordModal').classList.contains('show')) {
-                closeAtelierPasswordModal();
-            }
+            if (document.getElementById('employeModal').classList.contains('show')) closeEmployeModal();
+            if (document.getElementById('passwordModal').classList.contains('show')) closePasswordModal();
+            if (document.getElementById('atelierModal').classList.contains('show')) closeAtelierModal();
+            if (document.getElementById('atelierPasswordModal').classList.contains('show')) closeAtelierPasswordModal();
+            if (document.getElementById('droitModal').classList.contains('show')) closeDroitModal();
+            if (document.getElementById('projetModal').classList.contains('show')) closeProjetModal();
+            if (document.getElementById('sectionModal').classList.contains('show')) closeSectionModal();
+            if (document.getElementById('actionModal').classList.contains('show')) closeActionModal();
         }
     });
     
     initSortListeners();
     initFilterListeners();
+    var empSearch = document.getElementById('employes-search');
+    var empPageLen = document.getElementById('employes-page-length');
+    if (empSearch) empSearch.addEventListener('input', function() { applyFiltersAndSort(); });
+    if (empPageLen) empPageLen.addEventListener('change', function() { applyFiltersAndSort(); });
     
-    // Sections repliables : afficher le contenu au premier clic, masquer au second
+    // Sections : un seul visible à la fois ; clic sur une section = masquer les autres et afficher celle-ci ; clic sur la même = la masquer
     document.querySelectorAll('.section-toggle').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const section = this.getAttribute('data-section');
@@ -953,25 +1397,35 @@ document.addEventListener('DOMContentLoaded', function() {
             if (content.classList.contains('visible')) {
                 content.classList.remove('visible');
             } else {
+                document.querySelectorAll('.section-content').forEach(function(c) { c.classList.remove('visible'); });
                 content.classList.add('visible');
                 if (section === 'employes') loadEmployes();
                 if (section === 'ateliers') loadAteliers();
+                if (section === 'droits') { loadDroits(); loadProjetsAdmin(); loadSectionsAdmin(); loadActionsAdmin(); }
             }
         });
     });
+    try { initAteliersFilterSort(); } catch (e) { console.warn('initAteliersFilterSort:', e); }
+    var dm = document.getElementById('droitModal');
+    if (dm) dm.addEventListener('click', function(e) { if (e.target === this) closeDroitModal(); });
+    var pm = document.getElementById('projetModal');
+    if (pm) pm.addEventListener('click', function(e) { if (e.target === this) closeProjetModal(); });
+    var sm = document.getElementById('sectionModal');
+    if (sm) sm.addEventListener('click', function(e) { if (e.target === this) closeSectionModal(); });
+    var am = document.getElementById('actionModal');
+    if (am) am.addEventListener('click', function(e) { if (e.target === this) closeActionModal(); });
 });
 
 function initSortListeners() {
-    document.querySelectorAll('.table thead th.sortable').forEach(th => {
+    document.querySelectorAll('#employes-table thead th.sortable').forEach(th => {
         th.addEventListener('click', function() {
-            const column = this.getAttribute('data-column');
-            sortTable(column);
+            sortTable(th.getAttribute('data-column'));
         });
     });
 }
 
 function initFilterListeners() {
-    document.querySelectorAll('.filter-input').forEach(input => {
+    document.querySelectorAll('#employes-table .filter-input').forEach(input => {
         input.addEventListener('input', function() {
             const column = this.getAttribute('data-column');
             const value = this.value.trim();
@@ -1016,8 +1470,12 @@ function loadEmployes() {
 }
 
 function applyFiltersAndSort() {
-    // Appliquer les filtres
+    var searchVal = (document.getElementById('employes-search')?.value || '').trim().toLowerCase();
     filteredData = employesData.filter(emp => {
+        if (searchVal) {
+            var concat = [emp.matricule, emp.nom, emp.prenom, emp.email].map(function(v) { return String(v || '').toLowerCase(); }).join(' ');
+            if (concat.indexOf(searchVal) === -1) return false;
+        }
         for (const [column, value] of Object.entries(filters)) {
             if (value === '') continue;
             
@@ -1062,7 +1520,7 @@ function sortTable(column, updateDirection = true) {
     }
     
     // Mettre à jour l'affichage des flèches de tri
-    document.querySelectorAll('.table thead th.sortable').forEach(th => {
+    document.querySelectorAll('#employes-table thead th.sortable').forEach(th => {
         th.classList.remove('sort-asc', 'sort-desc');
         if (th.getAttribute('data-column') === sortColumn) {
             th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
@@ -1104,8 +1562,8 @@ function sortTable(column, updateDirection = true) {
         
         return sortDirection === 'asc' ? comparison : -comparison;
     });
-    
-    displayEmployes(filteredData);
+    var pageLen = parseInt(document.getElementById('employes-page-length')?.value || '25', 10) || 25;
+    displayEmployes(filteredData.slice(0, pageLen));
 }
 
 function displayEmployes(employes) {
@@ -1507,7 +1965,7 @@ function loadAteliers() {
         .then(data => {
             if (data.success) {
                 ateliersData = data.ateliers;
-                displayAteliers(ateliersData);
+                applyAteliersFilters();
             } else {
                 tbody.innerHTML = '<tr><td colspan="5" class="no-results text-danger">' + (data.error || 'Erreur chargement') + '</td></tr>';
             }
@@ -1703,6 +2161,401 @@ function archiveAtelier(id, archive) {
             console.error(err);
             alert('Erreur lors de l\'archivage');
         });
+}
+
+// --- Gestion des droits d'accès ---
+let droitsProjetsData = [];
+let droitsData = [];
+let droitsEmployesSelect = [];
+let droitsAteliersSelect = [];
+
+function switchDroitsTab(tab) {
+    document.querySelectorAll('.droits-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelector('.droits-tab[data-tab="' + tab + '"]').classList.add('active');
+    document.querySelectorAll('.droits-panel').forEach(function(p) { p.classList.remove('visible'); });
+    document.getElementById('panel-' + tab).classList.add('visible');
+    if (tab === 'projets') loadProjetsAdmin();
+    if (tab === 'sections') loadSectionsAdmin();
+    if (tab === 'actions') loadActionsAdmin();
+    if (tab === 'droits') loadDroits();
+}
+
+function openDroitModal() {
+    document.getElementById('droitModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+function closeDroitModal() {
+    document.getElementById('droitModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+
+function droitTypeChange() {
+    const type = document.getElementById('droitCibleType').value;
+    document.getElementById('droitMatriculeGroup').style.display = type === 'matricule' ? 'block' : 'none';
+    document.getElementById('droitAtelierGroup').style.display = type === 'atelier' ? 'block' : 'none';
+}
+
+function loadProjetsAdmin() {
+    const tbody = document.getElementById('projets-admin-tbody');
+    if (!tbody) return;
+    const inclure = document.getElementById('projets-show-archives') && document.getElementById('projets-show-archives').checked;
+    tbody.innerHTML = '<tr><td colspan="6" class="no-results">Chargement...</td></tr>';
+    fetch('/projet22/api/droits/projets-admin?archives=' + (inclure ? '1' : '0'))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) { tbody.innerHTML = '<tr><td colspan="6" class="no-results text-danger">' + (data.error || 'Erreur') + '</td></tr>'; return; }
+            const list = data.projets || [];
+            if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="no-results">Aucun projet</td></tr>'; return; }
+            tbody.innerHTML = list.map(function(p) {
+                const statut = p.archive ? '<span class="text-status archived">Archivé</span>' : '<span class="text-status active">Actif</span>';
+                const act = p.archive
+                    ? '<button class="btn-action btn-action-unarchive" onclick="archiveProjetAdmin(' + p.id + ', false)" title="Désarchiver">↩</button>'
+                    : '<button class="btn-action btn-action-edit" onclick="editProjetAdmin(' + p.id + ')" title="Modifier">✏</button><button class="btn-action btn-action-archive" onclick="archiveProjetAdmin(' + p.id + ', true)" title="Archiver">📦</button>';
+                return '<tr' + (p.archive ? ' class="archived"' : '') + '><td>' + p.id + '</td><td>' + escapeHtml(String(p.num)) + '</td><td>' + escapeHtml(p.code) + '</td><td>' + escapeHtml(p.nom) + '</td><td>' + statut + '</td><td>' + act + '</td></tr>';
+            }).join('');
+        }).catch(function() { tbody.innerHTML = '<tr><td colspan="6" class="no-results text-danger">Erreur</td></tr>'; });
+}
+
+function loadSectionsAdmin() {
+    const tbody = document.getElementById('sections-admin-tbody');
+    if (!tbody) return;
+    const inclure = document.getElementById('sections-show-archives') && document.getElementById('sections-show-archives').checked;
+    tbody.innerHTML = '<tr><td colspan="5" class="no-results">Chargement...</td></tr>';
+    fetch('/projet22/api/droits/sections?archives=' + (inclure ? '1' : '0'))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) { tbody.innerHTML = '<tr><td colspan="5" class="no-results text-danger">' + (data.error || 'Erreur') + '</td></tr>'; return; }
+            const list = data.sections || [];
+            if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="no-results">Aucune section</td></tr>'; return; }
+            tbody.innerHTML = list.map(function(s) {
+                const statut = s.archive ? '<span class="text-status archived">Archivée</span>' : '<span class="text-status active">Active</span>';
+                const act = s.archive ? '<button class="btn-action btn-action-unarchive" onclick="archiveSectionAdmin(' + s.id + ', false)" title="Désarchiver">↩</button>' : '<button class="btn-action btn-action-edit" onclick="editSectionAdmin(' + s.id + ')" title="Modifier">✏</button><button class="btn-action btn-action-archive" onclick="archiveSectionAdmin(' + s.id + ', true)" title="Archiver">📦</button>';
+                return '<tr' + (s.archive ? ' class="archived"' : '') + '><td>' + s.id + '</td><td>Projet ' + s.num_proj + '</td><td>' + escapeHtml(s.nom) + '</td><td>' + statut + '</td><td>' + act + '</td></tr>';
+            }).join('');
+        }).catch(function() { tbody.innerHTML = '<tr><td colspan="5" class="no-results text-danger">Erreur</td></tr>'; });
+}
+
+function loadActionsAdmin() {
+    const tbody = document.getElementById('actions-admin-tbody');
+    if (!tbody) return;
+    const inclure = document.getElementById('actions-show-archives') && document.getElementById('actions-show-archives').checked;
+    tbody.innerHTML = '<tr><td colspan="6" class="no-results">Chargement...</td></tr>';
+    fetch('/projet22/api/droits/actions?archives=' + (inclure ? '1' : '0'))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) { tbody.innerHTML = '<tr><td colspan="6" class="no-results text-danger">' + (data.error || 'Erreur') + '</td></tr>'; return; }
+            const list = data.actions || [];
+            if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="no-results">Aucune action</td></tr>'; return; }
+            tbody.innerHTML = list.map(function(a) {
+                const statut = a.archive ? '<span class="text-status archived">Archivée</span>' : '<span class="text-status active">Active</span>';
+                const act = a.archive ? '<button class="btn-action btn-action-unarchive" onclick="archiveActionAdmin(' + a.id + ', false)" title="Désarchiver">↩</button>' : '<button class="btn-action btn-action-edit" onclick="editActionAdmin(' + a.id + ')" title="Modifier">✏</button><button class="btn-action btn-action-archive" onclick="archiveActionAdmin(' + a.id + ', true)" title="Archiver">📦</button>';
+                return '<tr' + (a.archive ? ' class="archived"' : '') + '><td>' + a.id + '</td><td>Projet ' + a.num_proj + '</td><td>' + escapeHtml(a.nom_section) + '</td><td>' + escapeHtml(a.action) + '</td><td>' + statut + '</td><td>' + act + '</td></tr>';
+            }).join('');
+        }).catch(function() { tbody.innerHTML = '<tr><td colspan="6" class="no-results text-danger">Erreur</td></tr>'; });
+}
+
+function showProjetModal() {
+    document.getElementById('projetModalTitle').textContent = 'Nouveau projet';
+    document.getElementById('projetForm').reset();
+    document.getElementById('projetId').value = '';
+    document.getElementById('projetFormAlert').innerHTML = '';
+    document.getElementById('projetModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+function closeProjetModal() {
+    document.getElementById('projetModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+function editProjetAdmin(id) {
+    fetch('/projet22/api/droits/projets-admin?archives=1').then(function(r) { return r.json(); }).then(function(data) {
+        const p = (data.projets || []).find(function(x) { return x.id === id; });
+        if (!p) return;
+        document.getElementById('projetModalTitle').textContent = 'Modifier le projet';
+        document.getElementById('projetId').value = p.id;
+        document.getElementById('projetNum').value = p.num;
+        document.getElementById('projetCode').value = p.code;
+        document.getElementById('projetNom').value = p.nom;
+        document.getElementById('projetArchive').checked = p.archive;
+        document.getElementById('projetFormAlert').innerHTML = '';
+        document.getElementById('projetModal').classList.add('show');
+        document.body.classList.add('modal-open');
+    });
+}
+function saveProjet() {
+    const id = document.getElementById('projetId').value;
+    const num = parseInt(document.getElementById('projetNum').value, 10);
+    const code = document.getElementById('projetCode').value.trim();
+    const nom = document.getElementById('projetNom').value.trim();
+    const archive = document.getElementById('projetArchive').checked;
+    if (!code || !nom) { document.getElementById('projetFormAlert').innerHTML = '<div class="alert alert-danger">CodeProj et Nom requis</div>'; return; }
+    const url = id ? '/projet22/api/droits/projet/' + id : '/projet22/api/droits/projet';
+    const method = id ? 'PUT' : 'POST';
+    const body = id ? JSON.stringify({ num_proj: num, code_proj: code, nom: nom, archive: archive }) : JSON.stringify({ num_proj: num, code_proj: code, nom: nom, archive: archive });
+    fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) { closeProjetModal(); loadProjetsAdmin(); loadDroits(); } else { document.getElementById('projetFormAlert').innerHTML = '<div class="alert alert-danger">' + escapeHtml(res.error || 'Erreur') + '</div>'; }
+        }).catch(function() { document.getElementById('projetFormAlert').innerHTML = '<div class="alert alert-danger">Erreur réseau</div>'; });
+}
+function archiveProjetAdmin(id, archive) {
+    if (!confirm(archive ? 'Archiver ce projet ?' : 'Désarchiver ce projet ?')) return;
+    fetch('/projet22/api/droits/projet/' + id + '/archive', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ archive: archive }) })
+        .then(function(r) { return r.json(); })
+        .then(function(res) { if (res.success) { loadProjetsAdmin(); loadDroits(); } else alert(res.error); }).catch(function() { alert('Erreur'); });
+}
+
+function showSectionModal() {
+    fetch('/projet22/api/droits/projets-admin?archives=1').then(function(r) { return r.json(); }).then(function(data) {
+        const opts = (data.projets || []).map(function(p) { return '<option value="' + p.id + '">Projet ' + p.num + ' - ' + escapeHtml(p.nom) + '</option>'; }).join('');
+        document.getElementById('sectionProjet').innerHTML = '<option value="">-- Sélectionner --</option>' + opts;
+    });
+    document.getElementById('sectionModalTitle').textContent = 'Nouvelle section';
+    document.getElementById('sectionForm').reset();
+    document.getElementById('sectionId').value = '';
+    document.getElementById('sectionFormAlert').innerHTML = '';
+    document.getElementById('sectionModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+function closeSectionModal() {
+    document.getElementById('sectionModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+function editSectionAdmin(id) {
+    Promise.all([
+        fetch('/projet22/api/droits/sections?archives=1').then(function(r) { return r.json(); }),
+        fetch('/projet22/api/droits/projets-admin?archives=1').then(function(r) { return r.json(); })
+    ]).then(function([rSec, rProj]) {
+        const s = (rSec.sections || []).find(function(x) { return x.id === id; });
+        if (!s) return;
+        const opts = (rProj.projets || []).map(function(p) { return '<option value="' + p.id + '"' + (p.id === s.id_proj ? ' selected' : '') + '>Projet ' + p.num + ' - ' + escapeHtml(p.nom) + '</option>'; }).join('');
+        document.getElementById('sectionProjet').innerHTML = opts;
+        document.getElementById('sectionModalTitle').textContent = 'Modifier la section';
+        document.getElementById('sectionId').value = s.id;
+        document.getElementById('sectionNom').value = s.nom;
+        document.getElementById('sectionArchive').checked = s.archive;
+        document.getElementById('sectionFormAlert').innerHTML = '';
+        document.getElementById('sectionModal').classList.add('show');
+        document.body.classList.add('modal-open');
+    });
+}
+function saveSection() {
+    const id = document.getElementById('sectionId').value;
+    const idProj = document.getElementById('sectionProjet').value;
+    const nom = document.getElementById('sectionNom').value.trim();
+    const archive = document.getElementById('sectionArchive').checked;
+    if (!idProj || !nom) { document.getElementById('sectionFormAlert').innerHTML = '<div class="alert alert-danger">Projet et Nom requis</div>'; return; }
+    const url = id ? '/projet22/api/droits/section/' + id : '/projet22/api/droits/section';
+    const method = id ? 'PUT' : 'POST';
+    const body = id ? JSON.stringify({ id_proj: parseInt(idProj, 10), nom: nom, archive: archive }) : JSON.stringify({ id_proj: parseInt(idProj, 10), nom: nom, archive: archive });
+    fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) { closeSectionModal(); loadSectionsAdmin(); loadDroits(); } else { document.getElementById('sectionFormAlert').innerHTML = '<div class="alert alert-danger">' + escapeHtml(res.error || 'Erreur') + '</div>'; }
+        }).catch(function() { document.getElementById('sectionFormAlert').innerHTML = '<div class="alert alert-danger">Erreur réseau</div>'; });
+}
+function archiveSectionAdmin(id, archive) {
+    if (!confirm(archive ? 'Archiver cette section ?' : 'Désarchiver cette section ?')) return;
+    fetch('/projet22/api/droits/section/' + id + '/archive', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ archive: archive }) })
+        .then(function(r) { return r.json(); })
+        .then(function(res) { if (res.success) { loadSectionsAdmin(); loadDroits(); } else alert(res.error); }).catch(function() { alert('Erreur'); });
+}
+
+function showActionModal() {
+    fetch('/projet22/api/droits/projets?archives=1').then(function(r) { return r.json(); }).then(function(data) {
+        droitsProjetsData = data.success ? (data.projets || []) : [];
+        const flat = [];
+        (droitsProjetsData || []).forEach(function(p) {
+            (p.sections || []).forEach(function(s) {
+                flat.push({ id: s.id, label: 'Projet ' + p.num + ' > ' + (s.nom || '') });
+            });
+        });
+        document.getElementById('actionSection').innerHTML = '<option value="">-- Sélectionner --</option>' + flat.map(function(x) { return '<option value="' + x.id + '">' + escapeHtml(x.label) + '</option>'; }).join('');
+    });
+    document.getElementById('actionModalTitle').textContent = 'Nouvelle action';
+    document.getElementById('actionForm').reset();
+    document.getElementById('actionId').value = '';
+    document.getElementById('actionFormAlert').innerHTML = '';
+    document.getElementById('actionModal').classList.add('show');
+    document.body.classList.add('modal-open');
+}
+function closeActionModal() {
+    document.getElementById('actionModal').classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+function editActionAdmin(id) {
+    fetch('/projet22/api/droits/actions?archives=1').then(function(r) { return r.json(); }).then(function(data) {
+        const a = (data.actions || []).find(function(x) { return x.id === id; });
+        if (!a) return;
+        fetch('/projet22/api/droits/projets?archives=1').then(function(r2) { return r2.json(); }).then(function(d2) {
+            const projs = d2.success ? (d2.projets || []) : [];
+            const flat = [];
+            projs.forEach(function(p) {
+                (p.sections || []).forEach(function(s) {
+                    flat.push({ id: s.id, label: 'Projet ' + p.num + ' > ' + (s.nom || '') });
+                });
+            });
+            document.getElementById('actionSection').innerHTML = flat.map(function(x) { return '<option value="' + x.id + '"' + (x.id === a.id_section ? ' selected' : '') + '>' + escapeHtml(x.label) + '</option>'; }).join('');
+        });
+        document.getElementById('actionModalTitle').textContent = 'Modifier l\'action';
+        document.getElementById('actionId').value = a.id;
+        document.getElementById('actionNom').value = a.action;
+        document.getElementById('actionCodeProj').value = a.code_proj || '';
+        document.getElementById('actionNomSections').value = a.nom_sections || '';
+        document.getElementById('actionArchive').checked = a.archive;
+        document.getElementById('actionFormAlert').innerHTML = '';
+        document.getElementById('actionModal').classList.add('show');
+        document.body.classList.add('modal-open');
+    });
+}
+function saveAction() {
+    const id = document.getElementById('actionId').value;
+    const idSection = document.getElementById('actionSection').value;
+    const action = document.getElementById('actionNom').value.trim();
+    const codeProj = document.getElementById('actionCodeProj').value.trim() || null;
+    const nomSections = document.getElementById('actionNomSections').value.trim() || null;
+    const archive = document.getElementById('actionArchive').checked;
+    if (!idSection || !action) { document.getElementById('actionFormAlert').innerHTML = '<div class="alert alert-danger">Section et Action requis</div>'; return; }
+    const url = id ? '/projet22/api/droits/action/' + id : '/projet22/api/droits/action';
+    const method = id ? 'PUT' : 'POST';
+    const body = id ? JSON.stringify({ id_section: parseInt(idSection, 10), action: action, archive: archive, code_proj: codeProj, nom_sections: nomSections }) : JSON.stringify({ id_section: parseInt(idSection, 10), action: action, archive: archive, code_proj: codeProj, nom_sections: nomSections });
+    fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) { closeActionModal(); loadActionsAdmin(); loadDroits(); } else { document.getElementById('actionFormAlert').innerHTML = '<div class="alert alert-danger">' + escapeHtml(res.error || 'Erreur') + '</div>'; }
+        }).catch(function() { document.getElementById('actionFormAlert').innerHTML = '<div class="alert alert-danger">Erreur réseau</div>'; });
+}
+function archiveActionAdmin(id, archive) {
+    if (!confirm(archive ? 'Archiver cette action ?' : 'Désarchiver cette action ?')) return;
+    fetch('/projet22/api/droits/action/' + id + '/archive', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ archive: archive }) })
+        .then(function(r) { return r.json(); })
+        .then(function(res) { if (res.success) { loadActionsAdmin(); loadDroits(); } else alert(res.error); }).catch(function() { alert('Erreur'); });
+}
+
+function loadDroits() {
+    const tbody = document.getElementById('droits-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="no-results">Chargement...</td></tr>';
+    Promise.all([
+        fetch('/projet22/api/droits/liste').then(r => r.json()),
+        fetch('/projet22/api/droits/projets').then(r => r.json()),
+        fetch('/projet22/api/droits/employes-select').then(r => r.json()),
+        fetch('/projet22/api/droits/ateliers-select').then(r => r.json())
+    ]).then(function([rListe, rProjets, rEmployes, rAteliers]) {
+        droitsData = rListe.success ? rListe.droits : [];
+        droitsProjetsData = rProjets.success ? rProjets.projets : [];
+        droitsEmployesSelect = rEmployes.success ? rEmployes.employes : [];
+        droitsAteliersSelect = rAteliers.success ? rAteliers.ateliers : [];
+        displayDroits(droitsData);
+    }).catch(function(err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="6" class="no-results text-danger">Erreur lors du chargement</td></tr>';
+    });
+}
+
+function displayDroits(droits) {
+    const tbody = document.getElementById('droits-tbody');
+    if (!droits || droits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-results">Aucun droit attribué</td></tr>';
+        return;
+    }
+    tbody.innerHTML = droits.map(function(d) {
+        const typeLab = d.cible === 'matricule' ? 'Employé' : 'Atelier';
+        const val = d.cible_valeur;
+        return '<tr><td>' + escapeHtml(typeLab) + '</td><td><strong>' + escapeHtml(String(val)) + '</strong></td>' +
+            '<td>Projet ' + d.num_proj + '</td><td>' + escapeHtml(d.nom_section) + '</td><td>' + escapeHtml(d.nom_action) + '</td>' +
+            '<td><button class="btn-action btn-action-delete" onclick="deleteDroit(' + d.id + ')" title="Supprimer"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></td></tr>';
+    }).join('');
+}
+
+function showDroitModal() {
+    if (!droitsProjetsData.length || !droitsEmployesSelect.length) {
+        Promise.all([
+            fetch('/projet22/api/droits/projets').then(r => r.json()),
+            fetch('/projet22/api/droits/employes-select').then(r => r.json()),
+            fetch('/projet22/api/droits/ateliers-select').then(r => r.json())
+        ]).then(function([rProjets, rEmployes, rAteliers]) {
+            droitsProjetsData = rProjets.success ? rProjets.projets : [];
+            droitsEmployesSelect = rEmployes.success ? rEmployes.employes : [];
+            droitsAteliersSelect = rAteliers.success ? rAteliers.ateliers : [];
+            _showDroitModalInner();
+        }).catch(function() { alert('Erreur chargement des données'); });
+    } else {
+        _showDroitModalInner();
+    }
+}
+function _showDroitModalInner() {
+    populateDroitActions();
+    const selMat = document.getElementById('droitMatricule');
+    selMat.innerHTML = '<option value="">-- Sélectionner un employé --</option>' +
+        droitsEmployesSelect.map(function(e) {
+            return '<option value="' + e.matricule + '">' + escapeHtml(e.matricule + ' - ' + (e.nom || '')) + '</option>';
+        }).join('');
+    const selAt = document.getElementById('droitAtelier');
+    selAt.innerHTML = '<option value="">-- Sélectionner un atelier --</option>' +
+        droitsAteliersSelect.map(function(a) {
+            return '<option value="' + escapeHtml(a.nom) + '">' + escapeHtml(a.nom) + '</option>';
+        }).join('');
+    document.getElementById('droitCibleType').value = 'matricule';
+    document.getElementById('droitMatriculeGroup').style.display = 'block';
+    document.getElementById('droitAtelierGroup').style.display = 'none';
+    document.getElementById('droitFormAlert').innerHTML = '';
+    openDroitModal();
+}
+
+function populateDroitActions() {
+    const sel = document.getElementById('droitAction');
+    const options = [];
+    droitsProjetsData.forEach(function(p) {
+        (p.sections || []).forEach(function(s) {
+            (s.actions || []).forEach(function(a) {
+                options.push({ id: a.id, label: 'Projet ' + p.num + ' > ' + (s.nom || '') + ' > ' + (a.action || '') });
+            });
+        });
+    });
+    sel.innerHTML = '<option value="">-- Sélectionner une action --</option>' +
+        options.map(function(o) { return '<option value="' + o.id + '">' + escapeHtml(o.label) + '</option>'; }).join('');
+}
+
+function saveDroit() {
+    const type = document.getElementById('droitCibleType').value;
+    const matricule = document.getElementById('droitMatricule').value;
+    const atelier = document.getElementById('droitAtelier').value;
+    const idAction = document.getElementById('droitAction').value;
+    const val = type === 'matricule' ? matricule : atelier;
+    if (!val) {
+        document.getElementById('droitFormAlert').innerHTML = '<div class="alert alert-danger">Veuillez sélectionner un employé ou un atelier</div>';
+        return;
+    }
+    if (!idAction) {
+        document.getElementById('droitFormAlert').innerHTML = '<div class="alert alert-danger">Veuillez sélectionner une action</div>';
+        return;
+    }
+    fetch('/projet22/api/droits/ajouter', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ cible_type: type, cible_valeur: type === 'matricule' ? parseInt(val, 10) : val, id_action: parseInt(idAction, 10) })
+    }).then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.success) {
+            document.getElementById('droitFormAlert').innerHTML = '<div class="alert alert-success">' + result.message + '</div>';
+            setTimeout(function() { closeDroitModal(); loadDroits(); }, 800);
+        } else {
+            document.getElementById('droitFormAlert').innerHTML = '<div class="alert alert-danger">' + escapeHtml(result.error || 'Erreur') + '</div>';
+        }
+    }).catch(function(err) {
+        console.error(err);
+        document.getElementById('droitFormAlert').innerHTML = '<div class="alert alert-danger">Erreur réseau</div>';
+    });
+}
+
+function deleteDroit(id) {
+    if (!confirm('Supprimer ce droit ?')) return;
+    fetch('/projet22/api/droits/supprimer/' + id, { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success) loadDroits();
+            else alert(result.error || 'Erreur');
+        })
+        .catch(function(err) { console.error(err); alert('Erreur'); });
 }
 </script>
 {% endblock %}

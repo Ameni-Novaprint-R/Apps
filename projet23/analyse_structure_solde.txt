@@ -1,0 +1,33 @@
+Nombre de pages: 1
+
+
+=== PAGE 1 ===
+TEXTE:
+Solde Trésorerie (Graphique)
+Filtre: "SOLDES BANCAIRES"; Compte Société dans ("BIAT748", "UIB2879", "BTK5359", "BZ115118") et Type Date egal "Transaction" et Date Début egal
+"25/02/2026" et Date Fin egal "05/03/2026" et Utiliser Intervalles Personnalisés egal "false" et Statut dans ("Confirmed", "Actual") et Devise Rapport egal
+"TND" et Devise de référence egal "TND" et Place de Cotation egal "TUN" et Option Date Cours egal "Last entered rate"
+-300000
+-307 603,68
+-321 364,30
+-400000
+-446 841,67
+-453 522,29
+-478 739,57
+-495 234,95
+-500000
+Solde
+-535 093,59
+-587 121,25
+-600000
+-629 966,83
+-700000
+25/02/2026 26/02/2026 27/02/2026 28/02/2026 01/03/2026 02/03/2026 03/03/2026 04/03/2026 05/03/2026
+Created by: FRP_IMEN on 26/02/2026 07:26:14 © 2026 Sage Software, Inc. Tous droits réservés. 1 / 1
+
+TABLES: 1
+  Table 1: 4 lignes
+    ['-321 364,30', '-307 603,68', '', '', '', '', '', '', '']
+    ['', '', '-446 841,67', '-453 522,29', '-478 739,57', '-495 234,95', '', '', '']
+    ['', '', '', '', '', '', '-535 093,59', '-587 121,25', '']
+    ['', '', '', '', '', '', '', '', '-629 966,83']
