@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 24 – Tableau de bord Formes de Découpe{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* Cadre titre : vert d'eau, dégradé clair, hauteur réduite (aligné projet24.html) */
+    .projet24-page-header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 14px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%) !important;
+        color: #00695c;
+        border: 2px solid #00897b;
+    }
+    .projet24-page-header h1 { font-size: 1.6rem; margin-bottom: 4px; font-weight: 700; color: #00695c; }
+    .projet24-page-header .projet24-header-subtitle { color: #00695c; opacity: 0.9; }
+    .projet24-section-selection { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; text-align: center; }
+    .projet24-section-options { display: flex; justify-content: center; gap: 20px; flex-wrap: nowrap; }
+    .projet24-section-btn { padding: 15px 20px; background: white; color: #2c3e50; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem; transition: all 0.3s; border: 2px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 1; min-width: 0; max-width: 25%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .projet24-section-btn:hover { background: #00897b; color: white; border-color: #00897b; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 137, 123, 0.35); }
+    .projet24-section-btn.active { background: #00897b; color: white; border-color: #00695c; box-shadow: 0 2px 6px rgba(0, 105, 92, 0.3); }
+    @media (max-width: 768px) { .projet24-section-options { flex-direction: column; } .projet24-section-btn { max-width: 100%; } }
+    .projet24-dash { padding: 20px; background: #f8f9fa; min-height: 60vh; }
+    .projet24-dash .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .projet24-dash .card-header { font-weight: 600; background: #212529; color: #fff; border-radius: 10px 10px 0 0; }
+    .projet24-dash .list-group-item { border-left: 0; border-right: 0; }
+    .projet24-dash .stat-big { font-size: 2rem; font-weight: 700; color: #0d6efd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="projet24-page-header">
+        <h1>
+            <i class="fas fa-shapes"></i> Projet 24 - Formes de Découpe
+        </h1>
+        <div class="projet24-header-subtitle" style="margin-top: 6px; font-size: 0.85rem;">
+            <span>Catalogue et suivi des formes de découpe (étuis, boîtes, sacs, etc.)</span>
+        </div>
+    </div>
+
+    <div class="projet24-section-selection">
+        <div class="projet24-section-options">
+            <a href="{{ url_for('projet24.nouvelle_forme') }}" class="projet24-section-btn" style="text-decoration: none;"><span>➕</span><span>Nouvelle forme</span></a>
+            <a href="{{ url_for('projet24.modifier_forme') }}" class="projet24-section-btn" style="text-decoration: none;"><span>✏️</span><span>Modifier forme existante</span></a>
+            <a href="{{ url_for('projet24.suivi_formes') }}" class="projet24-section-btn" style="text-decoration: none;"><span>📋</span><span>Suivi des formes de découpe</span></a>
+            <a href="{{ url_for('projet24.index') }}" class="projet24-section-btn active" style="text-decoration: none;"><span>📊</span><span>Tableau de bord</span></a>
+        </div>
+    </div>
+
+    <div class="projet24-dash">
+        <div id="dashboardError" class="alert alert-danger mt-2" style="display: none;" role="alert"></div>
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="stat-big" id="statTotalFormes">—</div>
+                        <div class="text-muted">Total formes</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="stat-big" id="statCoutTotal">— TND</div>
+                        <div class="text-muted">Coût total (initial + amélioration)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="stat-big" id="statTotalTirages">—</div>
+                        <div class="text-muted">Total tirages</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Formes par type</div>
+                    <ul class="list-group list-group-flush" id="byType"></ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Formes par type de produit</div>
+                    <ul class="list-group list-group-flush" id="byTypeProduit"></ul>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Formes par état</div>
+                    <ul class="list-group list-group-flush" id="byEtat"></ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Tirages par type de forme</div>
+                    <ul class="list-group list-group-flush" id="tiragesParType"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Top 5 formes les plus utilisées (tirages)</div>
+                    <ul class="list-group list-group-flush" id="top5Plus"></ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Top 5 formes les moins utilisées</div>
+                    <ul class="list-group list-group-flush" id="top5Moins"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const API_BASE = '{{ url_for("projet24.index") }}'.replace(/\/$/, '') + '/api';
+    const errEl = document.getElementById('dashboardError');
+
+    function showError(msg) {
+        if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    }
+    function hideError() {
+        if (errEl) errEl.style.display = 'none';
+    }
+
+    function renderList(id, items, labelKey, valueKey, suffix) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        suffix = suffix || '';
+        if (!items || items.length === 0) {
+            el.innerHTML = '<li class="list-group-item text-muted">Aucune donnée</li>';
+            return;
+        }
+        el.innerHTML = items.map(x => '<li class="list-group-item d-flex justify-content-between"><span>' + (x[labelKey] || '') + '</span><span>' + (x[valueKey] != null ? x[valueKey] : '') + suffix + '</span></li>').join('');
+    }
+
+    function loadDashboard() {
+        hideError();
+        fetch(API_BASE + '/dashboard', { credentials: 'same-origin' })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Erreur ' + r.status + (r.statusText ? ' ' + r.statusText : ''));
+                return r.json();
+            })
+            .then(function(s) {
+                if (s.error) { showError(s.error); return; }
+                document.getElementById('statTotalFormes').textContent = s.total_formes != null ? s.total_formes : 0;
+                document.getElementById('statCoutTotal').textContent = (s.cout_total != null ? parseFloat(s.cout_total).toFixed(3) : '0') + ' TND';
+                document.getElementById('statTotalTirages').textContent = s.total_tirages != null ? s.total_tirages : 0;
+                renderList('byType', s.by_type, 'type_forme', 'nb');
+                renderList('byTypeProduit', s.by_type_produit, 'type_produit', 'nb');
+                renderList('byEtat', s.by_etat, 'etat', 'nb');
+                renderList('top5Plus', s.top5_plus, 'nom', 'total_tirages', ' tirages');
+                renderList('top5Moins', s.top5_moins, 'nom', 'total_tirages', ' tirages');
+                renderList('tiragesParType', s.tirages_par_type, 'type_forme', 'tirages', ' tirages');
+            })
+            .catch(function(err) {
+                console.error('dashboard', err);
+                showError('Impossible de charger les données du tableau de bord. Vérifiez la connexion au serveur.');
+            });
+    }
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+})();
+</script>
+{% endblock %}

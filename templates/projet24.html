@@ -1,0 +1,1074 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 24 – Formes de Découpe{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<style>
+    /* Style titre : vert d'eau, dégradé clair, hauteur réduite */
+    .projet24-page-header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 14px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%) !important;
+        color: #00695c;
+        border: 2px solid #00897b;
+    }
+    .projet24-page-header h1 {
+        font-size: 1.6rem;
+        margin-bottom: 4px;
+        font-weight: 700;
+        color: #00695c;
+    }
+    .projet24-page-header .projet24-header-subtitle { color: #00695c; opacity: 0.9; }
+    .projet24-section-selection {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        text-align: center;
+    }
+    .projet24-section-options {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: nowrap;
+    }
+    .projet24-section-btn {
+        padding: 15px 20px;
+        background: white;
+        color: #2c3e50;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+        border: 2px solid #ddd;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        cursor: pointer;
+        user-select: none;
+        flex: 1;
+        min-width: 0;
+        max-width: 25%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .projet24-section-btn:hover {
+        background: #00897b;
+        color: white;
+        border-color: #00897b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 137, 123, 0.35);
+    }
+    /* Section sélectionnée : couleur unie assortie au cadre titre (vert d'eau foncé), pas le même dégradé */
+    .projet24-section-btn.active {
+        background: #00897b;
+        color: white;
+        border-color: #00695c;
+        box-shadow: 0 2px 6px rgba(0, 105, 92, 0.3);
+    }
+    @media (max-width: 768px) {
+        .projet24-section-options {
+            flex-direction: column;
+        }
+        .projet24-section-btn {
+            max-width: 100%;
+        }
+    }
+    /* Contenu section */
+    .projet24-content { padding: 20px; background: #fff; min-height: 40vh; }
+    /* Conteneur suivi : largeur = tableau, pas de zone vide à droite */
+    body .container.projet24-suivi-container { box-sizing: border-box !important; }
+    .projet24-suivi-page { box-sizing: border-box; }
+    .projet24-content-suivi { box-sizing: border-box; }
+    .projet24-actions { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .projet24-actions .btn { border-radius: 8px; font-weight: 500; }
+    .projet24-table-wrapper { width: 100%; overflow-x: auto; border-radius: 0; border: none; position: relative; box-sizing: border-box; }
+    .projet24-table-inner { display: block; min-width: min-content; box-sizing: border-box; }
+    .projet24-table-inner .dataTables_wrapper { max-width: none; width: max-content; box-sizing: border-box; }
+    .projet24-table-wrapper table { margin-bottom: 0; font-size: 0.75rem; }
+    .projet24-table-wrapper .projet24-table-formes { table-layout: auto; }
+    .projet24-table-wrapper thead.table-dark th { background: #212529; color: #fff; font-weight: 600; padding: 3px 4px; text-align: center; vertical-align: middle; font-size: 0.75rem; }
+    .projet24-table-wrapper tbody td { vertical-align: middle; background-color: #ffffff; padding: 3px 4px; line-height: 1.2; font-size: 0.75rem; }
+    .projet24-table-wrapper tbody tr:nth-child(even) td { background-color: #f8f9fa; }
+    .projet24-table-wrapper .table-filters th { background: #212529; padding: 2px 4px !important; text-align: center; font-size: 0.75rem; }
+    /* Colonne Actions : 5 boutons, largeur suffisante pour que le dernier (Suppr.) soit entièrement visible */
+    #tableFormes.projet24-table-formes col.projet24-col-actions-width { width: 198px !important; min-width: 198px !important; }
+    #tableFormes th.projet24-col-actions,
+    #tableFormes td.projet24-col-actions,
+    #tableFormes th:last-child,
+    #tableFormes td:last-child { width: 198px !important; min-width: 198px !important; max-width: 198px !important; white-space: nowrap !important; vertical-align: middle !important; box-sizing: border-box; padding: 2px 4px !important; }
+    #tableFormes td.projet24-col-actions > *,
+    #tableFormes td:last-child > * { display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 3px; }
+    #tableFormes td.projet24-col-actions .projet24-cell-actions,
+    #tableFormes td:last-child .projet24-cell-actions { display: inline-flex !important; flex-wrap: nowrap !important; align-items: center; gap: 3px; }
+    #tableFormes td.projet24-col-actions .btn,
+    #tableFormes td.projet24-col-actions a.btn,
+    #tableFormes td:last-child .btn,
+    #tableFormes td:last-child a.btn { flex-shrink: 0; white-space: nowrap; padding: 2px 4px; font-size: 0.65rem; line-height: 1.15; }
+    .projet24-table-wrapper .table-filters input { width: 100%; font-size: 0.65rem; padding: 2px 4px; box-sizing: border-box; min-height: 18px; border-radius: 3px; border: 1px solid #dee2e6; background: #fff; color: #333; }
+    .projet24-table-wrapper .table-filters input::placeholder { color: #6c757d; }
+    .projet24-table-zone { max-width: 100%; box-sizing: border-box; }
+    .projet24-dt-controls-top,
+    .projet24-dt-controls-bottom { width: 100%; box-sizing: border-box; }
+    .projet24-dt-controls-top .dataTables_length,
+    .projet24-dt-controls-top .dataTables_filter,
+    .projet24-dt-controls-bottom .dataTables_info,
+    .projet24-dt-controls-bottom .dataTables_paginate { display: inline-block; margin-right: 0.5rem; font-size: 0.8rem; }
+    .projet24-dt-controls-top .dataTables_filter { float: right; display: inline-flex !important; align-items: center; flex-wrap: nowrap; white-space: nowrap; }
+    .projet24-dt-controls-top .dataTables_filter label { margin: 0; display: flex; align-items: center; flex-wrap: nowrap; }
+    .projet24-dt-controls-top .dataTables_filter label input { margin-left: 6px; }
+    .projet24-dt-controls-top .dataTables_length { display: inline-flex !important; align-items: center; flex-wrap: nowrap; white-space: nowrap; }
+    .projet24-dt-controls-top .dataTables_length label { margin: 0; padding: 0; display: flex; align-items: center; flex-wrap: nowrap; }
+    /* Select "Show X entries" : éviter que la flèche chevauche le nombre */
+    .projet24-dt-controls-top .dataTables_length label select {
+        margin-left: 4px; margin-right: 4px;
+        padding: 2px 22px 2px 8px;
+        font-size: 0.8rem;
+        min-width: 3.5em;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 6px center;
+        background-color: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+    .projet24-column-toggle { margin-bottom: 0.5rem; font-size: 0.8rem; }
+    .projet24-column-toggle .form-check { margin-right: 0.75rem; margin-bottom: 0.25rem; white-space: nowrap; }
+    #projet24ColExportWrapper { flex-shrink: 0; margin-left: auto; }
+    .badge-etat { font-size: 0.8em; }
+    .modal-content { border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .modal-header { border-bottom: 2px solid #0d6efd; }
+    .modal-title { color: #0d6efd; font-weight: 600; }
+    .form-label { font-weight: 600; color: #495057; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid {% if section == 'suivi' %}projet24-suivi-page{% endif %}">
+    <!-- En-tête (style Projet 11) -->
+    <div class="projet24-page-header">
+        <h1>
+            <i class="fas fa-shapes"></i> Projet 24 - Formes de Découpe
+        </h1>
+        <div class="projet24-header-subtitle" style="margin-top: 6px; font-size: 0.85rem;">
+            <span>Catalogue et suivi des formes de découpe (étuis, boîtes, sacs, etc.)</span>
+        </div>
+    </div>
+
+    <!-- Sélection de section (style Projet 11) - 2e clic sur la section active masque le contenu -->
+    <div class="projet24-section-selection">
+        <div class="projet24-section-options">
+            <a href="{% if section == 'nouvelle' %}{{ url_for('projet24.index') }}{% else %}{{ url_for('projet24.nouvelle_forme') }}{% endif %}" class="projet24-section-btn {% if section == 'nouvelle' %}active{% endif %}" style="text-decoration: none;">
+                <span>➕</span>
+                <span>Nouvelle forme</span>
+            </a>
+            <a href="{% if section == 'modifier' %}{{ url_for('projet24.index') }}{% else %}{{ url_for('projet24.modifier_forme') }}{% endif %}" class="projet24-section-btn {% if section == 'modifier' %}active{% endif %}" style="text-decoration: none;">
+                <span>✏️</span>
+                <span>Modifier forme existante</span>
+            </a>
+            <a href="{% if section == 'suivi' %}{{ url_for('projet24.index') }}{% else %}{{ url_for('projet24.suivi_formes') }}{% endif %}" class="projet24-section-btn {% if section == 'suivi' %}active{% endif %}" style="text-decoration: none;">
+                <span>📋</span>
+                <span>Suivi des formes de découpe</span>
+            </a>
+            <a href="{{ url_for('projet24.dashboard') }}" class="projet24-section-btn {% if section == 'dashboard' %}active{% endif %}" style="text-decoration: none;">
+                <span>📊</span>
+                <span>Tableau de bord</span>
+            </a>
+        </div>
+    </div>
+
+    {% if section == 'nouvelle' %}
+    <!-- Section Nouvelle forme : formulaire de création uniquement -->
+    <div class="projet24-content">
+        <h2 class="mb-4">Créer une nouvelle forme</h2>
+        <form id="formNouvelleForme" class="projet24-form-inline">
+            <input type="hidden" name="forme_nom_edit" value="">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Type forme *</label>
+                    <select class="form-select" name="type_forme" id="nf_type_forme" required>
+                        <option value="VAR">VAR</option>
+                        <option value="PLA">PLA</option>
+                        <option value="OND">OND</option>
+                        <option value="CF">CF</option>
+                        <option value="FEM">FEM</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Type produit *</label>
+                    <select class="form-select" name="type_produit" id="nf_type_produit" required>
+                        <option value="etui simple">Étui simple</option>
+                        <option value="Fond automatique">Fond automatique</option>
+                        <option value="sac">Sac</option>
+                        <option value="Pdoc">Pdoc</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Nom (vide = génération auto)</label>
+                <input type="text" class="form-control" name="forme_nom" id="nf_forme_nom" placeholder="ex: VAR26001" maxlength="20">
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Dimension</label>
+                    <input type="text" class="form-control" name="dimension" id="nf_dimension" placeholder="L*L*H (cm)">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Format fini</label>
+                    <input type="text" class="form-control" name="format_fini" id="nf_format_fini" placeholder="L*L">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Sens fibre</label>
+                    <select class="form-select" name="sens_fibre" id="nf_sens_fibre">
+                        <option value="">—</option>
+                        <option value="Horizontal">Horizontal</option>
+                        <option value="Vertical">Vertical</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Nombre de poses</label>
+                    <input type="number" class="form-control" name="nombre_pose" id="nf_nombre_pose" value="1" min="1">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Coût initial (TND)</label>
+                    <input type="number" class="form-control" name="cout_initial" id="nf_cout_initial" value="0" step="0.01" min="0">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Fichier PDF</label>
+                    <input type="file" class="form-control" name="fichier_source" id="nf_fichier_source" accept=".pdf">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" name="description" id="nf_description" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Enregistrer la forme</button>
+            <a href="{{ url_for('projet24.suivi_formes') }}" class="btn btn-outline-secondary">Annuler</a>
+        </form>
+        <div id="nfMessage" class="mt-3" style="display:none;"></div>
+    </div>
+    {% endif %}
+
+    {% if section == 'modifier' %}
+    <!-- Section Modifier forme existante : sélection + formulaire d'édition -->
+    <div class="projet24-content">
+        <h2 class="mb-4">Modifier une forme existante</h2>
+        <div class="mb-4">
+            <label class="form-label">Choisir la forme à modifier</label>
+            <select class="form-select form-select-lg" id="modifierSelectForme" style="max-width: 400px;">
+                <option value="">— Sélectionner une forme —</option>
+            </select>
+        </div>
+        <form id="formModifierForme" class="projet24-form-inline" style="display: none;">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Type forme *</label>
+                    <select class="form-select" name="type_forme" id="mf_type_forme" required>
+                        <option value="VAR">VAR</option>
+                        <option value="PLA">PLA</option>
+                        <option value="OND">OND</option>
+                        <option value="CF">CF</option>
+                        <option value="FEM">FEM</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Type produit *</label>
+                    <select class="form-select" name="type_produit" id="mf_type_produit" required>
+                        <option value="etui simple">Étui simple</option>
+                        <option value="Fond automatique">Fond automatique</option>
+                        <option value="sac">Sac</option>
+                        <option value="Pdoc">Pdoc</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Dimension</label>
+                    <input type="text" class="form-control" name="dimension" id="mf_dimension" placeholder="L*L*H (cm)">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Format fini</label>
+                    <input type="text" class="form-control" name="format_fini" id="mf_format_fini" placeholder="L*L">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Sens fibre</label>
+                    <select class="form-select" name="sens_fibre" id="mf_sens_fibre">
+                        <option value="">—</option>
+                        <option value="Horizontal">Horizontal</option>
+                        <option value="Vertical">Vertical</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Nombre de poses</label>
+                    <input type="number" class="form-control" name="nombre_pose" id="mf_nombre_pose" value="1" min="1">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Coût initial (TND)</label>
+                    <input type="number" class="form-control" name="cout_initial" id="mf_cout_initial" value="0" step="0.01" min="0">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Fichier PDF</label>
+                    <input type="file" class="form-control" name="fichier_source" id="mf_fichier_source" accept=".pdf">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" name="description" id="mf_description" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+            <button type="button" class="btn btn-outline-secondary" id="btnModifierAnnuler">Annuler</button>
+        </form>
+        <div id="mfMessage" class="mt-3" style="display:none;"></div>
+    </div>
+    {% endif %}
+
+    {% if section == 'suivi' %}
+    <!-- Section Suivi des formes de découpe : tableau avec filtres, colonnes, export -->
+    <div class="projet24-content projet24-content-suivi">
+        <div class="projet24-column-toggle">
+            <div class="fw-bold mb-2">Afficher / Masquer les colonnes :</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center" id="projet24ColumnToggleContainer">
+                <div class="form-check form-check-inline me-2" id="projet24ColToggleAllWrapper">
+                    <input class="form-check-input" type="checkbox" id="projet24ColToggleAll" checked title="Tout cocher / tout décocher">
+                    <label class="form-check-label" for="projet24ColToggleAll">Tout cocher</label>
+                </div>
+                <div class="d-flex flex-wrap gap-1 align-items-center" id="projet24ColCheckboxes"></div>
+                <div class="d-flex align-items-center gap-2" id="projet24ColExportWrapper">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="projet24BtnEnregistrerVue" title="Enregistrer les filtres et colonnes affichées">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                        Enregistrer une vue
+                    </button>
+                    <a href="{{ url_for('projet24.export_formes_excel') }}" class="btn btn-sm btn-success" title="Exporter le tableau en Excel">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="white"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                        Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="projet24-table-zone" id="projet24TableZone">
+        <div class="projet24-dt-controls-top mb-2" id="projet24DtControlsTop"></div>
+        <div class="projet24-table-wrapper position-relative" id="projet24TableWrapper">
+            <div class="projet24-table-inner" id="projet24TableInner">
+                <table id="tableFormes" class="table table-striped table-hover mb-0 projet24-table-formes" style="width:max-content">
+                <colgroup>
+                    <col><col><col><col><col><col><col><col><col><col><col><col><col><col><col class="projet24-col-actions-width">
+                </colgroup>
+                <thead class="table-dark">
+                    <tr>
+                        <th>Type forme</th>
+                        <th>Type produit</th>
+                        <th>Nom</th>
+                        <th>Dimension</th>
+                        <th>Format fini</th>
+                        <th>Sens fibre</th>
+                        <th>Fichier</th>
+                        <th>Poses</th>
+                        <th>Tirages</th>
+                        <th>Coûts</th>
+                        <th>État</th>
+                        <th>Créé le</th>
+                        <th>Créateur</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            </div>
+        </div>
+        <div class="projet24-dt-controls-bottom mt-2" id="projet24DtControlsBottom"></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if section == 'suivi' %}
+<!-- Modal Tirages -->
+<div class="modal fade" id="modalTirages" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter des tirages – <span id="tiragesFormeNom"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="tiragesFormeNomHidden" value="">
+                <div class="mb-3">
+                    <label class="form-label">Nombre de tirages</label>
+                    <input type="number" class="form-control" id="nombre_tirages" value="1" min="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="btnSaveTirages">Valider</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Coûts -->
+<div class="modal fade" id="modalCouts" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Coûts d'amélioration – <span id="coutsFormeNom"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="coutsFormeNomHidden" value="">
+                <div class="mb-3">
+                    <label class="form-label">Montant (TND)</label>
+                    <input type="number" class="form-control" id="coutMontant" value="0" step="0.01" min="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-control" id="coutDescription" placeholder="Libellé">
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm mb-3" id="btnAddCout">Ajouter cette ligne</button>
+                <div id="listeCouts"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal État -->
+<div class="modal fade" id="modalEtat" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Changer l'état – <span id="etatFormeNom"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="etatFormeNomHidden" value="">
+                <div class="mb-3">
+                    <label class="form-label">État</label>
+                    <select class="form-select" id="formeEtat">
+                        <option value="EN_COMMANDE">En commande</option>
+                        <option value="PRETE">Prête</option>
+                        <option value="EN_MODIFICATION">En modification</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="btnSaveEtat">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if section == 'suivi' %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/plug-ins/1.13.7/i18n/fr-FR.json"></script>
+<script>
+(function() {
+    const API_BASE = '{{ url_for("projet24.index") }}'.replace(/\/$/, '') + '/api';
+    const UPLOADS_BASE = '{{ url_for("projet24.serve_upload", filename="") }}'.replace(/\/$/, '');
+    const VUE_STORAGE_KEY = 'projet24_formes_vue';
+
+    const colonneDefs = [
+        { titre: 'Type forme', filtre: true, toggle: true },
+        { titre: 'Type produit', filtre: true, toggle: true },
+        { titre: 'Nom', filtre: true, toggle: true },
+        { titre: 'Dimension', filtre: true, toggle: true },
+        { titre: 'Format fini', filtre: true, toggle: true },
+        { titre: 'Sens fibre', filtre: true, toggle: true },
+        { titre: 'Fichier', filtre: true, toggle: true },
+        { titre: 'Poses', filtre: true, toggle: true },
+        { titre: 'Tirages', filtre: true, toggle: true },
+        { titre: 'Coûts', filtre: true, toggle: true },
+        { titre: 'État', filtre: true, toggle: true },
+        { titre: 'Créé le', filtre: true, toggle: true },
+        { titre: 'Créateur', filtre: true, toggle: true },
+        { titre: 'Actions', filtre: false, toggle: true, orderable: false }
+    ];
+
+    let tableFormes = null;
+    let modalFormeEl, modalTiragesEl, modalCoutsEl, modalEtatEl;
+
+    function loadSavedView() {
+        try {
+            const raw = localStorage.getItem(VUE_STORAGE_KEY);
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch (e) { return null; }
+    }
+
+    function saveView() {
+        if (!tableFormes) return;
+        const colVisible = [];
+        for (let i = 0; i < colonneDefs.length; i++) {
+            colVisible.push(tableFormes.column(i).visible());
+        }
+        const filterValues = [];
+        $('#tableFormes thead .table-filters input').each(function() {
+            filterValues.push($(this).val() || '');
+        });
+        const toutCocher = document.getElementById('projet24ColToggleAll') && document.getElementById('projet24ColToggleAll').checked;
+        const pageLength = tableFormes.page.len();
+        localStorage.setItem(VUE_STORAGE_KEY, JSON.stringify({
+            colVisible: colVisible,
+            filterValues: filterValues,
+            toutCocher: toutCocher,
+            pageLength: pageLength
+        }));
+    }
+
+    function loadFormes() {
+        fetch(API_BASE + '/formes')
+            .then(r => {
+                if (!r.ok) throw new Error('Erreur ' + r.status);
+                return r.json();
+            })
+            .then(data => {
+                const rows = Array.isArray(data) ? data : [];
+                if (tableFormes) {
+                    tableFormes.clear();
+                    rows.forEach(row => tableFormes.row.add(buildRow(row)));
+                    tableFormes.draw(false);
+                }
+            })
+            .catch(err => {
+                console.error('loadFormes', err);
+                if (tableFormes) {
+                    tableFormes.clear();
+                    tableFormes.draw(false);
+                }
+            });
+    }
+
+    function buildRow(f) {
+        const dateCre = f.date_creation ? new Date(f.date_creation).toLocaleDateString('fr-FR') : '';
+        const coutTotal = (parseFloat(f.cout_initial) || 0) + (parseFloat(f.cout_amelioration) || 0);
+        const pdfLink = f.fichier_source
+            ? '<a href="' + UPLOADS_BASE + '/' + encodeURIComponent(f.fichier_source) + '" target="_blank">Voir PDF</a>'
+            : '—';
+        const modifierUrl = (API_BASE.replace(/\/api$/, '') + '/modifier-forme?nom=' + encodeURIComponent(f.nom || ''));
+        const actions = '<span class="projet24-cell-actions">' + [
+            '<a href="' + modifierUrl + '" class="btn btn-sm btn-outline-primary">Éditer</a>',
+            '<button type="button" class="btn btn-sm btn-outline-success btn-tirages" data-nom="' + (f.nom || '') + '" title="Tirages">+</button>',
+            '<button type="button" class="btn btn-sm btn-outline-warning btn-couts" data-nom="' + (f.nom || '') + '" title="Coûts">Coûts</button>',
+            '<button type="button" class="btn btn-sm btn-outline-info btn-etat" data-nom="' + (f.nom || '') + '" data-etat="' + (f.etat || '') + '">État</button>',
+            '<button type="button" class="btn btn-sm btn-outline-danger btn-delete" data-nom="' + (f.nom || '') + '">Suppr.</button>'
+        ].join('') + '</span>';
+        return [
+            f.type_forme || '—',
+            f.type_produit || '—',
+            f.nom || '—',
+            f.dimension || '—',
+            f.format_fini || '—',
+            f.sens_fibre || '—',
+            pdfLink,
+            f.nombre_pose != null ? f.nombre_pose : '—',
+            f.total_tirages != null ? f.total_tirages : '—',
+            coutTotal.toFixed(3),
+            '<span class="badge bg-secondary badge-etat">' + (f.etat || '—') + '</span>',
+            dateCre,
+            (f.createur != null && f.createur !== '') ? f.createur : '—',
+            actions
+        ];
+    }
+
+    function openTirages(nom) {
+        document.getElementById('tiragesFormeNom').textContent = nom;
+        document.getElementById('tiragesFormeNomHidden').value = nom;
+        document.getElementById('nombre_tirages').value = 1;
+        modalTiragesEl = new bootstrap.Modal(document.getElementById('modalTirages'));
+        modalTiragesEl.show();
+    }
+
+    function saveTirages() {
+        const nom = document.getElementById('tiragesFormeNomHidden').value;
+        const n = parseInt(document.getElementById('nombre_tirages').value, 10) || 1;
+        fetch(API_BASE + '/formes/' + encodeURIComponent(nom) + '/tirages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre_tirages: n })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error || (data.success === false && data.error)) {
+                    alert(data.error || 'Erreur');
+                    return;
+                }
+                modalTiragesEl.hide();
+                loadFormes();
+            })
+            .catch(err => { console.error(err); alert('Erreur réseau'); });
+    }
+
+    function openCouts(nom) {
+        document.getElementById('coutsFormeNom').textContent = nom;
+        document.getElementById('coutsFormeNomHidden').value = nom;
+        document.getElementById('coutMontant').value = 0;
+        document.getElementById('coutDescription').value = '';
+        fetch(API_BASE + '/formes/' + encodeURIComponent(nom) + '/couts')
+            .then(r => r.json())
+            .then(couts => {
+                let html = '<table class="table table-sm"><thead><tr><th>Montant</th><th>Description</th><th>Date</th></tr></thead><tbody>';
+                (couts || []).forEach(c => {
+                    html += '<tr><td>' + (c.montant != null ? parseFloat(c.montant).toFixed(3) : '') + '</td><td>' + (c.description || '') + '</td><td>' + (c.date_ajout ? new Date(c.date_ajout).toLocaleDateString('fr-FR') : '') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                document.getElementById('listeCouts').innerHTML = html || '<p class="text-muted">Aucun coût.</p>';
+            });
+        modalCoutsEl = new bootstrap.Modal(document.getElementById('modalCouts'));
+        modalCoutsEl.show();
+    }
+
+    function addCout() {
+        const nom = document.getElementById('coutsFormeNomHidden').value;
+        const montant = parseFloat(document.getElementById('coutMontant').value) || 0;
+        const description = document.getElementById('coutDescription').value.trim();
+        fetch(API_BASE + '/formes/' + encodeURIComponent(nom) + '/couts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ montant, description })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error || (data.success === false && data.error)) {
+                    alert(data.error || 'Erreur');
+                    return;
+                }
+                document.getElementById('coutMontant').value = 0;
+                document.getElementById('coutDescription').value = '';
+                openCouts(nom);
+            })
+            .catch(err => { console.error(err); alert('Erreur réseau'); });
+    }
+
+    function openEtat(nom, etat) {
+        document.getElementById('etatFormeNom').textContent = nom;
+        document.getElementById('etatFormeNomHidden').value = nom;
+        document.getElementById('formeEtat').value = etat || 'EN_COMMANDE';
+        modalEtatEl = new bootstrap.Modal(document.getElementById('modalEtat'));
+        modalEtatEl.show();
+    }
+
+    function saveEtat() {
+        const nom = document.getElementById('etatFormeNomHidden').value;
+        const etat = document.getElementById('formeEtat').value;
+        fetch(API_BASE + '/formes/' + encodeURIComponent(nom) + '/etat', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ etat })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error || (data.success === false && data.error)) {
+                    alert(data.error || 'Erreur');
+                    return;
+                }
+                modalEtatEl.hide();
+                loadFormes();
+            })
+            .catch(err => { console.error(err); alert('Erreur réseau'); });
+    }
+
+    function deleteForme(nom) {
+        if (!confirm('Supprimer la forme "' + nom + '" ?')) return;
+        fetch(API_BASE + '/formes/' + encodeURIComponent(nom), { method: 'DELETE' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error || (data.success === false && data.error)) {
+                    alert(data.error || 'Erreur');
+                    return;
+                }
+                loadFormes();
+            })
+            .catch(err => { console.error(err); alert('Erreur réseau'); });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var mainContainer = document.querySelector('body .container');
+        if (mainContainer) mainContainer.classList.add('projet24-suivi-container');
+
+        const savedView = loadSavedView();
+        const colVisible = (savedView && Array.isArray(savedView.colVisible) && savedView.colVisible.length === colonneDefs.length)
+            ? savedView.colVisible
+            : colonneDefs.map(function() { return true; });
+        const pageLen = (savedView && savedView.pageLength) ? savedView.pageLength : 25;
+
+        const columnDefsBuild = [];
+        colonneDefs.forEach(function(def, i) {
+            if (def.orderable === false) columnDefsBuild.push({ targets: i, orderable: false });
+            if (colVisible[i] === false) columnDefsBuild.push({ targets: i, visible: false });
+            if (i === 14) columnDefsBuild.push({ targets: 14, className: 'projet24-col-actions', width: '198px' });
+        });
+
+        tableFormes = $('#tableFormes').DataTable({
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/fr-FR.json' },
+            order: [[2, 'asc']],
+            pageLength: pageLen,
+            columnDefs: columnDefsBuild,
+            columns: colonneDefs.map(function(d) { return { title: d.titre }; }),
+            initComplete: function() {
+                const api = this.api();
+                const thead = $('#tableFormes thead');
+                const trFilters = $('<tr class="table-filters"></tr>');
+                colonneDefs.forEach(function(def, i) {
+                    const th = $('<th></th>');
+                    if (def.filtre) {
+                        th.append($('<input type="text" placeholder="Filtrer ' + def.titre + '" data-col="' + i + '">'));
+                    }
+                    trFilters.append(th);
+                });
+                thead.append(trFilters);
+
+                const $filterInputs = thead.find('.table-filters input');
+                $filterInputs.on('keyup change', function() {
+                    const col = $(this).data('col');
+                    api.column(col).search(this.value).draw();
+                });
+
+                const filterValues = (savedView && Array.isArray(savedView.filterValues)) ? savedView.filterValues : [];
+                $filterInputs.each(function(i) {
+                    if (filterValues[i]) $(this).val(filterValues[i]);
+                });
+                if (filterValues.length) api.columns().every(function(i) {
+                    if (filterValues[i]) this.search(filterValues[i]);
+                });
+
+                const container = document.getElementById('projet24ColCheckboxes');
+                container.innerHTML = '';
+                colonneDefs.forEach(function(def, i) {
+                    if (!def.toggle) return;
+                    const id = 'projet24Col' + i;
+                    const div = document.createElement('div');
+                    div.className = 'form-check form-check-inline';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'form-check-input projet24-col-cb';
+                    cb.id = id;
+                    cb.dataset.col = String(i);
+                    cb.checked = api.column(i).visible();
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.htmlFor = id;
+                    label.textContent = def.titre;
+                    div.appendChild(cb);
+                    div.appendChild(label);
+                    container.appendChild(div);
+                });
+
+                const filterThs = $('#tableFormes thead tr.table-filters th');
+                filterThs.each(function(i) {
+                    const visible = api.column(i).visible();
+                    this.style.display = visible ? '' : 'none';
+                });
+
+                document.getElementById('projet24ColToggleAll').checked = savedView ? !!savedView.toutCocher : true;
+                const allChecked = document.getElementById('projet24ColToggleAll').checked;
+                if (!allChecked) {
+                    container.querySelectorAll('.projet24-col-cb').forEach(function(cb, i) {
+                        cb.checked = api.column(i).visible();
+                    });
+                }
+
+                $('#projet24ColToggleAll').on('change', function() {
+                    const checked = this.checked;
+                    api.columns().every(function(i) {
+                        tableFormes.column(i).visible(checked);
+                    });
+                    container.querySelectorAll('.projet24-col-cb').forEach(function(cb) {
+                        cb.checked = checked;
+                    });
+                    filterThs.each(function(i) {
+                        this.style.display = checked ? '' : 'none';
+                    });
+                });
+
+                container.addEventListener('change', function(e) {
+                    if (!e.target.classList.contains('projet24-col-cb')) return;
+                    const col = parseInt(e.target.dataset.col, 10);
+                    const visible = e.target.checked;
+                    tableFormes.column(col).visible(visible);
+                    const th = filterThs.get(col);
+                    if (th) {
+                        th.style.display = visible ? '' : 'none';
+                    }
+
+                    // Mettre à jour l'état "Tout cocher"
+                    const allOn = Array.from(container.querySelectorAll('.projet24-col-cb')).every(function(cb) { return cb.checked; });
+                    document.getElementById('projet24ColToggleAll').checked = allOn;
+                });
+
+                document.getElementById('projet24BtnEnregistrerVue').addEventListener('click', function() {
+                    saveView();
+                    alert('Vue enregistrée.');
+                });
+
+                var dtWrapper = $('#tableFormes').closest('.dataTables_wrapper');
+                var controlsTop = document.getElementById('projet24DtControlsTop');
+                var controlsBottom = document.getElementById('projet24DtControlsBottom');
+                if (dtWrapper.length && controlsTop && controlsBottom) {
+                    var len = dtWrapper.find('.dataTables_length').detach();
+                    var fil = dtWrapper.find('.dataTables_filter').detach();
+                    var inf = dtWrapper.find('.dataTables_info').detach();
+                    var pag = dtWrapper.find('.dataTables_paginate').detach();
+                    $(controlsTop).append(len).append(fil);
+                    $(controlsBottom).append(inf).append(pag);
+                }
+
+                const wrapper = document.getElementById('projet24TableWrapper');
+                const inner = document.getElementById('projet24TableInner');
+
+                /* Forcer toute la chaîne à la largeur du tableau pour supprimer la zone vide à droite */
+                function updateScrollInnerWidth() {
+                    var table = document.getElementById('tableFormes');
+                    if (!table || !inner) return;
+                    var zone = document.getElementById('projet24TableZone');
+                    var contentSuivi = document.querySelector('.projet24-content-suivi');
+                    var pageContainer = document.querySelector('.projet24-suivi-page');
+                    var mainContainer = document.querySelector('.container.projet24-suivi-container');
+                    if (zone) zone.style.width = '';
+                    if (contentSuivi) contentSuivi.style.width = '';
+                    if (pageContainer) pageContainer.style.width = '';
+                    if (mainContainer) mainContainer.style.width = '';
+                    inner.style.width = '';
+                    inner.style.minWidth = '';
+                    inner.style.maxWidth = '';
+                    table.style.maxWidth = 'none';
+                    table.style.width = 'max-content';
+                    table.style.minWidth = 'max-content';
+                    if (wrapper) wrapper.style.width = '99999px';
+                    if (zone) zone.style.width = '99999px';
+                    void table.offsetHeight;
+                    var w = Math.max(table.offsetWidth, table.scrollWidth, 1);
+                    if (wrapper) wrapper.style.width = '';
+                    if (zone) zone.style.width = '';
+                    inner.style.width = w + 'px';
+                    inner.style.minWidth = w + 'px';
+                    inner.style.maxWidth = w + 'px';
+                    if (zone) {
+                        zone.style.width = w + 'px';
+                        zone.style.maxWidth = '100%';
+                    }
+                    if (contentSuivi) {
+                        contentSuivi.style.width = w + 'px';
+                        contentSuivi.style.maxWidth = '100%';
+                    }
+                    if (pageContainer) {
+                        pageContainer.style.width = w + 'px';
+                        pageContainer.style.maxWidth = '100%';
+                    }
+                    if (mainContainer) {
+                        mainContainer.style.width = w + 'px';
+                        mainContainer.style.maxWidth = '100%';
+                    }
+                }
+                function updateScrollInnerWidthAfterLayout() {
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(updateScrollInnerWidth);
+                    });
+                }
+                api.on('draw', updateScrollInnerWidthAfterLayout);
+                setTimeout(updateScrollInnerWidth, 50);
+                setTimeout(updateScrollInnerWidth, 250);
+                setTimeout(updateScrollInnerWidth, 600);
+                setTimeout(updateScrollInnerWidth, 1200);
+                window.addEventListener('resize', updateScrollInnerWidth);
+
+                function forceActionsColumnWidth() {
+                    var table = document.getElementById('tableFormes');
+                    if (!table) return;
+                    var colgroup = table.querySelector('colgroup');
+                    if (!colgroup) {
+                        colgroup = document.createElement('colgroup');
+                        for (var i = 0; i < 14; i++) colgroup.appendChild(document.createElement('col'));
+                        var col15 = document.createElement('col');
+                        col15.className = 'projet24-col-actions-width';
+                        col15.style.width = '198px';
+                        col15.style.minWidth = '198px';
+                        colgroup.appendChild(col15);
+                        table.insertBefore(colgroup, table.firstChild);
+                    } else {
+                        var lastCol = colgroup.querySelector('col:last-child');
+                        if (lastCol) {
+                            lastCol.className = 'projet24-col-actions-width';
+                            lastCol.style.width = '198px';
+                            lastCol.style.minWidth = '198px';
+                        }
+                    }
+                    $(table).find('th.projet24-col-actions, td.projet24-col-actions, th:last-child, td:last-child').css({ width: '198px', minWidth: '198px' });
+                    updateScrollInnerWidthAfterLayout();
+                }
+                api.on('draw', forceActionsColumnWidth);
+                forceActionsColumnWidth();
+
+                /* Plus de redimensionnement du conteneur en largeur : le tableau occupe 100 % de la page */
+            }
+        });
+
+        loadFormes();
+
+        document.getElementById('btnSaveTirages').addEventListener('click', saveTirages);
+        document.getElementById('btnAddCout').addEventListener('click', addCout);
+        document.getElementById('btnSaveEtat').addEventListener('click', saveEtat);
+
+        $('#tableFormes').on('click', '.btn-tirages', function() {
+            openTirages($(this).data('nom'));
+        });
+        $('#tableFormes').on('click', '.btn-couts', function() {
+            openCouts($(this).data('nom'));
+        });
+        $('#tableFormes').on('click', '.btn-etat', function() {
+            openEtat($(this).data('nom'), $(this).data('etat'));
+        });
+        $('#tableFormes').on('click', '.btn-delete', function() {
+            deleteForme($(this).data('nom'));
+        });
+    });
+})();
+</script>
+{% endif %}
+
+{% if section == 'nouvelle' %}
+<script>
+(function() {
+    const API_BASE = '{{ url_for("projet24.index") }}'.replace(/\/$/, '') + '/api';
+    document.getElementById('formNouvelleForme').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const formData = new FormData(form);
+        const msgEl = document.getElementById('nfMessage');
+        msgEl.style.display = 'none';
+        fetch(API_BASE + '/formes', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error || (data.success === false && data.error)) {
+                    msgEl.className = 'mt-3 alert alert-danger';
+                    msgEl.textContent = data.error || 'Erreur';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                msgEl.className = 'mt-3 alert alert-success';
+                msgEl.textContent = 'Forme créée avec succès.';
+                msgEl.style.display = 'block';
+                form.reset();
+                document.getElementById('nf_nombre_pose').value = 1;
+                document.getElementById('nf_cout_initial').value = 0;
+            })
+            .catch(err => {
+                msgEl.className = 'mt-3 alert alert-danger';
+                msgEl.textContent = 'Erreur réseau : ' + err.message;
+                msgEl.style.display = 'block';
+            });
+    });
+})();
+</script>
+{% endif %}
+
+{% if section == 'modifier' %}
+<script>
+(function() {
+    const API_BASE = '{{ url_for("projet24.index") }}'.replace(/\/$/, '') + '/api';
+    const selectEl = document.getElementById('modifierSelectForme');
+    const formEl = document.getElementById('formModifierForme');
+    const msgEl = document.getElementById('mfMessage');
+
+    function loadFormesForSelect() {
+        fetch(API_BASE + '/formes')
+            .then(r => r.json())
+            .then(data => {
+                const rows = Array.isArray(data) ? data : [];
+                selectEl.innerHTML = '<option value="">— Sélectionner une forme —</option>' +
+                    rows.map(f => '<option value="' + encodeURIComponent(f.nom || '') + '">' + (f.nom || '') + '</option>').join('');
+                const params = new URLSearchParams(window.location.search);
+                const nomFromUrl = params.get('nom');
+                if (nomFromUrl) {
+                    const decoded = decodeURIComponent(nomFromUrl);
+                    selectEl.value = encodeURIComponent(decoded);
+                    loadFormeData(decoded);
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    function loadFormeData(nom) {
+        if (!nom) { formEl.style.display = 'none'; return; }
+        fetch(API_BASE + '/formes/' + encodeURIComponent(nom))
+            .then(r => r.json())
+            .then(f => {
+                document.getElementById('mf_type_forme').value = f.type_forme || 'VAR';
+                document.getElementById('mf_type_produit').value = f.type_produit || 'etui simple';
+                document.getElementById('mf_dimension').value = f.dimension || '';
+                document.getElementById('mf_format_fini').value = f.format_fini || '';
+                document.getElementById('mf_sens_fibre').value = f.sens_fibre || '';
+                document.getElementById('mf_nombre_pose').value = f.nombre_pose != null ? f.nombre_pose : 1;
+                document.getElementById('mf_cout_initial').value = f.cout_initial != null ? f.cout_initial : 0;
+                document.getElementById('mf_description').value = f.description || '';
+                document.getElementById('mf_fichier_source').value = '';
+                formEl.dataset.formeNom = nom;
+                formEl.style.display = 'block';
+                msgEl.style.display = 'none';
+            })
+            .catch(err => console.error(err));
+    }
+
+    selectEl.addEventListener('change', function() {
+        const nom = decodeURIComponent(this.value || '');
+        loadFormeData(nom);
+    });
+
+    document.getElementById('btnModifierAnnuler').addEventListener('click', function() {
+        formEl.style.display = 'none';
+        formEl.dataset.formeNom = '';
+        selectEl.value = '';
+    });
+
+    formEl.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const nom = formEl.dataset.formeNom;
+        if (!nom) return;
+        const formData = new FormData(formEl);
+        msgEl.style.display = 'none';
+        fetch(API_BASE + '/formes/' + encodeURIComponent(nom), { method: 'PUT', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error || (data.success === false && data.error)) {
+                    msgEl.className = 'mt-3 alert alert-danger';
+                    msgEl.textContent = data.error || 'Erreur';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                msgEl.className = 'mt-3 alert alert-success';
+                msgEl.textContent = 'Forme mise à jour.';
+                msgEl.style.display = 'block';
+            })
+            .catch(err => {
+                msgEl.className = 'mt-3 alert alert-danger';
+                msgEl.textContent = 'Erreur réseau : ' + err.message;
+                msgEl.style.display = 'block';
+            });
+    });
+
+    loadFormesForSelect();
+})();
+</script>
+{% endif %}
+{% endblock %}

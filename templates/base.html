@@ -82,15 +82,10 @@
             return; // Menu non disponible si non authentifié
         }
         
-        let menuData = null;
         let isMenuOpen = false;
         
-        // Charger les données du menu
+        // Charger les données du menu (toujours recharger pour avoir la liste à jour, ex. Projet 24)
         function loadMenuData() {
-            if (menuData) {
-                return Promise.resolve(menuData);
-            }
-            
             return fetch('/api/navigation-menu')
                 .then(res => {
                     if (!res.ok) {
@@ -99,7 +94,6 @@
                     return res.json();
                 })
                 .then(data => {
-                    menuData = data;
                     return data;
                 })
                 .catch(error => {
@@ -119,12 +113,14 @@
             let html = '';
             data.projects.forEach(project => {
                 const hasSections = project.sections && project.sections.length > 0;
-                
+                const projectId = project.id != null ? project.id : '';
+                const projectUrl = project.url || '#';
+                const projectNom = (project.nom != null && project.nom !== '') ? project.nom : ('Projet ' + (project.id || ''));
                 html += `
-                    <div class="project-item" data-project-id="${project.id}">
-                        <a href="${project.url || '#'}" class="project-link" data-project-url="${project.url || '#'}">
+                    <div class="project-item" data-project-id="${projectId}">
+                        <a href="${projectUrl}" class="project-link" data-project-url="${projectUrl}">
                             <span class="project-icon">${project.icon || '📌'}</span>
-                            <span class="project-name">${project.nom}</span>
+                            <span class="project-name">${projectNom}</span>
                         </a>
                         ${hasSections ? `
                             <div class="sections-submenu">

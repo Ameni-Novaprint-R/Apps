@@ -35,6 +35,7 @@ NUM_TO_URL = {
     21: '/projet21/',
     22: '/projet22/',
     23: '/projet23/',
+    24: '/projet24/',
 }
 
 
@@ -43,24 +44,44 @@ def api_navigation_menu():
     """API pour le menu déroulant des projets (base.html, projet19, etc.)"""
     try:
         from logic.project_routes import get_project_icon, get_project_url
+        # Garantir que le Projet 24 est dans WEB_PROJETS avant de récupérer la liste
+        try:
+            from routes.projet24_routes import ensure_projet24_in_web_projects
+            ensure_projet24_in_web_projects()
+        except Exception as e:
+            print(f"[navigation-menu] ensure_projet24: {e}")
         projects_raw = get_user_projects()
         if not projects_raw:
             return jsonify({'projects': []})
         projects = []
+        has_24 = False
         for p in projects_raw:
             num = p.get('num') or p.get('NumProj')
+            if num == 24:
+                has_24 = True
             url = get_project_url(num) or NUM_TO_URL.get(num, f'/projet{num}/' if num else '#')
             sections_raw = get_user_sections(p.get('id') or num)
             sections = [{'nom': s.get('nom', s.get('Nom', '')), 'url': url} for s in sections_raw]
             nom = p.get('nom', p.get('Nom', ''))
             if num == 23:
                 nom = 'Projet 23 – TBD de la situation de la trésorerie'
+            if num == 24:
+                nom = 'Formes de Découpe'
             projects.append({
                 'id': p.get('id'),
                 'url': url,
                 'icon': get_project_icon(num) if num else '📌',
                 'nom': nom,
                 'sections': sections if sections else None,
+            })
+        # Si le Projet 24 n'est pas dans la liste (droits ou BDD), l'ajouter pour le menu
+        if not has_24 and is_authenticated():
+            projects.append({
+                'id': 24,
+                'url': get_project_url(24) or '/projet24/',
+                'icon': get_project_icon(24),
+                'nom': 'Formes de Découpe',
+                'sections': None,
             })
         return jsonify({'projects': projects})
     except Exception as e:
@@ -135,6 +156,7 @@ from routes.projet20_routes import projet20_bp
 from routes.projet21_routes import projet21_bp
 from routes.projet22_routes import projet22_bp
 from routes.projet23_routes import projet23_bp
+from routes.projet24_routes import projet24_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
 from routes.renommer_table_route import renommer_bp
@@ -152,10 +174,31 @@ app.register_blueprint(projet20_bp)
 app.register_blueprint(projet21_bp)
 app.register_blueprint(projet22_bp)
 app.register_blueprint(projet23_bp)
+app.register_blueprint(projet24_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
 app.register_blueprint(renommer_bp)
 
 
+@app.before_request
+def _ensure_projet24_in_menu():
+    """Une fois par démarrage : insère le Projet 24 dans WEB_PROJETS si absent (menu + accueil)."""
+    if getattr(app, '_projet24_web_projets_ensured', False):
+        return
+    try:
+        from routes.projet24_routes import ensure_projet24_in_web_projets
+        ensure_projet24_in_web_projets()
+        app._projet24_web_projets_ensured = True
+    except Exception as e:
+        print(f"[Projet 24] ensure_projet24_in_web_projets: {e}")
+        app._projet24_web_projets_ensured = True  # ne pas réessayer à chaque requête
+
+
 if __name__ == '__main__':
+    try:
+        from routes.projet24_routes import register_formes_tables, ensure_projet24_in_web_projets
+        register_formes_tables()
+        ensure_projet24_in_web_projets()
+    except Exception as e:
+        print(f"[Démarrage] Projet 24: {e}")
     app.run(host='0.0.0.0', port=5000, debug=True)

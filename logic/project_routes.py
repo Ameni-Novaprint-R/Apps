@@ -28,6 +28,7 @@ PROJECT_ROUTES = {
     21: ('/projet21/', 'Sync BDD'),
     22: ('projet22.index', 'Employés et Ateliers'),
     23: ('projet23.index', 'Trésorerie'),
+    24: ('projet24.index', 'Formes de Découpe'),
 }
 
 # Mapping des numéros de projets vers leurs icônes
@@ -55,6 +56,7 @@ PROJECT_ICONS = {
     21: '🔄',
     22: '👥',
     23: '💰',
+    24: '📐',
 }
 
 def get_project_url(project_num):

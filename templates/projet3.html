@@ -1,30 +1,36 @@
 {% extends "base.html" %}
 
-{% block title %}Suivi des Commandes – BAT{% endblock %}
+{% block title %}Suivi BAT{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+{% endblock %}
 
 {% block content %}
-    <h1 class="fade-in">Suivi des Commandes – Commande Manager</h1>
-
-    <div style="text-align: center; margin-bottom: 10px;" class="fade-in">
-        <button id="resetFilters" class="btn-action">🔄 Réinitialiser les filtres</button>
+    <div class="projet3-header fade-in">
+        <h1>Suivi BAT</h1>
+        <div class="projet3-controls">
+            <button id="resetFilters" class="btn-projet3 btn-reset">🔄 Réinitialiser les filtres</button>
+        </div>
     </div>
 
-    <div id="loader" class="fade-in" style="text-align:center; font-weight:bold; color:#e30613; margin: 20px;">
+    <div id="loader" class="fade-in projet3-loader">
         ⏳ Chargement des données en cours...
     </div>
 
-    <div class="table-wrapper fade-in">
-        <table id="commandesTable" class="display novaprint-table" style="width:100%">
+    <div class="table-wrapper fade-in projet3-table-wrapper">
+        <table id="commandesTable" class="display novaprint-table projet3-table">
             <thead>
                 <tr>
                     <th>Numéro</th>
                     <th>Client</th>
                     <th>Date BAT</th>
                     <th>Date Réception</th>
-                    <th>Action Réception</th>
                     <th>Prépresse</th>
                     <th>% Reçu</th>
-                    <th>Livraison</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -39,6 +45,238 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
+
+    <style>
+        /* Projet3 – Suivi BAT – styles alignés Prinects */
+        .projet3-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .projet3-header h1 {
+            margin: 0;
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        .projet3-controls { display: flex; gap: 10px; align-items: center; }
+        .projet3-loader {
+            text-align: center;
+            font-weight: bold;
+            color: #e30613;
+            margin: 20px 0;
+        }
+        .projet3-table-wrapper { margin-top: 5px; }
+        /* Pas de lignes verticales – bordures horizontales uniquement */
+        .projet3-table th,
+        .projet3-table td {
+            border-left: none !important;
+            border-right: none !important;
+            border-top: none !important;
+            border-bottom: 1px solid #dee2e6 !important;
+            text-align: left !important;
+        }
+        /* Fond uniforme : aucune colonne ni ligne ne doit être plus claire ou plus foncée */
+        .projet3-table th,
+        .projet3-table td,
+        .projet3-table tbody tr,
+        .projet3-table tbody tr:nth-child(odd),
+        .projet3-table tbody tr:nth-child(even),
+        .projet3-table thead th.sorting,
+        .projet3-table thead th.sorting_asc,
+        .projet3-table thead th.sorting_desc {
+            background: #fff !important;
+        }
+        .projet3-table th { font-weight: 600; }
+        .btn-projet3 {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-reset {
+            background: #0d6efd;
+            color: white;
+            border: none;
+        }
+        .btn-reset:hover { background: #0b5ed7; color: white; }
+        .btn-envoi {
+            background: #0d6efd;
+            color: white;
+            border: none;
+        }
+        .btn-envoi:hover { background: #0b5ed7; color: white; }
+        .btn-envoi:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+        .etat-vert { color: #28a745; font-weight: bold; }
+        .etat-orange { color: #fd7e14; font-weight: bold; }
+        .etat-rouge { color: #dc3545; font-weight: bold; }
+        .pct-0 { background-color: #f8d7da !important; border-color: #f5c6cb; }
+        .pct-50 { background-color: #fff3cd !important; border-color: #ffeeba; }
+        .pct-100 { background-color: #d4edda !important; border-color: #c3e6cb; }
+        /* % Reçu : contenu dans la cellule uniquement, éviter le débordement */
+        .projet3-table td:nth-child(6) {
+            overflow: hidden;
+            min-width: 90px;
+        }
+        .projet3-table td:nth-child(6) .select-pourcentage {
+            max-width: 85px;
+        }
+        .select-pourcentage {
+            padding: 6px 8px;
+            border-radius: 6px;
+            width: 70px;
+            max-width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ced4da;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-block;
+        }
+        /* Colonnes Date : centrer et adapter le cadre à la largeur de la colonne */
+        .projet3-table td:nth-child(3),
+        .projet3-table td:nth-child(4) {
+            text-align: center !important;
+        }
+        .projet3-table td:nth-child(3) .date-cell-wrapper,
+        .projet3-table td:nth-child(4) .date-cell-wrapper {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .projet3-table .date-cell-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .projet3-table .date-cell-wrapper .flatpickr-wrapper {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .projet3-table .date-structured {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 4px 32px 4px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            background: #fff;
+            position: relative;
+        }
+        .projet3-table .date-structured input.date-part {
+            border: none;
+            padding: 2px 4px;
+            text-align: center;
+            font-size: inherit;
+            background: transparent;
+        }
+        .projet3-table .date-structured input.date-part::placeholder {
+            color: #adb5bd;
+        }
+        .projet3-table .date-structured input.date-part:focus {
+            outline: none;
+            background: rgba(110, 181, 255, 0.2);
+            border-radius: 3px;
+        }
+        .projet3-table .date-structured .date-jj { width: 22px; min-width: 22px; }
+        .projet3-table .date-structured .date-mm { width: 22px; min-width: 22px; }
+        .projet3-table .date-structured .date-aaaa { width: 40px; min-width: 40px; }
+        .projet3-table .input-date-fp {
+            position: absolute; left: 0; top: 0; right: 30px; bottom: 0; opacity: 0; pointer-events: none;
+            width: 100%; border: none; background: transparent;
+        }
+        .projet3-table .date-structured .date-sep {
+            color: #6c757d;
+            user-select: none;
+        }
+        .projet3-table .date-structured:focus-within { border-color: #6eb5ff; outline: none; }
+        /* Prépresse : centrer les icônes (tic vert / point orange) */
+        .projet3-table td:nth-child(5) {
+            text-align: center !important;
+        }
+        .projet3-table .input-date-bat:focus,
+        .projet3-table .input-date-reception:focus,
+        .projet3-table .flatpickr-input:focus {
+            outline: none;
+            border-color: #6eb5ff;
+        }
+        .projet3-table .date-calendar-icon {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #495057;
+            cursor: pointer;
+            padding: 4px 8px;
+            z-index: 10;
+            font-size: 14px;
+            pointer-events: auto;
+        }
+        .projet3-table .date-calendar-icon:hover { color: #0d6efd; }
+        .dataTables_wrapper .dt-buttons .btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .projet3-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .projet3-export .btn-projet3 { margin-right: 8px; }
+        .projet3-filters {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        /* Calendrier : éviter débordement, positionné dans le viewport */
+        .table-wrapper { overflow: visible !important; }
+        .dataTables_wrapper { overflow: visible !important; }
+        .flatpickr-calendar {
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .flatpickr-months .flatpickr-month { background: #f8f9fa; border-radius: 8px 8px 0 0; }
+        .flatpickr-current-month .numInputWrapper { background: #e9ecef; border-radius: 4px; padding: 2px 8px; }
+        .flatpickr-weekday { color: #333; }
+        .flatpickr-weekday:nth-child(6),
+        .flatpickr-weekday:nth-child(7) { color: #dc3545; }
+        .flatpickr-day.prevMonthDay,
+        .flatpickr-day.nextMonthDay { color: #adb5bd; }
+        .flatpickr-day.flatpickr-selected,
+        .flatpickr-day.flatpickr-selected:hover {
+            background: #e9ecef;
+            border-color: #6eb5ff;
+        }
+        .flatpickr-day.flatpickr-selected { box-shadow: 0 0 0 1px #6eb5ff; }
+        .flatpickr-days .flatpickr-day:nth-child(7n+6):not(.prevMonthDay):not(.nextMonthDay),
+        .flatpickr-days .flatpickr-day:nth-child(7n):not(.prevMonthDay):not(.nextMonthDay) { color: #dc3545; }
+        .flatpickr-calendar .flatpickr-clear { display: none; }
+        .fp-effacer-btn {
+            margin: 10px 12px;
+            padding: 6px 14px;
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            color: #495057;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .fp-effacer-btn:hover { background: #dee2e6; }
+    </style>
 
     <script>
     $(document).ready(function () {
@@ -53,66 +291,65 @@
                 {
                     data: 'DteBat',
                     render: function (data, type, row) {
-                        return `<input type="date" value="${data}" data-id="${row.ID}" class="input-date-bat">`;
+                        const val = data || '';
+                        const parts = val ? val.split('-') : ['','',''];
+                        const jj = parts[2] || '', mm = parts[1] || '', aaaa = parts[0] || '';
+                        return `<div class="date-cell-wrapper" data-id="${row.ID}" data-type="bat"><div class="date-structured flatpickr-wrapper"><input type="text" class="date-part date-jj" maxlength="2" placeholder="jj" value="${jj}"><span class="date-sep">/</span><input type="text" class="date-part date-mm" maxlength="2" placeholder="mm" value="${mm}"><span class="date-sep">/</span><input type="text" class="date-part date-aaaa" maxlength="4" placeholder="aaaa" value="${aaaa}"><input type="text" class="input-date-bat input-date-fp" value="${val}" tabindex="-1" aria-hidden="true"><i class="far fa-calendar date-calendar-icon" title="Ouvrir le calendrier"></i></div></div>`;
                     }
                 },
                 {
                     data: 'DteReceptElem',
-                    render: function (data) {
-                        if (!data || data.startsWith('9999')) return '<span class="etat-rouge">❌ Aucune date</span>';
-                        return `<span class="etat-vert">${data}</span>`;
-                    }
-                },
-                {
-                    data: null,
                     render: function (data, type, row) {
-                        return `<button class='btn-action reception' data-id="${row.ID}">✅ Confirmer</button>`;
+                        const val = (data && !String(data).startsWith('9999')) ? data : '';
+                        const parts = val ? val.split('-') : ['','',''];
+                        const jj = parts[2] || '', mm = parts[1] || '', aaaa = parts[0] || '';
+                        return `<div class="date-cell-wrapper" data-id="${row.ID}" data-type="reception"><div class="date-structured flatpickr-wrapper"><input type="text" class="date-part date-jj" maxlength="2" placeholder="jj" value="${jj}"><span class="date-sep">/</span><input type="text" class="date-part date-mm" maxlength="2" placeholder="mm" value="${mm}"><span class="date-sep">/</span><input type="text" class="date-part date-aaaa" maxlength="4" placeholder="aaaa" value="${aaaa}"><input type="text" class="input-date-reception input-date-fp" value="${val}" tabindex="-1" aria-hidden="true"><i class="far fa-calendar date-calendar-icon" title="Ouvrir le calendrier"></i></div></div>`;
                     }
                 },
                 {
                     data: 'EtatPrepress',
                     render: function (data) {
-                        if (data == 1) return '<span class="etat-vert">✔️</span>';
-                        if (data == 2) return '<span class="etat-orange">🟠</span>';
-                        return '<span class="etat-rouge">❌</span>';
+                        if (data == 1) return '<span class="etat-vert"><i class="fas fa-check"></i></span>';
+                        if (data == 2) return '<span class="etat-orange"><i class="fas fa-circle" style="font-size:0.6em;"></i></span>';
+                        return '<span class="etat-rouge"><i class="fas fa-times"></i></span>';
                     }
                 },
                 {
                     data: 'PourcentageReceptElem',
-                    render: function (data) {
-                        if (data === 100) return '<span class="etat-vert">✔️ 100%</span>';
-                        if (data === 0) return '<span class="etat-rouge">❌ 0%</span>';
-                        return `<span class="etat-orange">${data}%</span>`;
-                    }
-                },
-                {
-                    data: 'EtatLiv',
-                    render: function (data) {
-                        if (data === 1) return '<span class="etat-vert">✔️ Livré</span>';
-                        if (data === 2) return '<span class="etat-orange">🟠 En cours</span>';
-                        return '<span class="etat-rouge">❌ Non livré</span>';
+                    render: function (data, type, row) {
+                        const pct = data !== null && data !== undefined ? parseInt(data) : 0;
+                        const cls = pct === 100 ? 'pct-100' : (pct === 50 ? 'pct-50' : 'pct-0');
+                        return `<select class="select-pourcentage ${cls}" data-id="${row.ID}">
+                            <option value="0" ${pct === 0 ? 'selected' : ''}>0%</option>
+                            <option value="50" ${pct === 50 ? 'selected' : ''}>50%</option>
+                            <option value="100" ${pct === 100 ? 'selected' : ''}>100%</option>
+                        </select>`;
                     }
                 },
                 {
                     data: null,
                     render: function (data, type, row) {
-                        return `<button class='btn-action envoyer-bat' data-id="${row.ID}">📤 Envoi BAT</button>`;
+                        if (row.EtatPrepress == 1) {
+                            return `<button class='btn-projet3 btn-envoi' disabled>✔ BAT envoyé</button>`;
+                        }
+                        return `<button class='btn-projet3 btn-envoi envoyer-bat' data-id="${row.ID}">⏏ Envoi BAT</button>`;
                     }
                 }
             ],
             order: [[0, 'desc']],
             pageLength: 50,
-            dom: 'Bflrtip',
+            stripeClasses: [],
+            dom: "<'projet3-toolbar'<'projet3-export'B><'projet3-filters'lf>>rtip",
             buttons: [
                 {
                     extend: 'excelHtml5',
-                    text: '📥 Exporter Excel',
-                    className: 'btn-action'
+                    text: 'Exporter Excel',
+                    className: 'btn-projet3 btn-reset'
                 },
                 {
                     extend: 'pdfHtml5',
-                    text: '📄 Exporter PDF',
-                    className: 'btn-action',
+                    text: 'Exporter PDF',
+                    className: 'btn-projet3 btn-reset',
                     orientation: 'landscape',
                     pageSize: 'A4'
                 }
@@ -125,55 +362,155 @@
                     previous: "Précédent",
                     next: "Suivant"
                 }
+            },
+            drawCallback: function() {
+                initFlatpickr();
+            },
+            initComplete: function() {
+                document.getElementById('loader').style.display = 'none';
+                initFlatpickr();
             }
         });
+
+        function initFlatpickr() {
+            document.querySelectorAll('.input-date-bat').forEach(el => {
+                if (el._flatpickr) el._flatpickr.destroy();
+            });
+            document.querySelectorAll('.input-date-reception').forEach(el => {
+                if (el._flatpickr) el._flatpickr.destroy();
+            });
+            const fpOpts = {
+                dateFormat: 'Y-m-d',
+                altInput: false,
+                locale: 'fr',
+                allowInput: false,
+                clickOpens: false,
+                appendTo: document.body,
+                onReady: function(selectedDates, dateStr, instance) {
+                    const cal = instance.calendarContainer;
+                    if (cal && !cal.querySelector('.fp-effacer-btn')) {
+                        const btn = document.createElement('button');
+                        btn.className = 'fp-effacer-btn';
+                        btn.type = 'button';
+                        btn.textContent = 'Effacer';
+                        btn.addEventListener('click', function() {
+                            instance.clear();
+                            instance.close();
+                        });
+                        const footer = document.createElement('div');
+                        footer.className = 'flatpickr-footer';
+                        footer.style.cssText = 'padding:8px 12px;text-align:left;border-top:1px solid #eee';
+                        footer.appendChild(btn);
+                        cal.appendChild(footer);
+                    }
+                }
+            };
+            function syncPartsFromDate(wrapper, ymd) {
+                const parts = ymd ? ymd.split('-') : ['','',''];
+                wrapper.find('.date-jj').val(parts[2] || '');
+                wrapper.find('.date-mm').val(parts[1] || '');
+                wrapper.find('.date-aaaa').val(parts[0] || '');
+            }
+            function sendDate(wrapper, ymd, type) {
+                const id = wrapper.data('id');
+                const url = type === 'bat' ? `/projet3/api/commandes/${id}/date_bat` : `/projet3/api/commandes/${id}/date_reception`;
+                const body = type === 'bat' ? { date_bat: ymd } : { date_reception: ymd };
+                fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                    .then(r => r.json()).then(() => table.ajax.reload(null, false));
+            }
+            flatpickr('.input-date-bat', Object.assign({}, fpOpts, {
+                onChange: function(selectedDates, dateStr, instance) {
+                    const wrapper = $(instance.input).closest('.date-cell-wrapper');
+                    const ymd = selectedDates[0] ? selectedDates[0].toISOString().slice(0,10) : '';
+                    syncPartsFromDate(wrapper, ymd);
+                    instance.input.value = ymd;
+                    if (ymd) sendDate(wrapper, ymd, 'bat');
+                }
+            }));
+            flatpickr('.input-date-reception', Object.assign({}, fpOpts, {
+                onChange: function(selectedDates, dateStr, instance) {
+                    const wrapper = $(instance.input).closest('.date-cell-wrapper');
+                    const ymd = selectedDates[0] ? selectedDates[0].toISOString().slice(0,10) : '';
+                    syncPartsFromDate(wrapper, ymd);
+                    instance.input.value = ymd;
+                    if (ymd) sendDate(wrapper, ymd, 'reception');
+                }
+            }));
+        }
 
         $('#resetFilters').on('click', function () {
             table.search('').columns().search('').draw();
         });
 
-        $('#commandesTable tbody').on('change', '.input-date-bat', function () {
-            const id = $(this).data('id');
-            const date = $(this).val();
-            fetch(`/projet3/api/commandes/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ DteBat: date })
-            }).then(res => res.json()).then(() => table.ajax.reload(null, false));
+        /* Clic icône calendrier → ouvrir le calendrier */
+        $('#commandesTable').on('click', '.date-calendar-icon', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const input = $(this).siblings('.input-date-bat, .input-date-reception')[0];
+            if (input && input._flatpickr) input._flatpickr.open();
         });
 
-        $('#commandesTable tbody').on('click', '.reception', function () {
+        /* Saisie manuelle : chiffres uniquement, passage auto jj→mm→aaaa */
+        $('#commandesTable').on('input', '.date-part', function(e) {
+            const $t = $(this);
+            $t.val($t.val().replace(/\D/g, ''));
+        });
+        $('#commandesTable').on('keyup', '.date-part', function(e) {
+            const $t = $(this);
+            const val = $t.val();
+            const max = $t.hasClass('date-aaaa') ? 4 : 2;
+            if (val.length >= max && e.keyCode !== 8 && e.keyCode !== 46) {
+                const $all = $t.closest('.date-structured').find('.date-jj, .date-mm, .date-aaaa');
+                const idx = $all.index($t);
+                if (idx < 2) $all.eq(idx + 1).focus();
+            }
+        });
+
+        /* Saisie manuelle jj/mm/aaaa : au blur, envoi si date complète valide */
+        $('#commandesTable').on('blur', '.date-part', function() {
+            const cellWrapper = $(this).closest('.date-cell-wrapper');
+            const jj = cellWrapper.find('.date-jj').val().trim();
+            const mm = cellWrapper.find('.date-mm').val().trim();
+            const aaaa = cellWrapper.find('.date-aaaa').val().trim();
+            if (jj.length === 2 && mm.length === 2 && aaaa.length === 4) {
+                const ymd = aaaa + '-' + mm + '-' + jj;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+                    const hidden = cellWrapper.find('.input-date-bat, .input-date-reception');
+                    hidden.val(ymd);
+                    if (hidden[0]._flatpickr) hidden[0]._flatpickr.setDate(ymd, false);
+                    const type = cellWrapper.data('type');
+                    sendDateManu(cellWrapper, ymd, type);
+                }
+            }
+        });
+        function sendDateManu(wrapper, ymd, type) {
+            const id = wrapper.data('id');
+            const url = type === 'bat' ? `/projet3/api/commandes/${id}/date_bat` : `/projet3/api/commandes/${id}/date_reception`;
+            const body = type === 'bat' ? { date_bat: ymd } : { date_reception: ymd };
+            fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                .then(r => r.json()).then(() => table.ajax.reload(null, false));
+        }
+
+        $('#commandesTable tbody').on('change', '.select-pourcentage', function () {
             const id = $(this).data('id');
-            fetch(`/projet3/api/commandes/${id}/reception`, {
-                method: 'PUT'
-            }).then(res => res.json()).then(() => table.ajax.reload(null, false));
+            const pct = $(this).val();
+            const $sel = $(this);
+            fetch(`/projet3/api/commandes/${id}/pourcentage`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pourcentage: pct })
+            }).then(r => r.json()).then(() => {
+                $sel.removeClass('pct-0 pct-50 pct-100').addClass('pct-' + pct);
+                table.ajax.reload(null, false);
+            });
         });
 
         $('#commandesTable tbody').on('click', '.envoyer-bat', function () {
             const id = $(this).data('id');
             fetch(`/projet3/api/commandes/${id}/envoi`, {
                 method: 'PUT'
-            }).then(res => res.json()).then(() => table.ajax.reload(null, false));
+            }).then(r => r.json()).then(() => table.ajax.reload(null, false));
         });
-
-        // Message de debug simple
-        fetch('/projet3/api/commandes')
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('loader').style.display = 'none';
-                const debug = document.createElement('p');
-                debug.textContent = `✅ ${data.data.length} commandes récupérées`;
-                debug.style.textAlign = 'center';
-                debug.style.color = '#999';
-                document.body.appendChild(debug);
-            })
-            .catch(() => {
-                const debug = document.createElement('p');
-                debug.textContent = '❌ Erreur lors de la récupération des commandes';
-                debug.style.textAlign = 'center';
-                debug.style.color = 'red';
-                document.body.appendChild(debug);
-            });
     });
     </script>
 {% endblock %}

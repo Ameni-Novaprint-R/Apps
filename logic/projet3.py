@@ -3,6 +3,7 @@ from db import (
     get_commandes_bat,
     update_date_bat,
     update_reception_elem,
+    update_pourcentage_reception,
     envoyer_bat
 )
 
@@ -32,18 +33,34 @@ def api_commandes_bat():
     return jsonify({"data": data})
 
 # API pour mettre à jour la date BAT
-@bp.route("/api/commandes/<int:id_commande>", methods=["PUT"])
-def maj_bat(id_commande):
-    data = request.get_json()
-    success = update_date_bat(id_commande, data.get("DteBat"))
+@bp.route("/api/commandes/<int:id_commande>/date_bat", methods=["PUT"])
+def maj_date_bat(id_commande):
+    data = request.get_json() or {}
+    date_bat = data.get("date_bat") or data.get("DteBat")
+    if not date_bat:
+        return jsonify({"success": False, "error": "date_bat requis"}), 400
+    success = update_date_bat(id_commande, date_bat)
     return jsonify({"success": success})
 
-# API pour confirmer réception des éléments
-@bp.route("/api/commandes/<int:id_commande>/reception", methods=["PUT"])
-def maj_reception(id_commande):
-    return jsonify({"success": update_reception_elem(id_commande)})
+# API pour mettre à jour la date de réception (met aussi % à 100)
+@bp.route("/api/commandes/<int:id_commande>/date_reception", methods=["PUT"])
+def maj_date_reception(id_commande):
+    data = request.get_json() or {}
+    date_reception = data.get("date_reception")
+    success = update_reception_elem(id_commande, date_reception)
+    return jsonify({"success": success})
 
 # API pour valider envoi BAT
 @bp.route("/api/commandes/<int:id_commande>/envoi", methods=["PUT"])
 def maj_envoi_bat(id_commande):
     return jsonify({"success": envoyer_bat(id_commande)})
+
+# API pour mettre à jour le pourcentage de réception (0%, 50%, 100%)
+@bp.route("/api/commandes/<int:id_commande>/pourcentage", methods=["PUT"])
+def maj_pourcentage(id_commande):
+    data = request.get_json() or {}
+    pourcentage = data.get("pourcentage")
+    if pourcentage is None:
+        return jsonify({"success": False, "error": "pourcentage requis"}), 400
+    success = update_pourcentage_reception(id_commande, pourcentage)
+    return jsonify({"success": success})

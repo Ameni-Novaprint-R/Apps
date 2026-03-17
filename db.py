@@ -136,6 +136,92 @@ def init_projet6_tables():
         cursor.connection.commit()
 
 
+def init_formes_tables():
+    """
+    Initialise les tables du Projet 24 – Formes de Découpe (sur le serveur 192.168.10.225).
+    - Si les tables n'existent pas : création.
+    - Si elles existent déjà : vérification des colonnes et ajout des colonnes manquantes uniquement.
+    """
+    with get_db_cursor() as cursor:
+        # ----- FORMES_DECOUPE -----
+        cursor.execute("""
+            SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'FORMES_DECOUPE'
+        """)
+        formes_decoupe_exists = cursor.fetchone().n > 0
+
+        if not formes_decoupe_exists:
+            cursor.execute("""
+                CREATE TABLE dbo.FORMES_DECOUPE (
+                    ID INT IDENTITY(1,1) PRIMARY KEY,
+                    TYPE_FORME NVARCHAR(10) NOT NULL,
+                    TYPE_PRODUIT NVARCHAR(50) NOT NULL,
+                    NOM NVARCHAR(20) NOT NULL UNIQUE,
+                    DIMENSION NVARCHAR(100) NULL,
+                    FORMAT_FINI NVARCHAR(50) NULL,
+                    SENS_FIBRE NVARCHAR(20) NULL,
+                    FICHIER_SOURCE NVARCHAR(255) NULL,
+                    NOMBRE_POSE INT NULL DEFAULT 1,
+                    TOTAL_TIRAGES INT NULL DEFAULT 0,
+                    COUT_INITIAL DECIMAL(10,2) NULL DEFAULT 0,
+                    COUT_AMELIORATION DECIMAL(10,2) NULL DEFAULT 0,
+                    ETAT NVARCHAR(20) NULL DEFAULT 'EN_COMMANDE',
+                    DESCRIPTION NVARCHAR(MAX) NULL,
+                    STATUT NVARCHAR(50) NULL DEFAULT 'ACTIF',
+                    DATE_CREATION DATETIME NULL DEFAULT GETDATE(),
+                    CREATEUR NVARCHAR(100) NULL DEFAULT 'System'
+                )
+            """)
+        else:
+            # Vérifier les colonnes existantes et ajouter les manquantes
+            cursor.execute("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'FORMES_DECOUPE'
+            """)
+            existing_cols = {(row.COLUMN_NAME or '').strip().upper() for row in cursor.fetchall()}
+            colonnes_formes = [
+                ('DESCRIPTION', 'ALTER TABLE dbo.FORMES_DECOUPE ADD DESCRIPTION NVARCHAR(MAX) NULL'),
+                ('STATUT', 'ALTER TABLE dbo.FORMES_DECOUPE ADD STATUT NVARCHAR(50) NULL'),
+            ]
+            for col_name, alter_sql in colonnes_formes:
+                if (col_name or '').upper() not in existing_cols:
+                    try:
+                        cursor.execute(alter_sql)
+                    except Exception as e:
+                        print(f"[init_formes_tables] Ajout colonne FORMES_DECOUPE.{col_name}: {e}")
+
+        # ----- FORMES_COUTS -----
+        cursor.execute("""
+            SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'FORMES_COUTS'
+        """)
+        formes_couts_exists = cursor.fetchone().n > 0
+
+        if not formes_couts_exists:
+            cursor.execute("""
+                CREATE TABLE dbo.FORMES_COUTS (
+                    ID INT IDENTITY(1,1) PRIMARY KEY,
+                    ID_FORME INT NOT NULL,
+                    MONTANT DECIMAL(10,2) NOT NULL,
+                    DESCRIPTION NVARCHAR(MAX) NULL,
+                    DATE_AJOUT DATETIME NULL DEFAULT GETDATE(),
+                    CREATEUR NVARCHAR(100) NULL DEFAULT 'System',
+                    CONSTRAINT FK_FORMES_COUTS_ID_FORME FOREIGN KEY (ID_FORME)
+                        REFERENCES dbo.FORMES_DECOUPE(ID) ON DELETE CASCADE
+                )
+            """)
+        else:
+            cursor.execute("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'FORMES_COUTS'
+            """)
+            existing_cols_couts = {(row.COLUMN_NAME or '').strip().upper() for row in cursor.fetchall()}
+            # Colonnes optionnelles susceptibles d'être absentes
+            if 'CREATEUR' not in existing_cols_couts:
+                try:
+                    cursor.execute("ALTER TABLE dbo.FORMES_COUTS ADD CREATEUR NVARCHAR(100) NULL DEFAULT 'System'")
+                except Exception as e:
+                    print(f"[init_formes_tables] Ajout colonne FORMES_COUTS.CREATEUR: {e}")
+
+        cursor.connection.commit()
+
+
 @contextmanager
 def get_db_cursor():
     conn = get_db_connection()
@@ -1436,7 +1522,7 @@ def get_commandes_bat():
                 C.ID, 
                 C.Numero, 
                 S.RaiSocTri AS RaisonSociale, 
-                C.DteBat, 
+                CASE WHEN C.DteBat >= '9999-01-01' OR C.DteBat IS NULL THEN NULL ELSE C.DteBat END AS DteBat, 
                 C.DteReceptElem, 
                 C.EtatPrepress, 
                 C.PourcentageReceptElem, 
@@ -1464,19 +1550,37 @@ def update_date_bat(id_commande, date_bat):
         print(f"[Erreur MAJ DteBat] {e}")
         return False
 
-def update_reception_elem(id_commande):
+def update_reception_elem(id_commande, date_reception=None):
     try:
-        today = datetime.now().date()
+        dt = datetime.strptime(date_reception, "%Y-%m-%d").date() if date_reception else datetime.now().date()
         with get_db_cursor() as cursor:
             cursor.execute("""
                 UPDATE COMMANDES
-                SET DteReceptElem = ?
+                SET DteReceptElem = ?, PourcentageReceptElem = 100
                 WHERE ID = ?
-            """, today, id_commande)
+            """, dt, id_commande)
             cursor.connection.commit()
             return True
     except Exception as e:
         print(f"[Erreur MAJ réception] {e}")
+        return False
+
+def update_pourcentage_reception(id_commande, pourcentage):
+    """Met à jour le pourcentage de réception (0, 50 ou 100)."""
+    try:
+        val = int(str(pourcentage).replace('%', '').strip())
+        if val not in (0, 50, 100):
+            return False
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                UPDATE COMMANDES
+                SET PourcentageReceptElem = ?
+                WHERE ID = ?
+            """, val, id_commande)
+            cursor.connection.commit()
+            return True
+    except Exception as e:
+        print(f"[Erreur MAJ pourcentage] {e}")
         return False
 
 def envoyer_bat(id_commande):
