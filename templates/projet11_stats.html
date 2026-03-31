@@ -1,9 +1,10 @@
-{% extends "base.html" %}
+{% extends parent_template|default('base.html') %}
 
 {% block title %}Statistiques - Projet 11{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -17,8 +18,8 @@
             <a href="{{ url_for('projet11.liste_traitements') }}" class="btn btn-primary me-2">
                 <i class="fas fa-list"></i> Liste des traitements
             </a>
-            <a href="{{ url_for('projet11.index') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Retour
+            <a href="{{ url_for('projet11.index', expand='analyse-dossiers') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour au Projet 11
             </a>
         </div>
     </div>
@@ -108,29 +109,75 @@
         <div class="col-12 col-xl-4">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
-                    <h5 class="card-title text-uppercase text-muted mb-3">Résumé général</h5>
-                    <p class="text-secondary">
-                        Ce tableau de bord regroupe les indicateurs clés :
-                    </p>
-                    <ul class="list-unstyled">
-                        <li class="mb-2">
-                            <i class="fas fa-tasks text-primary me-2"></i>
-                            Volume de traitements enregistrés
-                        </li>
-                        <li class="mb-2">
-                            <i class="fas fa-industry text-success me-2"></i>
-                            Charge de production (opérations)
-                        </li>
-                        <li>
-                            <i class="fas fa-user-friends text-info me-2"></i>
-                            Ressources humaines mobilisées
-                        </li>
-                    </ul>
-                    <p class="text-muted small mb-0">
-                        Utilisez les tableaux ci-dessous pour analyser les performances
-                        par service et par opérateur.
-                    </p>
+                    <h5 class="card-title text-uppercase text-muted mb-3">Répartition des statuts</h5>
+                    <canvas id="chartStatuts" height="180"></canvas>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques -->
+    <div class="row g-4 mt-2">
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Traitements par service (Top 10)</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartServices" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Opérations par opérateur (Top 10)</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartOperateurs" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0">
+                    <i class="fas fa-cogs me-2 text-primary"></i>
+                    Statistiques par machine
+                </h2>
+                <span class="badge bg-light text-dark">
+                    {{ stats_machines|length }} machine{{ stats_machines|length > 1 and 's' or '' }}
+                </span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Machine</th>
+                            <th class="text-center">Nb traitements</th>
+                            <th class="text-center">Total opérations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if stats_machines %}
+                            {% for m in stats_machines %}
+                            <tr>
+                                <td><strong>{{ m.machine }}</strong></td>
+                                <td class="text-center">{{ m.nb_traitements }}</td>
+                                <td class="text-center">{{ m.total_operations }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">
+                                    Aucun traitement avec machine renseignée.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -223,12 +270,83 @@
 </div>
 
 <script>
-// Activer les tooltips Bootstrap
 document.addEventListener('DOMContentLoaded', function() {
+    // Tooltips Bootstrap
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+    tooltipTriggerList.forEach(function (el) { new bootstrap.Tooltip(el); });
+
+    // Graphique statuts (Terminés vs En cours)
+    new Chart(document.getElementById('chartStatuts'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Terminés', 'En cours'],
+            datasets: [{
+                data: [{{ stats.traitements_termines or 0 }}, {{ stats.traitements_en_cours or 0 }}],
+                backgroundColor: ['#198754', '#ffc107'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
     });
+
+    // Graphique services (Top 10)
+    var servicesLabels = {{ stats_services[:10]|map(attribute='service')|list|tojson }};
+    var servicesData = {{ stats_services[:10]|map(attribute='nb_traitements')|list|tojson }};
+    if (servicesLabels.length > 0) {
+        new Chart(document.getElementById('chartServices'), {
+            type: 'bar',
+            data: {
+                labels: servicesLabels,
+                datasets: [{
+                    label: 'Nb traitements',
+                    data: servicesData,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderColor: 'rgb(13, 110, 253)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // Graphique opérateurs (Top 10)
+    var operateursLabels = {{ stats_operateurs[:10]|map(attribute='operateur')|list|tojson }};
+    var operateursData = {{ stats_operateurs[:10]|map(attribute='total_operations')|list|tojson }};
+    if (operateursLabels.length > 0) {
+        new Chart(document.getElementById('chartOperateurs'), {
+            type: 'bar',
+            data: {
+                labels: operateursLabels,
+                datasets: [{
+                    label: 'Total opérations',
+                    data: operateursData,
+                    backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                    borderColor: 'rgb(25, 135, 84)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true }
+                }
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

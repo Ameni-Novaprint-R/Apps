@@ -4,6 +4,7 @@ Toutes les opérations CRUD pointent vers WEB_S_DOS_ENCOURS sur le serveur rése
 COMMANDES et SOCIETES sont en lecture seule
 """
 from flask import Blueprint, render_template, request, jsonify
+from datetime import datetime
 import sys
 from db import (
     search_commandes_by_numero,
@@ -286,6 +287,7 @@ def api_create_dossier():
         prix_vente_total = data.get('prix_vente_total')  # PrixVenteTotal - valeur calculée dans l'application
         ct_estime = data.get('ct_estime')  # CTEstimé - valeur calculée dans l'application
         cout_total = data.get('cout_total')  # CoutTotal - valeur calculée dans l'application
+        date_inventaire_str = (data.get('date_inventaire') or '').strip()
         
         # Convertir quantite en int si elle est fournie
         if quantite is not None:
@@ -316,6 +318,13 @@ def api_create_dossier():
                 cout_total = round(float(cout_total), 3)
             except (ValueError, TypeError):
                 return jsonify({"error": "Le coût total doit être un nombre"}), 400
+        
+        date_inventaire = None
+        if date_inventaire_str:
+            try:
+                date_inventaire = datetime.strptime(date_inventaire_str, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({"error": "La date d'inventaire doit être au format YYYY-MM-DD"}), 400
         
         # Convertir ct_rel en float si elle est fournie (même si 0, on l'enregistre)
         ct_rel = data.get('ct_rel')  # CtRel - valeur calculée dans l'application: (CoutTotal / QteComm_COMMANDES) * Quantité
@@ -359,7 +368,8 @@ def api_create_dossier():
             prix_vente_total=prix_vente_total,
             ct_estime=ct_estime,
             cout_total=cout_total,
-            ct_rel=ct_rel
+            ct_rel=ct_rel,
+            date_inventaire=date_inventaire
         )
         
         if dossier_id is None:

@@ -1787,7 +1787,7 @@ def get_web_s_dos_encours(search_numero=None):
                 SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
-                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire')
             """)
             existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
             avancement_exists = 'Nom_GP_SERVICES' in existing_cols
@@ -1797,6 +1797,7 @@ def get_web_s_dos_encours(search_numero=None):
             ct_estime_exists = 'CTEstimé' in existing_cols
             cout_total_exists = 'CoutTotal' in existing_cols
             ct_rel_exists = 'CtRel' in existing_cols
+            date_inventaire_exists = 'DateInventaire' in existing_cols
         except Exception as e:
             print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
             avancement_exists = False
@@ -1806,6 +1807,7 @@ def get_web_s_dos_encours(search_numero=None):
             ct_estime_exists = False
             cout_total_exists = False
             ct_rel_exists = False
+            date_inventaire_exists = False
         
         # Construire la liste des colonnes dynamiquement
         columns_list = ['ID', 'Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
@@ -1823,6 +1825,8 @@ def get_web_s_dos_encours(search_numero=None):
             columns_list.append('CoutTotal')
         if ct_rel_exists:
             columns_list.append('CtRel')
+        if date_inventaire_exists:
+            columns_list.append('DateInventaire')
         columns_list.extend(['DateCreation', 'DateModification'])
         
         select_cols = ', '.join(columns_list)
@@ -1927,6 +1931,11 @@ def get_web_s_dos_encours(search_numero=None):
             else:
                 dossier["ct_rel"] = None
                 print(f"[DEBUG get_web_s_dos_encours] Dossier {dossier.get('numero', 'N/A')}: Colonne CtRel n'existe pas")
+            if date_inventaire_exists:
+                date_inventaire_value = row.DateInventaire if hasattr(row, 'DateInventaire') else None
+                dossier["date_inventaire"] = date_inventaire_value.isoformat() if date_inventaire_value else None
+            else:
+                dossier["date_inventaire"] = None
             
             result.append(dossier)
         return result
@@ -1954,7 +1963,7 @@ def get_web_s_dos_encours_by_numero(numero):
                 SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
-                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire')
             """)
             existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
             avancement_exists = 'Nom_GP_SERVICES' in existing_cols
@@ -1964,6 +1973,7 @@ def get_web_s_dos_encours_by_numero(numero):
             ct_estime_exists = 'CTEstimé' in existing_cols
             cout_total_exists = 'CoutTotal' in existing_cols
             ct_rel_exists = 'CtRel' in existing_cols
+            date_inventaire_exists = 'DateInventaire' in existing_cols
         except Exception as e:
             print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
             avancement_exists = False
@@ -1973,6 +1983,7 @@ def get_web_s_dos_encours_by_numero(numero):
             ct_estime_exists = False
             cout_total_exists = False
             ct_rel_exists = False
+            date_inventaire_exists = False
         
         # Construire la liste des colonnes dynamiquement
         columns_list = ['ID', 'Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
@@ -1990,6 +2001,8 @@ def get_web_s_dos_encours_by_numero(numero):
             columns_list.append('CoutTotal')
         if ct_rel_exists:
             columns_list.append('CtRel')
+        if date_inventaire_exists:
+            columns_list.append('DateInventaire')
         columns_list.extend(['DateCreation', 'DateModification'])
         
         select_cols = ', '.join(columns_list)
@@ -2081,11 +2094,16 @@ def get_web_s_dos_encours_by_numero(numero):
                     dossier["ct_rel"] = None
             else:
                 dossier["ct_rel"] = None
+            if date_inventaire_exists:
+                date_inventaire_value = row.DateInventaire if hasattr(row, 'DateInventaire') else None
+                dossier["date_inventaire"] = date_inventaire_value.isoformat() if date_inventaire_value else None
+            else:
+                dossier["date_inventaire"] = None
             
             return dossier
         return None
 
-def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, avancement=None, quantite=None, prix_vente_total=None, ct_estime=None, cout_total=None, ct_rel=None):
+def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, avancement=None, quantite=None, prix_vente_total=None, ct_estime=None, cout_total=None, ct_rel=None, date_inventaire=None):
     """
     Crée un nouveau dossier dans WEB_S_DOS_ENCOURS
     Les données peuvent être copiées depuis COMMANDES et SOCIETES si nécessaire
@@ -2139,7 +2157,7 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
                 SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
-                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire')
             """)
             existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
             avancement_exists = 'Nom_GP_SERVICES' in existing_cols
@@ -2149,6 +2167,7 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
             ct_estime_exists = 'CTEstimé' in existing_cols
             cout_total_exists = 'CoutTotal' in existing_cols
             ct_rel_exists = 'CtRel' in existing_cols
+            date_inventaire_exists = 'DateInventaire' in existing_cols
         except Exception as e:
             print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
             avancement_exists = False
@@ -2158,6 +2177,7 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
             ct_estime_exists = False
             cout_total_exists = False
             ct_rel_exists = False
+            date_inventaire_exists = False
         
         # Construire la requête INSERT dynamiquement selon les colonnes disponibles
         columns = ['Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
@@ -2210,6 +2230,10 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
             sys.stdout.flush()
         else:
             print(f"[DEBUG create_web_s_dos_encours] [ATTENTION] Colonne CtRel n'existe pas, ne sera pas enregistre")
+        if date_inventaire_exists:
+            columns.append('DateInventaire')
+            values.append(date_inventaire)
+            placeholders.append('?')
         
         print(f"[DEBUG create_web_s_dos_encours] Colonnes: {columns}")
         print(f"[DEBUG create_web_s_dos_encours] Valeurs: {values}")

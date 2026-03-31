@@ -110,21 +110,21 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- En-tête du formulaire (style Projet 10 avec couleur verte claire) -->
+    <!-- En-tête du formulaire : titre en haut, description en bas -->
     <div class="page-header" style="background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%); color: #2e7d32; border: 2px solid #4caf50;">
-        <h1 style="font-size: 2rem; margin-bottom: 10px; color: #2e7d32; font-weight: 700;">
+        <h1 class="page-header-title">
             <i class="fas fa-tasks"></i> Projet 11 - Gestion des Traitements
         </h1>
-        <div style="margin-top: 15px; font-size: 0.9rem; opacity: 0.85;">
-            <span>Système de suivi et de gestion des traitements de production avec données consolidées</span>
+        <div class="page-header-desc">
+            Système de suivi et de gestion des traitements de production avec données consolidées
         </div>
     </div>
 
-    <!-- Sélection de section (style Projet 10 avec couleur verte claire) -->
+    <!-- Sélection de section (style Projet 10 avec couleur verte claire, hauteur réduite) -->
     <div class="section-selection">
         <div class="section-options">
             {% if show_nouvelle_fiche %}
-            <div class="section-btn" onclick="ouvrirModalNouvelleFiche()">
+            <div class="section-btn section-btn-oneline" onclick="ouvrirModalNouvelleFiche()">
                 <span>➕</span>
                 <span>Nouvelle fiche de production</span>
             </div>
@@ -136,10 +136,10 @@
             </a>
             {% endif %}
             {% if show_statistiques %}
-            <a href="{{ url_for('projet11.statistiques') }}" class="section-btn" style="text-decoration: none;">
+            <button type="button" class="section-btn" id="btn-analyse-dossiers" aria-expanded="false" aria-controls="analyse-dossiers-subsections" onclick="window.toggleAnalyseDossiers(event)">
                 <span>📊</span>
-                <span>Statistiques</span>
-            </a>
+                <span>Analyse des dossiers</span>
+            </button>
             {% endif %}
             {% if show_suivi_production %}
             <a href="{{ url_for('projet11.suivi_production') }}" class="section-btn" style="text-decoration: none;">
@@ -149,6 +149,64 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Sous-sections "Analyse des dossiers" (affichées / masquées au clic sur le bouton ci-dessus) -->
+    {% if show_statistiques %}
+    <div id="analyse-dossiers-subsections" class="subsection-block subsection-block-hidden" role="region" aria-label="Sous-sections Analyse des dossiers">
+        <div class="subsection-inner">
+            {% if show_statistiques %}
+            <a href="{{ url_for('projet11.statistiques') }}" class="subsection-link">
+                <span>📊</span> Statistiques
+            </a>
+            {% endif %}
+            {% if show_tableau_comparatif %}
+            <a href="{{ url_for('projet11.tableau_comparatif') }}" class="subsection-link">
+                <span>📋</span> Tableau comparatif
+            </a>
+            {% endif %}
+            {% if show_tableau_bord %}
+            <a href="{{ url_for('projet11.tableau_bord') }}" class="subsection-link">
+                <span>📈</span> Tableau de bord
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+    window.toggleAnalyseDossiers = function(ev) {
+        if (ev) ev.preventDefault();
+        var block = document.getElementById('analyse-dossiers-subsections');
+        var btn = document.getElementById('btn-analyse-dossiers');
+        if (!block || !btn) return false;
+        var hidden = block.classList.contains('subsection-block-hidden');
+        if (hidden) {
+            block.classList.remove('subsection-block-hidden');
+            block.classList.add('subsection-block-visible');
+            btn.classList.add('active');
+            btn.setAttribute('aria-expanded', 'true');
+        } else {
+            block.classList.add('subsection-block-hidden');
+            block.classList.remove('subsection-block-visible');
+            btn.classList.remove('active');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+        return false;
+    };
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('expand') === 'analyse-dossiers') {
+            var block = document.getElementById('analyse-dossiers-subsections');
+            var btn = document.getElementById('btn-analyse-dossiers');
+            if (block && btn) {
+                block.classList.remove('subsection-block-hidden');
+                block.classList.add('subsection-block-visible');
+                btn.classList.add('active');
+                btn.setAttribute('aria-expanded', 'true');
+            }
+        }
+    })();
+    </script>
     
     {% if not show_nouvelle_fiche and not show_liste_traitements and not show_statistiques and not show_suivi_production %}
     <div class="alert alert-warning mt-4">
@@ -159,56 +217,68 @@
 
 </div>
 
-<!-- Styles pour les sections (style Projet 10 avec couleur verte claire) -->
+<!-- Styles pour les sections (hauteur raisonnable) -->
 <style>
     .page-header {
         text-align: center;
-        margin-bottom: 30px;
-        padding: 30px;
+        margin-bottom: 20px;
+        padding: 18px 24px;
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
     }
 
-    .page-header h1 {
-        font-size: 2rem;
-        margin-bottom: 10px;
+    .page-header-title {
+        font-size: 1.5rem;
+        margin: 0 0 8px 0;
+        color: #2e7d32;
         font-weight: 700;
+    }
+
+    .page-header-desc {
+        font-size: 0.88rem;
+        opacity: 0.85;
+        margin: 0;
     }
 
     .section-selection {
         background: #f8f9fa;
-        padding: 20px;
+        padding: 16px 20px;
         border-radius: 8px;
-        margin-bottom: 25px;
+        margin-bottom: 20px;
         text-align: center;
     }
 
     .section-options {
         display: flex;
         justify-content: center;
-        gap: 20px;
-        flex-wrap: nowrap;
+        gap: 16px;
+        flex-wrap: wrap;
     }
 
     .section-btn {
-        padding: 15px 30px;
+        padding: 12px 22px;
         background: white;
         color: #2c3e50;
         text-decoration: none;
         border-radius: 8px;
         font-weight: 600;
-        font-size: 1rem;
+        font-size: 0.95rem;
         transition: all 0.3s;
         border: 2px solid #ddd;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         cursor: pointer;
         user-select: none;
         flex: 1;
+        min-width: 0;
         max-width: 25%;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+    }
+
+    .section-btn-oneline {
+        white-space: nowrap;
     }
 
     .section-btn:hover {
@@ -225,12 +295,53 @@
         border-color: #4caf50;
     }
 
+    .subsection-block {
+        margin-top: 16px;
+        padding: 16px 20px;
+        background: #f0f7f0;
+        border-radius: 8px;
+        border: 1px solid #c8e6c9;
+    }
+    .subsection-block-hidden {
+        display: none !important;
+    }
+    .subsection-block.subsection-block-visible {
+        display: block !important;
+    }
+    .subsection-inner {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    .subsection-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: white;
+        color: #2c3e50;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        border: 2px solid #c8e6c9;
+        transition: all 0.2s;
+    }
+    .subsection-link:hover {
+        background: #4caf50;
+        color: white;
+        border-color: #4caf50;
+    }
+
     @media (max-width: 768px) {
         .section-options {
             flex-direction: column;
         }
         .section-btn {
             max-width: 100%;
+        }
+        .section-btn-oneline {
+            white-space: normal;
         }
     }
 </style>

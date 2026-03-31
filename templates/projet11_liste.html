@@ -215,6 +215,10 @@ th.col-statut, td.col-statut {
     max-width: 120px;
     text-align: center;
 }
+th.col-nomfd, td.col-nomfd {
+    width: 130px;
+    max-width: 170px;
+}
 th.col-actions, td.col-actions {
     width: 115px;
     min-width: 115px;
@@ -438,6 +442,8 @@ th.col-actions, td.col-actions {
                                     <th class="col-temps">Tps Prévu</th>
                                     <th class="col-temps">Tps Réel</th>
                                     <th class="col-ecart">Écart</th>
+                                    <th class="col-nomfd">Nom F.D.</th>
+                                    <th class="col-description">Description</th>
                                     <th class="col-statut">Statut</th>
                                     <th class="col-actions">Actions</th>
                                 </tr>
@@ -507,6 +513,19 @@ th.col-actions, td.col-actions {
                                             <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
+                                    <td class="col-nomfd">{{ t.nom_fd or '-' }}</td>
+                                    <td class="col-description">
+                                        {% if t.description %}
+                                            <span class="d-inline-block text-truncate w-100 truncate-cell"
+                                                  data-bs-toggle="tooltip"
+                                                  data-bs-placement="top"
+                                                  title="{{ t.description }}">
+                                                {{ t.description }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="col-statut">
                                         {% if t.cloture %}
                                             <span class="badge badge-statut-cloture">Clôturé</span>
@@ -554,7 +573,7 @@ th.col-actions, td.col-actions {
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="17" class="text-center text-muted">
+                                    <td colspan="19" class="text-center text-muted">
                                         Aucun traitement enregistré
                                     </td>
                                 </tr>
@@ -638,6 +657,8 @@ $(document).ready(function() {
         { titre: 'Tps Prévu', filtre: true, toggle: true, className: 'col-temps col-temps-prev', width: '95px' },
         { titre: 'Tps Réel', filtre: true, toggle: true, className: 'col-temps col-temps-reel', width: '95px' },
         { titre: 'Écart', filtre: true, toggle: true, className: 'col-ecart', width: '95px' },
+        { titre: 'Nom F.D.', filtre: true, toggle: true, className: 'col-nomfd', width: '130px' },
+        { titre: 'Description', filtre: true, toggle: true, className: 'col-description', width: '180px' },
         { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '100px' },
         { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '115px', orderable: false }
     ];
@@ -687,8 +708,10 @@ $(document).ready(function() {
                     if (etat.filterValues && etat.filterValues[i] !== undefined) {
                         var input = $('.table-filters input[data-col="' + i + '"]');
                         if (input.length) {
-                            input.val(etat.filterValues[i]);
-                            api.column(i).search(etat.filterValues[i], false, true);
+                            var raw = etat.filterValues[i] || '';
+                            var escaped = $.fn.dataTable.util.escapeRegex(raw);
+                            input.val(raw);
+                            api.column(i).search(escaped, true, false, true);
                         }
                     }
                 });
@@ -828,9 +851,11 @@ $(document).ready(function() {
             }
             const input = $(`.table-filters input[data-col="${colIndex}"]`);
             input.on('keyup change clear', function() {
-                const value = this.value;
-                if (column.search() !== value) {
-                    column.search(value, false, true).draw();
+                const value = this.value || '';
+                const escaped = $.fn.dataTable.util.escapeRegex(value);
+                const targetSearch = escaped;
+                if (column.search() !== targetSearch) {
+                    column.search(targetSearch, true, false, true).draw();
                 }
             });
         });

@@ -1,0 +1,81 @@
+{% extends parent_template|default('base.html') %}
+
+{% block title %}Tableau comparatif - Projet 11{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-table me-2"></i>
+            Tableau comparatif
+        </h1>
+        <a href="{{ url_for('projet11.index', expand='analyse-dossiers') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Retour au Projet 11
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" action="{{ url_for('projet11.tableau_comparatif') }}" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label for="numero" class="form-label">Filtrer par numéro de dossier</label>
+                    <input type="text" class="form-control" id="numero" name="numero" value="{{ numero }}" placeholder="Numéro de dossier...">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtrer
+                    </button>
+                </div>
+                <div class="col-auto ms-auto">
+                    <span class="badge bg-info fs-6">{{ lignes|length }} dossier(s) affiché(s)</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle bg-white">
+            <thead class="table-light">
+                <tr>
+                    <th>Dossier</th>
+                    <th>Client</th>
+                    <th class="text-end">Tps prévu (h)</th>
+                    <th class="text-end">Tps réel (h)</th>
+                    <th class="text-end">Coût prévu (€)</th>
+                    <th class="text-end">Coût réel (€)</th>
+                    <th class="text-end">Nb op prévues</th>
+                    <th class="text-end">Qté réelle</th>
+                    <th class="text-end">Écart Qté</th>
+                    <th class="text-end">Écart Tps</th>
+                    <th class="text-end">Écart Coût</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in lignes %}
+                <tr>
+                    <td><strong>{{ d.numero }}</strong></td>
+                    <td>{{ d.client or '-' }}</td>
+                    <td class="text-end">{{ "%.2f"|format(d.tps_prev) }}</td>
+                    <td class="text-end"><strong>{{ "%.2f"|format(d.tps_reel) }}</strong></td>
+                    <td class="text-end">{{ "%.2f"|format(d.cout_prev) }}</td>
+                    <td class="text-end"><strong>{{ "%.2f"|format(d.cout_reel) }}</strong></td>
+                    <td class="text-end">{{ "%.2f"|format(d.nb_op_prev) }}</td>
+                    <td class="text-end"><strong>{{ "%.2f"|format(d.quantite_reelle) }}</strong></td>
+                    <td class="text-end {% if d.ecart_quantite >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ "%.2f"|format(d.ecart_quantite) }}</td>
+                    <td class="text-end {% if d.ecart_tps <= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ "%.2f"|format(d.ecart_tps) }}</td>
+                    <td class="text-end {% if d.ecart_cout <= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ "%.2f"|format(d.ecart_cout) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="text-center text-muted py-4">Aucun dossier avec temps réel renseigné pour ce filtre.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

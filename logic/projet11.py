@@ -43,6 +43,7 @@ def column_exists(cursor, table_name, column_name):
 
 _cloture_column_ensured = False
 _description_column_ensured = False
+_nom_fd_column_ensured = False
 
 
 def ensure_description_column():
@@ -82,6 +83,54 @@ def ensure_cloture_column():
         print(f"[projet11] ensure_cloture_column: {e}")
     finally:
         _cloture_column_ensured = True
+
+
+def ensure_nom_fd_column():
+    """Vérifie si la colonne NOM_FD existe dans WEB_TRAITEMENTS ; si non, l'ajoute."""
+    global _nom_fd_column_ensured
+    ensure_cloture_column()
+    if _nom_fd_column_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD'):
+                _nom_fd_column_ensured = True
+                return
+            cursor.execute("ALTER TABLE dbo.WEB_TRAITEMENTS ADD NOM_FD NVARCHAR(100) NULL")
+            cursor.connection.commit()
+            print("[projet11] Colonne NOM_FD ajoutée à WEB_TRAITEMENTS.")
+    except Exception as e:
+        print(f"[projet11] ensure_nom_fd_column: {e}")
+    finally:
+        _nom_fd_column_ensured = True
+
+
+def _is_typo_service(cursor, service_name):
+    """Retourne True si le service correspond au service Typo (GP_SERVICES.ID=5)."""
+    if not service_name:
+        return False
+    try:
+        cursor.execute("SELECT Nom FROM GP_SERVICES WHERE ID = 5")
+        row = cursor.fetchone()
+        nom_typo = (row.Nom or '').strip().lower() if row else ''
+        return nom_typo != '' and (service_name or '').strip().lower() == nom_typo
+    except Exception:
+        return False
+
+
+def _apply_nom_fd_tirages_delta(cursor, nom_fd, delta):
+    """Applique un delta de tirages à FORMES_DECOUPE.TOTAL_TIRAGES pour une forme."""
+    nom_fd = (nom_fd or '').strip()
+    if not nom_fd or not delta:
+        return
+    cursor.execute("""
+        UPDATE FORMES_DECOUPE
+        SET TOTAL_TIRAGES = CASE
+            WHEN ISNULL(TOTAL_TIRAGES, 0) + ? < 0 THEN 0
+            ELSE ISNULL(TOTAL_TIRAGES, 0) + ?
+        END
+        WHERE NOM = ?
+    """, (int(delta), int(delta), nom_fd))
 
 
 # ============================================================================
@@ -849,10 +898,11 @@ def get_traitement_by_fiche(id_fiche_travail):
 
 def get_all_traitements():
     """Récupère tous les traitements enregistrés dans WEB_TRAITEMENTS"""
-    ensure_cloture_column()
+    ensure_nom_fd_column()
     with get_db_cursor() as cursor:
         cols_cloture = ', Cloture' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture') else ', CAST(0 AS TINYINT) AS Cloture'
         cols_desc = ', Description' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Description') else ', CAST(NULL AS NVARCHAR(MAX)) AS Description'
+        cols_nom_fd = ', NOM_FD' if column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD') else ", CAST(NULL AS NVARCHAR(100)) AS NOM_FD"
         cursor.execute(f"""
             SELECT 
                 ID,
@@ -879,6 +929,7 @@ def get_all_traitements():
                 DateModification
                 {cols_cloture}
                 {cols_desc}
+                {cols_nom_fd}
             FROM WEB_TRAITEMENTS
             ORDER BY DateCreation DESC
         """)
@@ -915,7 +966,8 @@ def get_all_traitements():
                 "date_creation": row.DateCreation.strftime('%Y-%m-%d') if row.DateCreation else None,
                 "date_modification": row.DateModification.strftime('%Y-%m-%d') if row.DateModification else None,
                 "cloture": _to_int(getattr(row, 'Cloture', 0)),
-                "description": getattr(row, 'Description', None) or ''
+                "description": getattr(row, 'Description', None) or '',
+                "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip()
             })
         
         return traitements
@@ -927,12 +979,14 @@ def get_traitement_by_id(traitement_id):
     Gère les deux noms de colonne pour le temps prévu (TpsPrevDev_GP_FICHTRA_INT ou TpsPrevDev_GP_FICHES_OPERATIONS).
     Retourne aussi Cloture pour afficher le bouton Déclôturer en fiche clôturée.
     """
-    ensure_cloture_column()
+    ensure_nom_fd_column()
     with get_db_cursor() as cursor:
         has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
         has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
+        has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
         cloture_col = ', Cloture' if has_cloture else ''
         desc_col = ', Description' if has_description else ''
+        nom_fd_col = ', NOM_FD' if has_nom_fd else ''
         # Essayer d'abord avec la colonne renommée TpsPrevDev_GP_FICHTRA_INT
         try:
             cursor.execute("""
@@ -963,7 +1017,7 @@ def get_traitement_by_id(traitement_id):
                     DateCreation,
                     DateModification,
                     TempsEcouleAffichageSec
-                    """ + cloture_col + desc_col + """
+                    """ + cloture_col + desc_col + nom_fd_col + """
                 FROM WEB_TRAITEMENTS
                 WHERE ID = ?
             """, (traitement_id,))
@@ -1000,7 +1054,7 @@ def get_traitement_by_id(traitement_id):
                             DateCreation,
                             DateModification,
                             TempsEcouleAffichageSec
-                            """ + cloture_col + desc_col + """
+                            """ + cloture_col + desc_col + nom_fd_col + """
                         FROM WEB_TRAITEMENTS
                         WHERE ID = ?
                     """, (traitement_id,))
@@ -1083,7 +1137,8 @@ def get_traitement_by_id(traitement_id):
             "date_modification": date_modification_str,
             "temps_ecoule_affichage_sec": getattr(row, 'TempsEcouleAffichageSec', None),
             "cloture": _to_int(getattr(row, 'Cloture', 0)),
-            "description": getattr(row, 'Description', None) or ''
+            "description": getattr(row, 'Description', None) or '',
+            "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip()
         }
 
 
@@ -1103,7 +1158,7 @@ def create_traitement(data):
     Returns:
         int: ID du traitement créé, ou None en cas d'erreur
     """
-    ensure_cloture_column()
+    ensure_nom_fd_column()
     try:
         print(f"[DEBUG] Début create_traitement avec data: {data}")
         with get_db_cursor() as cursor:
@@ -1123,6 +1178,7 @@ def create_traitement(data):
             pdt_anc = _safe_int(data.get('pdt_anc'))
             nb_op = pdt_c + pdt_nnc + pdt_anc
             data['nb_op'] = nb_op
+            nom_fd = (data.get('nom_fd') or '').strip() or None
             
             # SERVICE NON PRÉVU: Si id_fiche_travail est 0 ou NULL, c'est un service non prévu
             # On doit récupérer les informations directement depuis les données fournies
@@ -1325,12 +1381,16 @@ def create_traitement(data):
                 cloture_val = 1 if data.get('cloture') in (1, '1', True) else 0
                 has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
                 has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
+                has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
                 cloture_col = ', Cloture' if has_cloture else ''
                 cloture_ph = ', ?' if has_cloture else ''
                 cloture_params = (cloture_val,) if has_cloture else ()
                 desc_col = ', Description' if has_description else ''
                 desc_ph = ', ?' if has_description else ''
                 desc_params = (data.get('description') or None,) if has_description else ()
+                nom_fd_col = ', NOM_FD' if has_nom_fd else ''
+                nom_fd_ph = ', ?' if has_nom_fd else ''
+                nom_fd_params = (nom_fd,) if has_nom_fd else ()
                 cursor.execute(f"""
                     INSERT INTO WEB_TRAITEMENTS (
                         ID_FICHE_TRAVAIL,
@@ -1354,9 +1414,9 @@ def create_traitement(data):
                         PdtC,
                         PdtNNC,
                         PdtANC,
-                        TpsReel{cloture_col}{desc_col}
+                        TpsReel{cloture_col}{desc_col}{nom_fd_col}
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{cloture_ph}{desc_ph})
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{cloture_ph}{desc_ph}{nom_fd_ph})
                 """, (
                     id_fiche_insert,  # NULL pour service non prévu, ID valide sinon
                     traitement_data[0] if traitement_data else None,  # ID_GP_TRAITEMENTS (traçabilité)
@@ -1389,11 +1449,13 @@ def create_traitement(data):
                     pdt_anc,
                     # Temps réel calculé
                     tps_reel
-                ) + cloture_params + desc_params)
+                ) + cloture_params + desc_params + nom_fd_params)
                 
                 print("[DEBUG] INSERT réussi")
                 if id_fiche_insert:
                     sync_codindav_for_fiche(id_fiche_insert, cursor)
+                if dte_fin and nom_fd and _is_typo_service(cursor, fiche_data[14]):
+                    _apply_nom_fd_tirages_delta(cursor, nom_fd, nb_op)
                 cursor.connection.commit()
                 print("[DEBUG] COMMIT réussi")
                 
@@ -1477,7 +1539,7 @@ def update_traitement(traitement_id, data):
     Returns:
         bool: True si succès, False sinon
     """
-    ensure_cloture_column()
+    ensure_nom_fd_column()
     try:
         with get_db_cursor() as cursor:
             from datetime import datetime
@@ -1492,6 +1554,7 @@ def update_traitement(traitement_id, data):
             pdt_c = _safe_int(data.get('pdt_c'))
             pdt_nnc = _safe_int(data.get('pdt_nnc'))
             pdt_anc = _safe_int(data.get('pdt_anc'))
+            nom_fd_new = (data.get('nom_fd') or '').strip()
 
             def _parse_datetime_local(value):
                 if not value:
@@ -1563,12 +1626,27 @@ def update_traitement(traitement_id, data):
             # Sinon (bouton Enregistrer en mode Modifier) : conserver la valeur existante.
             has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
             has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
+            has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
+            nom_fd_select = "ISNULL(NOM_FD, '') AS NOM_FD" if has_nom_fd else "CAST('' AS NVARCHAR(100)) AS NOM_FD"
+            cursor.execute(f"""
+                SELECT ISNULL(PdtC,0) AS PdtC, ISNULL(PdtNNC,0) AS PdtNNC, ISNULL(PdtANC,0) AS PdtANC,
+                       Nom_GP_SERVICES, {nom_fd_select}, DteFin
+                FROM WEB_TRAITEMENTS WHERE ID = ?
+            """, (traitement_id,))
+            old_row = cursor.fetchone()
+            if not old_row:
+                raise Exception(f"Le traitement {traitement_id} n'existe pas")
+            old_total = _to_int(old_row.PdtC) + _to_int(old_row.PdtNNC) + _to_int(old_row.PdtANC)
+            old_nom_fd = (getattr(old_row, 'NOM_FD', None) or '').strip()
+            service_name = (old_row.Nom_GP_SERVICES or data.get('nom_service') or '').strip()
             update_cloture = has_cloture and ('cloture' in data)
             cloture_val = 1 if data.get('cloture') in (1, '1', True) else 0
             cloture_set = ', Cloture = ?' if update_cloture else ''
             cloture_param = (cloture_val,) if update_cloture else ()
             desc_set = ', Description = ?' if has_description else ''
             desc_param = (data.get('description') or None,) if has_description else ()
+            nom_fd_set = ', NOM_FD = ?' if has_nom_fd else ''
+            nom_fd_param = ((nom_fd_new or None),) if has_nom_fd else ()
             op_set = ', Matricule_personel = ?, Nom_personel = ?, Prenom_personel = ?' if matricule_op is not None else ''
             op_param = (matricule_op, nom_op, prenom_op) if matricule_op is not None else ()
             sql_update = f"""
@@ -1582,7 +1660,7 @@ def update_traitement(traitement_id, data):
                     PdtANC = ?,
                     NbPers = ?,
                     PostesReel = ?,
-                    TpsReel = ?{op_set}{cloture_set}{desc_set},
+                    TpsReel = ?{op_set}{cloture_set}{desc_set}{nom_fd_set},
                     DateModification = GETDATE()
                 WHERE ID = ?
             """
@@ -1596,18 +1674,18 @@ def update_traitement(traitement_id, data):
                 nb_pers,
                 data.get('postes_reel'),
                 tps_reel
-            ) + op_param + cloture_param + desc_param + (traitement_id,)
+            ) + op_param + cloture_param + desc_param + nom_fd_param + (traitement_id,)
             try:
                 if dte_fin is not None:
                     sql_fin = f"""
                         UPDATE WEB_TRAITEMENTS
                         SET DteDeb = ?, DteFin = ?, NbOp = ?, PdtC = ?, PdtNNC = ?, PdtANC = ?,
-                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}{desc_set}, TempsEcouleAffichageSec = NULL,
+                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}{desc_set}{nom_fd_set}, TempsEcouleAffichageSec = NULL,
                             DateModification = GETDATE()
                         WHERE ID = ?
                     """
                     params_fin = (dte_deb, dte_fin, nb_op, pdt_c, pdt_nnc, pdt_anc, nb_pers,
-                                  data.get('postes_reel'), tps_reel) + op_param + cloture_param + desc_param + (traitement_id,)
+                                  data.get('postes_reel'), tps_reel) + op_param + cloture_param + desc_param + nom_fd_param + (traitement_id,)
                     cursor.execute(sql_fin, params_fin)
                 else:
                     cursor.execute(sql_update, params)
@@ -1621,6 +1699,11 @@ def update_traitement(traitement_id, data):
             row_fiche = cursor.fetchone()
             if row_fiche and row_fiche.ID_FICHE_TRAVAIL:
                 sync_codindav_for_fiche(row_fiche.ID_FICHE_TRAVAIL, cursor)
+            if dte_fin and _is_typo_service(cursor, service_name):
+                if old_nom_fd:
+                    _apply_nom_fd_tirages_delta(cursor, old_nom_fd, -old_total)
+                if nom_fd_new:
+                    _apply_nom_fd_tirages_delta(cursor, nom_fd_new, nb_op)
             
             if rows_affected == 0:
                 # Vérifier si le traitement existe
@@ -1996,6 +2079,30 @@ def get_traitements_par_service():
         return services
 
 
+def get_traitements_par_machine():
+    """
+    Récupère les statistiques par machine (PostesReel)
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné') AS machine,
+                COUNT(*) as nb_traitements,
+                SUM(NbOp) as total_operations
+            FROM WEB_TRAITEMENTS
+            GROUP BY ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné')
+            ORDER BY nb_traitements DESC
+        """)
+        machines = []
+        for row in cursor.fetchall():
+            machines.append({
+                "machine": row.machine or "Non renseigné",
+                "nb_traitements": row.nb_traitements or 0,
+                "total_operations": row.total_operations or 0
+            })
+        return machines
+
+
 def get_traitements_par_operateur():
     """
     Récupère les statistiques par opérateur
@@ -2022,4 +2129,202 @@ def get_traitements_par_operateur():
             })
         
         return operateurs
+
+
+def get_cadence_par_machine(date_debut=None, date_fin=None):
+    """
+    Cadence par machine (PostesReel) pour une période donnée.
+    Inclut le service (Nom_GP_SERVICES) pour permettre une comparaison homogène.
+    Cadence = Somme(NbOp) / Somme(TpsReel) en opérations/heure.
+    """
+    sql = """
+        SELECT 
+            ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné') AS service,
+            ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné') AS machine,
+            SUM(ISNULL(NbOp, 0)) AS total_operations,
+            SUM(ISNULL(TpsReel, 0)) AS total_heures,
+            COUNT(*) AS nb_traitements
+        FROM WEB_TRAITEMENTS
+        WHERE DteFin IS NOT NULL
+          AND TpsReel IS NOT NULL
+          AND TpsReel > 0
+    """
+    params = []
+    if date_debut:
+        sql += " AND CAST(DteFin AS DATE) >= ?"
+        params.append(date_debut)
+    if date_fin:
+        sql += " AND CAST(DteFin AS DATE) <= ?"
+        params.append(date_fin)
+    sql += """
+        GROUP BY ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné'),
+                 ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné')
+        ORDER BY ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné'),
+                 SUM(ISNULL(NbOp, 0)) / NULLIF(SUM(ISNULL(TpsReel, 0)), 0) DESC
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+    result = []
+    for row in rows:
+        tps = float(row.total_heures) if row.total_heures else 0
+        cadence = round((row.total_operations or 0) / tps, 2) if tps > 0 else 0
+        result.append({
+            "service": row.service or "Non renseigné",
+            "machine": row.machine or "Non renseigné",
+            "total_operations": row.total_operations or 0,
+            "total_heures": round(tps, 2),
+            "nb_traitements": row.nb_traitements or 0,
+            "cadence": cadence
+        })
+    return result
+
+
+def get_cadence_par_machine_par_service(date_debut=None, date_fin=None, top_n=10):
+    """
+    Cadence par machine regroupée par service.
+    Pour chaque service, retourne les top_n machines avec la meilleure cadence.
+    Permet de comparer les machines entre elles au sein d'un même service
+    (ex: machines d'impression vs machines d'impression, machines de pliage vs machines de pliage).
+    """
+    flat = get_cadence_par_machine(date_debut=date_debut, date_fin=date_fin)
+    by_service = {}
+    for m in flat:
+        svc = m["service"]
+        if svc not in by_service:
+            by_service[svc] = []
+        by_service[svc].append(m)
+    # Chaque service est déjà trié par cadence desc (dans get_cadence_par_machine on trie par service puis cadence)
+    # mais le tri groupe par service d'abord - on a donc besoin de trier chaque liste par cadence
+    result = []
+    for service in sorted(by_service.keys()):
+        machines = sorted(by_service[service], key=lambda x: x["cadence"], reverse=True)[:top_n]
+        result.append({"service": service, "machines": machines})
+    return result
+
+
+def get_cadence_par_operateur(date_debut=None, date_fin=None):
+    """
+    Cadence par opérateur principal pour une période donnée.
+    Cadence = Somme(NbOp) / Somme(TpsReel) en opérations/heure.
+    Filtre sur DteFin (traitements terminés). TpsReel > 0 requis.
+    """
+    sql = """
+        SELECT 
+            ISNULL(LTRIM(RTRIM(Nom_personel)), '') AS nom,
+            ISNULL(LTRIM(RTRIM(Prenom_personel)), '') AS prenom,
+            SUM(ISNULL(NbOp, 0)) AS total_operations,
+            SUM(ISNULL(TpsReel, 0)) AS total_heures,
+            COUNT(*) AS nb_traitements
+        FROM WEB_TRAITEMENTS
+        WHERE DteFin IS NOT NULL
+          AND TpsReel IS NOT NULL
+          AND TpsReel > 0
+    """
+    params = []
+    if date_debut:
+        sql += " AND CAST(DteFin AS DATE) >= ?"
+        params.append(date_debut)
+    if date_fin:
+        sql += " AND CAST(DteFin AS DATE) <= ?"
+        params.append(date_fin)
+    sql += """
+        GROUP BY Nom_personel, Prenom_personel
+        ORDER BY SUM(ISNULL(NbOp, 0)) / NULLIF(SUM(ISNULL(TpsReel, 0)), 0) DESC
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+    result = []
+    for row in rows:
+        operateur = f"{row.nom or ''} {row.prenom or ''}".strip() or "Non renseigné"
+        tps = float(row.total_heures) if row.total_heures else 0
+        cadence = round((row.total_operations or 0) / tps, 2) if tps > 0 else 0
+        result.append({
+            "operateur": operateur,
+            "total_operations": row.total_operations or 0,
+            "total_heures": round(tps, 2),
+            "nb_traitements": row.nb_traitements or 0,
+            "cadence": cadence
+        })
+    return result
+
+
+def get_tableau_comparatif_commandes(numero_filter=None):
+    """
+    Données pour le Tableau comparatif (prévu / réel par dossier).
+    Retourne une liste de dossiers avec totaux et écarts (temps, coût, quantité).
+    Uniquement les commandes non terminées (C.Termine = 0) avec au moins du temps réel.
+    """
+    def _f(v):
+        if v is None:
+            return 0.0
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    sql = """
+        SELECT
+            C.Numero AS numero,
+            S.RaiSocTri AS client,
+            FT.ID AS id_fiche,
+            ISNULL(FT.CtPrevDev, 0) AS cout_prev,
+            ISNULL(FT.CtReel, 0) AS cout_reel,
+            ISNULL(FI.TpsPrevDev, 0) AS tps_prev,
+            ISNULL(FI.TpsReel, 0) AS tps_reel,
+            (SELECT ISNULL(SUM(FO.OpPrevDev), 0) FROM GP_FICHES_OPERATIONS FO WHERE FO.ID_FICHE_TRAVAIL = FT.ID) AS nb_op_prev,
+            (SELECT ISNULL(SUM(T.NbOp), 0) FROM GP_TRAITEMENTS T WHERE T.ID_FICHE_TRAVAIL = FT.ID) AS quantite_reelle
+        FROM COMMANDES C
+        INNER JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
+        INNER JOIN GP_FICHES_TRAVAIL FT ON FT.ID_COMMANDE = C.ID
+        LEFT JOIN GP_FICHTRA_INT FI ON FI.ID_FICHTRA = FT.ID
+        WHERE C.Termine = 0
+    """
+    params = []
+    if numero_filter and numero_filter.strip():
+        sql += " AND C.Numero LIKE ?"
+        params.append("%" + numero_filter.strip() + "%")
+    sql += " ORDER BY C.Numero, FT.RefFiche"
+
+    with get_db_cursor() as cursor:
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+
+    # Regroupement par numéro de commande
+    by_numero = {}
+    for row in rows:
+        num = (row.numero or "").strip()
+        if not num:
+            continue
+        if num not in by_numero:
+            by_numero[num] = {
+                "numero": num,
+                "client": (row.client or "").strip(),
+                "tps_prev": 0.0,
+                "tps_reel": 0.0,
+                "cout_prev": 0.0,
+                "cout_reel": 0.0,
+                "nb_op_prev": 0.0,
+                "quantite_reelle": 0.0,
+            }
+        by_numero[num]["tps_prev"] += _f(row.tps_prev)
+        by_numero[num]["tps_reel"] += _f(row.tps_reel)
+        by_numero[num]["cout_prev"] += _f(row.cout_prev)
+        by_numero[num]["cout_reel"] += _f(row.cout_reel)
+        by_numero[num]["nb_op_prev"] += _f(row.nb_op_prev)
+        by_numero[num]["quantite_reelle"] += _f(row.quantite_reelle)
+
+    # Écarts et filtre: uniquement dossiers avec temps réel > 0
+    result = []
+    for num, data in by_numero.items():
+        if data["tps_reel"] == 0:
+            continue
+        data["ecart_tps"] = round(data["tps_reel"] - data["tps_prev"], 2)
+        data["ecart_cout"] = round(data["cout_reel"] - data["cout_prev"], 2)
+        data["ecart_quantite"] = round(data["quantite_reelle"] - data["nb_op_prev"], 2)
+        result.append(data)
+
+    result.sort(key=lambda x: x["numero"])
+    return result
 

@@ -8,6 +8,99 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
 
 <style>
+    .projet19-page-header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 14px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(135deg, #fbe4ec 0%, #f6d1de 100%) !important;
+        color: #7d3758;
+        border: 2px solid #c97a9d;
+    }
+    .projet19-page-header h1 {
+        font-size: 1.6rem;
+        margin-bottom: 4px;
+        font-weight: 700;
+        color: #7d3758;
+    }
+    .projet19-header-subtitle { color: #7d3758; opacity: 0.9; }
+    .projet19-section-selection {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .projet19-section-options {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: nowrap;
+    }
+    .projet19-section-btn {
+        padding: 15px 20px;
+        background: white;
+        color: #2c3e50;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+        border: 2px solid #ddd;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        cursor: pointer;
+        user-select: none;
+        flex: 1;
+        min-width: 0;
+        max-width: 33%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .projet19-section-btn:hover {
+        background: #c97a9d;
+        color: white;
+        border-color: #c97a9d;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(201, 122, 157, 0.35);
+    }
+    .projet19-section-btn.active {
+        background: #c97a9d;
+        color: white;
+        border-color: #7d3758;
+        box-shadow: 0 2px 6px rgba(125, 55, 88, 0.3);
+    }
+    .projet19-section-content { display: none; margin-bottom: 20px; }
+    .projet19-section-content.active { display: block; }
+    .projet19-inventaire-bar {
+        background: #fff;
+        border: 1px solid #ead2dd;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .projet19-stat-placeholder {
+        background: #fff;
+        border: 1px dashed #c97a9d;
+        border-radius: 10px;
+        padding: 18px;
+        color: #7d3758;
+    }
+    .projet19-column-toggle { margin-bottom: 0.5rem; font-size: 0.85rem; }
+    .projet19-column-toggle .form-check { margin-right: 0.75rem; margin-bottom: 0.25rem; white-space: nowrap; }
+    .projet19-column-toggle-wrapper {
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+    }
+    #projet19BtnEnregistrerVue { margin-left: auto; }
     .dossiers-table {
         width: 100%;
         max-width: 100%;
@@ -16,21 +109,30 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border-radius: 8px;
         overflow: hidden;
-        table-layout: fixed; /* Forcer les largeurs définies */
+        table-layout: auto;
     }
     
-    .dossiers-table thead {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
+    .dossiers-table thead { background: #212529; color: white; }
     
     .dossiers-table thead th {
+        background-color: #212529 !important;
+        color: #ffffff !important;
+        border-color: #343a40 !important;
         padding: 12px;
         text-align: left;
         font-weight: 600;
         font-size: 0.9rem;
         position: relative;
         cursor: pointer;
+        white-space: nowrap;
+        overflow: visible;
+        text-overflow: clip;
+    }
+    #dossiers-table.dataTable thead th,
+    #dossiers-table.dataTable thead td {
+        background-color: #212529 !important;
+        color: #ffffff !important;
+        border-bottom: 1px solid #343a40 !important;
     }
     
     .dossiers-table thead th.sorting:after,
@@ -58,26 +160,24 @@
     }
     
     /* Ligne de filtres */
-    .dossiers-table thead tr.table-filters th {
-        padding: 8px;
-        background: #f8f9fa;
-        border-top: 2px solid #dee2e6;
-    }
+    .dossiers-table thead tr.table-filters th { padding: 4px; background: #212529; border-top: 1px solid #343a40; }
     
     .dossiers-table thead tr.table-filters input,
     .dossiers-table thead tr.table-filters select {
         width: 100%;
         padding: 6px;
-        border: 1px solid #ced4da;
+        border: 1px solid #495057;
         border-radius: 4px;
         font-size: 0.85rem;
+        background: #fff;
+        color: #212529;
     }
     
     .dossiers-table thead tr.table-filters input:focus,
     .dossiers-table thead tr.table-filters select:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+        border-color: #495057;
+        box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.2);
     }
     
     /* Style pour DataTables */
@@ -128,12 +228,15 @@
         border-bottom: 1px solid #e9ecef;
     }
     
-    /* Largeur spécifique pour la colonne Désignation (colonne 3) - ajustée */
+    /* Colonne Désignation (même logique que Référence Projet 11) */
     .dossiers-table th:nth-child(3),
     .dossiers-table td:nth-child(3) {
-        min-width: 120px;
-        max-width: 150px;
-        word-wrap: break-word;
+        width: 140px;
+        min-width: 140px;
+        max-width: 185px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     /* Colonne Avancement (colonne 11) - ajustée */
@@ -153,9 +256,18 @@
         font-size: 0.85rem;
     }
     
-    /* Largeur minimale pour la colonne Actions (colonne 12) */
+    /* Colonne Date inventaire (colonne 12) */
     .dossiers-table th:nth-child(12),
     .dossiers-table td:nth-child(12) {
+        width: 110px;
+        min-width: 100px;
+        max-width: 120px;
+        text-align: center;
+    }
+    
+    /* Largeur minimale pour la colonne Actions (colonne 13) */
+    .dossiers-table th:nth-child(13),
+    .dossiers-table td:nth-child(13) {
         width: 70px;
         min-width: 70px;
         max-width: 70px;
@@ -184,17 +296,15 @@
         border-bottom: none;
     }
     
-    /* Largeur spécifique pour la colonne Désignation (colonne 3) */
-    .dossiers-table th:nth-child(3),
-    .dossiers-table td:nth-child(3) {
-        min-width: 300px;
-        max-width: 400px;
-        word-wrap: break-word;
+    .designation-cell {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
-    /* Largeur minimale pour la colonne Actions (colonne 12) */
-    .dossiers-table th:nth-child(12),
-    .dossiers-table td:nth-child(12) {
+    /* Largeur minimale pour la colonne Actions (colonne 13) */
+    .dossiers-table th:nth-child(13),
+    .dossiers-table td:nth-child(13) {
         width: 85px;
         min-width: 85px;
         max-width: 85px;
@@ -327,17 +437,62 @@
 
 {% block content %}
 <div class="container-fluid" style="width: 100%; max-width: 100%; overflow-x: visible;">
-    <h1 class="mb-4">📁 Projet 19 – Gestion des Dossiers en Cours</h1>
+    <div class="projet19-page-header">
+        <h1>📁 Projet 19 – Gestion des Dossiers en Cours</h1>
+        <div class="projet19-header-subtitle" style="margin-top: 6px; font-size: 0.9rem;">
+            Suivi des dossiers en cours par date d'inventaire
+        </div>
+    </div>
     
+    <div class="projet19-section-selection">
+        <div class="projet19-section-options">
+            <button type="button" class="projet19-section-btn" data-section-target="section-nouveau">
+                <span>➕</span><span>Nouveau dossier</span>
+            </button>
+            <button type="button" class="projet19-section-btn" data-section-target="section-liste">
+                <span>📋</span><span>Liste des dossiers en cours</span>
+            </button>
+            <button type="button" class="projet19-section-btn" data-section-target="section-stats">
+                <span>📊</span><span>Statistique</span>
+            </button>
+        </div>
+    </div>
+    
+    <div id="section-nouveau" class="projet19-section-content">
+        <div style="background:#fff; border:1px solid #ead2dd; border-radius:8px; padding:16px;">
+            <div class="projet19-inventaire-bar">
+                <label for="inventaire-date-active" style="font-weight:600; margin:0;">Date d'inventaire active :</label>
+                <input type="date" id="inventaire-date-active" class="form-control" style="max-width:220px;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="applyInventaireDateFilter()">Appliquer</button>
+                <span id="inventaire-date-active-label" class="badge bg-light text-dark">Aucune date sélectionnée</span>
+            </div>
+            <p style="margin:0 0 12px 0; color:#7d3758;">Créez un dossier via le popup. La date d'inventaire active sera proposée automatiquement.</p>
+            <button onclick="openNewDossierPopup()"
+                    style="padding: 12px 24px; font-size: 16px; background: linear-gradient(135deg, #c97a9d 0%, #b8668a 100%);
+                           color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                ➕ Nouveau dossier
+            </button>
+        </div>
+    </div>
+
+    <div id="section-liste" class="projet19-section-content">
+    <div class="projet19-column-toggle-wrapper">
+        <div class="projet19-column-toggle">
+            <div class="fw-bold mb-2">Afficher / Masquer les colonnes :</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center" id="projet19ColumnToggleContainer">
+                <div class="form-check form-check-inline me-2">
+                    <input class="form-check-input" type="checkbox" id="projet19ColToggleAll" checked>
+                    <label class="form-check-label" for="projet19ColToggleAll">Tout cocher</label>
+                </div>
+                <div class="d-flex flex-wrap gap-1 align-items-center" id="projet19ColCheckboxes"></div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="projet19BtnEnregistrerVue">Enregistrer une vue</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Barre d'actions au-dessus du tableau -->
-    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div style="margin-bottom: 20px; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px;">
         <!-- Bouton Nouveau dossier -->
-        <button onclick="openNewDossierPopup()" 
-                style="padding: 12px 24px; font-size: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                       color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-            ➕ Nouveau dossier
-        </button>
-        
         <!-- Boutons d'export et impression -->
         <div style="display: flex; gap: 10px;">
             <button onclick="exportTableToExcel()" 
@@ -359,8 +514,8 @@
     </div>
     
     <!-- Tableau des dossiers -->
-    <div class="table-responsive" style="overflow-x: visible; width: 100%;">
-            <table id="dossiers-table" class="dossiers-table table table-striped table-hover" style="width: 100%; table-layout: fixed; max-width: 100%;">
+    <div class="table-responsive" style="overflow-x: auto; width: 100%;">
+            <table id="dossiers-table" class="dossiers-table table table-striped table-hover" style="width: 100%; table-layout: auto; max-width: none;">
                 <thead>
                     <tr>
                         <th>N° de dossier</th>
@@ -374,6 +529,7 @@
                         <th>Cout Total</th>
                         <th>Cout Total Réel</th>
                         <th>Avancement</th>
+                        <th>Date inventaire</th>
                         <th style="text-align: center; width: 70px;">Actions</th>
                     </tr>
                 </thead>
@@ -381,6 +537,12 @@
                     <!-- Les lignes de données seront ajoutées ici -->
                 </tbody>
             </table>
+    </div>
+    </div>
+    <div id="section-stats" class="projet19-section-content">
+        <div class="projet19-stat-placeholder">
+            Section statistique en préparation. Les indicateurs seront calculés selon la date d'inventaire choisie.
+        </div>
     </div>
     
 </div>
@@ -415,6 +577,12 @@
                     <div class="info-item">
                         <label>Désignation:</label>
                         <div id="popup-reference" class="readonly-field">-</div>
+                    </div>
+                    <div class="info-item">
+                        <label>Date d'inventaire:</label>
+                        <input type="date"
+                               id="popup-date-inventaire"
+                               style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
                     </div>
                 </div>
             </div>
@@ -765,6 +933,74 @@ let lastLoadedNumero = '';
 let popupCommandeData = null;
 let popupServicesData = {};
 let popupSearchTimeout = null;
+let activeInventaireDate = localStorage.getItem('projet19_active_date_inventaire') || '';
+let activeSectionId = null;
+const PROJET19_VUE_STORAGE_KEY = 'projet19_dossiers_vue';
+
+function formatInventaireDateDisplay(dateValue) {
+    if (!dateValue) return '-';
+    const dateObj = new Date(dateValue + 'T00:00:00');
+    if (isNaN(dateObj.getTime())) return dateValue;
+    return dateObj.toLocaleDateString('fr-FR');
+}
+
+function applyInventaireDateFilter() {
+    const input = document.getElementById('inventaire-date-active');
+    const label = document.getElementById('inventaire-date-active-label');
+    if (!input || !label) return;
+    activeInventaireDate = (input.value || '').trim();
+    localStorage.setItem('projet19_active_date_inventaire', activeInventaireDate);
+    label.textContent = activeInventaireDate
+        ? ('Inventaire actif : ' + formatInventaireDateDisplay(activeInventaireDate))
+        : 'Aucune date sélectionnée';
+}
+
+function loadSavedDossiersView() {
+    try {
+        const raw = localStorage.getItem(PROJET19_VUE_STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function saveDossiersView() {
+    if (!dataTableInstance) return;
+    const colVisible = [];
+    for (let i = 0; i < 13; i++) {
+        colVisible.push(dataTableInstance.column(i).visible());
+    }
+    const filterValues = [];
+    document.querySelectorAll('#dossiers-table thead .table-filters input').forEach(input => {
+        filterValues.push(input.value || '');
+    });
+    const toutCocher = !!(document.getElementById('projet19ColToggleAll') && document.getElementById('projet19ColToggleAll').checked);
+    const pageLength = dataTableInstance.page.len();
+    localStorage.setItem(PROJET19_VUE_STORAGE_KEY, JSON.stringify({
+        colVisible,
+        filterValues,
+        toutCocher,
+        pageLength
+    }));
+}
+
+function toggleSectionContent(sectionId) {
+    const allSections = document.querySelectorAll('.projet19-section-content');
+    const allButtons = document.querySelectorAll('.projet19-section-btn');
+    if (activeSectionId === sectionId) {
+        allSections.forEach(el => el.classList.remove('active'));
+        allButtons.forEach(el => el.classList.remove('active'));
+        activeSectionId = null;
+        return;
+    }
+    allSections.forEach(el => el.classList.toggle('active', el.id === sectionId));
+    allButtons.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-section-target') === sectionId));
+    activeSectionId = sectionId;
+    if (sectionId === 'section-liste' && allDossiers.length === 0) {
+        loadDossiers();
+    }
+}
 
 // Recherche de numéro de dossier avec autocomplétion - SUPPRIMÉ (utilise maintenant le popup)
 // L'ancien code pour input-numero a été supprimé car on utilise maintenant le popup modal
@@ -1364,7 +1600,7 @@ function loadDossiers() {
     // Afficher un message de chargement
     tbody.innerHTML = '';
     const loadingRow = document.createElement('tr');
-    loadingRow.innerHTML = '<td colspan="11" class="empty-state"><p>Chargement des dossiers...</p></td>';
+    loadingRow.innerHTML = '<td colspan="13" class="empty-state"><p>Chargement des dossiers...</p></td>';
     tbody.appendChild(loadingRow);
     
     fetch('{{ url_for("projet19.api_get_dossiers_suivi") }}')
@@ -1382,7 +1618,7 @@ function loadDossiers() {
                 console.error('[loadDossiers] Erreur dans les données:', data.error);
                 tbody.innerHTML = '';
                 const errorRow = document.createElement('tr');
-                errorRow.innerHTML = `<td colspan="11" class="alert alert-danger">Erreur: ${data.error}</td>`;
+                errorRow.innerHTML = `<td colspan="13" class="alert alert-danger">Erreur: ${data.error}</td>`;
                 tbody.appendChild(errorRow);
                 return;
             }
@@ -1402,7 +1638,7 @@ function loadDossiers() {
             console.error('[loadDossiers] Erreur lors du fetch:', error);
             tbody.innerHTML = '';
             const errorRow = document.createElement('tr');
-            errorRow.innerHTML = `<td colspan="11" class="alert alert-danger">Erreur lors du chargement des dossiers: ${error.message}</td>`;
+            errorRow.innerHTML = `<td colspan="13" class="alert alert-danger">Erreur lors du chargement des dossiers: ${error.message}</td>`;
             tbody.appendChild(errorRow);
         });
 }
@@ -1450,7 +1686,7 @@ function displayDossiers(dossiers) {
     if (dossiers.length === 0) {
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `
-            <td colspan="12" class="empty-state">
+            <td colspan="13" class="empty-state">
                 <p>Aucun dossier en suivi</p>
             </td>
         `;
@@ -1520,6 +1756,11 @@ function initializeDataTable() {
     const $thead = $table.find('thead');
     const $filterRow = $('<tr class="table-filters"></tr>');
     
+    const savedView = loadSavedDossiersView();
+    const savedColVisible = (savedView && Array.isArray(savedView.colVisible) && savedView.colVisible.length === 13)
+        ? savedView.colVisible
+        : null;
+
     // Colonnes avec leurs types de filtres
     const filterConfig = [
         { type: 'text', placeholder: 'Filtrer N° dossier' },
@@ -1533,6 +1774,7 @@ function initializeDataTable() {
         { type: 'text', placeholder: 'Filtrer Cout Total' },
         { type: 'text', placeholder: 'Filtrer Ct Rel' },
         { type: 'text', placeholder: 'Filtrer Avancement' },
+        { type: 'text', placeholder: 'Filtrer Date inventaire' },
         { type: null } // Actions - pas de filtre
     ];
     
@@ -1540,7 +1782,8 @@ function initializeDataTable() {
         const $cell = $('<th></th>');
         if (config && config.type) {
             if (config.type === 'text') {
-                $cell.append(`<input type="text" placeholder="${config.placeholder}" data-col="${index}" class="column-filter" />`);
+                const initVal = (savedView && Array.isArray(savedView.filterValues) && savedView.filterValues[index]) ? savedView.filterValues[index] : '';
+                $cell.append(`<input type="text" placeholder="${config.placeholder}" data-col="${index}" class="column-filter" value="${String(initVal).replace(/"/g, '&quot;')}" />`);
             } else if (config.type === 'select') {
                 $cell.append(`<select data-col="${index}" class="column-filter"><option value="">Tous</option></select>`);
             }
@@ -1552,19 +1795,27 @@ function initializeDataTable() {
     
     // Configuration des colonnes avec largeurs ajustées pour éviter le défilement horizontal
     const columnDefs = [
-        { targets: 0, orderable: true, type: 'string', width: '90px' },  // N° dossier
+        { targets: 0, orderable: true, type: 'string', width: '125px' },  // N° dossier
         { targets: 1, orderable: true, type: 'string', width: '100px' },  // Client
-        { targets: 2, orderable: true, type: 'string', width: '150px' },  // Désignation (réduite)
+        { targets: 2, orderable: true, type: 'string', width: '185px' },  // Désignation (style Référence Projet 11)
         { targets: 3, orderable: true, type: 'num', width: '60px' },     // Marge
-        { targets: 4, orderable: true, type: 'num', width: '90px' },     // Prix unitaire
+        { targets: 4, orderable: true, type: 'num', width: '120px' },     // Prix unitaire
         { targets: 5, orderable: true, type: 'num', width: '60px' },     // Quantité
-        { targets: 6, orderable: true, type: 'num', width: '90px' },      // Prix total
+        { targets: 6, orderable: true, type: 'num', width: '120px' },      // Prix total
         { targets: 7, orderable: true, type: 'num', width: '90px' },     // CT Estimé
-        { targets: 8, orderable: true, type: 'num', width: '80px' },     // Cout Total
-        { targets: 9, orderable: true, type: 'num', width: '80px' },     // Ct Rel
+        { targets: 8, orderable: true, type: 'num', width: '95px' },     // Cout Total
+        { targets: 9, orderable: true, type: 'num', width: '110px' },     // Ct Rel
         { targets: 10, orderable: true, type: 'string', width: '100px' },  // Avancement
-        { targets: 11, orderable: false, width: '70px' }                  // Actions (minimisée)
+        { targets: 11, orderable: true, type: 'date', width: '110px' },    // Date inventaire
+        { targets: 12, orderable: false, width: '70px' }                    // Actions
     ];
+    if (savedColVisible) {
+        savedColVisible.forEach((visible, idx) => {
+            if (visible === false) {
+                columnDefs.push({ targets: idx, visible: false });
+            }
+        });
+    }
     
     // Initialiser DataTable
     try {
@@ -1581,7 +1832,7 @@ function initializeDataTable() {
                 emptyTable: 'Aucune donnée disponible'
             },
             order: [[0, 'desc']], // Tri par défaut sur la colonne N° dossier (décroissant)
-            pageLength: 25,
+            pageLength: (savedView && savedView.pageLength) ? savedView.pageLength : 25,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tous']],
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
         columnDefs: columnDefs,
@@ -1602,6 +1853,73 @@ function initializeDataTable() {
                     // Appliquer le filtre
                     api.column(columnIndex).search(filterValue).draw();
                 });
+
+                // Restaurer les filtres sauvegardés
+                $('.column-filter').each(function() {
+                    const columnIndex = $(this).data('col');
+                    const filterValue = $(this).val();
+                    if (filterValue) {
+                        api.column(columnIndex).search(filterValue);
+                    }
+                });
+                api.draw(false);
+
+                // Construire la liste des colonnes cochables
+                const toggleContainer = document.getElementById('projet19ColCheckboxes');
+                if (toggleContainer) {
+                    toggleContainer.innerHTML = '';
+                    const colTitles = Array.from(document.querySelectorAll('#dossiers-table thead tr:first-child th')).map(th => (th.textContent || '').trim());
+                    colTitles.forEach((title, i) => {
+                        const id = 'projet19Col' + i;
+                        const div = document.createElement('div');
+                        div.className = 'form-check form-check-inline';
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'form-check-input projet19-col-cb';
+                        cb.id = id;
+                        cb.dataset.col = String(i);
+                        cb.checked = api.column(i).visible();
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.htmlFor = id;
+                        label.textContent = title || ('Colonne ' + (i + 1));
+                        div.appendChild(cb);
+                        div.appendChild(label);
+                        toggleContainer.appendChild(div);
+                    });
+                }
+
+                const colToggleAll = document.getElementById('projet19ColToggleAll');
+                if (colToggleAll) {
+                    colToggleAll.checked = savedView ? !!savedView.toutCocher : true;
+                    colToggleAll.onchange = function() {
+                        const checked = this.checked;
+                        api.columns().every(function(i) {
+                            api.column(i).visible(checked);
+                        });
+                        document.querySelectorAll('.projet19-col-cb').forEach(cb => { cb.checked = checked; });
+                    };
+                }
+
+                const projet19ColCheckboxes = document.getElementById('projet19ColCheckboxes');
+                if (projet19ColCheckboxes) {
+                    projet19ColCheckboxes.onchange = function(e) {
+                        if (!e.target.classList.contains('projet19-col-cb')) return;
+                        const col = parseInt(e.target.dataset.col, 10);
+                        api.column(col).visible(e.target.checked);
+                        const allOn = Array.from(document.querySelectorAll('.projet19-col-cb')).every(cb => cb.checked);
+                        const allToggle = document.getElementById('projet19ColToggleAll');
+                        if (allToggle) allToggle.checked = allOn;
+                    };
+                }
+
+                const saveVueBtn = document.getElementById('projet19BtnEnregistrerVue');
+                if (saveVueBtn) {
+                    saveVueBtn.onclick = function() {
+                        saveDossiersView();
+                        alert('Vue enregistrée.');
+                    };
+                }
                 
                 // Barre de défilement horizontale désactivée - tableau ajusté pour s'afficher sans défilement
                 
@@ -1770,6 +2088,7 @@ function createDossierRow(dossier) {
     } else {
         console.log(`[createDossierRow] Dossier ${dossier.numero}: ct_rel est null ou undefined dans les données (valeur brute: ${dossier.ct_rel})`);
     }
+    const dateInventaireDisplay = dossier.date_inventaire ? formatInventaireDateDisplay(dossier.date_inventaire.substring(0, 10)) : '-';
     
     console.log('[createDossierRow] Dossier:', dossier.numero, 'prixUnitaireDisplay:', prixUnitaireDisplay, 'quantite:', quantiteValue, 'prixTotal:', prixTotalValue, 'ctEstime:', ctEstimeValue, 'coutTotal:', coutTotalValue, 'ctRel:', ctRelValue);
     
@@ -1779,7 +2098,7 @@ function createDossierRow(dossier) {
         row.innerHTML = `
             <td class="readonly-cell">${dossier.numero || 'N/A'}</td>
             <td class="readonly-cell">${dossier.client || 'N/A'}</td>
-            <td class="readonly-cell">${dossier.reference || 'N/A'}</td>
+            <td class="readonly-cell designation-cell" title="${(dossier.reference || 'N/A').replace(/"/g, '&quot;')}">${dossier.reference || 'N/A'}</td>
             <td class="readonly-cell">${margeDisplay}</td>
             <td class="readonly-cell" data-prix-unitaire="${prixUnitaireValue || ''}">${prixUnitaireDisplay}</td>
             <td>
@@ -1803,6 +2122,7 @@ function createDossierRow(dossier) {
                     <option value="">Chargement...</option>
                 </select>
             </td>
+            <td class="readonly-cell">${dateInventaireDisplay}</td>
             <td style="width: 85px; min-width: 85px; max-width: 85px; padding: 6px 2px; overflow: visible;">
                 <div class="action-icons">
                     <button class="icon-btn icon-save" 
@@ -1868,7 +2188,7 @@ function createDossierRow(dossier) {
         row.innerHTML = `
             <td class="readonly-cell">${dossier.numero || 'N/A'}</td>
             <td class="readonly-cell">${dossier.client || 'N/A'}</td>
-            <td class="readonly-cell">${dossier.reference || 'N/A'}</td>
+            <td class="readonly-cell designation-cell" title="${(dossier.reference || 'N/A').replace(/"/g, '&quot;')}">${dossier.reference || 'N/A'}</td>
             <td class="readonly-cell">${margeDisplay}</td>
             <td class="readonly-cell">${prixUnitaireDisplay}</td>
             <td class="readonly-cell">${quantiteDisplay}</td>
@@ -1881,6 +2201,7 @@ function createDossierRow(dossier) {
                     <option value="">Chargement...</option>
                 </select>
             </td>
+            <td class="readonly-cell">${dateInventaireDisplay}</td>
             <td style="width: 70px; min-width: 70px; max-width: 70px; padding: 4px 1px; overflow: visible;">
                 <div class="action-icons">
                     <button class="icon-btn icon-edit" 
@@ -2358,6 +2679,7 @@ function openNewDossierPopup() {
     document.getElementById('popup-input-numero').disabled = false; // Permettre la saisie du numéro
     document.getElementById('popup-client').textContent = '-';
     document.getElementById('popup-reference').textContent = '-';
+    document.getElementById('popup-date-inventaire').value = activeInventaireDate || '';
     document.getElementById('popup-marge').textContent = '-';
     document.getElementById('popup-prix-vente-unitaire').textContent = '-';
     document.getElementById('popup-quantite').value = '';
@@ -2439,6 +2761,7 @@ function openEditDossierPopup(dossierId) {
     document.getElementById('popup-input-numero').disabled = true; // Ne pas permettre de changer le numéro
     document.getElementById('popup-client').textContent = dossier.client || '-';
     document.getElementById('popup-reference').textContent = dossier.reference || '-';
+    document.getElementById('popup-date-inventaire').value = dossier.date_inventaire ? dossier.date_inventaire.substring(0, 10) : (activeInventaireDate || '');
     
     // Formater la marge
     const margeDisplay = dossier.marge !== null && dossier.marge !== undefined 
@@ -2979,6 +3302,7 @@ function saveNewDossierFromPopup() {
     const quantite = parseInt(document.getElementById('popup-quantite').value) || null;
     const prixVenteTotal = parseFloat(document.getElementById('popup-prix-vente-total').textContent.replace(',', '.')) || null;
     const ctEstime = parseFloat(document.getElementById('popup-ct-estime').textContent.replace(',', '.')) || null;
+    const dateInventaire = (document.getElementById('popup-date-inventaire').value || '').trim() || null;
     
     // Récupérer ctRel depuis le DOM (doit être calculé avant)
     const ctRelElement = document.getElementById('popup-ct-rel');
@@ -3005,6 +3329,7 @@ function saveNewDossierFromPopup() {
         prixVenteTotal,
         ctEstime,
         coutTotal,
+        dateInventaire,
         ctRel,
         ctRelText,
         popupEditMode,
@@ -3039,6 +3364,7 @@ function saveNewDossierFromPopup() {
         prix_vente_total: prixVenteTotal,
         ct_estime: ctEstime,
         cout_total: coutTotal,
+        date_inventaire: dateInventaire,
         ct_rel: ctRel
     };
     
@@ -3478,10 +3804,25 @@ document.addEventListener('DOMContentLoaded', function() {
         // Ancien code pour input-numero supprimé - utilise maintenant le popup modal
         // Les listeners sont maintenant gérés dans setupPopupSearchListeners()
         console.log('[DOMContentLoaded] ✅ Initialisation terminée (popup modal utilisé)');
-        
-        // Charger les dossiers
-        console.log('[DOMContentLoaded] 🔧 Appel de loadDossiers()...');
-        loadDossiers();
+
+        const sectionButtons = document.querySelectorAll('.projet19-section-btn');
+        sectionButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const target = this.getAttribute('data-section-target');
+                if (target) {
+                    toggleSectionContent(target);
+                }
+            });
+        });
+
+        const inventaireInput = document.getElementById('inventaire-date-active');
+        if (inventaireInput) {
+            inventaireInput.value = activeInventaireDate || '';
+            inventaireInput.addEventListener('change', applyInventaireDateFilter);
+        }
+        applyInventaireDateFilter();
+
+        // Important: aucun contenu visible au chargement, sections fermées par défaut.
     } catch (error) {
         console.error('[DOMContentLoaded] ❌❌❌ ERREUR CRITIQUE lors de l\'initialisation:', error);
         console.error('[DOMContentLoaded] Stack trace:', error.stack);

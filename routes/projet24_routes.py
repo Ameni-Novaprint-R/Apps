@@ -2,11 +2,13 @@
 """
 Routes pour le Projet 24 – Formes de Découpe.
 Préfixe : /projet24. Contenu intégré dans le layout base.html (header/footer communs).
+Les sections affichées sont filtrées selon WEB_DROITS_ACCES (get_user_sections),
+avec accès complet pour les super-utilisateurs.
 """
 import os
-from flask import Blueprint, render_template, request, jsonify, send_from_directory
+from flask import Blueprint, render_template, request, jsonify, send_from_directory, redirect, url_for
 from werkzeug.utils import secure_filename
-from logic.auth import login_required, get_current_user
+from logic.auth import login_required, get_current_user, get_user_sections, has_project_access, is_super_user
 from logic import projet24 as p24
 from db import init_formes_tables
 
@@ -14,8 +16,69 @@ from db import init_formes_tables
 UPLOAD_FOLDER = os.environ.get('PROJET24_UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'BCFORMES'))
 ALLOWED_EXTENSIONS = {'pdf'}
 
+# Correspondance nom de section (WEB_SECTIONS.Nom) -> clé template (URL / section)
+PROJET24_SECTION_NAME_TO_KEY = {
+    'Nouvelle forme': 'nouvelle',
+    'Modifier forme existante': 'modifier',
+    'Suivi des formes de découpe': 'suivi',
+    'Tableau de bord': 'dashboard',
+}
+
 def allowed_file(filename):
     return filename and '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def get_projet24_allowed_sections():
+    """
+    Retourne la liste des clés de sections (nouvelle, modifier, suivi, dashboard)
+    auxquelles l'utilisateur connecté a accès pour le projet 24.
+    Utilise get_user_sections(24) pour respecter WEB_DROITS_ACCES.
+    """
+    # Super-utilisateur : accès complet à toutes les sections, sans dépendre des noms en base
+    if is_super_user():
+        return ['nouvelle', 'modifier', 'suivi', 'dashboard']
+    # get_user_sections accepte ID ou NumProj (WHERE WP.ID = ? OR WP.NumProj = ?)
+    sections_raw = get_user_sections(24)
+    allowed = []
+    for s in sections_raw:
+        nom = (s.get('nom') or s.get('Nom') or '').strip()
+        key = PROJET24_SECTION_NAME_TO_KEY.get(nom)
+        # Tolérance : accepter des variantes d'intitulés (accents, majuscules, petites différences)
+        if not key and nom:
+            nom_lower = nom.lower()
+            if 'nouvelle' in nom_lower:
+                key = 'nouvelle'
+            elif 'modifier' in nom_lower or 'existante' in nom_lower:
+                key = 'modifier'
+            elif 'suivi' in nom_lower:
+                key = 'suivi'
+            elif 'tableau' in nom_lower or 'bord' in nom_lower:
+                key = 'dashboard'
+        if key and key not in allowed:
+            allowed.append(key)
+    return allowed
+
+
+def render_projet24(section=None, template='projet24.html', **kwargs):
+    """Rend le template projet24 avec allowed_sections et vérification d'accès à la section."""
+    allowed_sections = get_projet24_allowed_sections()
+    if section is not None and section not in allowed_sections:
+        # Accès direct à une section non autorisée -> rediriger vers l'accueil ou première section
+        if allowed_sections:
+            first = allowed_sections[0]
+            if first == 'nouvelle':
+                return redirect(url_for('projet24.nouvelle_forme'))
+            if first == 'modifier':
+                return redirect(url_for('projet24.modifier_forme'))
+            if first == 'suivi':
+                return redirect(url_for('projet24.suivi_formes'))
+            if first == 'dashboard':
+                return redirect(url_for('projet24.dashboard'))
+        return redirect(url_for('projet24.index'))
+    kwargs['section'] = section
+    kwargs['allowed_sections'] = allowed_sections
+    return render_template(template, **kwargs)
+
 
 projet24_bp = Blueprint('projet24', __name__, url_prefix='/projet24')
 
@@ -24,35 +87,56 @@ projet24_bp = Blueprint('projet24', __name__, url_prefix='/projet24')
 @login_required
 def index():
     """Page principale : titre + sections, aucun contenu affiché par défaut."""
-    return render_template('projet24.html', section=None)
+    if not has_project_access(24):
+        return redirect(url_for('index'))
+    return render_projet24(section=None)
 
 
 @projet24_bp.route('/nouvelle-forme')
 @login_required
 def nouvelle_forme():
     """Section « Nouvelle forme » : formulaire de création."""
-    return render_template('projet24.html', section='nouvelle')
+    if not has_project_access(24):
+        return redirect(url_for('index'))
+    return render_projet24(section='nouvelle')
 
 
 @projet24_bp.route('/modifier-forme')
 @login_required
 def modifier_forme():
     """Section « Modifier forme existante » : sélection + formulaire d'édition."""
-    return render_template('projet24.html', section='modifier')
+    if not has_project_access(24):
+        return redirect(url_for('index'))
+    return render_projet24(section='modifier')
 
 
 @projet24_bp.route('/suivi-formes')
 @login_required
 def suivi_formes():
     """Section « Suivi des formes de découpe » : tableau des formes uniquement."""
-    return render_template('projet24.html', section='suivi')
+    if not has_project_access(24):
+        return redirect(url_for('index'))
+    return render_projet24(section='suivi')
 
 
 @projet24_bp.route('/dashboard')
 @login_required
 def dashboard():
     """Section « Tableau de bord »."""
-    return render_template('projet24_dashboard.html')
+    if not has_project_access(24):
+        return redirect(url_for('index'))
+    allowed_sections = get_projet24_allowed_sections()
+    if 'dashboard' not in allowed_sections:
+        if allowed_sections:
+            first = allowed_sections[0]
+            if first == 'nouvelle':
+                return redirect(url_for('projet24.nouvelle_forme'))
+            if first == 'modifier':
+                return redirect(url_for('projet24.modifier_forme'))
+            if first == 'suivi':
+                return redirect(url_for('projet24.suivi_formes'))
+        return redirect(url_for('projet24.index'))
+    return render_template('projet24_dashboard.html', allowed_sections=allowed_sections)
 
 
 @projet24_bp.route('/export-excel')

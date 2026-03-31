@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Analyse des dossiers - Projet 11{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="page-header" style="background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%); color: #2e7d32; border: 2px solid #4caf50; border-radius: 10px; padding: 25px; margin-bottom: 30px;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h1 class="h3 mb-0" style="color: #2e7d32; font-weight: 700;">
+                <i class="fas fa-chart-pie me-2"></i>
+                Analyse des dossiers
+            </h1>
+            <a href="{{ url_for('projet11.index') }}" class="btn btn-outline-success">
+                <i class="fas fa-arrow-left"></i> Retour à l'accueil
+            </a>
+        </div>
+        <p class="mt-2 mb-0 text-muted">Choisissez une sous-section pour afficher son contenu.</p>
+    </div>
+
+    <div class="section-selection">
+        <div class="section-options">
+            {% if show_statistiques %}
+            <a href="{{ url_for('projet11.statistiques') }}" class="section-btn" style="text-decoration: none;">
+                <span>📊</span>
+                <span>Statistiques</span>
+            </a>
+            {% endif %}
+            {% if show_tableau_comparatif %}
+            <a href="{{ url_for('projet11.tableau_comparatif') }}" class="section-btn" style="text-decoration: none;">
+                <span>📋</span>
+                <span>Tableau comparatif</span>
+            </a>
+            {% endif %}
+            {% if show_tableau_bord %}
+            <a href="{{ url_for('projet11.tableau_bord') }}" class="section-btn" style="text-decoration: none;">
+                <span>📈</span>
+                <span>Tableau de bord</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.section-selection {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+    text-align: center;
+}
+.section-options {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.section-btn {
+    padding: 20px 35px;
+    background: white;
+    color: #2c3e50;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s;
+    border: 2px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 200px;
+}
+.section-btn:hover {
+    background: #4caf50;
+    color: white;
+    border-color: #4caf50;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+</style>
+{% endblock %}

@@ -45,10 +45,18 @@
 
     <div class="projet24-section-selection">
         <div class="projet24-section-options">
+            {% if allowed_sections is defined and 'nouvelle' in allowed_sections %}
             <a href="{{ url_for('projet24.nouvelle_forme') }}" class="projet24-section-btn" style="text-decoration: none;"><span>➕</span><span>Nouvelle forme</span></a>
+            {% endif %}
+            {% if allowed_sections is defined and 'modifier' in allowed_sections %}
             <a href="{{ url_for('projet24.modifier_forme') }}" class="projet24-section-btn" style="text-decoration: none;"><span>✏️</span><span>Modifier forme existante</span></a>
+            {% endif %}
+            {% if allowed_sections is defined and 'suivi' in allowed_sections %}
             <a href="{{ url_for('projet24.suivi_formes') }}" class="projet24-section-btn" style="text-decoration: none;"><span>📋</span><span>Suivi des formes de découpe</span></a>
+            {% endif %}
+            {% if allowed_sections is defined and 'dashboard' in allowed_sections %}
             <a href="{{ url_for('projet24.index') }}" class="projet24-section-btn active" style="text-decoration: none;"><span>📊</span><span>Tableau de bord</span></a>
+            {% endif %}
         </div>
     </div>
 

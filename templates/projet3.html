@@ -10,33 +10,99 @@
 {% endblock %}
 
 {% block content %}
-    <div class="projet3-header fade-in">
-        <h1>Suivi BAT</h1>
-        <div class="projet3-controls">
-            <button id="resetFilters" class="btn-projet3 btn-reset">🔄 Réinitialiser les filtres</button>
+<div class="container-fluid">
+    <!-- En-tête projet3 – style projet24, vert d'eau autre teinte -->
+    <div class="projet3-page-header">
+        <h1><i class="fas fa-file-signature"></i> Suivi BAT</h1>
+        <div class="projet3-header-subtitle">Tableau de suivi des bons à tirer et indicateurs</div>
+    </div>
+
+    <!-- Sélection de section – boutons comme projet24 -->
+    <div class="projet3-section-selection">
+        <div class="projet3-section-options">
+            <button type="button" class="projet3-section-btn active" data-section="tableau">
+                <span>📋</span>
+                <span>Tableau de suivi BAT</span>
+            </button>
+            <button type="button" class="projet3-section-btn" data-section="statistique">
+                <span>📊</span>
+                <span>Statistique</span>
+            </button>
         </div>
     </div>
 
-    <div id="loader" class="fade-in projet3-loader">
-        ⏳ Chargement des données en cours...
+    <!-- Section Tableau de suivi BAT (visible au chargement pour que DataTables calcule les largeurs, puis masquée après init) -->
+    <div id="projet3-section-tableau" class="projet3-content projet3-section-panel">
+        <div class="projet3-controls-inline">
+            <button id="resetFilters" class="btn-projet3 btn-reset">🔄 Réinitialiser les filtres</button>
+        </div>
+        <div id="loader" class="projet3-loader">⏳ Chargement des données en cours...</div>
+        <div class="table-wrapper projet3-table-wrapper">
+            <table id="commandesTable" class="display novaprint-table projet3-table">
+                <thead>
+                    <tr>
+                        <th>Numéro</th>
+                        <th>Client</th>
+                        <th>Date BAT</th>
+                        <th>Date Réception</th>
+                        <th>Prépresse</th>
+                        <th>% Reçu</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="table-wrapper fade-in projet3-table-wrapper">
-        <table id="commandesTable" class="display novaprint-table projet3-table">
-            <thead>
-                <tr>
-                    <th>Numéro</th>
-                    <th>Client</th>
-                    <th>Date BAT</th>
-                    <th>Date Réception</th>
-                    <th>Prépresse</th>
-                    <th>% Reçu</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+    <!-- Section Statistique -->
+    <div id="projet3-section-statistique" class="projet3-content projet3-section-panel" style="display: none;">
+        <div class="projet3-stats-grid">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="projet3-stat-card">
+                        <div class="projet3-stat-value" id="statTotalCommandes">—</div>
+                        <div class="projet3-stat-label">Commandes en cours</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="projet3-stat-card">
+                        <div class="projet3-stat-value" id="statBatEnvoyes">—</div>
+                        <div class="projet3-stat-label">BAT envoyés</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="projet3-stat-card">
+                        <div class="projet3-stat-value" id="statRecep100">—</div>
+                        <div class="projet3-stat-label">Réception 100 %</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="projet3-stat-card">
+                        <div class="projet3-stat-value" id="statEnAttente">—</div>
+                        <div class="projet3-stat-label">En attente BAT</div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="projet3-chart-card">
+                        <div class="projet3-chart-title">Répartition par état prépresse</div>
+                        <p class="projet3-chart-desc">Nombre de commandes selon l’étape du bon à tirer (BAT) : en attente d’envoi, en cours de traitement ou déjà envoyé.</p>
+                        <div id="chartPrepress" class="projet3-chart-placeholder projet3-prepress-repartition"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="projet3-chart-card">
+                        <div class="projet3-chart-title">Répartition % réception</div>
+                        <p class="projet3-chart-desc">Nombre de commandes selon le niveau de réception des éléments fournis par le client.</p>
+                        <div id="chartPourcentage" class="projet3-chart-placeholder projet3-recep-repartition"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -49,21 +115,156 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
 
     <style>
-        /* Projet3 – Suivi BAT – styles alignés Prinects */
-        .projet3-header {
+        /* En-tête et sections – vert d'eau teinte bleu-vert (#0097a7 / #00acc1) */
+        .projet3-page-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 14px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%) !important;
+            color: #006064;
+            border: 2px solid #0097a7;
+        }
+        .projet3-page-header h1 {
+            font-size: 1.6rem;
+            margin-bottom: 4px;
+            font-weight: 700;
+            color: #00838f;
+        }
+        .projet3-page-header .projet3-header-subtitle {
+            color: #006064;
+            opacity: 0.9;
+            margin-top: 6px;
+            font-size: 0.85rem;
+        }
+        .projet3-section-selection {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .projet3-section-options {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            justify-content: center;
+            gap: 20px;
             flex-wrap: wrap;
-            gap: 15px;
+        }
+        .projet3-section-btn {
+            padding: 15px 20px;
+            background: white;
+            color: #2c3e50;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            border: 2px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .projet3-section-btn:hover {
+            background: #0097a7;
+            color: white;
+            border-color: #0097a7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 151, 167, 0.35);
+        }
+        .projet3-section-btn.active {
+            background: #0097a7;
+            color: white;
+            border-color: #00838f;
+            box-shadow: 0 2px 6px rgba(0, 131, 143, 0.3);
+        }
+        @media (max-width: 768px) {
+            .projet3-section-options { flex-direction: column; }
+            .projet3-section-btn { width: 100%; max-width: 100%; }
+        }
+        .projet3-content { padding: 20px; background: #fff; min-height: 40vh; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+        .projet3-controls-inline { margin-bottom: 15px; }
+        /* Statistique : cartes KPI et graphiques */
+        .projet3-stat-card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .projet3-stat-value { font-size: 2rem; font-weight: 700; color: #0097a7; }
+        .projet3-stat-label { font-size: 0.9rem; color: #6c757d; margin-top: 6px; }
+        .projet3-chart-card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             margin-bottom: 20px;
         }
-        .projet3-header h1 {
-            margin: 0;
-            font-size: 1.75rem;
-            font-weight: 700;
+        .projet3-chart-title { font-weight: 600; margin-bottom: 15px; color: #333; }
+        .projet3-chart-placeholder {
+            min-height: 220px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #495057;
+            font-size: 0.95rem;
         }
-        .projet3-controls { display: flex; gap: 10px; align-items: center; }
+        .projet3-chart-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            padding: 15px;
+        }
+        .projet3-chart-legend span { font-weight: 500; }
+        .projet3-chart-desc {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin: -8px 0 12px 0;
+            line-height: 1.4;
+        }
+        .projet3-recep-repartition { flex-direction: column; align-items: stretch; justify-content: flex-start; }
+        .projet3-recep-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #e9ecef;
+        }
+        .projet3-recep-item:last-child { margin-bottom: 0; }
+        .projet3-recep-item.recep-0 { border-left: 4px solid #dc3545; }
+        .projet3-recep-item.recep-50 { border-left: 4px solid #ffc107; }
+        .projet3-recep-item.recep-100 { border-left: 4px solid #28a745; }
+        .projet3-recep-label { font-weight: 500; color: #333; }
+        .projet3-recep-count { font-weight: 700; font-size: 1.1rem; color: #0097a7; }
+        .projet3-prepress-repartition { flex-direction: column; align-items: stretch; justify-content: flex-start; }
+        .projet3-prepress-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #e9ecef;
+        }
+        .projet3-prepress-item:last-child { margin-bottom: 0; }
+        .projet3-prepress-item.prepress-0 { border-left: 4px solid #dc3545; }
+        .projet3-prepress-item.prepress-1 { border-left: 4px solid #28a745; }
+        .projet3-prepress-item.prepress-2 { border-left: 4px solid #ffc107; }
+        .projet3-prepress-label { font-weight: 500; color: #333; }
+        .projet3-prepress-count { font-weight: 700; font-size: 1.1rem; color: #0097a7; }
+        /* Projet3 – Suivi BAT – styles tableau */
         .projet3-loader {
             text-align: center;
             font-weight: bold;
@@ -166,7 +367,7 @@
         .projet3-table .date-structured {
             display: inline-flex;
             align-items: center;
-            gap: 2px;
+            gap: 0;
             padding: 4px 32px 4px 8px;
             border: 1px solid #ced4da;
             border-radius: 6px;
@@ -175,7 +376,7 @@
         }
         .projet3-table .date-structured input.date-part {
             border: none;
-            padding: 2px 4px;
+            padding: 2px 1px;
             text-align: center;
             font-size: inherit;
             background: transparent;
@@ -189,7 +390,7 @@
             border-radius: 3px;
         }
         .projet3-table .date-structured .date-jj { width: 22px; min-width: 22px; }
-        .projet3-table .date-structured .date-mm { width: 22px; min-width: 22px; }
+        .projet3-table .date-structured .date-mm { width: 30px; min-width: 30px; }
         .projet3-table .date-structured .date-aaaa { width: 40px; min-width: 40px; }
         .projet3-table .input-date-fp {
             position: absolute; left: 0; top: 0; right: 30px; bottom: 0; opacity: 0; pointer-events: none;
@@ -279,7 +480,78 @@
     </style>
 
     <script>
+    var canSaisieDatesBat = {{ 'true' if can_saisie_dates_bat else 'false' }};
     $(document).ready(function () {
+        /* Boutons de section : par défaut aucun sélectionné. Clic = afficher section; 2e clic sur le même = masquer. Changer de section = masquer l’ancienne, afficher la nouvelle. */
+        $('.projet3-section-btn').on('click', function() {
+            var btn = $(this);
+            var section = btn.data('section');
+            var panelTableau = $('#projet3-section-tableau');
+            var panelStat = $('#projet3-section-statistique');
+            var panel = section === 'tableau' ? panelTableau : panelStat;
+            if (btn.hasClass('active')) {
+                btn.removeClass('active');
+                panel.hide();
+            } else {
+                $('.projet3-section-btn').removeClass('active');
+                panelTableau.hide();
+                panelStat.hide();
+                btn.addClass('active');
+                panel.show();
+                if (section === 'tableau' && typeof table !== 'undefined' && table && table.columns) {
+                    setTimeout(function() { table.columns().adjust().draw(false); }, 80);
+                }
+                if (section === 'statistique') updateStatistique();
+            }
+        });
+
+        function updateStatistique() {
+            fetch('/projet3/api/commandes')
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    var data = res.data || [];
+                    var total = data.length;
+                    var batEnvoyes = data.filter(function(r) { return r.EtatPrepress == 1; }).length;
+                    var recep100 = data.filter(function(r) { return r.PourcentageReceptElem == 100; }).length;
+                    var enAttente = data.filter(function(r) { return r.EtatPrepress != 1; }).length;
+                    $('#statTotalCommandes').text(total);
+                    $('#statBatEnvoyes').text(batEnvoyes);
+                    $('#statRecep100').text(recep100);
+                    $('#statEnAttente').text(enAttente);
+                    var prepress0 = data.filter(function(r) { return r.EtatPrepress == 0; }).length;
+                    var prepress1 = data.filter(function(r) { return r.EtatPrepress == 1; }).length;
+                    var prepress2 = data.filter(function(r) { return r.EtatPrepress == 2; }).length;
+                    var pct0 = data.filter(function(r) { return (r.PourcentageReceptElem || 0) == 0; }).length;
+                    var pct50 = data.filter(function(r) { return r.PourcentageReceptElem == 50; }).length;
+                    var pct100 = data.filter(function(r) { return r.PourcentageReceptElem == 100; }).length;
+                    $('#chartPrepress').html(
+                        '<div class="projet3-prepress-item prepress-0">' +
+                        '<span class="projet3-prepress-label">BAT non envoyé (en attente)</span>' +
+                        '<span class="projet3-prepress-count">' + prepress0 + ' commande' + (prepress0 !== 1 ? 's' : '') + '</span></div>' +
+                        '<div class="projet3-prepress-item prepress-2">' +
+                        '<span class="projet3-prepress-label">BAT en cours de traitement</span>' +
+                        '<span class="projet3-prepress-count">' + prepress2 + ' commande' + (prepress2 !== 1 ? 's' : '') + '</span></div>' +
+                        '<div class="projet3-prepress-item prepress-1">' +
+                        '<span class="projet3-prepress-label">BAT envoyé</span>' +
+                        '<span class="projet3-prepress-count">' + prepress1 + ' commande' + (prepress1 !== 1 ? 's' : '') + '</span></div>'
+                    );
+                    $('#chartPourcentage').html(
+                        '<div class="projet3-recep-item recep-0">' +
+                        '<span class="projet3-recep-label">Aucun élément reçu (0 %)</span>' +
+                        '<span class="projet3-recep-count">' + pct0 + ' commande' + (pct0 !== 1 ? 's' : '') + '</span></div>' +
+                        '<div class="projet3-recep-item recep-50">' +
+                        '<span class="projet3-recep-label">Réception partielle (50 %)</span>' +
+                        '<span class="projet3-recep-count">' + pct50 + ' commande' + (pct50 !== 1 ? 's' : '') + '</span></div>' +
+                        '<div class="projet3-recep-item recep-100">' +
+                        '<span class="projet3-recep-label">Tous les éléments reçus (100 %)</span>' +
+                        '<span class="projet3-recep-count">' + pct100 + ' commande' + (pct100 !== 1 ? 's' : '') + '</span></div>'
+                    );
+                })
+                .catch(function() {
+                    $('#statTotalCommandes, #statBatEnvoyes, #statRecep100, #statEnAttente').text('—');
+                });
+        }
+
         const table = $('#commandesTable').DataTable({
             ajax: {
                 url: '/projet3/api/commandes',
@@ -292,6 +564,11 @@
                     data: 'DteBat',
                     render: function (data, type, row) {
                         const val = data || '';
+                        if (!canSaisieDatesBat) {
+                            if (!val) return '<span class="text-muted">—</span>';
+                            const parts = val.split('-');
+                            return parts[2] + '/' + parts[1] + '/' + parts[0];
+                        }
                         const parts = val ? val.split('-') : ['','',''];
                         const jj = parts[2] || '', mm = parts[1] || '', aaaa = parts[0] || '';
                         return `<div class="date-cell-wrapper" data-id="${row.ID}" data-type="bat"><div class="date-structured flatpickr-wrapper"><input type="text" class="date-part date-jj" maxlength="2" placeholder="jj" value="${jj}"><span class="date-sep">/</span><input type="text" class="date-part date-mm" maxlength="2" placeholder="mm" value="${mm}"><span class="date-sep">/</span><input type="text" class="date-part date-aaaa" maxlength="4" placeholder="aaaa" value="${aaaa}"><input type="text" class="input-date-bat input-date-fp" value="${val}" tabindex="-1" aria-hidden="true"><i class="far fa-calendar date-calendar-icon" title="Ouvrir le calendrier"></i></div></div>`;
@@ -301,6 +578,11 @@
                     data: 'DteReceptElem',
                     render: function (data, type, row) {
                         const val = (data && !String(data).startsWith('9999')) ? data : '';
+                        if (!canSaisieDatesBat) {
+                            if (!val) return '<span class="text-muted">—</span>';
+                            const parts = val.split('-');
+                            return parts[2] + '/' + parts[1] + '/' + parts[0];
+                        }
                         const parts = val ? val.split('-') : ['','',''];
                         const jj = parts[2] || '', mm = parts[1] || '', aaaa = parts[0] || '';
                         return `<div class="date-cell-wrapper" data-id="${row.ID}" data-type="reception"><div class="date-structured flatpickr-wrapper"><input type="text" class="date-part date-jj" maxlength="2" placeholder="jj" value="${jj}"><span class="date-sep">/</span><input type="text" class="date-part date-mm" maxlength="2" placeholder="mm" value="${mm}"><span class="date-sep">/</span><input type="text" class="date-part date-aaaa" maxlength="4" placeholder="aaaa" value="${aaaa}"><input type="text" class="input-date-reception input-date-fp" value="${val}" tabindex="-1" aria-hidden="true"><i class="far fa-calendar date-calendar-icon" title="Ouvrir le calendrier"></i></div></div>`;
@@ -369,6 +651,11 @@
             initComplete: function() {
                 document.getElementById('loader').style.display = 'none';
                 initFlatpickr();
+                setTimeout(function() {
+                    $('#projet3-section-tableau').hide();
+                    $('#projet3-section-statistique').hide();
+                    $('.projet3-section-btn').removeClass('active');
+                }, 150);
             }
         });
 

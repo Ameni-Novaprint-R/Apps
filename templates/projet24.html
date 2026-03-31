@@ -164,25 +164,33 @@
         </div>
     </div>
 
-    <!-- Sélection de section (style Projet 11) - 2e clic sur la section active masque le contenu -->
+    <!-- Sélection de section (style Projet 11) - uniquement les sections auxquelles l'utilisateur a droit (allowed_sections) -->
     <div class="projet24-section-selection">
         <div class="projet24-section-options">
+            {% if allowed_sections is defined and 'nouvelle' in allowed_sections %}
             <a href="{% if section == 'nouvelle' %}{{ url_for('projet24.index') }}{% else %}{{ url_for('projet24.nouvelle_forme') }}{% endif %}" class="projet24-section-btn {% if section == 'nouvelle' %}active{% endif %}" style="text-decoration: none;">
                 <span>➕</span>
                 <span>Nouvelle forme</span>
             </a>
+            {% endif %}
+            {% if allowed_sections is defined and 'modifier' in allowed_sections %}
             <a href="{% if section == 'modifier' %}{{ url_for('projet24.index') }}{% else %}{{ url_for('projet24.modifier_forme') }}{% endif %}" class="projet24-section-btn {% if section == 'modifier' %}active{% endif %}" style="text-decoration: none;">
                 <span>✏️</span>
                 <span>Modifier forme existante</span>
             </a>
+            {% endif %}
+            {% if allowed_sections is defined and 'suivi' in allowed_sections %}
             <a href="{% if section == 'suivi' %}{{ url_for('projet24.index') }}{% else %}{{ url_for('projet24.suivi_formes') }}{% endif %}" class="projet24-section-btn {% if section == 'suivi' %}active{% endif %}" style="text-decoration: none;">
                 <span>📋</span>
                 <span>Suivi des formes de découpe</span>
             </a>
+            {% endif %}
+            {% if allowed_sections is defined and 'dashboard' in allowed_sections %}
             <a href="{{ url_for('projet24.dashboard') }}" class="projet24-section-btn {% if section == 'dashboard' %}active{% endif %}" style="text-decoration: none;">
                 <span>📊</span>
                 <span>Tableau de bord</span>
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -561,7 +569,13 @@
     }
 
     function buildRow(f) {
-        const dateCre = f.date_creation ? new Date(f.date_creation).toLocaleDateString('fr-FR') : '';
+        const dateObj = f.date_creation ? new Date(f.date_creation) : null;
+        const isValidDate = dateObj && !isNaN(dateObj.getTime());
+        const dateCre = isValidDate ? dateObj.toLocaleDateString('fr-FR') : '';
+        const dateSortKey = isValidDate
+            ? String(dateObj.getFullYear()) + String(dateObj.getMonth() + 1).padStart(2, '0') + String(dateObj.getDate()).padStart(2, '0')
+            : '00000000';
+        const dateCell = dateSortKey + '|' + (dateCre || '—');
         const coutTotal = (parseFloat(f.cout_initial) || 0) + (parseFloat(f.cout_amelioration) || 0);
         const pdfLink = f.fichier_source
             ? '<a href="' + UPLOADS_BASE + '/' + encodeURIComponent(f.fichier_source) + '" target="_blank">Voir PDF</a>'
@@ -586,7 +600,7 @@
             f.total_tirages != null ? f.total_tirages : '—',
             coutTotal.toFixed(3),
             '<span class="badge bg-secondary badge-etat">' + (f.etat || '—') + '</span>',
-            dateCre,
+            dateCell,
             (f.createur != null && f.createur !== '') ? f.createur : '—',
             actions
         ];
@@ -717,7 +731,19 @@
         colonneDefs.forEach(function(def, i) {
             if (def.orderable === false) columnDefsBuild.push({ targets: i, orderable: false });
             if (colVisible[i] === false) columnDefsBuild.push({ targets: i, visible: false });
-            if (i === 14) columnDefsBuild.push({ targets: 14, className: 'projet24-col-actions', width: '198px' });
+            if (i === 11) {
+                columnDefsBuild.push({
+                    targets: 11,
+                    render: function(data, type) {
+                        if (data == null) return type === 'sort' ? '00000000' : '—';
+                        var parts = String(data).split('|');
+                        var sortVal = parts[0] || '00000000';
+                        var displayVal = parts.slice(1).join('|') || '—';
+                        return (type === 'sort' || type === 'type') ? sortVal : displayVal;
+                    }
+                });
+            }
+            if (i === 13) columnDefsBuild.push({ targets: 13, className: 'projet24-col-actions', width: '198px' });
         });
 
         tableFormes = $('#tableFormes').DataTable({

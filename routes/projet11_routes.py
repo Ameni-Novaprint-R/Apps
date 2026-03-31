@@ -177,12 +177,16 @@ def index():
                      section_id == all_sections_map.get('suivi production', -1))):
                     show_suivi_production = True
         
+        show_tableau_comparatif = show_statistiques
+        show_tableau_bord = show_statistiques
         return render_template('projet11.html',
                              authorized_sections=sections_dict,
                              show_nouvelle_fiche=show_nouvelle_fiche,
                              show_liste_traitements=show_liste_traitements,
                              show_statistiques=show_statistiques,
-                             show_suivi_production=show_suivi_production)
+                             show_suivi_production=show_suivi_production,
+                             show_tableau_comparatif=show_tableau_comparatif,
+                             show_tableau_bord=show_tableau_bord)
     except Exception as e:
         print(f"Erreur dans projet11.index: {e}")
         import traceback
@@ -193,7 +197,9 @@ def index():
                              show_nouvelle_fiche=True,
                              show_liste_traitements=True,
                              show_statistiques=True,
-                             show_suivi_production=True)
+                             show_suivi_production=True,
+                             show_tableau_comparatif=True,
+                             show_tableau_bord=True)
 
 
 @projet11_bp.route('/projet11/suivi-production')
@@ -912,6 +918,154 @@ def api_delete_traitement(traitement_id):
         return jsonify({"error": str(e)}), 500
 
 
+@projet11_bp.route('/projet11/analyse-dossiers')
+def analyse_dossiers():
+    """Page Analyse des dossiers - Hub des sous-sections (Statistiques, etc.) - vérifie l'accès à la section"""
+    try:
+        from db import get_db_cursor
+        from logic.auth import has_section_access, is_super_user
+
+        section_id = None
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT WS.ID
+                    FROM WEB_SECTIONS WS
+                    INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                    WHERE WP.NumProj = 11
+                    AND (WS.Nom LIKE '%statistiques%' OR WS.Nom LIKE '%stats%')
+                """)
+                row = cursor.fetchone()
+                if row:
+                    section_id = row.ID
+        except Exception as e:
+            print(f"Erreur lors de la récupération de l'ID de section: {e}")
+
+        if section_id and not is_super_user() and not has_section_access(section_id):
+            from flask import flash, redirect, url_for
+            flash("Vous n'avez pas accès à cette section.", "error")
+            return redirect(url_for('projet11.index'))
+
+        return render_template('projet11_analyse_dossiers.html',
+            show_statistiques=True, show_tableau_comparatif=True, show_tableau_bord=True)
+    except Exception as e:
+        print(f"Erreur dans analyse_dossiers: {e}")
+        import traceback
+        traceback.print_exc()
+        from flask import flash, redirect, url_for
+        flash(f"Erreur lors du chargement: {str(e)}", "error")
+        return redirect(url_for('projet11.index'))
+
+
+def _get_section_analyse_dossiers_id():
+    """Récupère l'ID de la section Analyse des dossiers (Statistiques) du Projet 11."""
+    from db import get_db_cursor
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT WS.ID FROM WEB_SECTIONS WS
+                INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                WHERE WP.NumProj = 11
+                AND (WS.Nom LIKE '%statistiques%' OR WS.Nom LIKE '%stats%')
+            """)
+            row = cursor.fetchone()
+            return row.ID if row else None
+    except Exception:
+        return None
+
+
+@projet11_bp.route('/projet11/tableau-bord')
+def tableau_bord():
+    """Page Tableau de bord (KPIs cadence par machine et opérateur) - vérifie l'accès à la section"""
+    try:
+        from db import get_db_cursor
+        from logic.auth import has_section_access, is_super_user
+
+        section_id = _get_section_analyse_dossiers_id()
+        if section_id and not is_super_user() and not has_section_access(section_id):
+            from flask import flash, redirect, url_for
+            flash("Vous n'avez pas accès à cette section.", "error")
+            return redirect(url_for('projet11.index'))
+
+        date_debut = request.args.get('date_debut', '').strip() or None
+        date_fin = request.args.get('date_fin', '').strip() or None
+
+        cadence_machines = projet11.get_cadence_par_machine(date_debut=date_debut, date_fin=date_fin)
+        cadence_machines_par_service = projet11.get_cadence_par_machine_par_service(
+            date_debut=date_debut, date_fin=date_fin, top_n=10
+        )
+        cadence_operateurs = projet11.get_cadence_par_operateur(date_debut=date_debut, date_fin=date_fin)
+
+        cadence_moy_machines = (
+            sum(m['cadence'] for m in cadence_machines) / len(cadence_machines)
+            if cadence_machines else 0
+        )
+        cadence_moy_operateurs = (
+            sum(o['cadence'] for o in cadence_operateurs) / len(cadence_operateurs)
+            if cadence_operateurs else 0
+        )
+
+        return render_template(
+            'projet11_tableau_bord.html',
+            cadence_machines=cadence_machines,
+            cadence_machines_par_service=cadence_machines_par_service,
+            cadence_operateurs=cadence_operateurs,
+            cadence_moy_machines=cadence_moy_machines,
+            cadence_moy_operateurs=cadence_moy_operateurs,
+            date_debut=date_debut,
+            date_fin=date_fin,
+            parent_template='base_embed.html',
+            embed=True
+        )
+    except Exception as e:
+        print(f"Erreur dans tableau_bord: {e}")
+        import traceback
+        traceback.print_exc()
+        from flask import flash, redirect, url_for
+        flash(f"Erreur lors du chargement du tableau de bord: {str(e)}", "error")
+        return redirect(url_for('projet11.index'))
+
+
+@projet11_bp.route('/projet11/tableau-comparatif')
+def tableau_comparatif():
+    """Page Tableau comparatif (prévu / réel par dossier) - vérifie l'accès à la section"""
+    try:
+        from db import get_db_cursor
+        from logic.auth import has_section_access, is_super_user
+
+        section_id = None
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT WS.ID
+                    FROM WEB_SECTIONS WS
+                    INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                    WHERE WP.NumProj = 11
+                    AND (WS.Nom LIKE '%statistiques%' OR WS.Nom LIKE '%stats%')
+                """)
+                row = cursor.fetchone()
+                if row:
+                    section_id = row.ID
+        except Exception as e:
+            print(f"Erreur lors de la récupération de l'ID de section: {e}")
+
+        if section_id and not is_super_user() and not has_section_access(section_id):
+            from flask import flash, redirect, url_for
+            flash("Vous n'avez pas accès à cette section.", "error")
+            return redirect(url_for('projet11.index'))
+
+        numero = request.args.get('numero', '').strip()
+        lignes = projet11.get_tableau_comparatif_commandes(numero_filter=numero or None)
+        return render_template('projet11_tableau_comparatif.html', lignes=lignes, numero=numero, parent_template='base_embed.html', embed=True)
+    except Exception as e:
+        print(f"Erreur dans tableau_comparatif: {e}")
+        import traceback
+        traceback.print_exc()
+        from flask import flash, redirect, url_for
+        flash(f"Erreur lors du chargement du tableau comparatif: {str(e)}", "error")
+        return redirect(url_for('projet11.index'))
+
+
 @projet11_bp.route('/projet11/statistiques')
 def statistiques():
     """Page de statistiques des traitements - vérifie l'accès à la section"""
@@ -945,12 +1099,16 @@ def statistiques():
         stats = projet11.get_statistiques_traitements()
         stats_services = projet11.get_traitements_par_service()
         stats_operateurs = projet11.get_traitements_par_operateur()
+        stats_machines = projet11.get_traitements_par_machine()
         
         return render_template(
             'projet11_stats.html',
             stats=stats,
             stats_services=stats_services,
-            stats_operateurs=stats_operateurs
+            stats_operateurs=stats_operateurs,
+            stats_machines=stats_machines,
+            parent_template='base_embed.html',
+            embed=True
         )
     except Exception as e:
         print(f"Erreur dans statistiques: {e}")
@@ -1397,6 +1555,7 @@ def export_traitements_excel():
                 'Tps Prévu': f"{t.get('tps_prev_dev', 0):.2f}" if t.get('tps_prev_dev') else '',
                 'Tps Réel': f"{t.get('tps_reel', 0):.2f}" if t.get('tps_reel') else '',
                 'Écart': f"{t.get('ecart_temps', 0):.2f}" if t.get('ecart_temps') is not None else '',
+                'Description': t.get('description', '') or '',
                 'Pdt C': t.get('pdt_c', 0),
                 'Pdt NNC': t.get('pdt_nnc', 0),
                 'Pdt ANC': t.get('pdt_anc', 0),
@@ -1549,6 +1708,7 @@ def export_traitements_pdf():
             Paragraph('Nb Pers.', header_style),
             Paragraph('Tps Prévu', header_style),
             Paragraph('Tps Réel', header_style),
+            Paragraph('Description', header_style),
             Paragraph('Statut', header_style)
         ]]
         
@@ -1558,6 +1718,7 @@ def export_traitements_pdf():
             tps_prev = f"{t.get('tps_prev_dev', 0):.2f}" if t.get('tps_prev_dev') else ''
             tps_reel = f"{t.get('tps_reel', 0):.2f}" if t.get('tps_reel') else ''
             statut = 'Terminé' if t.get('dte_fin') else 'En cours'
+            description_text = (t.get('description', '') or '')[:80]  # Limiter pour le PDF
             
             # Pour la colonne Référence, utiliser la fonction qui force le retour à la ligne
             reference_text = t.get('reference', '') or ''
@@ -1578,6 +1739,7 @@ def export_traitements_pdf():
                 Paragraph(str(t.get('nb_pers', 0)), cell_style),
                 Paragraph(tps_prev, cell_style),
                 Paragraph(tps_reel, cell_style),
+                Paragraph(description_text, cell_style),
                 Paragraph(statut, cell_style)
             ])
         
@@ -1586,22 +1748,23 @@ def export_traitements_pdf():
         # ID : 0.9 inch (suffisant pour afficher les IDs)
         # Statut : 1.1 inch (suffisant pour "Terminé" ou "En cours")
         # Référence : 1.5 inch (fonctionne bien avec retour à la ligne)
-        # Total: 0.9+0.9+0.9+0.8+1.5+0.9+0.8+0.7+0.9+0.5+0.5+0.6+0.6+1.1 = 11.7 inch
+        # Total largeurs <= 11.69 inch (A4 paysage) : ajout Description 1.0 inch
         table = Table(data, colWidths=[
-            0.9*inch,  # ID - ajusté pour tenir dans la page
-            0.9*inch,  # Date Début - réduit
-            0.9*inch,  # Date Fin - réduit
-            0.8*inch,  # N° Commande - réduit
-            1.5*inch,  # Référence - réduit mais toujours fonctionnel avec retour à la ligne
-            0.9*inch,  # Client - réduit
-            0.8*inch,  # Service - réduit
-            0.7*inch,  # Poste - réduit
-            0.9*inch,  # Opérateur - réduit
-            0.5*inch,  # Nb Op.
-            0.5*inch,  # Nb Pers.
-            0.6*inch,  # Tps Prévu - réduit
-            0.6*inch,  # Tps Réel - réduit
-            1.1*inch   # Statut - ajusté pour tenir dans la page
+            0.85*inch,  # ID
+            0.85*inch,  # Date Début
+            0.85*inch,  # Date Fin
+            0.75*inch,  # N° Commande
+            1.3*inch,   # Référence
+            0.85*inch,  # Client
+            0.7*inch,   # Service
+            0.65*inch,  # Poste
+            0.85*inch,  # Opérateur
+            0.45*inch,  # Nb Op.
+            0.45*inch,  # Nb Pers.
+            0.55*inch,  # Tps Prévu
+            0.55*inch,  # Tps Réel
+            1.0*inch,   # Description
+            1.0*inch    # Statut
         ])
         
         table.setStyle(TableStyle([

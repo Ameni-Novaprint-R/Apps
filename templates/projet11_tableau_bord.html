@@ -1,0 +1,316 @@
+{% extends parent_template|default('base.html') %}
+
+{% block title %}Tableau de bord - Projet 11{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+.kpi-card {
+    min-height: 100%;
+}
+.kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+.kpi-unit {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-tachometer-alt me-2"></i>
+            Tableau de bord
+        </h1>
+        <div>
+            <a href="{{ url_for('projet11.liste_traitements') }}" class="btn btn-primary me-2">
+                <i class="fas fa-list"></i> Liste des traitements
+            </a>
+            <a href="{{ url_for('projet11.index', expand='analyse-dossiers') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtre période -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" action="{{ url_for('projet11.tableau_bord') }}" class="row g-3 align-items-end">
+                <div class="col-auto">
+                    <label for="date_debut" class="form-label">Date début</label>
+                    <input type="date" id="date_debut" name="date_debut" class="form-control" value="{{ date_debut or '' }}">
+                </div>
+                <div class="col-auto">
+                    <label for="date_fin" class="form-label">Date fin</label>
+                    <input type="date" id="date_fin" name="date_fin" class="form-control" value="{{ date_fin or '' }}">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-filter"></i> Appliquer
+                    </button>
+                </div>
+                <div class="col-auto">
+                    <a href="{{ url_for('projet11.tableau_bord') }}" class="btn btn-outline-secondary">Réinitialiser</a>
+                </div>
+                {% if date_debut or date_fin %}
+                <div class="col-12 col-md-auto text-muted small">
+                    <i class="fas fa-info-circle"></i> Période basée sur Date Fin des traitements (terminés uniquement).
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- KPIs synthèse -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card shadow-sm kpi-card border-primary">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-2">
+                        <i class="fas fa-cog me-1"></i> Cadence moy. machines
+                    </h6>
+                    <div class="kpi-value text-primary">{{ "%.2f"|format(cadence_moy_machines) }}</div>
+                    <span class="kpi-unit">op/h</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card shadow-sm kpi-card border-success">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-2">
+                        <i class="fas fa-user-cog me-1"></i> Cadence moy. opérateurs
+                    </h6>
+                    <div class="kpi-value text-success">{{ "%.2f"|format(cadence_moy_operateurs) }}</div>
+                    <span class="kpi-unit">op/h</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card shadow-sm kpi-card">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-2">
+                        <i class="fas fa-industry me-1"></i> Machines analysées
+                    </h6>
+                    <div class="kpi-value">{{ cadence_machines|length }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card shadow-sm kpi-card">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-2">
+                        <i class="fas fa-users me-1"></i> Opérateurs analysés
+                    </h6>
+                    <div class="kpi-value">{{ cadence_operateurs|length }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Cadence par machine (groupé par service) -->
+        <div class="col-12 col-xl-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs me-2 text-primary"></i>
+                        Cadence par machine <small class="text-muted">(par service, opérations/heure)</small>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Machine</th>
+                                    <th class="text-center">Nb traitements</th>
+                                    <th class="text-end">Total opérations</th>
+                                    <th class="text-end">Total heures</th>
+                                    <th class="text-end"><strong>Cadence (op/h)</strong></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in cadence_machines %}
+                                <tr>
+                                    <td><span class="badge bg-light text-dark">{{ m.service }}</span></td>
+                                    <td><strong>{{ m.machine }}</strong></td>
+                                    <td class="text-center">{{ m.nb_traitements }}</td>
+                                    <td class="text-end">{{ m.total_operations }}</td>
+                                    <td class="text-end">{{ "%.2f"|format(m.total_heures) }} h</td>
+                                    <td class="text-end">
+                                        <span class="badge bg-primary">{{ "%.2f"|format(m.cadence) }}</span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        Aucune donnée pour la période sélectionnée (traitements terminés avec temps réel > 0).
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cadence par opérateur -->
+        <div class="col-12 col-xl-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-tie me-2 text-success"></i>
+                        Cadence par opérateur <small class="text-muted">(opérations/heure)</small>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Opérateur</th>
+                                    <th class="text-center">Nb traitements</th>
+                                    <th class="text-end">Total opérations</th>
+                                    <th class="text-end">Total heures</th>
+                                    <th class="text-end"><strong>Cadence (op/h)</strong></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for o in cadence_operateurs %}
+                                <tr>
+                                    <td><strong>{{ o.operateur }}</strong></td>
+                                    <td class="text-center">{{ o.nb_traitements }}</td>
+                                    <td class="text-end">{{ o.total_operations }}</td>
+                                    <td class="text-end">{{ "%.2f"|format(o.total_heures) }} h</td>
+                                    <td class="text-end">
+                                        <span class="badge bg-success">{{ "%.2f"|format(o.cadence) }}</span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">
+                                        Aucune donnée pour la période sélectionnée (traitements terminés avec temps réel > 0).
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique Top 10 opérateurs -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Top 10 opérateurs par cadence</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartOperateurs" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top machines par service - un graphique par service -->
+    <h5 class="mt-4 mb-3"><i class="fas fa-cogs me-2"></i>Top cadence machines par service</h5>
+    <p class="text-muted small mb-3">
+        Les machines sont comparées au sein de chaque service (impression vs impression, pliage vs pliage, etc.).
+    </p>
+    <div class="row g-4 mt-2">
+        {% for svc in cadence_machines_par_service %}
+        {% if svc.machines %}
+        <div class="col-12 col-lg-6 col-xl-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light py-2">
+                    <h6 class="mb-0"><i class="fas fa-industry me-2"></i>{{ svc.service }} — Top {{ svc.machines|length }} machines</h6>
+                </div>
+                <div class="card-body py-2">
+                    <canvas id="chartMachines_{{ loop.index0 }}" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const operateursData = {{ cadence_operateurs[:10]|map(attribute='cadence')|list|tojson }};
+    const operateursLabels = {{ cadence_operateurs[:10]|map(attribute='operateur')|list|tojson }};
+    const machinesParService = {{ cadence_machines_par_service|tojson }};
+
+    if (operateursLabels.length > 0 && operateursData.length > 0) {
+        new Chart(document.getElementById('chartOperateurs'), {
+            type: 'bar',
+            data: {
+                labels: operateursLabels,
+                datasets: [{
+                    label: 'Cadence (op/h)',
+                    data: operateursData,
+                    backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                    borderColor: 'rgb(25, 135, 84)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Cadence (op/h)' }
+                    }
+                }
+            }
+        });
+    }
+
+    // Graphiques par service : Top machines de chaque service
+    const colors = ['rgba(13, 110, 253, 0.7)', 'rgba(25, 135, 84, 0.7)', 'rgba(255, 193, 7, 0.7)', 'rgba(220, 53, 69, 0.7)', 'rgba(111, 66, 193, 0.7)'];
+    machinesParService.forEach(function(svc, idx) {
+        if (!svc.machines || svc.machines.length === 0) return;
+        const canvas = document.getElementById('chartMachines_' + idx);
+        if (!canvas) return;
+        const labels = svc.machines.map(function(m) { return m.machine; });
+        const data = svc.machines.map(function(m) { return m.cadence; });
+        const color = colors[idx % colors.length];
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cadence (op/h)',
+                    data: data,
+                    backgroundColor: color,
+                    borderColor: color.replace('0.7', '1'),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true }
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

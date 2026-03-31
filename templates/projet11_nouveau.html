@@ -456,6 +456,23 @@
                                 </div>
                             </div>
 
+                            <div class="row mb-3" id="row-forme-decoupe" style="display: none;">
+                                <div class="col-md-12">
+                                    <label for="nom_fd" class="form-label">
+                                        <strong>Forme de découpe (Nom F.D.)</strong>
+                                    </label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="nom_fd"
+                                           name="nom_fd"
+                                           list="formes_decoupe_list"
+                                           placeholder="-- Sélectionnez la forme de découpe (service Typo uniquement) --"
+                                           autocomplete="off">
+                                    <datalist id="formes_decoupe_list"></datalist>
+                                    <small class="text-muted">Visible uniquement pour le service Typo. Cette valeur alimente le compteur de tirages Projet 24.</small>
+                                </div>
+                            </div>
+
                             <div class="row mb-3">
                                 <div class="col-md-12">
                                     <label for="traitement_description" class="form-label">
@@ -523,13 +540,68 @@ let chronoPausedTime = null; // Temps écoulé avant la pause (en millisecondes)
 let chronoTotalElapsed = 0; // Temps total écoulé (pour gérer les pauses multiples)
 let currentNumeroCommande = null;
 let currentService = null;
+let currentServiceId = null;
 let currentFicheId = null;
 let currentTraitementId = null;
 let startTraitementEnCours = false;
 const estModeEmbed = (new URLSearchParams(window.location.search).get('embed') === '1') || (window.self !== window.top);
 let servicesDisponibles = [];
+let servicesPrevusMap = {};
+let formesDecoupeChargees = false;
 let storedFormValues = null;
 let restaurationEtatPlanifiee = false;
+
+function estServiceTypo() {
+    return Number(currentServiceId) === 5;
+}
+
+function toggleNomFdVisibility() {
+    const row = document.getElementById('row-forme-decoupe');
+    const input = document.getElementById('nom_fd');
+    if (!row || !input) return;
+    if (estServiceTypo()) {
+        row.style.display = '';
+        chargerFormesDecoupe();
+    } else {
+        row.style.display = 'none';
+        input.value = '';
+    }
+}
+
+function chargerFormesDecoupe() {
+    if (formesDecoupeChargees) return;
+    fetch('/projet24/api/formes')
+        .then(function(r) { return r.ok ? r.json() : []; })
+        .then(function(formes) {
+            const list = document.getElementById('formes_decoupe_list');
+            if (!list) return;
+            list.innerHTML = '';
+            (Array.isArray(formes) ? formes : []).forEach(function(f) {
+                const nom = (f && f.nom) ? String(f.nom).trim() : '';
+                if (!nom) return;
+                const opt = document.createElement('option');
+                opt.value = nom;
+                list.appendChild(opt);
+            });
+            formesDecoupeChargees = true;
+        })
+        .catch(function() {
+            // Ne pas bloquer la fiche si la liste des formes n'est pas accessible
+        });
+}
+
+function notifierParentFicheSaved() {
+    if (!(window.parent && window.parent !== window)) return false;
+    try {
+        if (typeof window.parent.fermerModalModification === 'function') {
+            window.parent.fermerModalModification();
+        }
+    } catch (e) { }
+    try { window.parent.postMessage({ action: 'fiche_saved' }, window.location.origin); } catch (e) { }
+    try { window.parent.postMessage({ action: 'fiche_saved' }, '*'); } catch (e) { }
+    try { window.parent.location.reload(); } catch (e) { }
+    return true;
+}
 
 // Récupérer l'ID du traitement à modifier depuis l'URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -778,6 +850,10 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('[DEBUG] Mode modification détecté, ID:', traitementIdFromUrl);
         console.log('[DEBUG] Données du traitement:', JSON.stringify(traitementDataFromServer, null, 2));
         chargerDonneesTraitement(traitementDataFromServer);
+        // Plein écran : réappliquer la visibilité des boutons Clôturer/Déclôturer après un court délai (évite masquage par autre script/CSS)
+        if (window.self === window.top && !estModeEmbed) {
+            setTimeout(function() { appliquerVisibilitéBoutonsCloture(traitementDataFromServer); }, 300);
+        }
     } else if (traitementIdFromUrl && !traitementDataFromServer) {
         // Message déjà fourni par le serveur (traitement introuvable)
         if (traitementIntrouvableMessage) {
@@ -801,6 +877,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         alert('Traitement (ID: ' + traitementIdFromUrl + ') introuvable. Il a peut-être été supprimé.\n\nFermez cette fenêtre et rechargez la liste des traitements.');
                     } else {
                         chargerDonneesTraitement(data);
+                        if (window.self === window.top && !estModeEmbed) {
+                            setTimeout(function() { appliquerVisibilitéBoutonsCloture(data); }, 300);
+                        }
                     }
                 })
                 .catch(error => {
@@ -838,10 +917,42 @@ document.addEventListener('DOMContentLoaded', function() {
                     delete storedFormValues.numero_commande;
                 }
                 planifierRestaurationEtatSauvegarde();
+                // Plein écran : si la fiche a déjà un ID (enregistrée dans le popup), afficher le bouton Clôturer
+                const idFromForm = document.getElementById('traitement_id') && document.getElementById('traitement_id').value;
+                if (idFromForm && String(idFromForm).trim()) {
+                    const idVal = String(idFromForm).trim();
+                    setCurrentTraitementId(idVal);
+                    appliquerVisibilitéBoutonsCloture({ id: idVal, cloture: 0 });
+                    setTimeout(function() {
+                        if (window.self === window.top && !estModeEmbed) {
+                            appliquerVisibilitéBoutonsCloture({ id: idVal, cloture: 0 });
+                        }
+                    }, 400);
+                }
             }
         }
     }
 });
+
+// Applique uniquement la visibilité des boutons Clôturer / Déclôturer (utilisé en popup et plein écran)
+function appliquerVisibilitéBoutonsCloture(data) {
+    if (!data) return;
+    const btnCloturer = document.getElementById('btnCloturer');
+    const btnDecloturer = document.getElementById('btnDecloturer');
+    if (!btnCloturer || !btnDecloturer) return;
+    const idTraitement = data.id ? String(data.id) : null;
+    const estCloture = !!(data.cloture === 1 || data.cloture === true || data.cloture === '1' || (data.Cloture !== undefined && (data.Cloture === 1 || data.Cloture === true)));
+    if (idTraitement && estCloture) {
+        btnCloturer.style.display = 'none';
+        btnDecloturer.style.display = 'inline-block';
+    } else if (idTraitement) {
+        btnCloturer.style.display = 'inline-block';
+        btnDecloturer.style.display = 'none';
+    } else {
+        btnCloturer.style.display = 'none';
+        btnDecloturer.style.display = 'none';
+    }
+}
 
 // Fonction pour charger les données d'un traitement existant
 function chargerDonneesTraitement(data) {
@@ -860,23 +971,8 @@ function chargerDonneesTraitement(data) {
         btnTexte.textContent = 'Enregistrer';
         btnEnregistrer.querySelector('i').className = 'fas fa-save';
     }
-    // Afficher / masquer Clôturer et Déclôturer
-    const btnCloturer = document.getElementById('btnCloturer');
-    const btnDecloturer = document.getElementById('btnDecloturer');
-    const idTraitement = data.id ? String(data.id) : null;
-    const estCloture = !!(data.cloture === 1 || data.cloture === true || data.cloture === '1' || (data.Cloture !== undefined && (data.Cloture === 1 || data.Cloture === true)));
-    if (btnCloturer && btnDecloturer) {
-        if (idTraitement && estCloture) {
-            btnCloturer.style.display = 'none';
-            btnDecloturer.style.display = 'inline-block';
-        } else if (idTraitement) {
-            btnCloturer.style.display = 'inline-block';
-            btnDecloturer.style.display = 'none';
-        } else {
-            btnCloturer.style.display = 'none';
-            btnDecloturer.style.display = 'none';
-        }
-    }
+    // Afficher / masquer Clôturer et Déclôturer (popup et plein écran)
+    appliquerVisibilitéBoutonsCloture(data);
     
     // Définir l'ID du traitement actuel
     if (data.id) {
@@ -1010,6 +1106,12 @@ function remplirChampsTraitement(data) {
         const champPdtANC = document.getElementById('pdt_anc');
         if (champPdtANC) {
             champPdtANC.value = data.pdt_anc || 0;
+        }
+    }
+    if (data.nom_fd !== undefined && data.nom_fd !== null) {
+        const champNomFd = document.getElementById('nom_fd');
+        if (champNomFd) {
+            champNomFd.value = data.nom_fd || '';
         }
     }
     if (data.description !== undefined && data.description !== null) {
@@ -1254,11 +1356,13 @@ $('#numero_commande').on('input change', function() {
         .then(services => {
             const datalistService = $('#services_list');
             datalistService.empty();
+            servicesPrevusMap = {};
             
             if (services.length > 0) {
                 // Ajouter les services prévus dans le datalist
                 services.forEach(srv => {
                     datalistService.append(`<option value="${srv.nom_service}">${srv.nom_service} (${srv.nb_fiches} poste(s))</option>`);
+                    servicesPrevusMap[(srv.nom_service || '').toLowerCase()] = srv.id_service;
                 });
                 
                 // Ajouter l'option pour service non prévu
@@ -1363,6 +1467,7 @@ let serviceSelectionTimeout = null;
 $('#service_prevu').on('change', function() {
     const service = $(this).val().trim();
     currentService = service;
+    currentServiceId = servicesPrevusMap[(service || '').toLowerCase()] || null;
     
     if (!service || !currentNumeroCommande) {
         $('#infoPrevues').hide();
@@ -1370,6 +1475,7 @@ $('#service_prevu').on('change', function() {
         $('#sectionSaisie').hide();
         $('#separator').hide();
         stopChrono();
+        toggleNomFdVisibility();
         return;
     }
     
@@ -1378,14 +1484,18 @@ $('#service_prevu').on('change', function() {
     
     if (!serviceExists) {
         // Le service n'est pas dans la liste, ne rien faire
+        toggleNomFdVisibility();
         return;
     }
     
     // CASE 1: Service non prévu (AUTRE)
     if (service === '__AUTRE__') {
+        currentServiceId = null;
+        toggleNomFdVisibility();
         afficherSelectionServiceNonPrevu();
         return;
     }
+    toggleNomFdVisibility();
     
     // CASE 2: Service prévu
     chargerServicePrevu(service);
@@ -1514,8 +1624,10 @@ function afficherSelectionServiceNonPrevu() {
         }
 
         currentService = serviceTrouve.nom_service;
+        currentServiceId = serviceTrouve.id_service || null;
         currentFicheId = 0;
         $('#id_fiche_travail').val(0);
+        toggleNomFdVisibility();
         
         // Afficher un message info
         const infoHtml = `
@@ -1841,7 +1953,8 @@ function genererChampsOperateurs(nbPersonnes) {
                 }).catch(function(err) { console.error('Sync opérateur:', err); });
             }, 400);
         }
-        if ($(this).val() && matricule && currentService && currentNumeroCommande) {
+        // Bloquer uniquement en création / reprise (pas en modification d'une fiche terminée / clôturée)
+        if (!estModeModifier && $(this).val() && matricule && currentService && currentNumeroCommande) {
             var excludeId = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
             fetch('/projet11/api/traitements/verifier-operateur-encours?matricule=' + encodeURIComponent(matricule) + (excludeId ? '&exclude_id=' + excludeId : ''))
                 .then(function(r) { return r.json(); })
@@ -1886,6 +1999,11 @@ function machineEncoursPopupFermer() {
     $(document).off('click.machineEncours focusin.machineEncours');
 }
 $('#machine_reelle').on('input change', function() {
+    // Ne pas afficher le message "machine déjà utilisée" en mode modification
+    if (typeof estModeModifier !== 'undefined' && estModeModifier) {
+        machineEncoursPopupFermer();
+        return;
+    }
     var machine = ($(this).val() || '').trim();
     var popup = $('#machineEncoursPopup');
     if (!machine) {
@@ -2056,6 +2174,7 @@ function demarrerChrono() {
         postes_reel: $('#machine_reelle').val() || null,
         numero_commande: currentNumeroCommande || null,
         nom_service: currentService || null,
+        nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
         pdt_c: Number.isFinite(pdtC) && pdtC >= 0 ? pdtC : 0,
         pdt_nnc: Number.isFinite(pdtNNC) && pdtNNC >= 0 ? pdtNNC : 0,
         pdt_anc: Number.isFinite(pdtANC) && pdtANC >= 0 ? pdtANC : 0
@@ -2236,7 +2355,9 @@ function resetForm() {
     $('#sectionSaisie').hide();
     $('#separator').hide();
     currentService = null;
+    currentServiceId = null;
     currentFicheId = null;
+    toggleNomFdVisibility();
 }
 
 // ============================================================================
@@ -2383,6 +2504,7 @@ $('#formNouveauTraitement').on('submit', function(e) {
         nb_op: totalProduite,
         numero_commande: currentNumeroCommande || null,
         nom_service: currentService || null,
+        nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
         description: ($('#traitement_description').val() || '').trim() || null
     };
     if (window._enregistrerAvecCloture) {
@@ -2445,13 +2567,7 @@ $('#formNouveauTraitement').on('submit', function(e) {
             alert(`✅ Traitement ${messageAction} avec succès!\n\nID: ${traitementId}\nDurée: ${dureeHeures}h (${dureeMinutes} min)\nTotal produit: ${totalProduite.toLocaleString('fr-FR')}`);
             if (estModeEmbed) {
                 // En mode embed : demander au parent de fermer et rafraîchir en conservant les filtres
-                if (window.parent && window.parent !== window) {
-                    try {
-                        window.parent.postMessage({ action: 'fiche_saved' }, window.location.origin);
-                    } catch (e) {
-                        window.parent.location.reload();
-                    }
-                } else {
+                if (!notifierParentFicheSaved()) {
                     window.location.reload();
                 }
             } else {
@@ -2562,6 +2678,7 @@ function saveEnCoursOnClose() {
         nb_op: totalProduite,
         numero_commande: currentNumeroCommande || null,
         nom_service: currentService || null,
+        nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
         description: ($('#traitement_description').val() || '').trim() || null
     };
     fetch(`/projet11/api/traitements/${idToUse}`, {
@@ -2658,9 +2775,7 @@ $(document).ready(function() {
         }).then(function(r) { return r.json(); }).then(function(result) {
             if (result.success) {
                 alert('Traitement déclôturé.');
-                if (window.parent && window.parent !== window) {
-                    try { window.parent.postMessage({ action: 'fiche_saved' }, window.location.origin); } catch (e) { window.parent.location.reload(); }
-                } else {
+                if (!notifierParentFicheSaved()) {
                     window.location.reload();
                 }
             } else {
