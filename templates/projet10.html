@@ -23,8 +23,125 @@
         padding: 4px;
         box-sizing: border-box;
     }
+    .table-filters th {
+        padding: 8px 4px;
+    }
+
+    /* Scroll horizontal en haut (comme projet11) */
+    .table-responsive {
+        overflow-x: auto;
+        position: relative;
+    }
+    .table-responsive.no-horizontal-scroll {
+        overflow-x: hidden;
+    }
+    .table-scroll-top {
+        height: 16px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        position: sticky;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        background: var(--bs-body-bg);
+        border-bottom: 1px solid #dee2e6;
+    }
+    .table-responsive.no-horizontal-scroll .table-scroll-top {
+        display: none;
+    }
+    .table-scroll-inner { height: 1px; }
+    .table-scroll-top::-webkit-scrollbar { height: 12px; }
+    .table-scroll-top::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,.3); border-radius: 6px; }
+    .table-scroll-top::-webkit-scrollbar-track { background-color: transparent; }
+
+    /* Entête sur une seule ligne */
+    #tableControles th,
+    #tableControles td {
+        white-space: nowrap;
+    }
+
+    /* Tableau contrôles plus compact (≈ -1pt) */
+    #tableControles {
+        font-size: 0.78rem;
+    }
+    #tableControles th,
+    #tableControles td {
+        padding: 5px 7px !important;
+        line-height: 1.25;
+    }
+    #tableControles thead th {
+        vertical-align: middle;
+    }
+
+    /* Icônes de tri — même logique que projet1 (#tableSuivi) : par défaut DataTables place
+       sorting* sur la DERNIÈRE ligne du thead (ligne filtres), donc ▲▼ à droite des inputs. */
+    #tableControles thead th.sorting,
+    #tableControles thead th.sorting_asc,
+    #tableControles thead th.sorting_desc {
+        position: relative;
+        padding-right: 30px !important;
+        cursor: pointer;
+        overflow: visible;
+        vertical-align: middle;
+    }
+    #tableControles thead th.sorting:before,
+    #tableControles thead th.sorting:after {
+        content: "";
+        position: absolute;
+        right: 8px;
+        opacity: 0.3;
+        font-size: 0.8em;
+    }
+    #tableControles thead th.sorting:before {
+        content: "▲";
+        top: 8px;
+        opacity: 0.3;
+    }
+    #tableControles thead th.sorting:after {
+        content: "▼";
+        bottom: 8px;
+        opacity: 0.3;
+    }
+    #tableControles thead th.sorting_asc:before {
+        content: "▲";
+        opacity: 1;
+        top: 8px;
+    }
+    #tableControles thead th.sorting_desc:after {
+        content: "▼";
+        opacity: 1;
+        bottom: 8px;
+    }
+
+    /* Article & Opérateur : même principe que col-reference (projet1 — suivi dossiers) */
+    #tableControles th.col-article, #tableControles td.col-article,
+    #tableControles th.col-operateur, #tableControles td.col-operateur {
+        width: 140px;
+        max-width: 180px;
+        white-space: nowrap;
+    }
+    #tableControles td.col-article, #tableControles td.col-operateur {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Boutons Excel / Enregistrer vue : à droite (voir structure #columnToggleChecks + justify-content-between) */
+    #colExportButtonsWrapper {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
     .column-toggle-panel {
         margin-bottom: 1rem;
+        /* Réduction ~0.5pt (0.667px) vs taille par défaut */
+        font-size: 0.9583rem;
+    }
+    /* Permet aux checkboxes de "wrap" et aux boutons de rester en fin de dernière ligne */
+    #columnToggleChecks {
+        display: contents !important;
+    }
+    #colExportButtonsWrapper {
+        margin-left: auto;
+        align-self: flex-end;
     }
     .column-toggle-panel .form-check {
         margin-right: 1rem;
@@ -897,19 +1014,47 @@
                 </button>
             </div>
             
+            <div class="column-toggle-panel">
+                <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
+                <div class="d-flex flex-wrap align-items-center gap-2 w-100" id="columnToggleContainer">
+                    <div class="d-flex flex-wrap gap-2 align-items-center flex-grow-1 min-w-0" id="columnToggleChecks">
+                        <div class="form-check form-check-inline me-2" id="colToggleAllWrapper">
+                            <input class="form-check-input" type="checkbox" id="colToggleAll" checked title="Tout cocher / tout décocher">
+                            <label class="form-check-label" for="colToggleAll">Tout cocher</label>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0" id="colExportButtonsWrapper">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnEnregistrerVueControles" title="Enregistrer les filtres et colonnes affichées pour les prochaines connexions">
+                            Enregistrer une vue
+                        </button>
+                        {% if has_action_access(6) %}
+                        <a href="{{ url_for('projet10.export_controles_excel') }}" class="btn btn-sm btn-success" title="Exporter le tableau en Excel">
+                            Excel
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
             <div class="table-responsive position-relative">
+                <div class="table-scroll-top">
+                    <div class="table-scroll-inner"></div>
+                </div>
                 <table class="table table-striped table-hover mb-0" id="tableControles">
                     <thead class="table-dark">
                         <tr>
                             <th>ID</th>
                             <th>Date</th>
                             <th>N° Dossier</th>
-                            <th>Opérateur</th>
+                            <th class="col-article">Article</th>
+                            <th>Client</th>
+                            <th class="col-operateur">Opérateur</th>
                             <th>Machine Impression</th>
-                            <th>Opérateur(s) Machine d'impression</th>
+                            <th>Opérateur M. d'impression</th>
                             <th>Machine Découpe</th>
-                            <th>Opérateur(s) Machine de découpe</th>
-                            <th>Rebus</th>
+                            <th>Opérateur M. de découpe</th>
+                            <th>Rebuts</th>
+                            <th>Taux de Rebuts</th>
                             <th>Validation</th>
                             <th>Actions</th>
                         </tr>
@@ -1084,6 +1229,17 @@
                             <datalist id="commandes_list">
                                 <!-- Les options seront générées dynamiquement par JavaScript -->
                             </datalist>
+                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                        <div class="mb-3">
+                                            <label for="Article" class="form-label">🏷️ Article :</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="Article"
+                                   name="Article"
+                                   placeholder="Article (modifiable)"
+                                   autocomplete="off">
                         </div>
                                     </div>
                                 </div>
@@ -1305,9 +1461,17 @@
                                     </tbody>
                                     <tfoot class="table-secondary">
                                         <tr>
-                                            <td class="text-center fw-bold">TOTAL</td>
-                                            <td class="text-center fw-bold" id="total-conforme">0</td>
-                                            <td class="text-center fw-bold" id="total-non-conforme">0</td>
+                                            <td class="text-center fw-bold align-middle">TOTAL</td>
+                                            <td class="text-center p-1">
+                                                <input type="number" class="form-control form-control-sm text-center fw-bold" id="total-conforme" min="0" step="1" value="0"
+                                                    title="Somme des quantités conformes (recalculée quand vous modifiez le tableau ; vous pouvez corriger manuellement)"
+                                                    oninput="p10OnFooterTotalManuel(this)">
+                                            </td>
+                                            <td class="text-center p-1">
+                                                <input type="number" class="form-control form-control-sm text-center fw-bold" id="total-non-conforme" min="0" step="1" value="0"
+                                                    title="Non-conforme retenu (dernière ligne remplie ; recalculé avec le tableau ; modifiable manuellement)"
+                                                    oninput="p10OnFooterTotalManuel(this)">
+                                            </td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -1318,14 +1482,22 @@
                         <div class="card mb-4">
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                         <div class="mb-3">
-                                            <label for="rebus" class="form-label">🗑️ Rebus (calculé automatiquement) :</label>
+                                            <label for="rebus" class="form-label">🗑️ Rebuts (calculé automatiquement) :</label>
                                             <input type="number" class="form-control bg-light" id="rebus" name="rebus" min="0" value="0" readonly title="Calculé automatiquement = Quantité non-conforme de la dernière ligne">
                                             <small class="form-text text-muted">= Quantité non-conforme de la dernière ligne du tableau</small>
                                         </div>
                         </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
+                        <div class="mb-3">
+                                            <label for="TauxRebuts" class="form-label">📉 Taux de Rebuts :</label>
+                                            <input type="hidden" id="TauxRebuts" name="TauxRebuts" value="0">
+                                            <input type="text" class="form-control bg-light" id="TauxRebutsAff" value="0,00%" readonly>
+                                            <small class="form-text text-muted">= Rebuts / Quantité Totale</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
                         <div class="mb-3 position-relative">
                                             <label class="form-label">✅ Validation du chef section :</label>
                                             <input class="form-control" id="op_chef_input" placeholder="Saisir matricule/nom et cliquer une suggestion..." autocomplete="off">
@@ -1344,22 +1516,17 @@
                             </div>
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <div class="text-center">
                                             <strong>Total Conforme :</strong> <span id="resume-conforme" class="text-success">0</span>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                            <div class="col-md-4">
                                         <div class="text-center">
-                                            <strong>Total Non-conforme :</strong> <span id="resume-non-conforme" class="text-danger">0</span>
+                                            <strong>Rebuts :</strong> <span id="resume-rebus" class="text-warning">0</span>
                                         </div>
                             </div>
-                            <div class="col-md-3">
-                                        <div class="text-center">
-                                            <strong>Rebus :</strong> <span id="resume-rebus" class="text-warning">0</span>
-                                        </div>
-                            </div>
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                         <div class="text-center">
                                             <strong>Total Général :</strong> <span id="resume-total" class="text-primary">0</span>
                                         </div>
@@ -1487,9 +1654,22 @@
         
         // Définir les fonctions du modal AVANT le DOMContentLoaded pour qu'elles soient disponibles immédiatement
         window.ouvrirModalNouveauControle = function() {
+            if (!window.__EDIT_ID__) {
+                window.__P10_PREFILL_DATE__ = '';
+                window.__P10_PREFILL_MACHINE_IMP__ = '';
+                window.__P10_PREFILL_MACHINE_DEC__ = '';
+            }
             const modalNouveauControle = document.getElementById('modalNouveauControle');
             const modalBody = document.getElementById('modalNouveauControleBody');
             const sectionNouveau = document.getElementById('section-nouveau');
+            const modalTitleEl = document.getElementById('modalNouveauControleLabel');
+            if (modalTitleEl) {
+                if (window.__EDIT_ID__) {
+                    modalTitleEl.innerHTML = '<i class="fas fa-edit"></i> Modifier le contrôle';
+                } else {
+                    modalTitleEl.innerHTML = '<i class="fas fa-plus-circle"></i> Nouveau Contrôle';
+                }
+            }
             
             if (!modalNouveauControle) {
                 console.error('Modal non trouvé');
@@ -1604,9 +1784,9 @@
                             card.style.marginBottom = '0.75rem !important';
                         });
                         
-                        // Réinitialiser la date
+                        // Réinitialiser la date (sauf en mode édition : les valeurs viennent de la fiche)
                         const dateInput = modalBody.querySelector('#date_controle');
-                        if (dateInput) {
+                        if (dateInput && !window.__EDIT_ID__) {
                             const today = new Date().toISOString().split('T')[0];
                             dateInput.value = today;
                         }
@@ -1712,6 +1892,8 @@
                                     if (machineDec) machineDec.value = '';
                                     const opDecTags = document.getElementById('op_decoupe_tags');
                                     if (opDecTags) opDecTags.innerHTML = '';
+                                    const articleInput = modalBody.querySelector('#Article');
+                                    if (articleInput) articleInput.value = '';
                                     return;
                                 }
                                 
@@ -1723,6 +1905,11 @@
                                 const selectedOption = datalist ? datalist.querySelector(`option[value="${numeroCommande}"]`) : null;
                                 
                                 if (selectedOption && numeroCommande) {
+                                    // Pré-remplir Article depuis COMMANDES.Reference — reste modifiable
+                                    const articleInput = modalBody.querySelector('#Article');
+                                    if (articleInput) {
+                                        articleInput.value = selectedOption.getAttribute('data-reference') || '';
+                                    }
                                     // Pré-remplir depuis WEB_TRAITEMENTS si disponible
                                     if (typeof preRemplirDepuisTraitement === 'function') {
                                         preRemplirDepuisTraitement(numeroCommande);
@@ -1742,6 +1929,11 @@
                                     const selectedOption = datalist ? datalist.querySelector(`option[value="${numeroCommande}"]`) : null;
                                     
                                     if (selectedOption) {
+                                        // Pré-remplir Article depuis COMMANDES.Reference — reste modifiable
+                                        const articleInput = modalBody.querySelector('#Article');
+                                        if (articleInput) {
+                                            articleInput.value = selectedOption.getAttribute('data-reference') || '';
+                                        }
                                         if (typeof preRemplirDepuisTraitement === 'function') {
                                             preRemplirDepuisTraitement(numeroCommande);
                                         }
@@ -1786,6 +1978,11 @@
                         if (typeof calculerTotaux === 'function') {
                             calculerTotaux(modalBody);
                         }
+                        // Réédition : date au format SQL (espace au lieu de T) ou autre — forcer yyyy-mm-dd sur le clone visible
+                        const dateEdit = modalBody.querySelector('#date_controle');
+                        if (dateEdit && window.__EDIT_ID__ && window.__P10_PREFILL_DATE__) {
+                            dateEdit.value = window.__P10_PREFILL_DATE__;
+                        }
                     }, 300);
                 } else {
                     console.error('Aucun contenu trouvé dans la section');
@@ -1800,6 +1997,9 @@
         };
         
         window.fermerModalNouveauControle = function() {
+            window.__P10_PREFILL_DATE__ = '';
+            window.__P10_PREFILL_MACHINE_IMP__ = '';
+            window.__P10_PREFILL_MACHINE_DEC__ = '';
             const modalNouveauControle = document.getElementById('modalNouveauControle');
             if (!modalNouveauControle) return;
             modalNouveauControle.classList.remove('active');
@@ -2051,7 +2251,46 @@ if (!document.getElementById('viewControleModal')) {
   div.innerHTML = VIEW_MODAL_HTML;
   document.body.appendChild(div.firstElementChild);
 }
-let __EDIT_ID__ = null;
+// Même variable que le premier <script> (modal) : doit être sur window pour que le submit du clone appelle updateControle et non creerControle.
+window.__EDIT_ID__ = window.__EDIT_ID__ ?? null;
+window.__P10_PREFILL_DATE__ = window.__P10_PREFILL_DATE__ || '';
+window.__P10_PREFILL_MACHINE_IMP__ = window.__P10_PREFILL_MACHINE_IMP__ || '';
+window.__P10_PREFILL_MACHINE_DEC__ = window.__P10_PREFILL_MACHINE_DEC__ || '';
+
+/** Valeur pour <input type="date"> (yyyy-mm-dd) depuis l'API / SQL Server. */
+function p10DatePourInputDate(raw) {
+    if (raw == null || raw === '') return '';
+    if (typeof raw === 'number') {
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    }
+    const s = String(raw).trim();
+    const iso = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (iso) return iso[1];
+    const fr = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (fr) return `${fr[3]}-${fr[2].padStart(2, '0')}-${fr[1].padStart(2, '0')}`;
+    const head = s.replace(' ', 'T').split('T')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return head;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
+function p10EnsureSelectValue(selectEl, value) {
+    const v = (value == null ? '' : String(value)).trim();
+    if (!selectEl || !v) return;
+    let found = false;
+    for (let i = 0; i < selectEl.options.length; i++) {
+        if (selectEl.options[i].value === v) { found = true; break; }
+    }
+    if (!found) {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        selectEl.appendChild(opt);
+    }
+    selectEl.value = v;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     
     // Charger les numéros de commandes disponibles
@@ -2158,8 +2397,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Gestion du formulaire
     document.getElementById('formNouveauControle').addEventListener('submit', function(e) {
         e.preventDefault();
-        if (__EDIT_ID__) {
-            updateControle(__EDIT_ID__);
+        if (window.__EDIT_ID__) {
+            updateControle(window.__EDIT_ID__);
         } else {
         creerControle();
         }
@@ -2203,6 +2442,13 @@ document.addEventListener('DOMContentLoaded', function () {
         numeroSelect.addEventListener('change', function() {
             const numeroCommande = this.value.trim();
             if (numeroCommande) {
+                // Pré-remplir Article depuis COMMANDES.Reference (via datalist) — reste modifiable ensuite
+                const datalist = document.getElementById('commandes_list');
+                const selectedOption = datalist ? datalist.querySelector(`option[value="${numeroCommande}"]`) : null;
+                const articleInput = document.getElementById('Article');
+                if (articleInput && selectedOption) {
+                    articleInput.value = selectedOption.getAttribute('data-reference') || '';
+                }
                 preRemplirDepuisTraitement(numeroCommande);
             } else {
                 // Réinitialiser les champs si aucun numéro n'est sélectionné
@@ -2212,6 +2458,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('machine_decoupe').value = '';
                 const opDecTags = document.getElementById('op_decoupe_tags');
                 if (opDecTags) opDecTags.innerHTML = '';
+                const articleInput = document.getElementById('Article');
+                if (articleInput) articleInput.value = '';
             }
         });
     }
@@ -2261,6 +2509,16 @@ function chargerNumerosCommandes() {
                     numeroInput.removeAttribute('list');
                 }
             }
+
+            // Si un numéro est déjà saisi (ex: édition), pré-remplir Article si vide
+            const articleInput = document.getElementById('Article');
+            const numero = (numeroInput && numeroInput.value) ? numeroInput.value.trim() : '';
+            if (articleInput && numero && !articleInput.value) {
+                const selectedOption = datalist.querySelector(`option[value="${numero}"]`);
+                if (selectedOption) {
+                    articleInput.value = selectedOption.getAttribute('data-reference') || '';
+                }
+            }
         })
         .catch(error => {
             console.error('Erreur lors du chargement des numéros:', error);
@@ -2282,6 +2540,9 @@ function chargerMachinesImpression() {
                     option.textContent = machine;
                     selectImp.appendChild(option);
                 });
+                if (window.__P10_PREFILL_MACHINE_IMP__) {
+                    p10EnsureSelectValue(selectImp, window.__P10_PREFILL_MACHINE_IMP__);
+                }
             }
         })
         .catch(error => {
@@ -2304,6 +2565,9 @@ function chargerMachinesDecoupe() {
                     option.textContent = machine;
                     selectDec.appendChild(option);
                 });
+                if (window.__P10_PREFILL_MACHINE_DEC__) {
+                    p10EnsureSelectValue(selectDec, window.__P10_PREFILL_MACHINE_DEC__);
+                }
             }
         })
         .catch(error => {
@@ -2653,6 +2917,13 @@ function chargerOperateurs() {
 // Charger les contrôles existants avec DataTables
 let dataTableControles = null;
 
+/** Même affichage que la colonne Référence (projet1 / tableSuivi) : ellipsis + title */
+function p10CellLikeReferenceProjet1(data) {
+    const d = (data == null || data === '') ? '-' : String(data);
+    const titleAttr = d.replace(/"/g, '&quot;');
+    return '<span style="display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + titleAttr + '">' + d + '</span>';
+}
+
 function chargerControles() {
     fetch('/projet10/api/controles')
         .then(res => res.json())
@@ -2701,12 +2972,15 @@ function chargerControles() {
                     <td>${controle.id}</td>
                     <td>${new Date(controle.date_controle).toLocaleDateString('fr-FR')}</td>
                     <td>${controle.Numero_COMMANDES}</td>
-                    <td>${controle.operateur || '-'}</td>
+                    <td class="col-article">${p10CellLikeReferenceProjet1(controle.Article)}</td>
+                    <td>${controle.Client || '-'}</td>
+                    <td class="col-operateur">${p10CellLikeReferenceProjet1(controle.operateur)}</td>
                     <td>${controle.machine_impression || '-'}</td>
                     <td>${controle.operateur_machine_impression || '-'}</td>
                     <td>${controle.machine_decoupe || '-'}</td>
                     <td>${controle.operateur_machine_decoupe || '-'}</td>
                     <td>${controle.rebus || 0}</td>
+                    <td>${(controle.TauxRebuts !== undefined && controle.TauxRebuts !== null && controle.TauxRebuts !== '') ? `${Number(controle.TauxRebuts).toFixed(2)}%` : '-'}</td>
                     <td>${controle.validation_chef || 'Non validé'}</td>
                     <td style="white-space: nowrap;">
                         <div style="display: inline-flex; align-items: center; gap: 2px; flex-wrap: nowrap;">
@@ -2727,17 +3001,21 @@ function chargerControles() {
 
 function initialiserDataTable() {
     const $table = $('#tableControles');
+    const VUE_STORAGE_KEY = 'projet10_controles_vue';
     
     const colonneDefs = [
         { titre: 'ID', filtre: true, toggle: true, className: 'col-id', width: '60px' },
         { titre: 'Date', filtre: true, toggle: true, className: 'col-date', width: '120px' },
         { titre: 'N° Dossier', filtre: true, toggle: true, className: 'col-numero', width: '140px' },
+        { titre: 'Article', filtre: true, toggle: true, className: 'col-article', width: '200px' },
+        { titre: 'Client', filtre: true, toggle: true, className: 'col-client', width: '220px' },
         { titre: 'Opérateur', filtre: true, toggle: true, className: 'col-operateur', width: '180px' },
         { titre: 'Machine Impression', filtre: true, toggle: true, className: 'col-machine', width: '160px' },
-        { titre: 'Opérateur(s) Machine d\'impression', filtre: true, toggle: true, className: 'col-operateur-imp', width: '220px' },
+        { titre: 'Opérateur M. d\'impression', filtre: true, toggle: true, className: 'col-operateur-imp', width: '220px' },
         { titre: 'Machine Découpe', filtre: true, toggle: true, className: 'col-machine', width: '160px' },
-        { titre: 'Opérateur(s) Machine de découpe', filtre: true, toggle: true, className: 'col-operateur-dec', width: '220px' },
-        { titre: 'Rebus', filtre: true, toggle: true, className: 'col-rebus', width: '100px' },
+        { titre: 'Opérateur M. de découpe', filtre: true, toggle: true, className: 'col-operateur-dec', width: '220px' },
+        { titre: 'Rebuts', filtre: true, toggle: true, className: 'col-rebus', width: '100px' },
+        { titre: 'Taux de Rebuts', filtre: true, toggle: true, className: 'col-taux-rebuts', width: '120px' },
         { titre: 'Validation', filtre: true, toggle: true, className: 'col-validation', width: '150px' },
         { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '180px', orderable: false }
     ];
@@ -2765,6 +3043,9 @@ function initialiserDataTable() {
         className: def.className || '',
         width: def.width || null
     }));
+
+    let updateTopScrollWidth = function(){};
+    let evaluerScrollHorizontal = function(){};
     
     dataTableControles = $table.DataTable({
         language: {
@@ -2773,9 +3054,42 @@ function initialiserDataTable() {
         order: [[0, 'desc']],
         dom: 'lrtip',
         autoWidth: false,
+        orderClasses: true,
+        orderMulti: true,
         columnDefs: columnDefsConfig,
         initComplete: function() {
             const api = this.api();
+            function appliquerEtat(etat) {
+                if (!etat) return;
+                colonneDefs.forEach(function(def, i) {
+                    if (def && def.toggle && etat.colVisible && etat.colVisible[i] !== undefined) {
+                        api.column(i).visible(etat.colVisible[i], false);
+                    }
+                });
+                colonneDefs.forEach(function(def, i) {
+                    if (etat.filterValues && etat.filterValues[i] !== undefined) {
+                        var input = $('.table-filters input[data-col="' + i + '"]');
+                        if (input.length) {
+                            var raw = etat.filterValues[i] || '';
+                            var escaped = $.fn.dataTable.util.escapeRegex(raw);
+                            input.val(raw);
+                            api.column(i).search(escaped, true, false, true);
+                        }
+                    }
+                });
+                if (etat.toutCocher !== undefined) $('#colToggleAll').prop('checked', etat.toutCocher);
+                if (etat.pageLength) api.page.len(etat.pageLength);
+                api.draw(false);
+            }
+
+            try {
+                var savedStr = localStorage.getItem(VUE_STORAGE_KEY);
+                var saved = savedStr ? JSON.parse(savedStr) : null;
+                if (saved && (saved.colVisible || saved.filterValues)) {
+                    appliquerEtat(saved);
+                }
+            } catch (e) { }
+
             initialiserFiltres(api);
             initialiserToggles(api);
             api.columns.adjust();
@@ -2788,9 +3102,66 @@ function initialiserDataTable() {
                     }
                     new bootstrap.Tooltip(triggerEl);
                 });
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
             }, 100);
         }
     });
+
+    function setupHorizontalScrollSync() {
+        const $wrapper = $table.closest('.table-responsive');
+        const $topScroll = $wrapper.find('.table-scroll-top');
+        const $topInner = $topScroll.find('.table-scroll-inner');
+        if ($topScroll.length === 0) return;
+
+        function _evaluerScrollHorizontal() {
+            const tableWidth = $table.outerWidth();
+            const wrapperWidth = $wrapper.innerWidth();
+            if (tableWidth <= wrapperWidth + 1) {
+                $wrapper.addClass('no-horizontal-scroll');
+            } else {
+                $wrapper.removeClass('no-horizontal-scroll');
+            }
+        }
+
+        function _updateTopScrollWidth() {
+            const tableWidth = $table.outerWidth();
+            $topInner.width(tableWidth);
+            _evaluerScrollHorizontal();
+        }
+
+        let isSyncingTop = false;
+        let isSyncingBottom = false;
+        $topScroll.off('scroll.tableSync').on('scroll.tableSync', function() {
+            if (isSyncingTop) return;
+            isSyncingBottom = true;
+            $wrapper.scrollLeft($topScroll.scrollLeft());
+            isSyncingBottom = false;
+        });
+        $wrapper.off('scroll.tableSync').on('scroll.tableSync', function() {
+            if (isSyncingBottom) return;
+            isSyncingTop = true;
+            $topScroll.scrollLeft($wrapper.scrollLeft());
+            isSyncingTop = false;
+        });
+
+        updateTopScrollWidth = _updateTopScrollWidth;
+        evaluerScrollHorizontal = _evaluerScrollHorizontal;
+        updateTopScrollWidth();
+        $(window).off('resize.tableSyncP10').on('resize.tableSyncP10', function() {
+            updateTopScrollWidth();
+            evaluerScrollHorizontal();
+        });
+        dataTableControles.on('draw', function() {
+            dataTableControles.columns.adjust();
+            setTimeout(function() {
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
+            }, 0);
+        });
+    }
+
+    setupHorizontalScrollSync();
     
     function initialiserFiltres(api) {
         api.columns().every(function() {
@@ -2811,19 +3182,36 @@ function initialiserDataTable() {
     }
     
     function initialiserToggles(api) {
-        const $container = $('#columnToggleContainer');
-        if ($container.length === 0) {
-            // Créer le conteneur si il n'existe pas
-            const $togglePanel = $('<div class="column-toggle-panel"><div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div><div class="d-flex flex-wrap gap-2" id="columnToggleContainer"></div></div>');
-            $table.closest('.content-section').find('.d-flex.justify-content-between').after($togglePanel);
-        }
         const $containerFinal = $('#columnToggleContainer');
-        $containerFinal.empty();
-        
+        const $checksParent = $('#columnToggleChecks');
+        const $toggleAll = $('#colToggleAll');
+        if ($containerFinal.length === 0 || $checksParent.length === 0 || $toggleAll.length === 0) return;
+
+        // Garder "Tout cocher" dans #columnToggleChecks, supprimer les toggles colonnes (les boutons restent à droite)
+        $checksParent.children().not('#colToggleAllWrapper').remove();
+
+        function updateToggleAllState() {
+            let allVisible = true;
+            colonneDefs.forEach((def, index) => {
+                if (def && def.toggle && !api.column(index).visible()) {
+                    allVisible = false;
+                }
+            });
+            $toggleAll.prop('checked', allVisible);
+        }
+
+        $toggleAll.off('change').on('change', function() {
+            const check = this.checked;
+            colonneDefs.forEach((def, index) => {
+                if (def && def.toggle) api.column(index).visible(check, false);
+            });
+            $containerFinal.find('.form-check-input').not('#colToggleAll').prop('checked', check);
+            api.columns.adjust().draw(false);
+            setTimeout(() => { updateTopScrollWidth(); evaluerScrollHorizontal(); }, 100);
+        });
+
         colonneDefs.forEach((def, index) => {
-            if (!def || !def.toggle) {
-                return;
-            }
+            if (!def || !def.toggle) return;
             const column = api.column(index);
             const toggleId = `colToggle_${index}`;
             const isVisible = column.visible();
@@ -2833,15 +3221,41 @@ function initialiserDataTable() {
                     <label class="form-check-label" for="${toggleId}">${def.titre}</label>
                 </div>
             `);
-            
             $checkbox.find('input').on('change', function() {
                 column.visible(this.checked, false);
                 api.columns.adjust().draw(false);
+                updateToggleAllState();
+                setTimeout(() => { updateTopScrollWidth(); evaluerScrollHorizontal(); }, 50);
             });
-            
-            $containerFinal.append($checkbox);
+            $checksParent.append($checkbox);
         });
+
+        updateToggleAllState();
     }
+
+    $('#btnEnregistrerVueControles').off('click').on('click', function() {
+        var api = $('#tableControles').DataTable();
+        if (!api) return;
+        var colVisible = [];
+        var filterValues = [];
+        api.columns().every(function() {
+            colVisible.push(this.visible());
+            var input = $('.table-filters input[data-col="' + this.index() + '"]');
+            filterValues.push(input.length ? input.val() || '' : '');
+        });
+        var payload = {
+            colVisible: colVisible,
+            filterValues: filterValues,
+            toutCocher: $('#colToggleAll').prop('checked'),
+            pageLength: api.page.len()
+        };
+        try {
+            localStorage.setItem(VUE_STORAGE_KEY, JSON.stringify(payload));
+            alert('Vue enregistrée. Elle sera appliquée par défaut au prochain chargement.');
+        } catch (e) {
+            alert('Erreur lors de l\'enregistrement : ' + (e.message || 'stockage non disponible'));
+        }
+    });
     
     // Ajouter les event listeners pour les boutons d'action
     $(document).off('click', '.btn-view-controle').on('click', '.btn-view-controle', function() {
@@ -3614,7 +4028,16 @@ function creerControle() {
         return;
     }
     
-    const formData = new FormData(document.getElementById('formNouveauControle'));
+    // IMPORTANT: le formulaire peut être cloné dans le modal (IDs dupliqués).
+    // On récupère donc le formulaire "actif" (modal si ouvert, sinon page).
+    const modal = document.getElementById('modalNouveauControle');
+    const modalBody = document.getElementById('modalNouveauControleBody');
+    const formEl =
+        (modal && modal.classList.contains('active') && modalBody && modalBody.querySelector('#formNouveauControle'))
+            ? modalBody.querySelector('#formNouveauControle')
+            : document.getElementById('formNouveauControle');
+    const formRoot = (modal && modal.classList.contains('active') && modalBody) ? modalBody : document;
+    const formData = new FormData(formEl);
     const data = {};
     
     // Récupérer les données du formulaire
@@ -3635,7 +4058,7 @@ function creerControle() {
 
     // Gérer les sélections pour les opérateurs
     // Opérateur contrôle : désormais multi-sélection via tags (comme opérateurs machine)
-    const opCtrlTagsSel = document.querySelectorAll('#op_ctrl_tags .badge');
+    const opCtrlTagsSel = formRoot.querySelectorAll('#op_ctrl_tags .badge');
     data.operateur_matricules = Array.from(opCtrlTagsSel).map(t => (t.getAttribute('data-m')||'').trim());
     data.operateur_noms = Array.from(opCtrlTagsSel).map(t => (t.getAttribute('data-n')||'').trim());
     data.operateur_prenoms = Array.from(opCtrlTagsSel).map(t => (t.getAttribute('data-p')||'').trim());
@@ -3646,21 +4069,21 @@ function creerControle() {
     }).join(', ');
     
     // Opérateurs machine impression (tags sélectionnés + tableaux)
-    const opImpTagsSel = document.querySelectorAll('#op_impression_tags .badge');
+    const opImpTagsSel = formRoot.querySelectorAll('#op_impression_tags .badge');
     data.operateur_machine_impression = Array.from(opImpTagsSel).map(t => `${t.getAttribute('data-n')} ${t.getAttribute('data-p')}`).join(', ');
     data.operateur_machine_impression_matricules = Array.from(opImpTagsSel).map(t => t.getAttribute('data-m'));
     data.operateur_machine_impression_noms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-n'));
     data.operateur_machine_impression_prenoms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-p'));
     
     // Opérateurs machine découpe (tags sélectionnés)
-    const opDecTagsSel = document.querySelectorAll('#op_decoupe_tags .badge');
+    const opDecTagsSel = formRoot.querySelectorAll('#op_decoupe_tags .badge');
     data.operateur_machine_decoupe = Array.from(opDecTagsSel).map(t => `${t.getAttribute('data-n')} ${t.getAttribute('data-p')}`).join(', ');
     data.operateur_machine_decoupe_matricules = Array.from(opDecTagsSel).map(t => t.getAttribute('data-m'));
     data.operateur_machine_decoupe_noms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-n'));
     data.operateur_machine_decoupe_prenoms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-p'));
     
     // Chef de section (tag unique)
-    const chefTag = document.querySelector('#op_chef_tags .badge');
+    const chefTag = formRoot.querySelector('#op_chef_tags .badge');
     const chefM = chefTag ? (chefTag.getAttribute('data-m')||'').trim() : '';
     const chefN = chefTag ? (chefTag.getAttribute('data-n')||'').trim() : '';
     const chefP = chefTag ? (chefTag.getAttribute('data-p')||'').trim() : '';
@@ -3690,6 +4113,16 @@ function creerControle() {
     delete data.tolerance;
     delete data.quantite_conforme;
     delete data.quantite_non_conforme;
+
+    const totalConfEl = formRoot.querySelector('#total-conforme');
+    if (totalConfEl) {
+        const raw = String(totalConfEl.value || '').trim();
+        if (raw === '') data.TotalConforme = null;
+        else {
+            const tv = parseInt(totalConfEl.value, 10);
+            data.TotalConforme = Number.isNaN(tv) ? null : tv;
+        }
+    }
     
     // Afficher un indicateur de chargement
     const submitBtn = document.querySelector('button[type="submit"]');
@@ -3903,7 +4336,14 @@ function creerControle() {
 
 // Mettre à jour un contrôle
 function updateControle(id) {
-    const formData = new FormData(document.getElementById('formNouveauControle'));
+    const modal = document.getElementById('modalNouveauControle');
+    const modalBody = document.getElementById('modalNouveauControleBody');
+    const formEl =
+        (modal && modal.classList.contains('active') && modalBody && modalBody.querySelector('#formNouveauControle'))
+            ? modalBody.querySelector('#formNouveauControle')
+            : document.getElementById('formNouveauControle');
+    const formRoot = (modal && modal.classList.contains('active') && modalBody) ? modalBody : document;
+    const formData = new FormData(formEl);
     const data = {};
     for (let [key, value] of formData.entries()) {
         if (key.includes('[]')) {
@@ -3939,7 +4379,7 @@ function updateControle(id) {
         delete data.quantite_non_conforme;
     }
     // Opérateur contrôle : désormais multi-sélection via tags (comme opérateurs machine)
-    const opCtrlTagsSel = document.querySelectorAll('#op_ctrl_tags .badge');
+    const opCtrlTagsSel = formRoot.querySelectorAll('#op_ctrl_tags .badge');
     data.operateur_matricules = Array.from(opCtrlTagsSel).map(t => (t.getAttribute('data-m')||'').trim());
     data.operateur_noms = Array.from(opCtrlTagsSel).map(t => (t.getAttribute('data-n')||'').trim());
     data.operateur_prenoms = Array.from(opCtrlTagsSel).map(t => (t.getAttribute('data-p')||'').trim());
@@ -3950,21 +4390,21 @@ function updateControle(id) {
     }).join(', ');
     
     // Opérateurs machine impression (tags sélectionnés + tableaux)
-    const opImpTagsSel = document.querySelectorAll('#op_impression_tags .badge');
+    const opImpTagsSel = formRoot.querySelectorAll('#op_impression_tags .badge');
     data.operateur_machine_impression = Array.from(opImpTagsSel).map(t => `${t.getAttribute('data-n')} ${t.getAttribute('data-p')}`).join(', ');
     data.operateur_machine_impression_matricules = Array.from(opImpTagsSel).map(t => t.getAttribute('data-m'));
     data.operateur_machine_impression_noms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-n'));
     data.operateur_machine_impression_prenoms = Array.from(opImpTagsSel).map(t => t.getAttribute('data-p'));
     
     // Opérateurs machine découpe (tags sélectionnés)
-    const opDecTagsSel = document.querySelectorAll('#op_decoupe_tags .badge');
+    const opDecTagsSel = formRoot.querySelectorAll('#op_decoupe_tags .badge');
     data.operateur_machine_decoupe = Array.from(opDecTagsSel).map(t => `${t.getAttribute('data-n')} ${t.getAttribute('data-p')}`).join(', ');
     data.operateur_machine_decoupe_matricules = Array.from(opDecTagsSel).map(t => t.getAttribute('data-m'));
     data.operateur_machine_decoupe_noms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-n'));
     data.operateur_machine_decoupe_prenoms = Array.from(opDecTagsSel).map(t => t.getAttribute('data-p'));
     
     // Chef de section (tag unique)
-    const chefTag = document.querySelector('#op_chef_tags .badge');
+    const chefTag = formRoot.querySelector('#op_chef_tags .badge');
     const chefM = chefTag ? (chefTag.getAttribute('data-m')||'').trim() : '';
     const chefN = chefTag ? (chefTag.getAttribute('data-n')||'').trim() : '';
     const chefP = chefTag ? (chefTag.getAttribute('data-p')||'').trim() : '';
@@ -3972,6 +4412,16 @@ function updateControle(id) {
     data.chef_nom = chefN;
     data.chef_prenom = chefP;
     data.validation_chef = (chefN && chefP) ? `${chefN} ${chefP}` : '';
+
+    const totalConfElUp = formRoot.querySelector('#total-conforme');
+    if (totalConfElUp) {
+        const rawUp = String(totalConfElUp.value || '').trim();
+        if (rawUp === '') data.TotalConforme = null;
+        else {
+            const tv = parseInt(totalConfElUp.value, 10);
+            data.TotalConforme = Number.isNaN(tv) ? null : tv;
+        }
+    }
 
     const submitBtn = document.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
@@ -3992,14 +4442,16 @@ function updateControle(id) {
             const isModalOpen = modalNouveauControle && modalNouveauControle.classList.contains('active');
             
             if (isModalOpen) {
-                // Si la popup est ouverte : fermer la popup après mise à jour (comportement normal pour édition)
+                window.__EDIT_ID__ = null;
                 if (typeof window.fermerModalNouveauControle === 'function') {
                     window.fermerModalNouveauControle();
                 }
-                // Ne pas charger la liste automatiquement
+                if (typeof chargerControles === 'function') {
+                    chargerControles();
+                }
             } else {
                 // Si la popup n'est pas ouverte (mode plein écran ou section normale) : comportement normal
-                __EDIT_ID__ = null;
+                window.__EDIT_ID__ = null;
                 reinitialiserFormulaire();
                 chargerControles();
                 // Ouvrir la section Contrôles
@@ -4137,23 +4589,24 @@ function voirControle(id) {
                 return n.toLocaleString('fr-FR', { useGrouping: true, minimumFractionDigits: 0, maximumFractionDigits: 0 });
             }
 
-            // Calculer les totaux
-            // IMPORTANT: Seule la dernière ligne compte pour les non-conformes (= rebus final)
-            // Les non-conformes des lignes précédentes sont retriées avec tolérances plus élevées
+            // Totaux affichés : valeurs enregistrées (pied de fiche) si présentes, sinon dérivées des lignes
             let totalConforme = 0;
-            let totalNonConforme = 0; // Seule la dernière ligne non vide
-            
+            let totalNonConforme = 0;
             tolerances.forEach(t => {
                 totalConforme += parseInt(t.quantite_conforme || 0);
             });
-            
-            // Trouver la dernière ligne non vide pour le rebus
             for (let i = tolerances.length - 1; i >= 0; i--) {
                 const t = tolerances[i];
                 if (t.quantite_conforme || t.quantite_non_conforme || t.tolerance) {
                     totalNonConforme = parseInt(t.quantite_non_conforme || 0);
                     break;
                 }
+            }
+            if (c.TotalConforme !== undefined && c.TotalConforme !== null) {
+                totalConforme = parseInt(c.TotalConforme, 10) || 0;
+            }
+            if (c.rebus !== undefined && c.rebus !== null) {
+                totalNonConforme = parseInt(c.rebus, 10) || 0;
             }
 
             // Construire 9 lignes (compléter avec lignes vides si besoin)
@@ -4226,7 +4679,7 @@ function voirControle(id) {
                                 <tr style="background-color:#f0f0f0; font-weight:bold;">
                                     <td style="border:1px solid #000; padding:6px; text-align:right;">TOTAL :</td>
                                     <td style="border:1px solid #000; padding:6px; text-align:center;">${formatNumber(totalConforme)}</td>
-                                    <td style="border:1px solid #000; padding:6px; text-align:center;">${formatNumber(totalNonConforme)} <span style="font-size:0.85em; font-weight:normal;">(dernière ligne)</span></td>
+                                    <td style="border:1px solid #000; padding:6px; text-align:center;">${formatNumber(totalNonConforme)}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -4333,24 +4786,39 @@ function supprimerControle(id) {
 
 // Éditer un contrôle
 function editerControle(id) {
-    __EDIT_ID__ = id;
+    window.__EDIT_ID__ = id;
     fetch(`/projet10/api/controle/${id}`)
         .then(res => res.json())
         .then(data => {
             if (data.error) { showNotification('Erreur: '+data.error, 'error'); return; }
-            // Remplir formulaire
-            // Ouvrir la section Nouveau Contrôle
-            // NE PAS ouvrir automatiquement la section nouveau
-            // Cette fonctionnalité a été désactivée pour éviter les conflits
-            // const toggleNouveau = document.getElementById('toggle-nouveau');
-            // if (toggleNouveau && !document.getElementById('section-nouveau').classList.contains('active')) {
-            //     toggleNouveau.click();
-            // }
-            document.getElementById('date_controle').value = (data.date_controle||'').split('T')[0] || '';
-            document.getElementById('Numero_COMMANDES').value = data.Numero_COMMANDES || '';
+            const formRoot = document.getElementById('section-nouveau');
+            if (!formRoot) {
+                showNotification('Erreur: formulaire introuvable.', 'error');
+                return;
+            }
+            function byId(fid) { return formRoot.querySelector('#' + fid); }
+            window.__P10_PREFILL_DATE__ = p10DatePourInputDate(data.date_controle);
+            window.__P10_PREFILL_MACHINE_IMP__ = (data.machine_impression || '').trim();
+            window.__P10_PREFILL_MACHINE_DEC__ = (data.machine_decoupe || '').trim();
+            // Remplir la source cachée #section-nouveau puis ouvrir le modal (clone = formulaire visible)
+            const dc0 = byId('date_controle');
+            const num0 = byId('Numero_COMMANDES');
+            if (dc0) dc0.value = window.__P10_PREFILL_DATE__ || '';
+            if (num0) num0.value = data.Numero_COMMANDES || '';
+            const articleInput = byId('Article');
+            if (articleInput) {
+                articleInput.value = data.Article || '';
+            }
+            const tauxRebutsInput = byId('TauxRebuts');
+            if (tauxRebutsInput) {
+                const v = (data.TauxRebuts !== undefined && data.TauxRebuts !== null) ? Number(data.TauxRebuts) : 0;
+                tauxRebutsInput.value = String(v.toFixed(2));
+                const aff = byId('TauxRebutsAff');
+                if (aff) aff.value = `${v.toFixed(2).replace('.', ',')}%`;
+            }
             // Opérateur contrôle : reconstruire les tags (multi-sélection)
-            const opCtrlTags = document.getElementById('op_ctrl_tags');
-            const opCtrlInput = document.getElementById('op_ctrl_input');
+            const opCtrlTags = byId('op_ctrl_tags');
+            const opCtrlInput = byId('op_ctrl_input');
             if (opCtrlTags) {
                 opCtrlTags.innerHTML = '';
                 // Priorité aux tableaux détaillés (matricules / noms / prénoms)
@@ -4397,9 +4865,10 @@ function editerControle(id) {
                 opCtrlInput.value = '';
                 opCtrlInput.removeAttribute('data-matricule');
             }
-            document.getElementById('machine_impression').value = data.machine_impression || '';
+            const machineImpEl = byId('machine_impression');
+            if (machineImpEl) machineImpEl.value = data.machine_impression || '';
             // Opérateurs machine impression (tags)
-            const opImpTags = document.getElementById('op_impression_tags');
+            const opImpTags = byId('op_impression_tags');
             if (opImpTags) {
                 opImpTags.innerHTML = '';
                 if (Array.isArray(data.operateur_machine_impression_matricules) && Array.isArray(data.operateur_machine_impression_noms) && Array.isArray(data.operateur_machine_impression_prenoms)) {
@@ -4436,9 +4905,10 @@ function editerControle(id) {
             }
             
             // Machine de découpe
-            document.getElementById('machine_decoupe').value = data.machine_decoupe || '';
+            const machineDecEl = byId('machine_decoupe');
+            if (machineDecEl) machineDecEl.value = data.machine_decoupe || '';
             // Opérateurs machine découpe (tags)
-            const opDecTags = document.getElementById('op_decoupe_tags');
+            const opDecTags = byId('op_decoupe_tags');
             if (opDecTags) {
                 opDecTags.innerHTML = '';
                 if (Array.isArray(data.operateur_machine_decoupe_matricules) && Array.isArray(data.operateur_machine_decoupe_noms) && Array.isArray(data.operateur_machine_decoupe_prenoms)) {
@@ -4475,11 +4945,11 @@ function editerControle(id) {
             }
             // Chef section
             if (data.chef_matricule) {
-                const sel = document.getElementById('chef_matricule');
+                const sel = byId('chef_matricule');
                 if (sel) sel.value = data.chef_matricule;
             }
-            const chefNomEl = document.getElementById('chef_nom');
-            const chefPrenomEl = document.getElementById('chef_prenom');
+            const chefNomEl = byId('chef_nom');
+            const chefPrenomEl = byId('chef_prenom');
             if (data.chef_nom && chefNomEl) chefNomEl.value = data.chef_nom;
             if (data.chef_prenom && chefPrenomEl) chefPrenomEl.value = data.chef_prenom;
             if (!data.chef_nom && !data.chef_prenom && typeof data.validation_chef === 'string') {
@@ -4490,7 +4960,8 @@ function editerControle(id) {
             // Tolérances (accepte 'tolerances' ou 'tolérances') — garder la même grille qu'en création
             (function(){
                 const list = Array.isArray(data.tolerances) ? data.tolerances : (Array.isArray(data['tolérances']) ? data['tolérances'] : []);
-                const tbody = document.getElementById('tolerances-container');
+                const tbody = byId('tolerances-container');
+                if (!tbody) return;
                 // 1) S'assurer d'avoir au moins 9 lignes visibles (comme en saisie)
                 function appendRow(){
                     const tr = document.createElement('tr');
@@ -4526,11 +4997,9 @@ function editerControle(id) {
                     qnInputs[i].value = list[i].quantite_non_conforme || 0;
                 }
             })();
-            // Rebus et tolérances (si disponibles simplifié)
-            document.getElementById('rebus').value = data.rebus || 0;
             // Chef section (tag)
             (function(){
-                const opChefTags = document.getElementById('op_chef_tags');
+                const opChefTags = byId('op_chef_tags');
                 if (!opChefTags) return;
                 opChefTags.innerHTML = '';
                 const m = data.chef_matricule || '';
@@ -4552,7 +5021,22 @@ function editerControle(id) {
                     opChefTags.appendChild(tag);
                 }
             })();
-            calculerTotaux();
+            calculerTotaux(formRoot);
+            if (typeof p10AppliquerTotauxEnregistresSurFormulaire === 'function') {
+                p10AppliquerTotauxEnregistresSurFormulaire(formRoot, data);
+            }
+            if (typeof window.ouvrirModalNouveauControle === 'function') {
+                window.ouvrirModalNouveauControle();
+            }
+            setTimeout(function() {
+                const mb = document.getElementById('modalNouveauControleBody');
+                if (mb && typeof calculerTotaux === 'function') {
+                    calculerTotaux(mb);
+                }
+                if (mb && typeof p10AppliquerTotauxEnregistresSurFormulaire === 'function') {
+                    p10AppliquerTotauxEnregistresSurFormulaire(mb, data);
+                }
+            }, 400);
         })
         .catch(err => { console.error(err); showNotification('Erreur de chargement', 'error'); });
 }
@@ -4562,10 +5046,73 @@ function actualiserControles() {
     chargerControles();
 }
 
+/** Conteneur formulaire (modal ou section) pour le pied du tableau tolérances */
+function p10TolerancesContainer(el) {
+    if (el && el.closest) {
+        const mb = el.closest('#modalNouveauControleBody');
+        if (mb) return mb;
+        const sn = el.closest('#section-nouveau');
+        if (sn) return sn;
+    }
+    return document.getElementById('modalNouveauControleBody') || document.getElementById('section-nouveau') || document;
+}
+
+/** Après calculerTotaux : réapplique total conforme et rebus enregistrés (édition / modal). */
+function p10AppliquerTotauxEnregistresSurFormulaire(container, data) {
+    if (!container || !data) return;
+    const tc = container.querySelector('#total-conforme');
+    const tnc = container.querySelector('#total-non-conforme');
+    const rebusInput = container.querySelector('#rebus');
+    if (data.rebus !== undefined && data.rebus !== null && String(data.rebus).trim() !== '') {
+        const n = parseInt(data.rebus, 10) || 0;
+        if (tnc && tnc.tagName === 'INPUT') tnc.value = String(n);
+        if (rebusInput) rebusInput.value = n;
+    }
+    if (data.TotalConforme !== undefined && data.TotalConforme !== null) {
+        const c = parseInt(data.TotalConforme, 10);
+        if (!Number.isNaN(c) && tc && tc.tagName === 'INPUT') tc.value = String(c);
+    }
+    const elSync = tc || tnc;
+    if (elSync && typeof p10OnFooterTotalManuel === 'function') {
+        p10OnFooterTotalManuel(elSync);
+    }
+}
+
+/**
+ * Saisie manuelle des totaux (pied du tableau) : résumé, Rebuts et taux alignés sur ces valeurs.
+ */
+function p10OnFooterTotalManuel(el) {
+    const container = p10TolerancesContainer(el);
+    const tc = container.querySelector('#total-conforme');
+    const tnc = container.querySelector('#total-non-conforme');
+    const c = tc ? (parseInt(tc.value, 10) || 0) : 0;
+    const nc = tnc ? (parseInt(tnc.value, 10) || 0) : 0;
+    const resumeConformeEl = container.querySelector('#resume-conforme');
+    const resumeRebusEl = container.querySelector('#resume-rebus');
+    const resumeTotalEl = container.querySelector('#resume-total');
+    if (resumeConformeEl) resumeConformeEl.textContent = c.toLocaleString('fr-FR');
+    if (resumeRebusEl) resumeRebusEl.textContent = nc.toLocaleString('fr-FR');
+    if (resumeTotalEl) resumeTotalEl.textContent = (c + nc).toLocaleString('fr-FR');
+    const rebusInput = container.querySelector('#rebus');
+    if (rebusInput) rebusInput.value = nc;
+    const inputsConforme = container.querySelectorAll('input[name="quantite_conforme[]"]');
+    const inputsNonConforme = container.querySelectorAll('input[name="quantite_non_conforme[]"]');
+    const qConf1 = inputsConforme.length ? (parseInt(inputsConforme[0].value, 10) || 0) : 0;
+    const qNonConf1 = inputsNonConforme.length ? (parseInt(inputsNonConforme[0].value, 10) || 0) : 0;
+    const qteTotalPremiereLigne = qConf1 + qNonConf1;
+    const tauxRebutsInput = container.querySelector('#TauxRebuts');
+    const tauxRebutsAffInput = container.querySelector('#TauxRebutsAff');
+    const taux = qteTotalPremiereLigne > 0 ? (nc * 100.0 / qteTotalPremiereLigne) : 0;
+    const tauxFixed = Number(taux.toFixed(2));
+    if (tauxRebutsInput) tauxRebutsInput.value = String(tauxFixed.toFixed(2));
+    if (tauxRebutsAffInput) tauxRebutsAffInput.value = `${tauxFixed.toFixed(2).replace('.', ',')}%`;
+}
+
 // Calculer les totaux automatiquement
 function calculerTotaux(container) {
     let totalConforme = 0;
     let rebusCalcule = 0; // Quantité non-conforme de la dernière ligne
+    let qteTotalPremiereLigne = 0; // Conforme + Non-conforme de la 1ère ligne
     
     // Déterminer le bon container (plein écran > modal ouvert > page)
     if (!container) {
@@ -4589,6 +5136,11 @@ function calculerTotaux(container) {
     const inputsConforme = container.querySelectorAll('input[name="quantite_conforme[]"]');
     const inputsNonConforme = container.querySelectorAll('input[name="quantite_non_conforme[]"]');
     
+    // Quantité totale = 1ère ligne uniquement (règle métier demandée)
+    const qConf1 = inputsConforme && inputsConforme.length ? (parseInt(inputsConforme[0].value) || 0) : 0;
+    const qNonConf1 = inputsNonConforme && inputsNonConforme.length ? (parseInt(inputsNonConforme[0].value) || 0) : 0;
+    qteTotalPremiereLigne = qConf1 + qNonConf1;
+    
     inputsConforme.forEach(function(input) {
         totalConforme += parseInt(input.value) || 0;
     });
@@ -4609,20 +5161,40 @@ function calculerTotaux(container) {
     if (rebusInput) {
         rebusInput.value = rebusCalcule;
     }
+
+    // Calculer et mettre à jour le champ "Taux de Rebuts" (% arrondi à 2 décimales)
+    const tauxRebutsInput = container.querySelector('#TauxRebuts');
+    const tauxRebutsAffInput = container.querySelector('#TauxRebutsAff');
+    if (tauxRebutsInput || tauxRebutsAffInput) {
+        const taux = qteTotalPremiereLigne > 0 ? (rebusCalcule * 100.0 / qteTotalPremiereLigne) : 0;
+        const tauxFixed = Number(taux.toFixed(2));
+        if (tauxRebutsInput) {
+            // Valeur numérique pour l'API / base (avec point)
+            tauxRebutsInput.value = String(tauxFixed.toFixed(2));
+        }
+        if (tauxRebutsAffInput) {
+            // Affichage FR avec virgule + symbole %
+            tauxRebutsAffInput.value = `${tauxFixed.toFixed(2).replace('.', ',')}%`;
+        }
+    }
     
-    // Mettre à jour les totaux dans le tableau
+    // Mettre à jour les totaux dans le tableau (champs modifiables : valeur numérique brute)
     const totalConformeEl = container.querySelector('#total-conforme');
     const totalNonConformeEl = container.querySelector('#total-non-conforme');
-    if (totalConformeEl) totalConformeEl.textContent = totalConforme.toLocaleString('fr-FR');
-    if (totalNonConformeEl) totalNonConformeEl.textContent = rebusCalcule.toLocaleString('fr-FR') + ' (dernière ligne)';
+    if (totalConformeEl) {
+        if (totalConformeEl.tagName === 'INPUT') totalConformeEl.value = String(totalConforme);
+        else totalConformeEl.textContent = totalConforme.toLocaleString('fr-FR');
+    }
+    if (totalNonConformeEl) {
+        if (totalNonConformeEl.tagName === 'INPUT') totalNonConformeEl.value = String(rebusCalcule);
+        else totalNonConformeEl.textContent = rebusCalcule.toLocaleString('fr-FR') + ' (dernière ligne)';
+    }
     
     // Mettre à jour le résumé
     const resumeConformeEl = container.querySelector('#resume-conforme');
-    const resumeNonConformeEl = container.querySelector('#resume-non-conforme');
     const resumeRebusEl = container.querySelector('#resume-rebus');
     const resumeTotalEl = container.querySelector('#resume-total');
     if (resumeConformeEl) resumeConformeEl.textContent = totalConforme.toLocaleString('fr-FR');
-    if (resumeNonConformeEl) resumeNonConformeEl.textContent = rebusCalcule.toLocaleString('fr-FR');
     if (resumeRebusEl) resumeRebusEl.textContent = rebusCalcule.toLocaleString('fr-FR');
     if (resumeTotalEl) resumeTotalEl.textContent = (totalConforme + rebusCalcule).toLocaleString('fr-FR');
 }
@@ -4873,13 +5445,18 @@ if (typeof window.reinitialiserFormulaire === 'undefined') {
     const totalConformeEl = container.querySelector('#total-conforme') || document.getElementById('total-conforme');
     const totalNonConformeEl = container.querySelector('#total-non-conforme') || document.getElementById('total-non-conforme');
     const resumeConformeEl = container.querySelector('#resume-conforme') || document.getElementById('resume-conforme');
-    const resumeNonConformeEl = container.querySelector('#resume-non-conforme') || document.getElementById('resume-non-conforme');
+    // Total Non-conforme supprimé du résumé (identique à Rebuts)
     const resumeRebusEl = container.querySelector('#resume-rebus') || document.getElementById('resume-rebus');
     const resumeTotalEl = container.querySelector('#resume-total') || document.getElementById('resume-total');
-    if (totalConformeEl) totalConformeEl.textContent = '0';
-    if (totalNonConformeEl) totalNonConformeEl.textContent = '0';
+    if (totalConformeEl) {
+        if (totalConformeEl.tagName === 'INPUT') totalConformeEl.value = '0';
+        else totalConformeEl.textContent = '0';
+    }
+    if (totalNonConformeEl) {
+        if (totalNonConformeEl.tagName === 'INPUT') totalNonConformeEl.value = '0';
+        else totalNonConformeEl.textContent = '0';
+    }
     if (resumeConformeEl) resumeConformeEl.textContent = '0';
-    if (resumeNonConformeEl) resumeNonConformeEl.textContent = '0';
     if (resumeRebusEl) resumeRebusEl.textContent = '0';
     if (resumeTotalEl) resumeTotalEl.textContent = '0';
     

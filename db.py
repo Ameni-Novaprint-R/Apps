@@ -568,6 +568,35 @@ def get_alertes_retard():
 # ---------------------------
 # PROJET 10 - CONTRÔLE QUALITÉ
 # ---------------------------
+def _ensure_projet10_schema():
+    """
+    Assure la présence des colonnes nécessaires au Projet 10.
+    - WEB_CONTROLES_QUALITE.Article : article saisi (pré-rempli depuis COMMANDES.Reference mais modifiable)
+    """
+    with get_db_cursor() as cursor:
+        # Ajouter Article si absent (SQL Server)
+        cursor.execute("""
+            IF COL_LENGTH('WEB_CONTROLES_QUALITE', 'Article') IS NULL
+            BEGIN
+                ALTER TABLE WEB_CONTROLES_QUALITE ADD Article NVARCHAR(255) NULL
+            END
+        """)
+        # Ajouter TauxRebuts si absent (pourcentage, ex: 2.35)
+        cursor.execute("""
+            IF COL_LENGTH('WEB_CONTROLES_QUALITE', 'TauxRebuts') IS NULL
+            BEGIN
+                ALTER TABLE WEB_CONTROLES_QUALITE ADD TauxRebuts DECIMAL(10,2) NULL
+            END
+        """)
+        # Total conforme affiché / saisi manuellement (pied du tableau) — distinct de la somme des lignes
+        cursor.execute("""
+            IF COL_LENGTH('WEB_CONTROLES_QUALITE', 'TotalConforme') IS NULL
+            BEGIN
+                ALTER TABLE WEB_CONTROLES_QUALITE ADD TotalConforme INT NULL
+            END
+        """)
+        cursor.connection.commit()
+
 def get_numeros_commandes_disponibles():
     """Récupère tous les numéros de commandes disponibles pour le contrôle qualité avec client et référence"""
     with get_db_cursor() as cursor:
@@ -596,26 +625,50 @@ def get_numeros_commandes_disponibles():
         return commandes
 
 # ---------------------------
+# DIAGNOSTIC PROJET 10
+# ---------------------------
+def get_projet10_schema_info():
+    """Retourne des infos simples pour vérifier le schéma côté SQL Server."""
+    _ensure_projet10_schema()
+    with get_db_cursor() as cursor:
+        cursor.execute("SELECT DB_NAME() AS db_name")
+        db_name = cursor.fetchone().db_name
+        cursor.execute("SELECT COL_LENGTH('WEB_CONTROLES_QUALITE', 'Article') AS article_col_len")
+        article_col_len = cursor.fetchone().article_col_len
+        return {
+            "db_name": db_name,
+            "WEB_CONTROLES_QUALITE.Article_exists": article_col_len is not None,
+            "WEB_CONTROLES_QUALITE.Article_col_len": article_col_len,
+        }
+
+# ---------------------------
 # CONTRÔLE QUALITÉ
 # ---------------------------
 def get_controles_qualite():
     """Récupère tous les contrôles qualité"""
+    _ensure_projet10_schema()
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT 
-                id,
-                date_controle,
-                Numero_COMMANDES,
-                operateur,
-                machine_impression,
-                operateur_machine_impression,
-                machine_decoupe,
-                operateur_machine_decoupe,
-                rebus,
-                validation_chef,
-                date_creation
-            FROM WEB_CONTROLES_QUALITE
-            ORDER BY date_controle DESC, date_creation DESC
+                W.id,
+                W.date_controle,
+                W.Numero_COMMANDES,
+                W.Article,
+                W.TauxRebuts,
+                W.TotalConforme,
+                S.RaiSocTri AS Client,
+                W.operateur,
+                W.machine_impression,
+                W.operateur_machine_impression,
+                W.machine_decoupe,
+                W.operateur_machine_decoupe,
+                W.rebus,
+                W.validation_chef,
+                W.date_creation
+            FROM WEB_CONTROLES_QUALITE W
+            LEFT JOIN COMMANDES C ON LTRIM(RTRIM(C.Numero)) = LTRIM(RTRIM(W.Numero_COMMANDES))
+            LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
+            ORDER BY W.date_controle DESC, W.date_creation DESC
         """)
         controles = []
         for row in cursor.fetchall():
@@ -623,6 +676,11 @@ def get_controles_qualite():
                 "id": row.id,
                 "date_controle": row.date_controle,
                 "Numero_COMMANDES": row.Numero_COMMANDES,
+                # Article est saisi côté web, pré-rempli depuis COMMANDES.Reference mais modifiable
+                "Article": (row.Article or '').strip(),
+                "TauxRebuts": float(row.TauxRebuts) if row.TauxRebuts is not None else None,
+                "TotalConforme": int(row.TotalConforme) if getattr(row, "TotalConforme", None) is not None else None,
+                "Client": (row.Client or '').strip(),
                 "operateur": row.operateur,
                 "machine_impression": row.machine_impression,
                 "operateur_machine_impression": row.operateur_machine_impression,
@@ -636,12 +694,16 @@ def get_controles_qualite():
 
 def get_controle_qualite_by_id(controle_id):
     """Récupère un contrôle qualité par ID avec ses tolérances"""
+    _ensure_projet10_schema()
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT 
                 id,
                 date_controle,
                 Numero_COMMANDES,
+                Article,
+                TauxRebuts,
+                TotalConforme,
                 operateur,
                 machine_impression,
                 operateur_machine_impression,
@@ -731,6 +793,9 @@ def get_controle_qualite_by_id(controle_id):
             "id": controle.id,
             "date_controle": controle.date_controle,
             "Numero_COMMANDES": controle.Numero_COMMANDES,
+            "Article": (getattr(controle, 'Article', None) or '').strip(),
+            "TauxRebuts": float(getattr(controle, 'TauxRebuts', None)) if getattr(controle, 'TauxRebuts', None) is not None else None,
+            "TotalConforme": int(controle.TotalConforme) if getattr(controle, "TotalConforme", None) is not None else None,
             "operateur": controle.operateur,
             "machine_impression": controle.machine_impression,
             "operateur_machine_impression": controle.operateur_machine_impression,
@@ -756,6 +821,7 @@ def get_controle_qualite_by_id(controle_id):
 
 def get_controle_qualite_by_numero(numero_commande):
     """Récupère le contrôle qualité le plus récent par numéro de commande avec ses tolérances"""
+    _ensure_projet10_schema()
     with get_db_cursor() as cursor:
         # Nettoyer le numéro de commande (enlever les espaces)
         numero_clean = numero_commande.strip() if numero_commande else ''
@@ -765,6 +831,8 @@ def get_controle_qualite_by_numero(numero_commande):
                 id,
                 date_controle,
                 Numero_COMMANDES,
+                Article,
+                TauxRebuts,
                 operateur,
                 machine_impression,
                 operateur_machine_impression,
@@ -805,6 +873,8 @@ def get_controle_qualite_by_numero(numero_commande):
             "id": controle.id,
             "date_controle": controle.date_controle,
             "Numero_COMMANDES": controle.Numero_COMMANDES,
+            "Article": (getattr(controle, 'Article', None) or '').strip(),
+            "TauxRebuts": float(getattr(controle, 'TauxRebuts', None)) if getattr(controle, 'TauxRebuts', None) is not None else None,
             "operateur": controle.operateur,
             "machine_impression": controle.machine_impression,
             "operateur_machine_impression": controle.operateur_machine_impression,
@@ -821,19 +891,23 @@ def get_controle_qualite_by_numero(numero_commande):
 def create_controle_qualite(data):
     """Crée un nouveau contrôle qualité"""
     try:
+        _ensure_projet10_schema()
         with get_db_cursor() as cursor:
             # Insérer le contrôle qualité et récupérer l'ID directement
             print(f"DEBUG CREATE: Insertion contrôle avec data={data}")
             cursor.execute("""
                 INSERT INTO WEB_CONTROLES_QUALITE (
-                    date_controle, Numero_COMMANDES, operateur, machine_impression, operateur_machine_impression, 
+                    date_controle, Numero_COMMANDES, Article, TauxRebuts, TotalConforme, operateur, machine_impression, operateur_machine_impression, 
                     machine_decoupe, operateur_machine_decoupe, rebus, validation_chef, date_creation
                 )
                 OUTPUT INSERTED.id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
             """, (
                 data['date_controle'],
                 data['Numero_COMMANDES'],
+                (data.get('Article') or '').strip(),
+                data.get('TauxRebuts', None),
+                data.get('TotalConforme', None),
                 data['operateur'],
                 data.get('machine_impression', ''),
                 data.get('operateur_machine_impression', ''),
@@ -881,12 +955,16 @@ def create_controle_qualite(data):
 def update_controle_qualite(controle_id, data):
     """Met à jour un contrôle qualité"""
     try:
+        _ensure_projet10_schema()
         with get_db_cursor() as cursor:
             # Mettre à jour le contrôle qualité
             cursor.execute("""
                 UPDATE WEB_CONTROLES_QUALITE SET
                     date_controle = ?,
                     Numero_COMMANDES = ?,
+                    Article = ?,
+                    TauxRebuts = ?,
+                    TotalConforme = ?,
                     operateur = ?,
                     machine_impression = ?,
                     operateur_machine_impression = ?,
@@ -898,6 +976,9 @@ def update_controle_qualite(controle_id, data):
             """, (
                 data['date_controle'],
                 data['Numero_COMMANDES'],
+                (data.get('Article') or '').strip(),
+                data.get('TauxRebuts', None),
+                data.get('TotalConforme', None),
                 data['operateur'],
                 data.get('machine_impression', ''),
                 data.get('operateur_machine_impression', ''),

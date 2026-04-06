@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, render_template, request, Response
+from flask import redirect, url_for, flash
 import io
 import base64
 from db import (
@@ -18,6 +19,7 @@ from db import (
     get_machines_impression,
     get_machines_decoupe,
     get_traitement_data_for_controle,
+    get_projet10_schema_info,
     get_db_cursor
 )
 from logic.auth import get_user_sections, is_super_user, has_action_access
@@ -135,6 +137,62 @@ def api_controles():
     """API pour récupérer tous les contrôles qualité"""
     return jsonify(get_controles_qualite())
 
+@bp.route("/controles/export-excel")
+def export_controles_excel():
+    """Export de la liste des contrôles (Excel) - vérifie ID_Action 6."""
+    if not is_super_user() and not has_action_access(6):
+        flash("Vous n'avez pas accès à cette action (Export Excel).", "error")
+        return redirect(url_for('projet10.index'))
+    try:
+        import pandas as pd
+        from io import BytesIO
+        from datetime import datetime
+
+        controles = get_controles_qualite() or []
+        if not controles:
+            return jsonify({"error": "Aucun contrôle à exporter"}), 404
+
+        rows = []
+        for c in controles:
+            rows.append({
+                "ID": c.get("id", ""),
+                "Date": c.get("date_controle", ""),
+                "N° Dossier": c.get("Numero_COMMANDES", ""),
+                "Article": c.get("Article", ""),
+                "Client": c.get("Client", ""),
+                "Opérateur": c.get("operateur", ""),
+                "Machine Impression": c.get("machine_impression", ""),
+                "Opérateur M. d'impression": c.get("operateur_machine_impression", ""),
+                "Machine Découpe": c.get("machine_decoupe", ""),
+                "Opérateur M. de découpe": c.get("operateur_machine_decoupe", ""),
+                "Rebuts": c.get("rebus", 0),
+                "Total conforme (enreg.)": c.get("TotalConforme", ""),
+                "Taux de Rebuts (%)": c.get("TauxRebuts", ""),
+                "Validation": c.get("validation_chef", ""),
+            })
+
+        df = pd.DataFrame(rows)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Controles", index=False)
+            worksheet = writer.sheets["Controles"]
+            for idx, col in enumerate(df.columns):
+                max_length = max(df[col].astype(str).map(len).max(), len(str(col)))
+                col_letter = chr(65 + idx) if idx < 26 else "A" + chr(65 + idx - 26)
+                worksheet.column_dimensions[col_letter].width = min(max_length + 2, 50)
+
+        output.seek(0)
+        filename = f"controles_projet10_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return Response(
+            output.getvalue(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except ImportError:
+        return jsonify({"error": "pandas et openpyxl sont requis pour l'export Excel"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @bp.route("/api/controle/<int:controle_id>")
 def api_controle(controle_id):
     """API pour récupérer un contrôle qualité par ID"""
@@ -155,6 +213,11 @@ def fiche_controle(controle_id: int):
 def api_numeros_commandes():
     """API pour récupérer les numéros de commandes disponibles"""
     return jsonify(get_numeros_commandes_disponibles())
+
+@bp.route("/api/debug/schema")
+def api_debug_schema():
+    """Diagnostic: vérifier schéma et base active pour projet10."""
+    return jsonify(get_projet10_schema_info())
 
 @bp.route("/api/statistiques")
 def api_statistiques():
