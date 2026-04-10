@@ -15,7 +15,7 @@ from openpyxl.styles import PatternFill
 projet21_bp = Blueprint('projet21', __name__, url_prefix='/projet21')
 
 # Marqueur pour vérifier quelle version du code est chargée par Flask
-PROJET21_CODE_VERSION = "projet21_routes.py::topo-sort-update-ultime-v3::2026-01-19"
+PROJET21_CODE_VERSION = "projet21_routes.py::orphan-delete-target-map-v4::2026-04-06"
 
 # Configuration des bases de données
 SOURCE_CONFIG = {
@@ -343,6 +343,73 @@ def compare_rows_for_update(source_row_dict, target_row_dict, exclude_cols=None)
                     update_values[col] = source_val
     
     return len(diff_cols) > 0, diff_cols, update_values
+
+
+def sync_delete_orphan_rows_from_table(source_cursor, target_cursor, target_conn, table_name, pk_columns, sync_status):
+    """
+    Supprime en base cible les lignes dont la PK n'existe plus dans la source.
+    Lecture seule sur la source. Écriture uniquement sur la cible.
+    À appeler dans l'ordre inverse du tri topologique (enfants avant parents, FK).
+    """
+    deleted = 0
+    pk_select = ", ".join([f"[{pk}]" for pk in pk_columns])
+    try:
+        source_cursor.execute(f"SELECT {pk_select} FROM [{table_name}]")
+        source_pks = set()
+        for row in source_cursor.fetchall():
+            if len(pk_columns) == 1:
+                source_pks.add(row[0])
+            else:
+                source_pks.add(tuple(row))
+
+        target_cursor.execute(f"SELECT {pk_select} FROM [{table_name}]")
+        target_pk_list = []
+        for row in target_cursor.fetchall():
+            if len(pk_columns) == 1:
+                target_pk_list.append(row[0])
+            else:
+                target_pk_list.append(tuple(row))
+
+        orphans = [pk for pk in target_pk_list if pk not in source_pks]
+        if not orphans:
+            return 0
+
+        batch_size = 500
+        if len(pk_columns) == 1:
+            col = pk_columns[0]
+            for i in range(0, len(orphans), batch_size):
+                batch = orphans[i : i + batch_size]
+                placeholders = ", ".join(["?"] * len(batch))
+                target_cursor.execute(
+                    f"DELETE FROM [{table_name}] WHERE [{col}] IN ({placeholders})",
+                    tuple(batch),
+                )
+                rc = target_cursor.rowcount
+                deleted += len(batch) if rc == -1 else rc
+        else:
+            where_parts = [f"[{pk}] = ?" for pk in pk_columns]
+            where_sql = " AND ".join(where_parts)
+            for pk in orphans:
+                target_cursor.execute(
+                    f"DELETE FROM [{table_name}] WHERE {where_sql}",
+                    tuple(pk),
+                )
+                rc = target_cursor.rowcount
+                deleted += 1 if rc == -1 else max(rc, 0)
+
+        target_conn.commit()
+        return deleted
+    except Exception as e:
+        err_str = str(e)
+        try:
+            target_conn.rollback()
+        except Exception:
+            pass
+        if "F_COMPTET" in err_str or "regNOVA" in err_str:
+            return 0
+        sync_status["details"].append(f"  ⚠ Orphelins {table_name}: {err_str[:200]}")
+        return 0
+
 
 def auto_realign_table_ids(source_cursor, target_cursor, target_conn, table_name, sync_status):
     """
@@ -752,18 +819,24 @@ def sync_databases():
                     else:
                         existing_pks.add(tuple(row))
                 
+                # Colonnes réellement présentes en cible (pour UPDATE sans toucher aux colonnes purement cibles)
+                target_col_names = {c[0] for c in get_table_columns(target_cursor, table_name)}
+
                 # OPTIMISATION : Charger toutes les lignes existantes en mémoire (pour UPDATE rapide)
+                # Utiliser les noms de colonnes de la CIBLE (ordre et colonnes supplémentaires ≠ source)
                 existing_rows_by_pk = {}
                 if existing_pks:
                     target_cursor.execute(f"SELECT * FROM [{table_name}]")
+                    tgt_desc = target_cursor.description or []
+                    tgt_columns = [d[0] for d in tgt_desc]
                     for row in target_cursor.fetchall():
-                        row_dict = {columns[i]: row[i] for i in range(len(columns))}
+                        row_dict = {tgt_columns[i]: row[i] for i in range(len(tgt_columns))}
                         if len(pk_columns) == 1:
                             existing_rows_by_pk[row_dict[pk_columns[0]]] = row_dict
                         else:
                             pk_tuple = tuple(row_dict[pk] for pk in pk_columns)
                             existing_rows_by_pk[pk_tuple] = row_dict
-                
+
                 # Trouver les index des colonnes PK dans la liste des colonnes
                 pk_indices = [columns.index(pk) for pk in pk_columns]
                 
@@ -847,16 +920,15 @@ def sync_databases():
                             
                             if target_row_dict:
                                 has_diff, diff_cols, update_values = compare_rows_for_update(row_dict, target_row_dict, exclude_cols)
-                                
                                 if has_diff:
-                                    # Ajouter au batch UPDATE au lieu d'exécuter immédiatement
-                                    if len(pk_columns) == 1:
-                                        where_pk = f"[{pk_columns[0]}] = ?"
-                                        update_batch.append((diff_cols, update_values, pk_value, None))
-                                    else:
-                                        where_parts = [f"[{pk}] = ?" for pk in pk_columns]
-                                        where_pk = " AND ".join(where_parts)
-                                        update_batch.append((diff_cols, update_values, None, pk_tuple))
+                                    diff_cols = [c for c in diff_cols if c in target_col_names]
+                                    update_values = {c: update_values[c] for c in diff_cols if c in update_values}
+                                    if diff_cols:
+                                        # Ajouter au batch UPDATE au lieu d'exécuter immédiatement
+                                        if len(pk_columns) == 1:
+                                            update_batch.append((diff_cols, update_values, pk_value, None))
+                                        else:
+                                            update_batch.append((diff_cols, update_values, None, pk_tuple))
                             continue  # PK existe, pas besoin d'INSERT
                         
                         # Vérifier les conflits d'index unique AVANT insertion (OPTIMISÉ avec cache)
@@ -888,10 +960,12 @@ def sync_databases():
                                     # Comparer les colonnes (hors PK et colonnes de l'index unique)
                                     exclude_for_update = exclude_cols | set(idx_cols)
                                     has_diff, diff_cols, update_values = compare_rows_for_update(row_dict, existing_row, exclude_for_update)
-                                    
                                     if has_diff:
-                                        # Ajouter au batch UPDATE
-                                        update_batch.append((diff_cols, update_values, None, None, idx_cols, idx_values))
+                                        diff_cols = [c for c in diff_cols if c in target_col_names]
+                                        update_values = {c: update_values[c] for c in diff_cols if c in update_values}
+                                        if diff_cols:
+                                            # Ajouter au batch UPDATE
+                                            update_batch.append((diff_cols, update_values, None, None, idx_cols, idx_values))
                                     break
                         
                         if unique_conflict:
@@ -2241,6 +2315,30 @@ def sync_databases():
                             
                 except Exception as e:
                     sync_status['details'].append(f"✗ {table_name} (Ultime): {str(e)}")
+        
+        # Supprimer en cible les lignes dont la PK n'existe plus dans la source (enfants → parents : ordre inverse du tri topo)
+        sync_status['details'].append(
+            "\n🧹 Suppression des enregistrements présents en cible mais absents de la source (orphelins)..."
+        )
+        target_table_set = set(all_target_tables)
+        orphans_deleted_total = 0
+        for table_name in reversed(sorted_tables):
+            if table_name not in target_table_set:
+                continue
+            pk_orphan = get_primary_keys(source_cursor, table_name)
+            if not pk_orphan:
+                continue
+            try:
+                n_del = sync_delete_orphan_rows_from_table(
+                    source_cursor, target_cursor, target_conn, table_name, pk_orphan, sync_status
+                )
+                if n_del > 0:
+                    sync_status['details'].append(f"🧹 {table_name}: {n_del} orphelin(s) supprimé(s)")
+                    orphans_deleted_total += n_del
+            except Exception as ex_or:
+                sync_status['details'].append(f"  ⚠ Orphelins {table_name}: {str(ex_or)[:200]}")
+        if orphans_deleted_total == 0:
+            sync_status['details'].append("○ Aucun orphelin supprimé (ou tables ignorées)")
         
         source_conn.close()
         target_conn.close()

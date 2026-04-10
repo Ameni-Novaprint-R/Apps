@@ -20,7 +20,8 @@ from db import (
     get_machines_decoupe,
     get_traitement_data_for_controle,
     get_projet10_schema_info,
-    get_db_cursor
+    get_db_cursor,
+    recalcul_tous_controles_qualite_manq_gan_et_crebut,
 )
 from logic.auth import get_user_sections, is_super_user, has_action_access
 
@@ -137,6 +138,21 @@ def api_controles():
     """API pour récupérer tous les contrôles qualité"""
     return jsonify(get_controles_qualite())
 
+
+@bp.route("/api/controles/recalcul-manq-crebut", methods=["POST"])
+def api_recalcul_manq_crebut():
+    """
+    Recalcule ManqAGan et CRebut pour toutes les fiches existantes.
+    Réservé aux super-utilisateurs (opération de maintenance).
+    """
+    if not is_super_user():
+        return jsonify({"error": "Accès refusé"}), 403
+    n = recalcul_tous_controles_qualite_manq_gan_et_crebut()
+    if n is None:
+        return jsonify({"error": "Échec du recalcul"}), 500
+    return jsonify({"status": "success", "mis_a_jour": n})
+
+
 @bp.route("/controles/export-excel")
 def export_controles_excel():
     """Export de la liste des contrôles (Excel) - vérifie ID_Action 6."""
@@ -167,6 +183,8 @@ def export_controles_excel():
                 "Opérateur M. de découpe": c.get("operateur_machine_decoupe", ""),
                 "Rebuts": c.get("rebus", 0),
                 "Total conforme (enreg.)": c.get("TotalConforme", ""),
+                "Manque à Gagner": c.get("ManqAGan", ""),
+                "Coût de Rebuts": c.get("CRebut", ""),
                 "Taux de Rebuts (%)": c.get("TauxRebuts", ""),
                 "Validation": c.get("validation_chef", ""),
             })

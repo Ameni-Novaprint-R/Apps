@@ -44,6 +44,52 @@ def column_exists(cursor, table_name, column_name):
 _cloture_column_ensured = False
 _description_column_ensured = False
 _nom_fd_column_ensured = False
+_chrono_affichage_en_pause_ensured = False
+_chrono_affichage_snapshot_at_ensured = False
+
+
+def ensure_chrono_affichage_snapshot_at_column():
+    """Horodatage UTC du dernier snapshot chrono en marche (pour ajouter le temps réel hors fiche à la reprise)."""
+    global _chrono_affichage_snapshot_at_ensured
+    ensure_temps_ecoule_affichage_en_pause_column()
+    if _chrono_affichage_snapshot_at_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt'):
+                _chrono_affichage_snapshot_at_ensured = True
+                return
+            cursor.execute(
+                "ALTER TABLE dbo.WEB_TRAITEMENTS ADD ChronoAffichageSnapshotAt DATETIME2 NULL"
+            )
+            cursor.connection.commit()
+            print("[projet11] Colonne ChronoAffichageSnapshotAt ajoutée à WEB_TRAITEMENTS.")
+    except Exception as e:
+        print(f"[projet11] ensure_chrono_affichage_snapshot_at_column: {e}")
+    finally:
+        _chrono_affichage_snapshot_at_ensured = True
+
+
+def ensure_temps_ecoule_affichage_en_pause_column():
+    """Colonne TempsEcouleAffichageEnPause : 1 = dernier snapshot en pause, 0 = en cours (chrono actif à la fermeture)."""
+    global _chrono_affichage_en_pause_ensured
+    ensure_cloture_column()
+    if _chrono_affichage_en_pause_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause'):
+                _chrono_affichage_en_pause_ensured = True
+                return
+            cursor.execute(
+                "ALTER TABLE dbo.WEB_TRAITEMENTS ADD TempsEcouleAffichageEnPause TINYINT NULL"
+            )
+            cursor.connection.commit()
+            print("[projet11] Colonne TempsEcouleAffichageEnPause ajoutée à WEB_TRAITEMENTS.")
+    except Exception as e:
+        print(f"[projet11] ensure_temps_ecoule_affichage_en_pause_column: {e}")
+    finally:
+        _chrono_affichage_en_pause_ensured = True
 
 
 def ensure_description_column():
@@ -980,10 +1026,16 @@ def get_traitement_by_id(traitement_id):
     Retourne aussi Cloture pour afficher le bouton Déclôturer en fiche clôturée.
     """
     ensure_nom_fd_column()
+    ensure_temps_ecoule_affichage_en_pause_column()
+    ensure_chrono_affichage_snapshot_at_column()
     with get_db_cursor() as cursor:
         has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
         has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
         has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
+        has_chrono_en_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause')
+        has_chrono_snapshot_at = column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt')
+        chrono_en_pause_col = ', TempsEcouleAffichageEnPause' if has_chrono_en_pause else ''
+        chrono_snapshot_at_col = ', ChronoAffichageSnapshotAt' if has_chrono_snapshot_at else ''
         cloture_col = ', Cloture' if has_cloture else ''
         desc_col = ', Description' if has_description else ''
         nom_fd_col = ', NOM_FD' if has_nom_fd else ''
@@ -1017,7 +1069,7 @@ def get_traitement_by_id(traitement_id):
                     DateCreation,
                     DateModification,
                     TempsEcouleAffichageSec
-                    """ + cloture_col + desc_col + nom_fd_col + """
+                    """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + """
                 FROM WEB_TRAITEMENTS
                 WHERE ID = ?
             """, (traitement_id,))
@@ -1054,7 +1106,7 @@ def get_traitement_by_id(traitement_id):
                             DateCreation,
                             DateModification,
                             TempsEcouleAffichageSec
-                            """ + cloture_col + desc_col + nom_fd_col + """
+                            """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + """
                         FROM WEB_TRAITEMENTS
                         WHERE ID = ?
                     """, (traitement_id,))
@@ -1106,7 +1158,18 @@ def get_traitement_by_id(traitement_id):
                 date_modification_str = row.DateModification
             else:
                 date_modification_str = row.DateModification.isoformat() if hasattr(row.DateModification, 'isoformat') else str(row.DateModification)
-        
+
+        chrono_snap_str = None
+        snap_val = getattr(row, 'ChronoAffichageSnapshotAt', None)
+        if snap_val is not None:
+            if isinstance(snap_val, str):
+                chrono_snap_str = snap_val
+            elif hasattr(snap_val, 'strftime'):
+                chrono_snap_str = snap_val.strftime('%Y-%m-%dT%H:%M:%S')
+                if getattr(snap_val, 'microsecond', 0):
+                    chrono_snap_str += '.{:03d}'.format(snap_val.microsecond // 1000)
+                chrono_snap_str += 'Z'
+
         return {
             "id": row.ID,
             "id_fiche_travail": row.ID_FICHE_TRAVAIL,
@@ -1136,6 +1199,8 @@ def get_traitement_by_id(traitement_id):
             "date_creation": date_creation_str,
             "date_modification": date_modification_str,
             "temps_ecoule_affichage_sec": getattr(row, 'TempsEcouleAffichageSec', None),
+            "temps_ecoule_affichage_en_pause": getattr(row, 'TempsEcouleAffichageEnPause', None),
+            "chrono_affichage_snapshot_at": chrono_snap_str,
             "cloture": _to_int(getattr(row, 'Cloture', 0)),
             "description": getattr(row, 'Description', None) or '',
             "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip()
@@ -1649,6 +1714,11 @@ def update_traitement(traitement_id, data):
             nom_fd_param = ((nom_fd_new or None),) if has_nom_fd else ()
             op_set = ', Matricule_personel = ?, Nom_personel = ?, Prenom_personel = ?' if matricule_op is not None else ''
             op_param = (matricule_op, nom_op, prenom_op) if matricule_op is not None else ()
+            has_chrono_en_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause')
+            has_chrono_snapshot_at = column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt')
+            chrono_clear_fin = ', TempsEcouleAffichageSec = NULL' + (
+                ', TempsEcouleAffichageEnPause = NULL' if has_chrono_en_pause else ''
+            ) + (', ChronoAffichageSnapshotAt = NULL' if has_chrono_snapshot_at else '')
             sql_update = f"""
                 UPDATE WEB_TRAITEMENTS
                 SET 
@@ -1680,7 +1750,7 @@ def update_traitement(traitement_id, data):
                     sql_fin = f"""
                         UPDATE WEB_TRAITEMENTS
                         SET DteDeb = ?, DteFin = ?, NbOp = ?, PdtC = ?, PdtNNC = ?, PdtANC = ?,
-                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}{desc_set}{nom_fd_set}, TempsEcouleAffichageSec = NULL,
+                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}{desc_set}{nom_fd_set}{chrono_clear_fin},
                             DateModification = GETDATE()
                         WHERE ID = ?
                     """
@@ -1742,19 +1812,45 @@ def update_traitement(traitement_id, data):
         raise Exception(f"Erreur lors de la mise à jour du traitement: {error_msg}")
 
 
-def update_chrono_affichage(traitement_id, temps_ecoule_sec):
+def update_chrono_affichage(traitement_id, temps_ecoule_sec, en_pause=None):
     """
-    Met à jour le temps affiché du chronomètre (quand l'utilisateur a mis en pause puis fermé).
-    Utilisé pour réafficher le même temps à la réouverture (Reprise/Modification).
-    Ne met à jour que si la colonne TempsEcouleAffichageSec existe et si le traitement est en cours.
+    Met à jour le temps affiché du chronomètre pour réouverture (Reprise / fermeture X).
+    - en_pause True (défaut si omis) : affichage gelé comme en pause (comportement historique).
+    - en_pause False : temps cumulé + ChronoAffichageSnapshotAt = GETUTCDATE() pour prolonger le chrono
+      à la réouverture comme si la fiche n'avait pas été fermée.
     """
+    ensure_temps_ecoule_affichage_en_pause_column()
+    ensure_chrono_affichage_snapshot_at_column()
+    sec = max(0, int(temps_ecoule_sec))
+    if en_pause is None:
+        pause_val = 1
+    else:
+        pause_val = 1 if en_pause in (True, 1, '1', 'true', 'True') else 0
     try:
         with get_db_cursor() as cursor:
-            cursor.execute("""
-                UPDATE WEB_TRAITEMENTS
-                SET TempsEcouleAffichageSec = ?, DateModification = GETDATE()
-                WHERE ID = ? AND DteFin IS NULL
-            """, (max(0, int(temps_ecoule_sec)), traitement_id))
+            has_pause_col = column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause')
+            has_snap_col = column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt')
+            if has_pause_col and has_snap_col:
+                cursor.execute("""
+                    UPDATE WEB_TRAITEMENTS
+                    SET TempsEcouleAffichageSec = ?,
+                        TempsEcouleAffichageEnPause = ?,
+                        ChronoAffichageSnapshotAt = CASE WHEN ? = 0 THEN GETUTCDATE() ELSE NULL END,
+                        DateModification = GETDATE()
+                    WHERE ID = ? AND DteFin IS NULL
+                """, (sec, pause_val, pause_val, traitement_id))
+            elif has_pause_col:
+                cursor.execute("""
+                    UPDATE WEB_TRAITEMENTS
+                    SET TempsEcouleAffichageSec = ?, TempsEcouleAffichageEnPause = ?, DateModification = GETDATE()
+                    WHERE ID = ? AND DteFin IS NULL
+                """, (sec, pause_val, traitement_id))
+            else:
+                cursor.execute("""
+                    UPDATE WEB_TRAITEMENTS
+                    SET TempsEcouleAffichageSec = ?, DateModification = GETDATE()
+                    WHERE ID = ? AND DteFin IS NULL
+                """, (sec, traitement_id))
             cursor.connection.commit()
             return True
     except Exception as e:

@@ -629,12 +629,51 @@ function releaseTraitementLock(id) {
     }).catch(function() {});
 }
 
-// Libérer le verrou quand l'utilisateur ferme l'onglet (X du navigateur) - sendBeacon survit à la fermeture
+/** Parse l'horodatage UTC du snapshot chrono renvoyé par l'API (suffixe Z si absent). */
+function parseChronoSnapshotUtc(iso) {
+    if (!iso || typeof iso !== 'string') return null;
+    var s = iso.trim();
+    if (!s) return null;
+    if (/Z$|[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
+    var t = s.indexOf('T') === -1 ? s.replace(' ', 'T') : s;
+    return new Date(t + (/Z$|[+-]\d/.test(t) ? '' : 'Z'));
+}
+
+/** Snapshot temps de production pour persistance (fermeture X popup / onglet, saveEnCours). */
+function getChronoSnapshotForPersistence() {
+    var tid = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim());
+    if (!tid) return null;
+    if (!chronoStart && !(chronoTotalElapsed > 0)) return null;
+    if (chronoIsPaused && chronoStart == null && chronoTotalElapsed > 0) {
+        return { sec: Math.floor(chronoTotalElapsed / 1000), en_pause: true };
+    }
+    if (chronoIsPaused && chronoStart && chronoPausedTime) {
+        return { sec: Math.floor((chronoTotalElapsed + (chronoPausedTime - chronoStart)) / 1000), en_pause: true };
+    }
+    if (chronoIsPaused && chronoStart) {
+        return { sec: Math.floor((chronoTotalElapsed + (new Date() - chronoStart)) / 1000), en_pause: true };
+    }
+    if (chronoStart && !chronoIsPaused) {
+        return { sec: Math.floor((chronoTotalElapsed + (new Date() - chronoStart)) / 1000), en_pause: false };
+    }
+    return null;
+}
+
+// Libérer le verrou + sauver le chrono (sendBeacon POST survit à la fermeture d'onglet)
 window.addEventListener('beforeunload', function() {
     var id = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
     if (id && typeof PROJET11_SESSION_ID !== 'undefined') {
         navigator.sendBeacon('/projet11/api/traitements/' + id + '/close',
             new Blob([JSON.stringify({ session_id: PROJET11_SESSION_ID })], { type: 'application/json' }));
+    }
+    var snap = getChronoSnapshotForPersistence();
+    if (snap && id && !$('#dte_fin').val()) {
+        var payload = JSON.stringify({
+            temps_ecoule_sec: snap.sec,
+            en_pause: snap.en_pause
+        });
+        navigator.sendBeacon('/projet11/api/traitements/' + id + '/chrono_affichage',
+            new Blob([payload], { type: 'application/json' }));
     }
 });
 
@@ -1140,6 +1179,13 @@ function remplirChampsTraitement(data) {
                     if (!data.dte_fin) {
                         var tempsAfficheSec = data.temps_ecoule_affichage_sec != null && data.temps_ecoule_affichage_sec > 0
                             ? parseInt(data.temps_ecoule_affichage_sec, 10) : 0;
+                        var rawEnPause = data.temps_ecoule_affichage_en_pause;
+                        var affichageEnPause;
+                        if (rawEnPause === undefined || rawEnPause === null) {
+                            affichageEnPause = tempsAfficheSec > 0;
+                        } else {
+                            affichageEnPause = (rawEnPause === 1 || rawEnPause === true);
+                        }
                         chronoIsPaused = false;
                         chronoPausedTime = null;
                         chronoTotalElapsed = tempsAfficheSec * 1000;
@@ -1157,8 +1203,7 @@ function remplirChampsTraitement(data) {
                             clearInterval(chronoInterval);
                             chronoInterval = null;
                         }
-                        // Si un temps "pause" était enregistré : afficher ce temps (identique à la fermeture), en jaune comme à l'état pause
-                        if (tempsAfficheSec > 0) {
+                        if (tempsAfficheSec > 0 && affichageEnPause) {
                             chronoStart = null;
                             var h = Math.floor(tempsAfficheSec / 3600);
                             var m = Math.floor((tempsAfficheSec % 3600) / 60);
@@ -1172,7 +1217,27 @@ function remplirChampsTraitement(data) {
                             $('#chronoPauseIndicator').css('visibility', 'visible');
                             syncChronoPanneVisibility();
                             chronoIsPaused = true;
+                        } else if (tempsAfficheSec > 0 && !affichageEnPause) {
+                            var snapDt = parseChronoSnapshotUtc(data.chrono_affichage_snapshot_at);
+                            chronoStart = (snapDt && !isNaN(snapDt.getTime())) ? snapDt : new Date();
+                            chronoIsPaused = false;
+                            $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
+                            $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
+                            chronoInterval = setInterval(function() {
+                                if (!chronoIsPaused) {
+                                    var now = new Date();
+                                    var diff = now - chronoStart;
+                                    var totalTime = chronoTotalElapsed + diff;
+                                    var heures = Math.floor(totalTime / 3600000);
+                                    var minutes = Math.floor((totalTime % 3600000) / 60000);
+                                    var secondes = Math.floor((totalTime % 60000) / 1000);
+                                    $('#chronoDisplay').text(
+                                        (heures + '').padStart(2, '0') + ':' + (minutes + '').padStart(2, '0') + ':' + (secondes + '').padStart(2, '0')
+                                    );
+                                }
+                            }, 1000);
                         } else {
+                            chronoTotalElapsed = 0;
                             chronoStart = dteDeb;
                             chronoInterval = setInterval(function() {
                                 if (!chronoIsPaused) {
@@ -2274,7 +2339,7 @@ window.togglePauseChrono = function() {
             fetch('/projet11/api/traitements/' + tid + '/chrono_affichage', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ temps_ecoule_sec: totalSec })
+                body: JSON.stringify({ temps_ecoule_sec: totalSec, en_pause: true })
             }).catch(function() {});
         }
 
@@ -2646,6 +2711,15 @@ $('#formNouveauTraitement').on('submit', function(e) {
 function saveEnCoursOnClose() {
     const idToUse = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || null;
     if (!idToUse) return;
+    var snapChrono = getChronoSnapshotForPersistence();
+    if (snapChrono) {
+        fetch('/projet11/api/traitements/' + idToUse + '/chrono_affichage', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ temps_ecoule_sec: snapChrono.sec, en_pause: snapChrono.en_pause }),
+            keepalive: true
+        }).catch(function() {});
+    }
     const operateurPrincipal = $('#operateur_1').attr('data-matricule');
     if (!operateurPrincipal) return;
     let dteDebValue = $('#dte_deb').val();
@@ -2699,11 +2773,13 @@ function saveEnCoursOnClose() {
 // - Reprise (ouverture avec id + reprise=1) : le bouton Annuler est masqué
 // - Les boutons X (popup, onglet) ferment sans supprimer (ne pas confondre avec Annuler)
 function annulerFormulaire() {
-    stopChrono();
+    var snap = getChronoSnapshotForPersistence();
     var hid = document.getElementById('traitement_id');
     var idFromForm = hid && hid.value ? String(hid.value).trim() : null;
     const idToUse = currentTraitementId || (traitementIdFromUrl && String(traitementIdFromUrl).trim()) || idFromForm || null;
     const estModeNouvelleFiche = !estModeModifier && !estModeReprise;
+
+    stopChrono();
 
     if (idToUse && (window.parent === window || estModeNouvelleFiche)) {
         releaseTraitementLock(idToUse);
@@ -2718,21 +2794,15 @@ function annulerFormulaire() {
         });
     }
 
-    // Fermer le popup / revenir en arrière
-    var chronoSec = null;
-    if (chronoStart || chronoTotalElapsed > 0) {
-        if (chronoIsPaused && chronoTotalElapsed > 0) {
-            chronoSec = Math.floor(chronoTotalElapsed / 1000);
-        } else if (chronoStart && !chronoIsPaused) {
-            chronoSec = Math.floor((chronoTotalElapsed + (new Date() - chronoStart)) / 1000);
-        }
-    }
+    var chronoSec = snap ? snap.sec : null;
+    var chronoEnPause = snap ? snap.en_pause : null;
     if (window.parent && window.parent !== window) {
         try {
             window.parent.postMessage({
                 action: 'annuler',
                 traitementId: idToUse || null,
-                chronoTempsEcouleSec: chronoSec
+                chronoTempsEcouleSec: chronoSec,
+                chronoEnPause: chronoEnPause
             }, window.location.origin);
         } catch (err) {
             console.error('postMessage annuler:', err);

@@ -1054,6 +1054,8 @@
                             <th>Machine Découpe</th>
                             <th>Opérateur M. de découpe</th>
                             <th>Rebuts</th>
+                            <th>Manque à Gagner</th>
+                            <th>Coût de Rebuts</th>
                             <th>Taux de Rebuts</th>
                             <th>Validation</th>
                             <th>Actions</th>
@@ -2939,6 +2941,13 @@ function chargerControles() {
             
             data.forEach(controle => {
                 const row = document.createElement('tr');
+
+                const manq = (controle.ManqAGan !== undefined && controle.ManqAGan !== null && controle.ManqAGan !== '') ? Number(controle.ManqAGan) : null;
+                // Affichage TND: 3 chiffres après la virgule, sans symbole €
+                const manqAff = (manq === null || Number.isNaN(manq)) ? '-' : manq.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: true });
+
+                const cr = (controle.CRebut !== undefined && controle.CRebut !== null && controle.CRebut !== '') ? Number(controle.CRebut) : null;
+                const crAff = (cr === null || Number.isNaN(cr)) ? '-' : cr.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: true });
                 
                 // Construire les boutons d'action selon les droits
                 let actionsHtml = `
@@ -2980,6 +2989,8 @@ function chargerControles() {
                     <td>${controle.machine_decoupe || '-'}</td>
                     <td>${controle.operateur_machine_decoupe || '-'}</td>
                     <td>${controle.rebus || 0}</td>
+                    <td>${manqAff}</td>
+                    <td>${crAff}</td>
                     <td>${(controle.TauxRebuts !== undefined && controle.TauxRebuts !== null && controle.TauxRebuts !== '') ? `${Number(controle.TauxRebuts).toFixed(2)}%` : '-'}</td>
                     <td>${controle.validation_chef || 'Non validé'}</td>
                     <td style="white-space: nowrap;">
@@ -3015,6 +3026,8 @@ function initialiserDataTable() {
         { titre: 'Machine Découpe', filtre: true, toggle: true, className: 'col-machine', width: '160px' },
         { titre: 'Opérateur M. de découpe', filtre: true, toggle: true, className: 'col-operateur-dec', width: '220px' },
         { titre: 'Rebuts', filtre: true, toggle: true, className: 'col-rebus', width: '100px' },
+        { titre: 'Manque à Gagner', filtre: true, toggle: true, className: 'col-manqagan', width: '150px' },
+        { titre: 'Coût de Rebuts', filtre: true, toggle: true, className: 'col-crebut', width: '150px' },
         { titre: 'Taux de Rebuts', filtre: true, toggle: true, className: 'col-taux-rebuts', width: '120px' },
         { titre: 'Validation', filtre: true, toggle: true, className: 'col-validation', width: '150px' },
         { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '180px', orderable: false }

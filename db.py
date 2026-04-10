@@ -595,7 +595,164 @@ def _ensure_projet10_schema():
                 ALTER TABLE WEB_CONTROLES_QUALITE ADD TotalConforme INT NULL
             END
         """)
+        # Manque à gagner : valorisation du rebut (rebus * prix vente unitaire)
+        cursor.execute("""
+            IF COL_LENGTH('WEB_CONTROLES_QUALITE', 'ManqAGan') IS NULL
+            BEGIN
+                ALTER TABLE WEB_CONTROLES_QUALITE ADD ManqAGan DECIMAL(18,2) NULL
+            END
+        """)
+        # Coût de rebut (rebus * coût de revient unitaire)
+        cursor.execute("""
+            IF COL_LENGTH('WEB_CONTROLES_QUALITE', 'CRebut') IS NULL
+            BEGIN
+                ALTER TABLE WEB_CONTROLES_QUALITE ADD CRebut DECIMAL(18,3) NULL
+            END
+        """)
         cursor.connection.commit()
+
+
+# Postes exclus du cumul CtPrevDev pour le coût de rebut (projet 10)
+_P10_ID_POSTES_EXCLUS_CTPREVDEV = (60, 65, 109, 153, 158, 160, 198, 199, 213, 214)
+
+
+def _p10_parse_nb_poses(reference: str):
+    """
+    Déduit le nombre de poses depuis COMMANDES.Reference.
+    Exemples: 'PLANCHE 10 POSES ...', 'planches de 2 poses3000 ...', 'Planche 12poses ...', 'en 15 poses ...'
+    """
+    try:
+        import re
+        if not reference:
+            return None
+        ref = str(reference)
+        m = re.search(r'(\d+)\s*poses?\b', ref, flags=re.IGNORECASE)
+        if not m:
+            return None
+        n = int(m.group(1))
+        return n if n > 0 else None
+    except Exception:
+        return None
+
+
+def _p10_calcul_manq_a_gagner(cursor, numero_commande: str, rebus):
+    """
+    Manque à gagner = rebus * prix vente unitaire.
+    prix unitaire = COMMANDES.PrxVteReelExt / (COMMANDES.QteComm * nb_poses).
+    Retourne Decimal arrondi à 2 décimales, ou None si impossible.
+    """
+    try:
+        from decimal import Decimal, ROUND_HALF_UP
+        numero_clean = (numero_commande or '').strip()
+        if not numero_clean:
+            return None
+
+        r = int(rebus) if rebus is not None and str(rebus).strip() != '' else 0
+        if r <= 0:
+            return Decimal('0.00')
+
+        cursor.execute("""
+            SELECT TOP 1
+                PrxVteReelExt,
+                QteComm,
+                Reference
+            FROM COMMANDES
+            WHERE LTRIM(RTRIM(Numero)) = ?
+        """, (numero_clean,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        poses = _p10_parse_nb_poses(getattr(row, 'Reference', None))
+        qte_planches = getattr(row, 'QteComm', None)
+        prix_total = getattr(row, 'PrxVteReelExt', None)
+        if poses is None or not qte_planches or prix_total is None:
+            return None
+
+        denom = Decimal(int(qte_planches)) * Decimal(int(poses))
+        if denom <= 0:
+            return None
+
+        prix_unit = (Decimal(prix_total) / denom)
+        manq = (Decimal(r) * prix_unit).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return manq
+    except Exception:
+        return None
+
+
+def _p10_calcul_cout_rebut(cursor, numero_commande: str, rebus):
+    """
+    Coût de rebut = rebus * coût de revient unitaire.
+    CRU = ( SUM(GP_FICHES_TRAVAIL.CtPrevDev) hors postes exclus + AchatsMat depuis DEV_COUTS )
+          / ( COMMANDES.QteComm * nb_poses )
+    AchatsMat : DEV_COUTS où ID_DEVIS = COMMANDES.ID_DEVIS et ID_CENTRE_COUT = 1.
+    Retourne Decimal arrondi à 3 décimales, ou None si impossible (sauf rebus<=0 -> 0.000).
+    """
+    try:
+        from decimal import Decimal, ROUND_HALF_UP
+        numero_clean = (numero_commande or '').strip()
+        if not numero_clean:
+            return None
+
+        r = int(rebus) if rebus is not None and str(rebus).strip() != '' else 0
+        if r <= 0:
+            return Decimal('0.000')
+
+        cursor.execute("""
+            SELECT TOP 1
+                ID,
+                QteComm,
+                Reference,
+                ID_DEVIS
+            FROM COMMANDES
+            WHERE LTRIM(RTRIM(Numero)) = ?
+        """, (numero_clean,))
+        crow = cursor.fetchone()
+        if not crow:
+            return None
+
+        id_commande = getattr(crow, 'ID', None)
+        id_devis = getattr(crow, 'ID_DEVIS', None)
+        qte_planches = getattr(crow, 'QteComm', None)
+        ref = getattr(crow, 'Reference', None)
+        poses = _p10_parse_nb_poses(ref)
+        if id_commande is None or poses is None or not qte_planches:
+            return None
+
+        denom = Decimal(int(qte_planches)) * Decimal(int(poses))
+        if denom <= 0:
+            return None
+
+        placeholders = ','.join(['?'] * len(_P10_ID_POSTES_EXCLUS_CTPREVDEV))
+        params_ft = (id_commande,) + _P10_ID_POSTES_EXCLUS_CTPREVDEV
+        cursor.execute(f"""
+            SELECT ISNULL(SUM(FT.CtPrevDev), 0) AS S
+            FROM GP_FICHES_TRAVAIL FT
+            WHERE FT.ID_COMMANDE = ?
+              AND (FT.ID_POSTE IS NULL OR FT.ID_POSTE NOT IN ({placeholders}))
+        """, params_ft)
+        srow = cursor.fetchone()
+        sum_ct = Decimal(srow.S) if srow and getattr(srow, 'S', None) is not None else Decimal('0')
+
+        achats = Decimal('0')
+        if id_devis is not None:
+            cursor.execute("""
+                SELECT ISNULL(SUM(DC.AchatsMat), 0) AS S
+                FROM DEV_COUTS DC
+                WHERE DC.ID_DEVIS = ?
+                  AND DC.ID_CENTRE_COUT = 1
+            """, (id_devis,))
+            arow = cursor.fetchone()
+            if arow and getattr(arow, 'S', None) is not None:
+                achats = Decimal(arow.S)
+
+        total = sum_ct + achats
+        cru = total / denom
+        crebut = (Decimal(r) * cru).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+        return crebut
+    except Exception:
+        return None
+
 
 def get_numeros_commandes_disponibles():
     """Récupère tous les numéros de commandes disponibles pour le contrôle qualité avec client et référence"""
@@ -656,6 +813,8 @@ def get_controles_qualite():
                 W.Article,
                 W.TauxRebuts,
                 W.TotalConforme,
+                W.ManqAGan,
+                W.CRebut,
                 S.RaiSocTri AS Client,
                 W.operateur,
                 W.machine_impression,
@@ -680,6 +839,8 @@ def get_controles_qualite():
                 "Article": (row.Article or '').strip(),
                 "TauxRebuts": float(row.TauxRebuts) if row.TauxRebuts is not None else None,
                 "TotalConforme": int(row.TotalConforme) if getattr(row, "TotalConforme", None) is not None else None,
+                "ManqAGan": float(row.ManqAGan) if getattr(row, "ManqAGan", None) is not None else None,
+                "CRebut": float(row.CRebut) if getattr(row, "CRebut", None) is not None else None,
                 "Client": (row.Client or '').strip(),
                 "operateur": row.operateur,
                 "machine_impression": row.machine_impression,
@@ -704,6 +865,8 @@ def get_controle_qualite_by_id(controle_id):
                 Article,
                 TauxRebuts,
                 TotalConforme,
+                ManqAGan,
+                CRebut,
                 operateur,
                 machine_impression,
                 operateur_machine_impression,
@@ -796,6 +959,8 @@ def get_controle_qualite_by_id(controle_id):
             "Article": (getattr(controle, 'Article', None) or '').strip(),
             "TauxRebuts": float(getattr(controle, 'TauxRebuts', None)) if getattr(controle, 'TauxRebuts', None) is not None else None,
             "TotalConforme": int(controle.TotalConforme) if getattr(controle, "TotalConforme", None) is not None else None,
+            "ManqAGan": float(controle.ManqAGan) if getattr(controle, "ManqAGan", None) is not None else None,
+            "CRebut": float(controle.CRebut) if getattr(controle, "CRebut", None) is not None else None,
             "operateur": controle.operateur,
             "machine_impression": controle.machine_impression,
             "operateur_machine_impression": controle.operateur_machine_impression,
@@ -833,6 +998,9 @@ def get_controle_qualite_by_numero(numero_commande):
                 Numero_COMMANDES,
                 Article,
                 TauxRebuts,
+                TotalConforme,
+                ManqAGan,
+                CRebut,
                 operateur,
                 machine_impression,
                 operateur_machine_impression,
@@ -875,6 +1043,9 @@ def get_controle_qualite_by_numero(numero_commande):
             "Numero_COMMANDES": controle.Numero_COMMANDES,
             "Article": (getattr(controle, 'Article', None) or '').strip(),
             "TauxRebuts": float(getattr(controle, 'TauxRebuts', None)) if getattr(controle, 'TauxRebuts', None) is not None else None,
+            "TotalConforme": int(controle.TotalConforme) if getattr(controle, "TotalConforme", None) is not None else None,
+            "ManqAGan": float(controle.ManqAGan) if getattr(controle, "ManqAGan", None) is not None else None,
+            "CRebut": float(controle.CRebut) if getattr(controle, "CRebut", None) is not None else None,
             "operateur": controle.operateur,
             "machine_impression": controle.machine_impression,
             "operateur_machine_impression": controle.operateur_machine_impression,
@@ -893,21 +1064,25 @@ def create_controle_qualite(data):
     try:
         _ensure_projet10_schema()
         with get_db_cursor() as cursor:
+            manq = _p10_calcul_manq_a_gagner(cursor, data.get('Numero_COMMANDES'), data.get('rebus', 0))
+            crebut = _p10_calcul_cout_rebut(cursor, data.get('Numero_COMMANDES'), data.get('rebus', 0))
             # Insérer le contrôle qualité et récupérer l'ID directement
             print(f"DEBUG CREATE: Insertion contrôle avec data={data}")
             cursor.execute("""
                 INSERT INTO WEB_CONTROLES_QUALITE (
-                    date_controle, Numero_COMMANDES, Article, TauxRebuts, TotalConforme, operateur, machine_impression, operateur_machine_impression, 
+                    date_controle, Numero_COMMANDES, Article, TauxRebuts, TotalConforme, ManqAGan, CRebut, operateur, machine_impression, operateur_machine_impression, 
                     machine_decoupe, operateur_machine_decoupe, rebus, validation_chef, date_creation
                 )
                 OUTPUT INSERTED.id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
             """, (
                 data['date_controle'],
                 data['Numero_COMMANDES'],
                 (data.get('Article') or '').strip(),
                 data.get('TauxRebuts', None),
                 data.get('TotalConforme', None),
+                manq,
+                crebut,
                 data['operateur'],
                 data.get('machine_impression', ''),
                 data.get('operateur_machine_impression', ''),
@@ -957,6 +1132,8 @@ def update_controle_qualite(controle_id, data):
     try:
         _ensure_projet10_schema()
         with get_db_cursor() as cursor:
+            manq = _p10_calcul_manq_a_gagner(cursor, data.get('Numero_COMMANDES'), data.get('rebus', 0))
+            crebut = _p10_calcul_cout_rebut(cursor, data.get('Numero_COMMANDES'), data.get('rebus', 0))
             # Mettre à jour le contrôle qualité
             cursor.execute("""
                 UPDATE WEB_CONTROLES_QUALITE SET
@@ -965,6 +1142,8 @@ def update_controle_qualite(controle_id, data):
                     Article = ?,
                     TauxRebuts = ?,
                     TotalConforme = ?,
+                    ManqAGan = ?,
+                    CRebut = ?,
                     operateur = ?,
                     machine_impression = ?,
                     operateur_machine_impression = ?,
@@ -979,6 +1158,8 @@ def update_controle_qualite(controle_id, data):
                 (data.get('Article') or '').strip(),
                 data.get('TauxRebuts', None),
                 data.get('TotalConforme', None),
+                manq,
+                crebut,
                 data['operateur'],
                 data.get('machine_impression', ''),
                 data.get('operateur_machine_impression', ''),
@@ -1017,6 +1198,43 @@ def update_controle_qualite(controle_id, data):
     except Exception as e:
         print(f"Erreur lors de la mise à jour du contrôle qualité: {e}")
         return False
+
+
+def recalcul_tous_controles_qualite_manq_gan_et_crebut():
+    """
+    Recalcule ManqAGan et CRebut pour toutes les lignes de WEB_CONTROLES_QUALITE
+    (même logique que create/update). Utile pour les fiches créées avant ces colonnes.
+    Retourne le nombre de lignes mises à jour, ou None en cas d'échec global.
+    """
+    try:
+        _ensure_projet10_schema()
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT id, Numero_COMMANDES, rebus
+                FROM WEB_CONTROLES_QUALITE
+            """)
+            rows = cursor.fetchall()
+            n = 0
+            for row in rows:
+                cid = row.id
+                num = row.Numero_COMMANDES
+                rebus = row.rebus
+                manq = _p10_calcul_manq_a_gagner(cursor, num, rebus)
+                crebut = _p10_calcul_cout_rebut(cursor, num, rebus)
+                cursor.execute("""
+                    UPDATE WEB_CONTROLES_QUALITE
+                    SET ManqAGan = ?, CRebut = ?
+                    WHERE id = ?
+                """, (manq, crebut, cid))
+                n += 1
+            cursor.connection.commit()
+            return n
+    except Exception as e:
+        print(f"Erreur recalcul ManqAGan/CRebut: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 
 def delete_controle_qualite(controle_id):
     """Supprime un contrôle qualité et ses tolérances associées"""

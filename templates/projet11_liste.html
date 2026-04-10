@@ -1173,10 +1173,13 @@ function ouvrirModalModificationSuite(id, isReprise, iframe, modalModifier) {
             var tid = event.data.traitementId;
             var chronoSec = event.data.chronoTempsEcouleSec;
             if (tid && chronoSec != null && chronoSec >= 0) {
+                var enPause = (event.data.chronoEnPause !== undefined && event.data.chronoEnPause !== null)
+                    ? !!event.data.chronoEnPause
+                    : true;
                 fetch('/projet11/api/traitements/' + tid + '/chrono_affichage', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ temps_ecoule_sec: chronoSec })
+                    body: JSON.stringify({ temps_ecoule_sec: chronoSec, en_pause: enPause })
                 }).catch(function() {}).finally(function() {
                     fermerModalModification();
                 });

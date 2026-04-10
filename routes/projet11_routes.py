@@ -781,15 +781,16 @@ def api_update_traitement(traitement_id):
         return jsonify({"error": f"Erreur serveur lors de la mise à jour: {error_msg}"}), 500
 
 
-@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/chrono_affichage', methods=['PATCH', 'PUT'])
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/chrono_affichage', methods=['PATCH', 'PUT', 'POST'])
 def api_update_chrono_affichage(traitement_id):
-    """Enregistre le temps affiché du chronomètre (pause/fermeture) pour réafficher à l'identique à la réouverture."""
+    """Enregistre le temps affiché du chronomètre (pause/fermeture) pour réafficher à la réouverture."""
     try:
         data = request.get_json() or {}
         temps_sec = data.get('temps_ecoule_sec')
         if temps_sec is None:
             return jsonify({"error": "temps_ecoule_sec requis"}), 400
-        success = projet11.update_chrono_affichage(traitement_id, temps_sec)
+        en_pause = data.get('en_pause')
+        success = projet11.update_chrono_affichage(traitement_id, temps_sec, en_pause)
         if success:
             return jsonify({"success": True})
         return jsonify({"error": "Mise à jour impossible"}), 500
