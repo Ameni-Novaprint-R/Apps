@@ -1260,143 +1260,213 @@ def delete_controle_qualite(controle_id):
         cursor.connection.rollback()
         return False
 
-def get_statistiques_controle_qualite():
-    """Récupère les statistiques globales de contrôle qualité"""
+def _p10_build_stats_filters_sql(alias_prefix, date_debut, date_fin, machine_impression):
+    """
+    Filtres communs sur WEB_CONTROLES_QUALITE.
+    alias_prefix : '' ou 'W.' ou 'C.' (colonne date_controle / machine_impression)
+    """
+    p = alias_prefix
+    parts = []
+    params = []
+    if date_debut:
+        parts.append(f"CAST({p}date_controle AS DATE) >= ?")
+        params.append(str(date_debut).strip()[:10])
+    if date_fin:
+        parts.append(f"CAST({p}date_controle AS DATE) <= ?")
+        params.append(str(date_fin).strip()[:10])
+    if machine_impression and str(machine_impression).strip():
+        parts.append(f"LTRIM(RTRIM({p}machine_impression)) = LTRIM(RTRIM(?))")
+        params.append(str(machine_impression).strip())
+    if not parts:
+        return "1=1", []
+    return " AND ".join(parts), params
+
+
+def get_distinct_machines_controle_qualite():
+    """Noms distincts de machine_impression renseignés sur les contrôles (filtres UI)."""
+    _ensure_projet10_schema()
     with get_db_cursor() as cursor:
-        # Statistiques globales
         cursor.execute("""
+            SELECT DISTINCT LTRIM(RTRIM(machine_impression)) AS m
+            FROM WEB_CONTROLES_QUALITE
+            WHERE machine_impression IS NOT NULL AND LTRIM(RTRIM(machine_impression)) <> ''
+            ORDER BY m
+        """)
+        return [(row.m or "").strip() for row in cursor.fetchall() if (row.m or "").strip()]
+
+
+def get_statistiques_controle_qualite(date_debut=None, date_fin=None, machine_impression=None):
+    """Statistiques globales CQ (WEB_CONTROLES_QUALITE uniquement), filtres date / machine + agrégats TND."""
+    _ensure_projet10_schema()
+    w_sql, w_params = _p10_build_stats_filters_sql("", date_debut, date_fin, machine_impression)
+
+    with get_db_cursor() as cursor:
+        cursor.execute(f"""
             SELECT 
                 COUNT(*) as total_controles,
                 COUNT(CASE WHEN validation_chef IS NOT NULL AND validation_chef != '' THEN 1 END) as controles_valides,
                 AVG(CAST(rebus AS FLOAT)) as rebus_moyen,
-                SUM(rebus) as total_rebus
+                SUM(ISNULL(rebus, 0)) as total_rebus,
+                ISNULL(SUM(ManqAGan), 0) as sum_manq_agan,
+                ISNULL(SUM(CRebut), 0) as sum_crebut,
+                ISNULL(SUM(TotalConforme), 0) as sum_total_conforme_enregistre
             FROM WEB_CONTROLES_QUALITE
-        """)
-        
+            WHERE {w_sql}
+        """, w_params)
+
         row = cursor.fetchone()
         stats = {
-                "total_controles": row.total_controles or 0,
-                "controles_valides": row.controles_valides or 0,
-                "rebus_moyen": round(row.rebus_moyen or 0, 3),
-                "total_rebus": row.total_rebus or 0
-            }
-        
-        # Calculer taux de conformité et taux de rebus
-        cursor.execute("""
-            SELECT 
-                SUM(T.quantite_conforme) as total_conforme,
-                SUM(CASE 
-                    WHEN rn = 1 THEN T.quantite_non_conforme 
-                    ELSE 0 
-                END) as total_non_conforme_final
-            FROM TOLERANCES_CONTROLE T
-            INNER JOIN (
-                SELECT controle_id, id, 
-                       ROW_NUMBER() OVER (PARTITION BY controle_id ORDER BY id DESC) as rn
-                FROM TOLERANCES_CONTROLE
-            ) LastRow ON T.id = LastRow.id
-        """)
-        
-        row2 = cursor.fetchone()
-        total_conforme = row2.total_conforme or 0
-        total_non_conforme = row2.total_non_conforme_final or 0
-        total_produit = total_conforme + total_non_conforme
-        
-        stats["total_conforme"] = total_conforme
-        stats["total_non_conforme"] = total_non_conforme
-        stats["total_produit"] = total_produit
-        stats["taux_conformite"] = round((total_conforme / total_produit * 100) if total_produit > 0 else 0, 3)
-        stats["taux_rebus"] = round((total_non_conforme / total_produit * 100) if total_produit > 0 else 0, 3)
-        
+            "total_controles": row.total_controles or 0,
+            "controles_valides": row.controles_valides or 0,
+            "rebus_moyen": round(row.rebus_moyen or 0, 3),
+            "total_rebus": int(row.total_rebus or 0),
+            "sum_manq_agan": round(float(row.sum_manq_agan or 0), 3),
+            "sum_crebut": round(float(row.sum_crebut or 0), 3),
+            "sum_total_conforme_enregistre": int(row.sum_total_conforme_enregistre or 0),
+        }
+
+        tr = stats["total_rebus"]
+        sconf = stats["sum_total_conforme_enregistre"]
+        den_fiche = tr + sconf
+        stats["taux_rebus_fiche_pct"] = round((100.0 * tr / den_fiche) if den_fiche > 0 else 0.0, 3)
+
+        # Volumes et taux : champs fiche uniquement (TotalConforme + rebus)
+        stats["total_conforme"] = int(sconf)
+        stats["total_non_conforme"] = int(tr)
+        stats["total_produit"] = int(den_fiche)
+        stats["taux_conformite"] = round((sconf / den_fiche * 100) if den_fiche > 0 else 0.0, 3)
+        stats["taux_rebus"] = stats["taux_rebus_fiche_pct"]
+
+        stats["filtres"] = {
+            "date_debut": date_debut or None,
+            "date_fin": date_fin or None,
+            "machine_impression": (machine_impression or "").strip() or None,
+        }
         return stats
 
-def get_performance_par_machine():
-    """Récupère les statistiques de performance par machine d'impression"""
+def get_performance_par_machine(date_debut=None, date_fin=None, machine_impression=None):
+    """Performance par machine d'impression (WEB_CONTROLES_QUALITE uniquement ; champs rebus, TotalConforme, ManqAGan)."""
+    _ensure_projet10_schema()
+    filt_sql, filt_params = _p10_build_stats_filters_sql("C.", date_debut, date_fin, machine_impression)
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            WITH DernieresLignes AS (
-                SELECT 
-                    T.controle_id,
-                    T.quantite_conforme,
-                    T.quantite_non_conforme,
-                    ROW_NUMBER() OVER (PARTITION BY T.controle_id ORDER BY T.id DESC) as rn
-                FROM TOLERANCES_CONTROLE T
-            ),
-            StatsParControle AS (
-                SELECT 
-                    C.id,
-                    C.machine_impression,
-                    SUM(T.quantite_conforme) as total_conforme,
-                    MAX(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as rebus
-                FROM WEB_CONTROLES_QUALITE C
-                LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
-                LEFT JOIN DernieresLignes D ON D.controle_id = C.id AND D.rn = 1
-                WHERE C.machine_impression IS NOT NULL AND C.machine_impression != ''
-                GROUP BY C.id, C.machine_impression
-            )
+        cursor.execute(f"""
             SELECT 
-                machine_impression,
+                C.machine_impression,
                 COUNT(*) as nombre_controles,
-                SUM(total_conforme) as total_conforme,
-                SUM(rebus) as total_rebus,
-                SUM(total_conforme + rebus) as total_produit,
+                SUM(ISNULL(C.rebus, 0)) as total_rebut,
+                SUM(ISNULL(C.TotalConforme, 0)) as total_conforme,
+                SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)) as total_produit,
                 CASE 
-                    WHEN SUM(total_conforme + rebus) > 0 
-                    THEN ROUND(SUM(total_conforme) * 100.0 / SUM(total_conforme + rebus), 2)
+                    WHEN SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)) > 0 
+                    THEN ROUND(100.0 * SUM(ISNULL(C.rebus, 0)) / SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)), 2)
                     ELSE 0 
-                END as taux_conformite
-            FROM StatsParControle
-            GROUP BY machine_impression
-            ORDER BY taux_conformite DESC
-        """)
+                END as taux_rebut,
+                CASE 
+                    WHEN SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)) > 0 
+                    THEN ROUND(100.0 * SUM(ISNULL(C.TotalConforme, 0)) / SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)), 2)
+                    ELSE 0 
+                END as taux_conformite,
+                SUM(ISNULL(C.ManqAGan, 0)) as sum_manq_agan
+            FROM WEB_CONTROLES_QUALITE C
+            WHERE C.machine_impression IS NOT NULL AND LTRIM(RTRIM(C.machine_impression)) <> ''
+              AND ({filt_sql})
+            GROUP BY C.machine_impression
+            ORDER BY taux_rebut ASC
+        """, filt_params)
         
         machines = []
         for row in cursor.fetchall():
             machines.append({
                 "machine": row.machine_impression,
                 "nombre_controles": row.nombre_controles or 0,
-                "total_conforme": row.total_conforme or 0,
-                "total_rebus": row.total_rebus or 0,
-                "total_produit": row.total_produit or 0,
-                "taux_conformite": row.taux_conformite or 0
+                "total_rebut": int(row.total_rebut or 0),
+                "total_conforme": int(row.total_conforme or 0),
+                "total_produit": int(row.total_produit or 0),
+                "taux_rebut": float(row.taux_rebut or 0),
+                "taux_conformite": float(row.taux_conformite or 0),
+                "sum_manq_agan": round(float(row.sum_manq_agan or 0), 3),
             })
         return machines
 
-def get_evolution_qualite(jours=30):
-    """Récupère l'évolution de la qualité sur les N derniers jours"""
+
+def get_performance_par_operateur_machine_impression(date_debut=None, date_fin=None, machine_impression=None):
+    """Performance par opérateur machine d'impression (WEB_CONTROLES_QUALITE uniquement)."""
+    _ensure_projet10_schema()
+    filt_sql, filt_params = _p10_build_stats_filters_sql("C.", date_debut, date_fin, machine_impression)
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            WITH DernieresLignes AS (
-                SELECT 
-                    T.controle_id,
-                    T.quantite_non_conforme,
-                    ROW_NUMBER() OVER (PARTITION BY T.controle_id ORDER BY T.id DESC) as rn
-                FROM TOLERANCES_CONTROLE T
-            ),
-            StatsParJour AS (
-                SELECT 
-                    CAST(C.date_controle AS DATE) as jour,
-                    SUM(T.quantite_conforme) as total_conforme,
-                    SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus
-                FROM WEB_CONTROLES_QUALITE C
-                LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
-                LEFT JOIN DernieresLignes D ON D.controle_id = C.id
-                WHERE C.date_controle >= DATEADD(day, -?, GETDATE())
-                GROUP BY CAST(C.date_controle AS DATE)
-            )
+        cursor.execute(f"""
             SELECT 
-                jour,
-                total_conforme,
-                total_rebus,
-                (total_conforme + total_rebus) as total_produit,
+                C.operateur_machine_impression,
+                COUNT(*) as nombre_controles,
+                SUM(ISNULL(C.rebus, 0)) as total_rebut,
+                SUM(ISNULL(C.TotalConforme, 0)) as total_conforme,
+                SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)) as total_produit,
                 CASE 
-                    WHEN (total_conforme + total_rebus) > 0 
-                    THEN ROUND(total_conforme * 100.0 / (total_conforme + total_rebus), 2)
+                    WHEN SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)) > 0 
+                    THEN ROUND(100.0 * SUM(ISNULL(C.rebus, 0)) / SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)), 2)
                     ELSE 0 
-                END as taux_conformite
-            FROM StatsParJour
+                END as taux_rebut,
+                CASE 
+                    WHEN SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)) > 0 
+                    THEN ROUND(100.0 * SUM(ISNULL(C.TotalConforme, 0)) / SUM(ISNULL(C.rebus, 0) + ISNULL(C.TotalConforme, 0)), 2)
+                    ELSE 0 
+                END as taux_conformite,
+                SUM(ISNULL(C.ManqAGan, 0)) as sum_manq_agan
+            FROM WEB_CONTROLES_QUALITE C
+            WHERE C.operateur_machine_impression IS NOT NULL 
+              AND LTRIM(RTRIM(C.operateur_machine_impression)) <> ''
+              AND ({filt_sql})
+            GROUP BY C.operateur_machine_impression
+            ORDER BY taux_rebut ASC
+        """, filt_params)
+
+        rows = []
+        for row in cursor.fetchall():
+            rows.append({
+                "operateur_machine_impression": (row.operateur_machine_impression or "").strip(),
+                "nombre_controles": row.nombre_controles or 0,
+                "total_rebut": int(row.total_rebut or 0),
+                "total_conforme": int(row.total_conforme or 0),
+                "total_produit": int(row.total_produit or 0),
+                "taux_rebut": float(row.taux_rebut or 0),
+                "taux_conformite": float(row.taux_conformite or 0),
+                "sum_manq_agan": round(float(row.sum_manq_agan or 0), 3),
+            })
+        return rows
+
+
+def get_evolution_qualite(jours=30, date_debut=None, date_fin=None, machine_impression=None):
+    """Évolution quotidienne (WEB_CONTROLES_QUALITE : TotalConforme + rebus par jour)."""
+    filt_sql, filt_params = _p10_build_stats_filters_sql("C.", date_debut, date_fin, machine_impression)
+    with get_db_cursor() as cursor:
+        if date_debut and date_fin:
+            where_date = f"({filt_sql})"
+            params = tuple(filt_params)
+        else:
+            where_date = f"C.date_controle >= DATEADD(day, -?, GETDATE()) AND ({filt_sql})"
+            params = (int(jours) if jours else 30,) + tuple(filt_params)
+
+        cursor.execute(f"""
+            SELECT 
+                CAST(C.date_controle AS DATE) as jour,
+                SUM(ISNULL(C.TotalConforme, 0)) as total_conforme,
+                SUM(ISNULL(C.rebus, 0)) as total_rebus,
+                SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)) as total_produit,
+                CASE 
+                    WHEN SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)) > 0 
+                    THEN ROUND(100.0 * SUM(ISNULL(C.TotalConforme, 0)) / SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)), 2)
+                    ELSE 0 
+                END as taux_conformite,
+                CASE 
+                    WHEN SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)) > 0 
+                    THEN ROUND(100.0 * SUM(ISNULL(C.rebus, 0)) / SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)), 2)
+                    ELSE 0 
+                END as taux_rebus
+            FROM WEB_CONTROLES_QUALITE C
+            WHERE {where_date}
+            GROUP BY CAST(C.date_controle AS DATE)
             ORDER BY jour
-        """, (jours,))
+        """, params)
         
         evolution = []
         for row in cursor.fetchall():
@@ -1410,57 +1480,39 @@ def get_evolution_qualite(jours=30):
             
             evolution.append({
                 "date": date_str,
-                "total_conforme": row.total_conforme or 0,
-                "total_rebus": row.total_rebus or 0,
-                "total_produit": row.total_produit or 0,
-                "taux_conformite": row.taux_conformite or 0
+                "total_conforme": int(row.total_conforme or 0),
+                "total_rebus": int(row.total_rebus or 0),
+                "total_produit": int(row.total_produit or 0),
+                "taux_conformite": float(row.taux_conformite or 0),
+                "taux_rebus": float(row.taux_rebus or 0),
             })
         return evolution
 
-def get_dossiers_probleme(seuil_rebus_pct=10):
-    """Récupère les contrôles individuels avec un taux de rebus élevé"""
+def get_dossiers_probleme(seuil_rebus_pct=10, date_debut=None, date_fin=None, machine_impression=None):
+    """Fiches dont le taux de rebut (champs TotalConforme + rebus) dépasse le seuil ; filtres période / machine."""
+    filt_sql, filt_params = _p10_build_stats_filters_sql("C.", date_debut, date_fin, machine_impression)
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            WITH DernieresLignes AS (
-                SELECT 
-                    T.controle_id,
-                    T.quantite_non_conforme,
-                    ROW_NUMBER() OVER (PARTITION BY T.controle_id ORDER BY T.id DESC) as rn
-                FROM TOLERANCES_CONTROLE T
-            ),
-            StatsControle AS (
-                SELECT 
-                    C.id as controle_id,
-                    C.Numero_COMMANDES,
-                    C.date_controle,
-                    C.operateur,
-                    C.machine_impression,
-                    SUM(T.quantite_conforme) as total_conforme,
-                    MAX(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus
-                FROM WEB_CONTROLES_QUALITE C
-                LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
-                LEFT JOIN DernieresLignes D ON D.controle_id = C.id
-                GROUP BY C.id, C.Numero_COMMANDES, C.date_controle, C.operateur, C.machine_impression
-            )
+        cursor.execute(f"""
             SELECT 
-                controle_id,
-                Numero_COMMANDES,
-                date_controle,
-                operateur,
-                machine_impression,
-                total_conforme,
-                total_rebus,
-                (total_conforme + total_rebus) as total_produit,
+                C.id as controle_id,
+                C.Numero_COMMANDES,
+                C.date_controle,
+                C.operateur,
+                C.machine_impression,
+                ISNULL(C.TotalConforme, 0) as total_conforme,
+                ISNULL(C.rebus, 0) as total_rebus,
+                ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0) as total_produit,
                 CASE 
-                    WHEN (total_conforme + total_rebus) > 0 
-                    THEN ROUND(total_rebus * 100.0 / (total_conforme + total_rebus), 3)
+                    WHEN ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0) > 0 
+                    THEN ROUND(100.0 * ISNULL(C.rebus, 0) / (ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)), 3)
                     ELSE 0 
                 END as taux_rebus
-            FROM StatsControle
-            WHERE (total_conforme + total_rebus) > 0
-              AND (total_rebus * 100.0 / (total_conforme + total_rebus)) >= ?
+            FROM WEB_CONTROLES_QUALITE C
+            WHERE {filt_sql}
+              AND ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0) > 0
+              AND (100.0 * ISNULL(C.rebus, 0) / (ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0))) >= ?
             ORDER BY taux_rebus DESC
-        """, (seuil_rebus_pct,))
+        """, tuple(filt_params) + (float(seuil_rebus_pct),))
         
         dossiers = []
         for row in cursor.fetchall():
@@ -1486,25 +1538,16 @@ def get_dossiers_probleme(seuil_rebus_pct=10):
         return dossiers
 
 def get_comparaison_periodes(date_debut1, date_fin1, date_debut2, date_fin2):
-    """Compare les statistiques entre deux périodes"""
+    """Compare les statistiques entre deux périodes (WEB_CONTROLES_QUALITE uniquement)."""
     with get_db_cursor() as cursor:
         # Statistiques pour la période 1
         cursor.execute("""
-            WITH DernieresLignes AS (
-                SELECT 
-                    T.controle_id,
-                    T.quantite_non_conforme,
-                    ROW_NUMBER() OVER (PARTITION BY T.controle_id ORDER BY T.id DESC) as rn
-                FROM TOLERANCES_CONTROLE T
-            )
             SELECT 
                 COUNT(DISTINCT C.id) as nombre_controles,
-                SUM(T.quantite_conforme) as total_conforme,
-                SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
-                SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
+                SUM(ISNULL(C.TotalConforme, 0)) as total_conforme,
+                SUM(ISNULL(C.rebus, 0)) as total_rebus,
+                SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)) as total_produit
             FROM WEB_CONTROLES_QUALITE C
-            LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
-            LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE CAST(C.date_controle AS DATE) BETWEEN ? AND ?
         """, (date_debut1, date_fin1))
         
@@ -1520,21 +1563,12 @@ def get_comparaison_periodes(date_debut1, date_fin1, date_debut2, date_fin2):
         
         # Statistiques pour la période 2
         cursor.execute("""
-            WITH DernieresLignes AS (
-                SELECT 
-                    T.controle_id,
-                    T.quantite_non_conforme,
-                    ROW_NUMBER() OVER (PARTITION BY T.controle_id ORDER BY T.id DESC) as rn
-                FROM TOLERANCES_CONTROLE T
-            )
             SELECT 
                 COUNT(DISTINCT C.id) as nombre_controles,
-                SUM(T.quantite_conforme) as total_conforme,
-                SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
-                SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
+                SUM(ISNULL(C.TotalConforme, 0)) as total_conforme,
+                SUM(ISNULL(C.rebus, 0)) as total_rebus,
+                SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)) as total_produit
             FROM WEB_CONTROLES_QUALITE C
-            LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
-            LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE CAST(C.date_controle AS DATE) BETWEEN ? AND ?
         """, (date_debut2, date_fin2))
         
@@ -1667,25 +1701,16 @@ def get_traitement_data_for_controle(numero_commande):
         return result
 
 def get_comparaison_machines(machine1, machine2, jours=30):
-    """Compare les statistiques entre deux machines sur une période donnée"""
+    """Compare deux machines (WEB_CONTROLES_QUALITE uniquement)."""
     with get_db_cursor() as cursor:
         # Statistiques pour la machine 1
         cursor.execute("""
-            WITH DernieresLignes AS (
-                SELECT 
-                    T.controle_id,
-                    T.quantite_non_conforme,
-                    ROW_NUMBER() OVER (PARTITION BY T.controle_id ORDER BY T.id DESC) as rn
-                FROM TOLERANCES_CONTROLE T
-            )
             SELECT 
                 COUNT(DISTINCT C.id) as nombre_controles,
-                SUM(T.quantite_conforme) as total_conforme,
-                SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
-                SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
+                SUM(ISNULL(C.TotalConforme, 0)) as total_conforme,
+                SUM(ISNULL(C.rebus, 0)) as total_rebus,
+                SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)) as total_produit
             FROM WEB_CONTROLES_QUALITE C
-            LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
-            LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE C.machine_impression = ?
               AND C.date_controle >= DATEADD(day, -?, GETDATE())
         """, (machine1, jours))
@@ -1703,21 +1728,12 @@ def get_comparaison_machines(machine1, machine2, jours=30):
         
         # Statistiques pour la machine 2
         cursor.execute("""
-            WITH DernieresLignes AS (
-                SELECT 
-                    T.controle_id,
-                    T.quantite_non_conforme,
-                    ROW_NUMBER() OVER (PARTITION BY T.controle_id ORDER BY T.id DESC) as rn
-                FROM TOLERANCES_CONTROLE T
-            )
             SELECT 
                 COUNT(DISTINCT C.id) as nombre_controles,
-                SUM(T.quantite_conforme) as total_conforme,
-                SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_rebus,
-                SUM(T.quantite_conforme) + SUM(CASE WHEN D.rn = 1 THEN D.quantite_non_conforme ELSE 0 END) as total_produit
+                SUM(ISNULL(C.TotalConforme, 0)) as total_conforme,
+                SUM(ISNULL(C.rebus, 0)) as total_rebus,
+                SUM(ISNULL(C.TotalConforme, 0) + ISNULL(C.rebus, 0)) as total_produit
             FROM WEB_CONTROLES_QUALITE C
-            LEFT JOIN TOLERANCES_CONTROLE T ON T.controle_id = C.id
-            LEFT JOIN DernieresLignes D ON D.controle_id = C.id
             WHERE C.machine_impression = ?
               AND C.date_controle >= DATEADD(day, -?, GETDATE())
         """, (machine2, jours))

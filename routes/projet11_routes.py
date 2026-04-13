@@ -312,6 +312,9 @@ def liste_traitements():
             filtre_storage_key = f'projet11_liste_filtre_Atelier_{atelier_nom}'
         else:
             filtre_storage_key = 'projet11_liste_filtre_default'
+        can_validate_controle = projet11.matricule_peut_valider_controle(
+            session.get("matricule"), is_super_user()
+        )
         resp = make_response(render_template(
             'projet11_liste.html',
             traitements=traitements,
@@ -319,6 +322,7 @@ def liste_traitements():
             reprise_action_id=reprise_action_id,
             debloquer_action_id=debloquer_action_id,
             filtre_storage_key=filtre_storage_key,
+            can_validate_controle=can_validate_controle,
         ))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
@@ -785,6 +789,10 @@ def api_update_traitement(traitement_id):
 def api_update_chrono_affichage(traitement_id):
     """Enregistre le temps affiché du chronomètre (pause/fermeture) pour réafficher à la réouverture."""
     try:
+        if projet11.is_traitement_controle_valide(traitement_id):
+            return jsonify({
+                "error": "Traitement validé au contrôle : dévalider avant toute modification.",
+            }), 409
         data = request.get_json() or {}
         temps_sec = data.get('temps_ecoule_sec')
         if temps_sec is None:
@@ -798,10 +806,44 @@ def api_update_chrono_affichage(traitement_id):
         return jsonify({"error": str(e)}), 500
 
 
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/pause/start', methods=['POST'])
+def api_pause_production_start(traitement_id):
+    """Enregistre le début d'une pause (ligne WEB_TRAITEMENTS_PAUSE)."""
+    try:
+        if projet11.is_traitement_controle_valide(traitement_id):
+            return jsonify({"success": False, "error": "Traitement validé au contrôle."}), 409
+        ok, msg = projet11.start_pause_production(traitement_id)
+        if ok:
+            total = projet11.get_pause_seconds_total_display_for_api(traitement_id)
+            return jsonify({"success": True, "total_pause_sec": total})
+        return jsonify({"success": False, "error": msg or "Impossible de démarrer la pause"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/pause/end', methods=['POST'])
+def api_pause_production_end(traitement_id):
+    """Enregistre la fin de la pause en cours."""
+    try:
+        if projet11.is_traitement_controle_valide(traitement_id):
+            return jsonify({"success": False, "error": "Traitement validé au contrôle."}), 409
+        ok, msg = projet11.end_pause_production(traitement_id)
+        if ok:
+            total = projet11.get_pause_seconds_total_display_for_api(traitement_id)
+            return jsonify({"success": True, "total_pause_sec": total})
+        return jsonify({"success": False, "error": msg or "Impossible de terminer la pause"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/operateur', methods=['PATCH'])
 def api_update_operateur_traitement(traitement_id):
     """Met à jour l'opérateur du traitement (pour sync en temps réel quand l'utilisateur change l'opérateur)."""
     try:
+        if projet11.is_traitement_controle_valide(traitement_id):
+            return jsonify({
+                "error": "Traitement validé au contrôle : dévalider avant toute modification.",
+            }), 409
         data = request.get_json() or {}
         matricule = data.get('matricule_personel')
         success = projet11.update_operateur_traitement(traitement_id, matricule)
@@ -819,6 +861,10 @@ def api_update_cloture_traitement(traitement_id):
     if not is_super_user() and not has_action_access(3):
         return jsonify({"error": "Accès refusé"}), 403
     try:
+        if projet11.is_traitement_controle_valide(traitement_id):
+            return jsonify({
+                "error": "Traitement validé au contrôle : dévalider avant toute modification.",
+            }), 409
         data = request.get_json() or {}
         cloture = data.get('cloture', 0)
         success = projet11.update_cloture_traitement(traitement_id, cloture)
@@ -827,6 +873,32 @@ def api_update_cloture_traitement(traitement_id):
         return jsonify({"error": "Mise à jour impossible"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/controle-valider', methods=['POST'])
+def api_controle_valider_traitement(traitement_id):
+    """Valide le contrôle des données (droit action validation Liste des Traitements ou super-utilisateur)."""
+    if not projet11.matricule_peut_valider_controle(session.get("matricule"), is_super_user()):
+        return jsonify({"success": False, "error": "Accès refusé pour la validation contrôle."}), 403
+    ok, msg = projet11.set_traitement_controle_valide(
+        traitement_id, True, session.get("matricule")
+    )
+    if ok:
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": msg or "Validation impossible"}), 400
+
+
+@projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/controle-devalider', methods=['POST'])
+def api_controle_devalider_traitement(traitement_id):
+    """Retire la validation contrôle (même droit que la validation ou super-utilisateur)."""
+    if not projet11.matricule_peut_valider_controle(session.get("matricule"), is_super_user()):
+        return jsonify({"success": False, "error": "Accès refusé pour la dévalidation contrôle."}), 403
+    ok, msg = projet11.set_traitement_controle_valide(
+        traitement_id, False, session.get("matricule")
+    )
+    if ok:
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": msg or "Dévalidation impossible"}), 400
 
 
 @projet11_bp.route('/projet11/api/traitements/<int:traitement_id>/open', methods=['POST'])
@@ -905,6 +977,10 @@ def api_delete_traitement(traitement_id):
         return jsonify({"error": "Accès refusé : vous n'avez pas l'autorisation de supprimer les traitements"}), 403
     
     try:
+        if projet11.is_traitement_controle_valide(traitement_id):
+            return jsonify({
+                "error": "Traitement validé au contrôle : dévalider avant suppression.",
+            }), 409
         success = projet11.delete_traitement(traitement_id)
         
         if success:
@@ -1561,6 +1637,7 @@ def export_traitements_excel():
                 'Pdt NNC': t.get('pdt_nnc', 0),
                 'Pdt ANC': t.get('pdt_anc', 0),
                 'Statut': 'Terminé' if t.get('dte_fin') else 'En cours',
+                'Contrôle': 'Validé' if t.get('controle_valide') else 'Non validé',
                 'Date Création': t.get('date_creation', ''),
                 'Date Modification': t.get('date_modification', '')
             })
@@ -1710,7 +1787,8 @@ def export_traitements_pdf():
             Paragraph('Tps Prévu', header_style),
             Paragraph('Tps Réel', header_style),
             Paragraph('Description', header_style),
-            Paragraph('Statut', header_style)
+            Paragraph('Statut', header_style),
+            Paragraph('Contrôle', header_style)
         ]]
         
         for t in traitements:
@@ -1719,6 +1797,7 @@ def export_traitements_pdf():
             tps_prev = f"{t.get('tps_prev_dev', 0):.2f}" if t.get('tps_prev_dev') else ''
             tps_reel = f"{t.get('tps_reel', 0):.2f}" if t.get('tps_reel') else ''
             statut = 'Terminé' if t.get('dte_fin') else 'En cours'
+            controle_txt = 'Validé' if t.get('controle_valide') else 'Non validé'
             description_text = (t.get('description', '') or '')[:80]  # Limiter pour le PDF
             
             # Pour la colonne Référence, utiliser la fonction qui force le retour à la ligne
@@ -1741,7 +1820,8 @@ def export_traitements_pdf():
                 Paragraph(tps_prev, cell_style),
                 Paragraph(tps_reel, cell_style),
                 Paragraph(description_text, cell_style),
-                Paragraph(statut, cell_style)
+                Paragraph(statut, cell_style),
+                Paragraph(controle_txt, cell_style)
             ])
         
         # Créer le tableau avec largeurs ajustées
@@ -1764,8 +1844,9 @@ def export_traitements_pdf():
             0.45*inch,  # Nb Pers.
             0.55*inch,  # Tps Prévu
             0.55*inch,  # Tps Réel
-            1.0*inch,   # Description
-            1.0*inch    # Statut
+            0.85*inch,  # Description
+            0.85*inch,  # Statut
+            0.55*inch   # Contrôle
         ])
         
         table.setStyle(TableStyle([

@@ -215,14 +215,20 @@ th.col-statut, td.col-statut {
     max-width: 120px;
     text-align: center;
 }
+th.col-controle, td.col-controle {
+    width: 110px;
+    max-width: 130px;
+    text-align: center;
+    white-space: nowrap;
+}
 th.col-nomfd, td.col-nomfd {
     width: 130px;
     max-width: 170px;
 }
 th.col-actions, td.col-actions {
-    width: 115px;
-    min-width: 115px;
-    max-width: 120px;
+    width: 165px;
+    min-width: 155px;
+    max-width: 220px;
 }
 .actions-buttons-group {
     display: inline-flex;
@@ -445,6 +451,7 @@ th.col-actions, td.col-actions {
                                     <th class="col-nomfd">Nom F.D.</th>
                                     <th class="col-description">Description</th>
                                     <th class="col-statut">Statut</th>
+                                    <th class="col-controle">Contrôle</th>
                                     <th class="col-actions">Actions</th>
                                 </tr>
                             </thead>
@@ -535,6 +542,13 @@ th.col-actions, td.col-actions {
                                             <span class="badge badge-statut-encours">En cours</span>
                                         {% endif %}
                                     </td>
+                                    <td class="col-controle">
+                                        {% if t.controle_valide %}
+                                            <strong title="{% if t.controle_valide_dte %}Validé le {{ t.controle_valide_dte }}{% if t.controle_valide_matricule %} — mat. {{ t.controle_valide_matricule }}{% endif %}{% else %}Contrôle des données validé{% endif %}">Validé</strong>
+                                        {% else %}
+                                            <span class="text-muted">Non validé</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="col-actions" style="white-space: nowrap;">
                                         <div class="actions-buttons-group">
                                             <button class="btn-action-modern btn-action-view btn-view-traitement" data-id="{{ t.id }}" title="Voir les détails" data-bs-toggle="tooltip">
@@ -549,14 +563,25 @@ th.col-actions, td.col-actions {
                                                 </svg>
                                             </button>
                                             {% endif %}
-                                            {% if has_action_access(3) and (t.cloture or t.dte_fin) %}
+                                            {% if can_validate_controle and (t.cloture or t.dte_fin) %}
+                                                {% if t.controle_valide %}
+                                                <button type="button" class="btn-action-modern btn-controle-devalider text-warning" data-id="{{ t.id }}" title="Dévalider le contrôle des données" data-bs-toggle="tooltip">
+                                                    <i class="fas fa-undo"></i>
+                                                </button>
+                                                {% else %}
+                                                <button type="button" class="btn-action-modern btn-controle-valider text-success" data-id="{{ t.id }}" title="Valider le contrôle des données" data-bs-toggle="tooltip">
+                                                    <i class="fas fa-clipboard-check"></i>
+                                                </button>
+                                                {% endif %}
+                                            {% endif %}
+                                            {% if has_action_access(3) and (t.cloture or t.dte_fin) and not t.controle_valide %}
                                             <button class="btn-action-modern btn-action-edit btn-edit-traitement" data-id="{{ t.id }}" title="Modifier" data-bs-toggle="tooltip">
                                                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                                                 </svg>
                                             </button>
                                             {% endif %}
-                                            {% if has_action_access(4) %}
+                                            {% if has_action_access(4) and not t.controle_valide %}
                                             <button class="btn-action-modern btn-action-delete btn-delete-traitement" data-id="{{ t.id }}" title="Supprimer" data-bs-toggle="tooltip">
                                                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -573,7 +598,7 @@ th.col-actions, td.col-actions {
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="19" class="text-center text-muted">
+                                    <td colspan="20" class="text-center text-muted">
                                         Aucun traitement enregistré
                                     </td>
                                 </tr>
@@ -660,7 +685,8 @@ $(document).ready(function() {
         { titre: 'Nom F.D.', filtre: true, toggle: true, className: 'col-nomfd', width: '130px' },
         { titre: 'Description', filtre: true, toggle: true, className: 'col-description', width: '180px' },
         { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '100px' },
-        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '115px', orderable: false }
+        { titre: 'Contrôle', filtre: true, toggle: true, className: 'col-controle', width: '110px' },
+        { titre: 'Actions', filtre: false, toggle: true, className: 'col-actions', width: '165px', orderable: false }
     ];
 
     // Ajouter une ligne de filtres
@@ -693,6 +719,8 @@ $(document).ready(function() {
         },
         order: [[0, 'desc']],
         dom: 'lrtip',
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tous']],
         autoWidth: false,
         columnDefs: columnDefsConfig,
         initComplete: function() {
@@ -988,6 +1016,50 @@ $(document).ready(function() {
         }
     });
 
+    $(document).on('click', '.btn-controle-valider', function() {
+        const id = $(this).data('id');
+        if (!id) return;
+        if (!confirm('Valider le contrôle des données pour ce traitement ? La fiche ne pourra plus être modifiée tant qu’elle n’est pas dévalidée.')) return;
+        const $btn = $(this);
+        $btn.prop('disabled', true);
+        fetch('/projet11/api/traitements/' + id + '/controle-valider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(res) {
+                if (res.ok && res.j && res.j.success) {
+                    location.reload();
+                } else {
+                    alert(res.j && res.j.error ? res.j.error : 'Erreur lors de la validation.');
+                    $btn.prop('disabled', false);
+                }
+            })
+            .catch(function() {
+                alert('Erreur réseau.');
+                $btn.prop('disabled', false);
+            });
+    });
+
+    $(document).on('click', '.btn-controle-devalider', function() {
+        const id = $(this).data('id');
+        if (!id) return;
+        if (!confirm('Retirer la validation contrôle ? La fiche redeviendra modifiable.')) return;
+        const $btn = $(this);
+        $btn.prop('disabled', true);
+        fetch('/projet11/api/traitements/' + id + '/controle-devalider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(res) {
+                if (res.ok && res.j && res.j.success) {
+                    location.reload();
+                } else {
+                    alert(res.j && res.j.error ? res.j.error : 'Erreur lors de la dévalidation.');
+                    $btn.prop('disabled', false);
+                }
+            })
+            .catch(function() {
+                alert('Erreur réseau.');
+                $btn.prop('disabled', false);
+            });
+    });
+
     $(document).on('click', '.btn-debloquer-traitement', function() {
         const id = $(this).data('id');
         if (!id) return;
@@ -1067,6 +1139,7 @@ function voirDetails(id) {
                     </tr>
                     <tr><th>Date Création:</th><td>${formaterDate(data.date_creation)}</td></tr>
                     <tr><th>Date Modification:</th><td>${formaterDate(data.date_modification)}</td></tr>
+                    <tr><th>Contrôle données:</th><td>${data.controle_valide ? ('Validé' + (data.controle_valide_dte ? ' le ' + data.controle_valide_dte : '') + (data.controle_valide_matricule != null ? ' (mat. ' + data.controle_valide_matricule + ')' : '')) : 'Non validé'}</td></tr>
                 </table>
             `;
             
@@ -1202,7 +1275,8 @@ function ouvrirModalModificationSuite(id, isReprise, iframe, modalModifier) {
                     sessionStorage.setItem('projet11_liste_etat', JSON.stringify({
                         colVisible: colVisible,
                         filterValues: filterValues,
-                        toutCocher: toutCocher
+                        toutCocher: toutCocher,
+                        pageLength: api.page.len()
                     }));
                 }
             } catch (e) { }

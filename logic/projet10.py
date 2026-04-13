@@ -11,7 +11,9 @@ from db import (
     get_statistiques_controle_qualite,
     get_performance_par_machine,
     get_evolution_qualite,
+    get_performance_par_operateur_machine_impression,
     get_dossiers_probleme,
+    get_distinct_machines_controle_qualite,
     get_numeros_commandes_disponibles,
     get_operateurs,
     get_comparaison_periodes,
@@ -108,7 +110,8 @@ def index():
                              show_nouveau_controle=show_nouveau_controle,
                              show_statistiques=show_statistiques,
                              show_rapports_cq=show_rapports_cq,
-                             has_action_access=has_action_access)
+                             has_action_access=has_action_access,
+                             is_super_user=is_super_user)
     except Exception as e:
         print(f"Erreur dans projet10.index: {e}")
         import traceback
@@ -120,7 +123,8 @@ def index():
                              show_nouveau_controle=True,
                              show_statistiques=True,
                              show_rapports_cq=True,
-                             has_action_access=has_action_access)
+                             has_action_access=has_action_access,
+                             is_super_user=is_super_user)
 
 # ---------------------------
 # PAGE STATS SEPAREE
@@ -183,7 +187,7 @@ def export_controles_excel():
                 "Opérateur M. de découpe": c.get("operateur_machine_decoupe", ""),
                 "Rebuts": c.get("rebus", 0),
                 "Total conforme (enreg.)": c.get("TotalConforme", ""),
-                "Manque à Gagner": c.get("ManqAGan", ""),
+                "Màg. (TND)": c.get("ManqAGan", ""),
                 "Coût de Rebuts": c.get("CRebut", ""),
                 "Taux de Rebuts (%)": c.get("TauxRebuts", ""),
                 "Validation": c.get("validation_chef", ""),
@@ -237,27 +241,464 @@ def api_debug_schema():
     """Diagnostic: vérifier schéma et base active pour projet10."""
     return jsonify(get_projet10_schema_info())
 
+def _p10_stats_filters_from_request():
+    """Lit date_debut, date_fin, machine_impression depuis la query string."""
+    d1 = request.args.get("date_debut", type=str)
+    d2 = request.args.get("date_fin", type=str)
+    m = request.args.get("machine_impression", type=str)
+    if d1 is not None and not str(d1).strip():
+        d1 = None
+    if d2 is not None and not str(d2).strip():
+        d2 = None
+    if m is not None:
+        m = str(m).strip() or None
+    return d1, d2, m
+
+
 @bp.route("/api/statistiques")
 def api_statistiques():
-    """API pour récupérer les statistiques globales de contrôle qualité"""
-    return jsonify(get_statistiques_controle_qualite())
+    """API pour récupérer les statistiques globales de contrôle qualité (filtres optionnels)."""
+    d1, d2, m = _p10_stats_filters_from_request()
+    return jsonify(get_statistiques_controle_qualite(d1, d2, m))
 
 @bp.route("/api/statistiques/machines")
 def api_statistiques_machines():
-    """API pour récupérer les statistiques par machine"""
-    return jsonify(get_performance_par_machine())
+    """API pour récupérer les statistiques par machine (mêmes filtres que les globales)."""
+    d1, d2, m = _p10_stats_filters_from_request()
+    return jsonify(get_performance_par_machine(d1, d2, m))
+
+@bp.route("/api/statistiques/machines-distinct")
+def api_statistiques_machines_distinct():
+    """Liste des libellés machine_impression déjà présents sur les contrôles (datalist filtres)."""
+    return jsonify(get_distinct_machines_controle_qualite())
 
 @bp.route("/api/statistiques/evolution")
 def api_statistiques_evolution():
-    """API pour récupérer l'évolution de la qualité sur 30 jours"""
-    jours = request.args.get('jours', 30, type=int)
-    return jsonify(get_evolution_qualite(jours))
+    """Évolution quotidienne : plage date_debut/date_fin si les deux sont fournis, sinon N derniers jours."""
+    jours = request.args.get("jours", 30, type=int)
+    d1, d2, m = _p10_stats_filters_from_request()
+    return jsonify(get_evolution_qualite(jours, d1, d2, m))
+
+
+@bp.route("/api/statistiques/operateurs-impression")
+def api_statistiques_operateurs_impression():
+    """Performance agrégée par opérateur machine d'impression (mêmes filtres que les stats globales)."""
+    d1, d2, m = _p10_stats_filters_from_request()
+    return jsonify(get_performance_par_operateur_machine_impression(d1, d2, m))
+
 
 @bp.route("/api/statistiques/dossiers-probleme")
 def api_statistiques_dossiers_probleme():
-    """API pour récupérer les dossiers avec rebus élevé"""
-    seuil = request.args.get('seuil', 5, type=float)
-    return jsonify(get_dossiers_probleme(seuil))
+    """Dossiers avec taux de rebus (lignes) élevé ; seuil par défaut 10 %."""
+    seuil = request.args.get("seuil", 10, type=float)
+    d1, d2, m = _p10_stats_filters_from_request()
+    return jsonify(get_dossiers_probleme(seuil, d1, d2, m))
+
+
+@bp.route("/statistiques/export-excel")
+def export_statistiques_excel():
+    """Export Excel du tableau de bord statistiques (résumé, par machine, par opérateur), mêmes filtres que l'API."""
+    if not is_super_user() and not has_action_access(6):
+        flash("Vous n'avez pas accès à cette action (Export Excel).", "error")
+        return redirect(url_for("projet10.index"))
+    try:
+        import pandas as pd
+        from io import BytesIO
+        from datetime import datetime
+
+        d1, d2, m = _p10_stats_filters_from_request()
+        stats = get_statistiques_controle_qualite(d1, d2, m) or {}
+        machines = get_performance_par_machine(d1, d2, m) or []
+        operateurs = get_performance_par_operateur_machine_impression(d1, d2, m) or []
+
+        flat = {k: v for k, v in stats.items() if k != "filtres"}
+        df1 = pd.DataFrame([flat])
+        df2 = pd.DataFrame(machines)
+        df3 = pd.DataFrame(operateurs)
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df1.to_excel(writer, sheet_name="Resume", index=False)
+            df2.to_excel(writer, sheet_name="Par_machine", index=False)
+            df3.to_excel(writer, sheet_name="Par_op_impression", index=False)
+
+        output.seek(0)
+        filename = f"statistiques_projet10_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return Response(
+            output.getvalue(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except ImportError:
+        return jsonify({"error": "pandas et openpyxl sont requis pour l'export Excel"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def _p10_pdf_cell(s):
+    """Texte brut pour cellules Table (évite soucis d'encodage)."""
+    if s is None:
+        return ""
+    return str(s)
+
+
+def _p10_pdf_xml_esc(s):
+    """Échappement minimal pour contenu dans reportlab.platypus.Paragraph."""
+    if s is None:
+        return ""
+    return (
+        str(s)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+
+def _p10_pdf_dec3(x):
+    try:
+        return "{:.3f}".format(float(x)).replace(".", ",")
+    except (TypeError, ValueError):
+        return _p10_pdf_cell(x)
+
+
+def _p10_pdf_dec2(x):
+    try:
+        return "{:.2f}".format(float(x)).replace(".", ",")
+    except (TypeError, ValueError):
+        return _p10_pdf_cell(x)
+
+
+def _generer_pdf_statistiques_cq(d1, d2, m, seuil, stats, machines, operateurs, dossiers):
+    """PDF tableau de bord statistiques CQ (mêmes données que la section web, filtres appliqués)."""
+    try:
+        from datetime import datetime
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    except ImportError:
+        return None, "reportlab non installé"
+
+    stats = stats or {}
+    machines = machines or []
+    operateurs = operateurs or []
+    dossiers = dossiers or []
+
+    buffer = io.BytesIO()
+    page = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "P10StatTitle",
+        parent=styles["Heading1"],
+        fontSize=16,
+        spaceAfter=10,
+        textColor=colors.HexColor("#0d6efd"),
+    )
+    h2_style = ParagraphStyle(
+        "P10StatH2",
+        parent=styles["Heading2"],
+        fontSize=11,
+        spaceBefore=8,
+        spaceAfter=6,
+        textColor=colors.HexColor("#212529"),
+    )
+    normal_small = ParagraphStyle(
+        "P10StatSmall",
+        parent=styles["Normal"],
+        fontSize=9,
+        spaceAfter=4,
+    )
+    dos_cell_style = ParagraphStyle(
+        "P10DosCell",
+        parent=styles["Normal"],
+        fontSize=7.5,
+        leading=9,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    dos_hdr_style = ParagraphStyle(
+        "P10DosHdr",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=7.5,
+        leading=9,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+
+    elements = []
+    elements.append(Paragraph("Statistiques — Contrôle qualité (Projet 10)", title_style))
+    elements.append(
+        Paragraph(
+            "Généré le {}".format(datetime.now().strftime("%d/%m/%Y %H:%M")),
+            normal_small,
+        )
+    )
+
+    filt_lines = [
+        "<b>Filtres appliqués</b> — Date début : {} — Date fin : {} — Machine impression : {} — Seuil dossiers à risque : {} %".format(
+            _p10_pdf_cell(d1 or "—"),
+            _p10_pdf_cell(d2 or "—"),
+            _p10_pdf_cell(m if m else "Toutes"),
+            _p10_pdf_dec2(seuil),
+        )
+    ]
+    elements.append(Paragraph(filt_lines[0], normal_small))
+    elements.append(Spacer(1, 0.35 * cm))
+
+    # --- Indicateurs globaux ---
+    elements.append(Paragraph("Indicateurs globaux", h2_style))
+    tc = int(stats.get("total_controles") or 0)
+    cv = int(stats.get("controles_valides") or 0)
+    taux_val = ((cv / tc) * 100) if tc > 0 else 0.0
+    resume_rows = [
+        ["Indicateur", "Valeur"],
+        ["Total contrôles", str(tc)],
+        ["Contrôles validés", str(cv)],
+        ["Taux validation (%)", _p10_pdf_dec3(taux_val)],
+        ["Rebut moyen / fiche", _p10_pdf_dec3(stats.get("rebus_moyen"))],
+        ["Total produit (fiche)", str(int(stats.get("total_produit") or 0))],
+        ["Conforme (fiche)", str(int(stats.get("total_conforme") or 0))],
+        ["Rebut (fiche)", str(int(stats.get("total_rebus") or 0))],
+        ["Taux conformité (%)", _p10_pdf_dec3(stats.get("taux_conformite"))],
+        ["Taux rebut (%)", _p10_pdf_dec3(stats.get("taux_rebus"))],
+        ["Σ Manquants à gagner (TND)", _p10_pdf_dec3(stats.get("sum_manq_agan"))],
+        ["Σ Coût rebuts (TND)", _p10_pdf_dec3(stats.get("sum_crebut"))],
+    ]
+    tw = doc.width
+    t_resume = Table(resume_rows, colWidths=[tw * 0.55, tw * 0.45])
+    t_resume.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e9ecef")),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+            ]
+        )
+    )
+    elements.append(t_resume)
+    elements.append(Spacer(1, 0.45 * cm))
+
+    # --- Performance par machine ---
+    elements.append(Paragraph("Performance par machine d'impression", h2_style))
+    mach_header = [
+        "Machine",
+        "Nb contrôles",
+        "Rebut",
+        "Conforme",
+        "Total",
+        "Taux rebut %",
+        "Taux conf. %",
+        "Σ Màg. TND",
+    ]
+    mach_data = [mach_header]
+    for row in machines:
+        mach_data.append(
+            [
+                _p10_pdf_cell(row.get("machine")),
+                str(int(row.get("nombre_controles") or 0)),
+                str(int(row.get("total_rebut") or 0)),
+                str(int(row.get("total_conforme") or 0)),
+                str(int(row.get("total_produit") or 0)),
+                _p10_pdf_dec2(row.get("taux_rebut")),
+                _p10_pdf_dec2(row.get("taux_conformite")),
+                _p10_pdf_dec3(row.get("sum_manq_agan")),
+            ]
+        )
+    if len(mach_data) == 1:
+        mach_data.append(["(aucune donnée)", "", "", "", "", "", "", ""])
+    w_m = doc.width / 8.0
+    t_mach = Table(
+        mach_data,
+        colWidths=[w_m * 1.4, w_m, w_m * 0.85, w_m * 0.85, w_m * 0.85, w_m, w_m, w_m],
+        repeatRows=1,
+    )
+    t_mach.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e9ecef")),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("GRID", (0, 0), (-1, -1), 0.35, colors.lightgrey),
+            ]
+        )
+    )
+    elements.append(t_mach)
+    elements.append(Spacer(1, 0.45 * cm))
+
+    # --- Performance par opérateur ---
+    elements.append(Paragraph("Performance par opérateur machine d'impression", h2_style))
+    op_header = [
+        "Opérateur",
+        "Nb contrôles",
+        "Rebut",
+        "Conforme",
+        "Total",
+        "Taux rebut %",
+        "Taux conf. %",
+        "Σ Màg. TND",
+    ]
+    op_data = [op_header]
+    for row in operateurs:
+        op_data.append(
+            [
+                _p10_pdf_cell(row.get("operateur_machine_impression")),
+                str(int(row.get("nombre_controles") or 0)),
+                str(int(row.get("total_rebut") or 0)),
+                str(int(row.get("total_conforme") or 0)),
+                str(int(row.get("total_produit") or 0)),
+                _p10_pdf_dec2(row.get("taux_rebut")),
+                _p10_pdf_dec2(row.get("taux_conformite")),
+                _p10_pdf_dec3(row.get("sum_manq_agan")),
+            ]
+        )
+    if len(op_data) == 1:
+        op_data.append(["(aucune donnée)", "", "", "", "", "", "", ""])
+    t_op = Table(
+        op_data,
+        colWidths=[w_m * 1.4, w_m, w_m * 0.85, w_m * 0.85, w_m * 0.85, w_m, w_m, w_m],
+        repeatRows=1,
+    )
+    t_op.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e9ecef")),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("GRID", (0, 0), (-1, -1), 0.35, colors.lightgrey),
+            ]
+        )
+    )
+    elements.append(t_op)
+    elements.append(Spacer(1, 0.45 * cm))
+
+    # --- Dossiers à risque ---
+    elements.append(
+        Paragraph(
+            "Dossiers à risque (taux rebut fiche ≥ {} %)".format(_p10_pdf_dec2(seuil)),
+            h2_style,
+        )
+    )
+    # Colonnes texte en Paragraph : retour à la ligne dans la cellule (pas de débordement sur la colonne suivante)
+    dos_header = [
+        Paragraph(_p10_pdf_xml_esc("N° Dossier"), dos_hdr_style),
+        Paragraph(_p10_pdf_xml_esc("Date"), dos_hdr_style),
+        Paragraph(_p10_pdf_xml_esc("Opérateur"), dos_hdr_style),
+        Paragraph(_p10_pdf_xml_esc("Machine"), dos_hdr_style),
+        Paragraph(_p10_pdf_xml_esc("Conf."), dos_hdr_style),
+        Paragraph(_p10_pdf_xml_esc("Rebut"), dos_hdr_style),
+        Paragraph(_p10_pdf_xml_esc("Total"), dos_hdr_style),
+        Paragraph(_p10_pdf_xml_esc("Taux rebut %"), dos_hdr_style),
+    ]
+    dos_data = [dos_header]
+    for row in dossiers:
+        dos_data.append(
+            [
+                Paragraph(_p10_pdf_xml_esc(row.get("Numero_COMMANDES")), dos_cell_style),
+                Paragraph(_p10_pdf_xml_esc(row.get("date")), dos_cell_style),
+                Paragraph(_p10_pdf_xml_esc(row.get("operateur")), dos_cell_style),
+                Paragraph(_p10_pdf_xml_esc(row.get("machine")), dos_cell_style),
+                Paragraph(_p10_pdf_xml_esc(str(int(row.get("total_conforme") or 0))), dos_cell_style),
+                Paragraph(_p10_pdf_xml_esc(str(int(row.get("total_rebus") or 0))), dos_cell_style),
+                Paragraph(_p10_pdf_xml_esc(str(int(row.get("total_produit") or 0))), dos_cell_style),
+                Paragraph(_p10_pdf_xml_esc(_p10_pdf_dec2(row.get("taux_rebus"))), dos_cell_style),
+            ]
+        )
+    if len(dos_data) == 1:
+        dos_data.append(
+            [
+                Paragraph(_p10_pdf_xml_esc("Aucun dossier au-dessus du seuil"), dos_cell_style),
+                Paragraph("", dos_cell_style),
+                Paragraph("", dos_cell_style),
+                Paragraph("", dos_cell_style),
+                Paragraph("", dos_cell_style),
+                Paragraph("", dos_cell_style),
+                Paragraph("", dos_cell_style),
+                Paragraph("", dos_cell_style),
+            ]
+        )
+    # Largeurs (somme = doc.width) : plus d'espace pour Opérateur / Machine
+    dos_col_fracs = [0.12, 0.09, 0.22, 0.18, 0.09, 0.09, 0.09, 0.12]
+    dos_col_widths = [doc.width * f for f in dos_col_fracs]
+    t_dos = Table(
+        dos_data,
+        colWidths=dos_col_widths,
+        repeatRows=1,
+    )
+    t_dos.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f8d7da")),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("GRID", (0, 0), (-1, -1), 0.35, colors.lightgrey),
+            ]
+        )
+    )
+    elements.append(t_dos)
+
+    try:
+        doc.build(elements)
+        return buffer.getvalue(), None
+    except Exception as e:
+        return None, str(e)
+
+
+@bp.route("/statistiques/export-pdf")
+def export_statistiques_pdf():
+    """Export PDF de la section statistiques (résumé, machines, opérateurs, dossiers à risque), mêmes filtres que l'API."""
+    from datetime import datetime
+
+    if not is_super_user() and not has_action_access(6):
+        flash("Vous n'avez pas accès à cette action (Export PDF).", "error")
+        return redirect(url_for("projet10.index"))
+    try:
+        d1, d2, m = _p10_stats_filters_from_request()
+        seuil = request.args.get("seuil", 10, type=float)
+        if seuil is None:
+            seuil = 10.0
+
+        stats = get_statistiques_controle_qualite(d1, d2, m) or {}
+        machines = get_performance_par_machine(d1, d2, m) or []
+        operateurs = get_performance_par_operateur_machine_impression(d1, d2, m) or []
+        dossiers = get_dossiers_probleme(seuil, d1, d2, m) or []
+
+        pdf_bytes, err = _generer_pdf_statistiques_cq(
+            d1, d2, m, seuil, stats, machines, operateurs, dossiers
+        )
+        if err:
+            return jsonify({"error": err}), 500
+
+        filename = "statistiques_cq_projet10_{}.pdf".format(
+            datetime.now().strftime("%Y%m%d_%H%M%S")
+        )
+        return Response(
+            pdf_bytes,
+            mimetype="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="{}"'.format(filename)},
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @bp.route("/api/operateurs")
 def api_operateurs():

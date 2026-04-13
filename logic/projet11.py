@@ -46,6 +46,393 @@ _description_column_ensured = False
 _nom_fd_column_ensured = False
 _chrono_affichage_en_pause_ensured = False
 _chrono_affichage_snapshot_at_ensured = False
+_controle_valide_columns_ensured = False
+
+def _get_liste_traitements_validation_action_id():
+    """
+    ID de l'action de validation contrôle sur la section « Liste des Traitements » (projet 11).
+    L'intitulé d'action en base peut être « VALIDATION », « Validation », etc.
+    """
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT TOP 1 WA.ID
+                FROM dbo.WEB_ACTIONS WA
+                INNER JOIN dbo.WEB_SECTIONS WS ON WS.ID = WA.ID_Section
+                INNER JOIN dbo.WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                WHERE WP.NumProj = 11
+                  AND (
+                      LTRIM(RTRIM(WS.Nom)) = N'Liste des Traitements'
+                      OR LOWER(LTRIM(RTRIM(WS.Nom))) LIKE N'%liste%traitement%'
+                  )
+                  AND LOWER(LTRIM(RTRIM(WA.Action))) LIKE N'%validation%'
+                  AND (WA.archive = 0 OR WA.archive IS NULL)
+                ORDER BY WA.ID
+                """
+            )
+            row = cursor.fetchone()
+            return getattr(row, "ID", None) if row else None
+    except Exception as e:
+        print(f"[projet11] _get_liste_traitements_validation_action_id: {e}")
+        return None
+
+
+def matricule_peut_valider_controle(matricule, is_super_user=False):
+    """
+    True si l'utilisateur peut valider ou dévalider le contrôle des données.
+    Super-utilisateur : oui. Sinon : droit WEB_DROITS_ACCES sur l'action validation
+    de la section Liste des Traitements (projet 11), via has_action_access.
+    """
+    if is_super_user:
+        return True
+    try:
+        from logic.auth import has_action_access
+    except Exception:
+        return False
+    aid = _get_liste_traitements_validation_action_id()
+    if aid is None:
+        return False
+    return has_action_access(aid)
+
+
+def ensure_controle_valide_columns():
+    """Colonnes Contrôle validation (WEB_TRAITEMENTS)."""
+    global _controle_valide_columns_ensured
+    ensure_nom_fd_column()
+    if _controle_valide_columns_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValide'):
+                cursor.execute(
+                    "ALTER TABLE dbo.WEB_TRAITEMENTS ADD ControleValide TINYINT NULL DEFAULT 0"
+                )
+            if not column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValideDte'):
+                cursor.execute(
+                    "ALTER TABLE dbo.WEB_TRAITEMENTS ADD ControleValideDte DATETIME2 NULL"
+                )
+            if not column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValideMatricule'):
+                cursor.execute(
+                    "ALTER TABLE dbo.WEB_TRAITEMENTS ADD ControleValideMatricule INT NULL"
+                )
+            cursor.connection.commit()
+            print("[projet11] Colonnes contrôle validation vérifiées sur WEB_TRAITEMENTS.")
+    except Exception as e:
+        print(f"[projet11] ensure_controle_valide_columns: {e}")
+    finally:
+        _controle_valide_columns_ensured = True
+
+
+_pause_table_ensured = False
+_tps_pause_total_column_ensured = False
+
+
+def pause_table_exists(cursor):
+    """True si la table WEB_TRAITEMENTS_PAUSE existe."""
+    try:
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'WEB_TRAITEMENTS_PAUSE'
+            """
+        )
+        return cursor.fetchone().c > 0
+    except Exception:
+        return False
+
+
+def ensure_web_traitements_pause_table():
+    """Crée WEB_TRAITEMENTS_PAUSE (une ligne par épisode de pause : début, fin optionnelle)."""
+    global _pause_table_ensured
+    if _pause_table_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if pause_table_exists(cursor):
+                _pause_table_ensured = True
+                return
+            cursor.execute(
+                """
+                CREATE TABLE dbo.WEB_TRAITEMENTS_PAUSE (
+                    ID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    ID_Traitement INT NOT NULL,
+                    DteDebPause DATETIME2 NOT NULL,
+                    DteFinPause DATETIME2 NULL,
+                    CONSTRAINT FK_WEB_TRAITEMENTS_PAUSE_TRAITEMENT
+                        FOREIGN KEY (ID_Traitement) REFERENCES dbo.WEB_TRAITEMENTS(ID) ON DELETE CASCADE
+                );
+                CREATE INDEX IX_WEB_TRAITEMENTS_PAUSE_ID_Traitement
+                    ON dbo.WEB_TRAITEMENTS_PAUSE (ID_Traitement);
+                """
+            )
+            cursor.connection.commit()
+            print("[projet11] Table WEB_TRAITEMENTS_PAUSE créée.")
+    except Exception as e:
+        print(f"[projet11] ensure_web_traitements_pause_table: {e}")
+    finally:
+        _pause_table_ensured = True
+
+
+def ensure_tps_pause_total_column():
+    """Colonne TpsPauseTotal (heures) sur WEB_TRAITEMENTS — somme des pauses au moment de la finalisation."""
+    global _tps_pause_total_column_ensured
+    ensure_nom_fd_column()
+    if _tps_pause_total_column_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if column_exists(cursor, "WEB_TRAITEMENTS", "TpsPauseTotal"):
+                _tps_pause_total_column_ensured = True
+                return
+            cursor.execute(
+                "ALTER TABLE dbo.WEB_TRAITEMENTS ADD TpsPauseTotal FLOAT NULL"
+            )
+            cursor.connection.commit()
+            print("[projet11] Colonne TpsPauseTotal ajoutée à WEB_TRAITEMENTS.")
+    except Exception as e:
+        print(f"[projet11] ensure_tps_pause_total_column: {e}")
+    finally:
+        _tps_pause_total_column_ensured = True
+
+
+def _sum_pause_seconds_closed(cursor, traitement_id):
+    """Somme des durées des pauses terminées (DteFinPause renseignée)."""
+    if not pause_table_exists(cursor):
+        return 0
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return 0
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(DATEDIFF(SECOND, DteDebPause, DteFinPause)), 0)
+        FROM dbo.WEB_TRAITEMENTS_PAUSE
+        WHERE ID_Traitement = ? AND DteFinPause IS NOT NULL
+        """,
+        (tid,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return 0
+    return max(0, int(row[0] or 0))
+
+
+def get_pause_seconds_total_display(cursor, traitement_id):
+    """Pauses terminées + pause ouverte jusqu’à maintenant (affichage fiche en cours)."""
+    closed = _sum_pause_seconds_closed(cursor, traitement_id)
+    if not pause_table_exists(cursor):
+        return closed
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return closed
+    cursor.execute(
+        """
+        SELECT TOP 1 DteDebPause FROM dbo.WEB_TRAITEMENTS_PAUSE
+        WHERE ID_Traitement = ? AND DteFinPause IS NULL
+        ORDER BY ID DESC
+        """,
+        (tid,),
+    )
+    r = cursor.fetchone()
+    if not r or r[0] is None:
+        return closed
+    cursor.execute("SELECT DATEDIFF(SECOND, ?, GETDATE())", (r[0],))
+    r2 = cursor.fetchone()
+    extra = max(0, int(r2[0] or 0)) if r2 else 0
+    return closed + extra
+
+
+def finalize_open_pauses_traitement(cursor, traitement_id, dte_fin_dt):
+    """Clôt toute pause ouverte avec DteFinPause = date de fin de production (enregistrement)."""
+    if not pause_table_exists(cursor) or dte_fin_dt is None:
+        return
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return
+    cursor.execute(
+        """
+        UPDATE dbo.WEB_TRAITEMENTS_PAUSE
+        SET DteFinPause = ?
+        WHERE ID_Traitement = ? AND DteFinPause IS NULL
+        """,
+        (dte_fin_dt, tid),
+    )
+
+
+def start_pause_production(traitement_id):
+    """Démarre une pause : une ligne DteDebPause = GETDATE(), DteFinPause NULL."""
+    ensure_web_traitements_pause_table()
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return False, "ID de traitement invalide."
+    if is_traitement_controle_valide(tid):
+        return False, "Traitement validé au contrôle."
+    try:
+        with get_db_cursor() as cursor:
+            if not pause_table_exists(cursor):
+                return False, "Table pause indisponible."
+            cursor.execute("SELECT DteFin FROM WEB_TRAITEMENTS WHERE ID = ?", (tid,))
+            r = cursor.fetchone()
+            if not r:
+                return False, "Traitement introuvable."
+            if r.DteFin is not None:
+                return False, "Traitement déjà terminé."
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM dbo.WEB_TRAITEMENTS_PAUSE
+                WHERE ID_Traitement = ? AND DteFinPause IS NULL
+                """,
+                (tid,),
+            )
+            cnt_row = cursor.fetchone()
+            if cnt_row and int(cnt_row[0] or 0) > 0:
+                return False, "Une pause est déjà en cours."
+            cursor.execute(
+                """
+                INSERT INTO dbo.WEB_TRAITEMENTS_PAUSE (ID_Traitement, DteDebPause, DteFinPause)
+                VALUES (?, GETDATE(), NULL)
+                """,
+                (tid,),
+            )
+            cursor.connection.commit()
+            return True, ""
+    except Exception as e:
+        print(f"[projet11] start_pause_production: {e}")
+        return False, str(e)
+
+
+def end_pause_production(traitement_id):
+    """Termine la pause en cours (DteFinPause = GETDATE()). Idempotent si aucune pause ouverte."""
+    ensure_web_traitements_pause_table()
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return False, "ID de traitement invalide."
+    if is_traitement_controle_valide(tid):
+        return False, "Traitement validé au contrôle."
+    try:
+        with get_db_cursor() as cursor:
+            if not pause_table_exists(cursor):
+                return True, ""
+            cursor.execute(
+                """
+                SELECT TOP 1 ID FROM dbo.WEB_TRAITEMENTS_PAUSE
+                WHERE ID_Traitement = ? AND DteFinPause IS NULL
+                ORDER BY ID DESC
+                """,
+                (tid,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return True, ""
+            pause_id = row[0]
+            cursor.execute(
+                """
+                UPDATE dbo.WEB_TRAITEMENTS_PAUSE
+                SET DteFinPause = GETDATE()
+                WHERE ID = ?
+                """,
+                (pause_id,),
+            )
+            cursor.connection.commit()
+            return True, ""
+    except Exception as e:
+        print(f"[projet11] end_pause_production: {e}")
+        return False, str(e)
+
+
+def is_traitement_controle_valide(traitement_id):
+    """True si la fiche est marquée validée au contrôle."""
+    ensure_controle_valide_columns()
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return False
+    try:
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValide'):
+                return False
+            cursor.execute(
+                "SELECT ControleValide FROM WEB_TRAITEMENTS WHERE ID = ?",
+                (tid,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return False
+            v = getattr(row, "ControleValide", 0)
+            return v in (1, True)
+    except Exception as e:
+        print(f"[projet11] is_traitement_controle_valide: {e}")
+        return False
+
+
+def set_traitement_controle_valide(traitement_id, valide, matricule_validateur):
+    """
+    Valide ou dévalide le contrôle des données.
+    La validation n'est autorisée que si DteFin est renseignée (fiche terminée).
+    Retourne (success: bool, message: str).
+    """
+    ensure_controle_valide_columns()
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return False, "ID de traitement invalide."
+    valide = valide in (True, 1, "1", "true", "True")
+    try:
+        mv = int(matricule_validateur) if matricule_validateur is not None else None
+    except (TypeError, ValueError):
+        mv = None
+    try:
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, "WEB_TRAITEMENTS", "ControleValide"):
+                return False, "Colonnes de contrôle non disponibles."
+            cursor.execute(
+                "SELECT DteFin FROM WEB_TRAITEMENTS WHERE ID = ?",
+                (tid,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return False, "Traitement introuvable."
+            if valide and row.DteFin is None:
+                return (
+                    False,
+                    "Seule une fiche terminée (date de fin renseignée) peut être validée au contrôle.",
+                )
+            if valide:
+                cursor.execute(
+                    """
+                    UPDATE WEB_TRAITEMENTS
+                    SET ControleValide = 1,
+                        ControleValideDte = GETDATE(),
+                        ControleValideMatricule = ?,
+                        DateModification = GETDATE()
+                    WHERE ID = ?
+                    """,
+                    (mv, tid),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE WEB_TRAITEMENTS
+                    SET ControleValide = 0,
+                        ControleValideDte = NULL,
+                        ControleValideMatricule = NULL,
+                        DateModification = GETDATE()
+                    WHERE ID = ?
+                    """,
+                    (tid,),
+                )
+            cursor.connection.commit()
+            if cursor.rowcount <= 0:
+                return False, "Aucune ligne mise à jour."
+            return True, ""
+    except Exception as e:
+        print(f"[projet11] set_traitement_controle_valide: {e}")
+        return False, str(e)
 
 
 def ensure_chrono_affichage_snapshot_at_column():
@@ -945,10 +1332,17 @@ def get_traitement_by_fiche(id_fiche_travail):
 def get_all_traitements():
     """Récupère tous les traitements enregistrés dans WEB_TRAITEMENTS"""
     ensure_nom_fd_column()
+    ensure_controle_valide_columns()
     with get_db_cursor() as cursor:
         cols_cloture = ', Cloture' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture') else ', CAST(0 AS TINYINT) AS Cloture'
         cols_desc = ', Description' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Description') else ', CAST(NULL AS NVARCHAR(MAX)) AS Description'
         cols_nom_fd = ', NOM_FD' if column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD') else ", CAST(NULL AS NVARCHAR(100)) AS NOM_FD"
+        has_cv = column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValide')
+        cols_controle = (
+            ', ControleValide, ControleValideDte, ControleValideMatricule'
+            if has_cv
+            else ', CAST(0 AS TINYINT) AS ControleValide, CAST(NULL AS DATETIME2) AS ControleValideDte, CAST(NULL AS INT) AS ControleValideMatricule'
+        )
         cursor.execute(f"""
             SELECT 
                 ID,
@@ -976,6 +1370,7 @@ def get_all_traitements():
                 {cols_cloture}
                 {cols_desc}
                 {cols_nom_fd}
+                {cols_controle}
             FROM WEB_TRAITEMENTS
             ORDER BY DateCreation DESC
         """)
@@ -1013,10 +1408,34 @@ def get_all_traitements():
                 "date_modification": row.DateModification.strftime('%Y-%m-%d') if row.DateModification else None,
                 "cloture": _to_int(getattr(row, 'Cloture', 0)),
                 "description": getattr(row, 'Description', None) or '',
-                "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip()
+                "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip(),
+                "controle_valide": _to_int(getattr(row, "ControleValide", 0)),
+                "controle_valide_dte": (
+                    row.ControleValideDte.strftime("%Y-%m-%d %H:%M:%S")
+                    if getattr(row, "ControleValideDte", None)
+                    else None
+                ),
+                "controle_valide_matricule": getattr(
+                    row, "ControleValideMatricule", None
+                ),
             })
         
         return traitements
+
+
+def get_pause_seconds_total_display_for_api(traitement_id):
+    """Somme des secondes de pause (terminées + pause ouverte jusqu’à maintenant) pour une API."""
+    ensure_web_traitements_pause_table()
+    try:
+        tid = int(traitement_id)
+    except (TypeError, ValueError):
+        return 0
+    try:
+        with get_db_cursor() as cursor:
+            return get_pause_seconds_total_display(cursor, tid)
+    except Exception as e:
+        print(f"[projet11] get_pause_seconds_total_display_for_api: {e}")
+        return 0
 
 
 def get_traitement_by_id(traitement_id):
@@ -1028,17 +1447,28 @@ def get_traitement_by_id(traitement_id):
     ensure_nom_fd_column()
     ensure_temps_ecoule_affichage_en_pause_column()
     ensure_chrono_affichage_snapshot_at_column()
+    ensure_controle_valide_columns()
+    ensure_tps_pause_total_column()
+    ensure_web_traitements_pause_table()
     with get_db_cursor() as cursor:
         has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
         has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
         has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
         has_chrono_en_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause')
         has_chrono_snapshot_at = column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt')
+        has_controle = column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValide')
+        has_tps_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TpsPauseTotal')
+        tps_pause_col = ', TpsPauseTotal' if has_tps_pause else ''
         chrono_en_pause_col = ', TempsEcouleAffichageEnPause' if has_chrono_en_pause else ''
         chrono_snapshot_at_col = ', ChronoAffichageSnapshotAt' if has_chrono_snapshot_at else ''
         cloture_col = ', Cloture' if has_cloture else ''
         desc_col = ', Description' if has_description else ''
         nom_fd_col = ', NOM_FD' if has_nom_fd else ''
+        controle_col = (
+            ', ControleValide, ControleValideDte, ControleValideMatricule'
+            if has_controle
+            else ''
+        )
         # Essayer d'abord avec la colonne renommée TpsPrevDev_GP_FICHTRA_INT
         try:
             cursor.execute("""
@@ -1069,7 +1499,7 @@ def get_traitement_by_id(traitement_id):
                     DateCreation,
                     DateModification,
                     TempsEcouleAffichageSec
-                    """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + """
+                    """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + controle_col + tps_pause_col + """
                 FROM WEB_TRAITEMENTS
                 WHERE ID = ?
             """, (traitement_id,))
@@ -1106,7 +1536,7 @@ def get_traitement_by_id(traitement_id):
                             DateCreation,
                             DateModification,
                             TempsEcouleAffichageSec
-                            """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + """
+                            """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + controle_col + tps_pause_col + """
                         FROM WEB_TRAITEMENTS
                         WHERE ID = ?
                     """, (traitement_id,))
@@ -1118,6 +1548,14 @@ def get_traitement_by_id(traitement_id):
         row = cursor.fetchone()
         if not row:
             return None
+
+        pause_sec_total = get_pause_seconds_total_display(cursor, traitement_id)
+        tps_pause_stored = None
+        if has_tps_pause and getattr(row, "TpsPauseTotal", None) is not None:
+            try:
+                tps_pause_stored = float(row.TpsPauseTotal)
+            except (TypeError, ValueError):
+                tps_pause_stored = None
         
         # Temps prévu: colonne renommée ou ancienne
         tps_prev = None
@@ -1203,7 +1641,18 @@ def get_traitement_by_id(traitement_id):
             "chrono_affichage_snapshot_at": chrono_snap_str,
             "cloture": _to_int(getattr(row, 'Cloture', 0)),
             "description": getattr(row, 'Description', None) or '',
-            "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip()
+            "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip(),
+            "controle_valide": _to_int(getattr(row, "ControleValide", 0)) if has_controle else 0,
+            "controle_valide_dte": (
+                row.ControleValideDte.strftime("%Y-%m-%d %H:%M:%S")
+                if has_controle and getattr(row, "ControleValideDte", None)
+                else None
+            ),
+            "controle_valide_matricule": (
+                getattr(row, "ControleValideMatricule", None) if has_controle else None
+            ),
+            "total_pause_sec": pause_sec_total,
+            "tps_pause_total": tps_pause_stored,
         }
 
 
@@ -1605,9 +2054,21 @@ def update_traitement(traitement_id, data):
         bool: True si succès, False sinon
     """
     ensure_nom_fd_column()
+    ensure_controle_valide_columns()
     try:
         with get_db_cursor() as cursor:
             from datetime import datetime
+
+            if column_exists(cursor, "WEB_TRAITEMENTS", "ControleValide"):
+                cursor.execute(
+                    "SELECT ControleValide FROM WEB_TRAITEMENTS WHERE ID = ?",
+                    (traitement_id,),
+                )
+                row_cv = cursor.fetchone()
+                if row_cv and getattr(row_cv, "ControleValide", 0) in (1, True):
+                    raise Exception(
+                        "Traitement validé au contrôle : dévalider avant toute modification."
+                    )
 
             def _safe_int(value):
                 try:
@@ -1657,17 +2118,27 @@ def update_traitement(traitement_id, data):
             if nb_pers <= 0:
                 nb_pers = 0
 
-            # TpsReel : calculer seulement si les deux dates sont fournies (fiche terminée).
-            # Si dte_fin est None (fiche en cours, ex. fermeture par le X), garder DteFin = NULL et TpsReel = None.
+            # TpsReel net (heures) = (DteFin - DteDeb) - somme des pauses enregistrées (WEB_TRAITEMENTS_PAUSE).
+            # TpsPauseTotal = somme des pauses en heures. Anciennes fiches : pas de lignes pause → net = brut.
+            ensure_web_traitements_pause_table()
+            ensure_tps_pause_total_column()
             tps_reel = None
+            tps_pause_total_h = None
             if dte_deb and dte_fin:
                 try:
-                    duree_secondes = (dte_fin - dte_deb).total_seconds()
-                    tps_reel = duree_secondes / 3600.0  # Convertir en heures
-                    print(f"[DEBUG] TpsReel calculé: {tps_reel:.3f}h")
+                    finalize_open_pauses_traitement(cursor, traitement_id, dte_fin)
+                    duree_secondes = int((dte_fin - dte_deb).total_seconds())
+                    pause_sec = _sum_pause_seconds_closed(cursor, traitement_id)
+                    net_sec = max(0, duree_secondes - pause_sec)
+                    tps_reel = net_sec / 3600.0
+                    tps_pause_total_h = pause_sec / 3600.0
+                    print(
+                        f"[DEBUG] TpsReel net={tps_reel:.3f}h (brut {duree_secondes}s, pauses {pause_sec}s)"
+                    )
                 except Exception as duree_error:
                     print(f"[WARN] Impossible de calculer TpsReel: {duree_error}")
                     tps_reel = None
+                    tps_pause_total_h = None
             # Ne pas auto-remplir dte_fin quand le client envoie dte_fin null (fiche en cours)
             
             print(f"[DEBUG update_traitement] Mise à jour traitement {traitement_id}")
@@ -1716,6 +2187,8 @@ def update_traitement(traitement_id, data):
             op_param = (matricule_op, nom_op, prenom_op) if matricule_op is not None else ()
             has_chrono_en_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause')
             has_chrono_snapshot_at = column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt')
+            has_tps_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TpsPauseTotal')
+            tps_pause_fin_set = ', TpsPauseTotal = ?' if (has_tps_pause and dte_fin is not None) else ''
             chrono_clear_fin = ', TempsEcouleAffichageSec = NULL' + (
                 ', TempsEcouleAffichageEnPause = NULL' if has_chrono_en_pause else ''
             ) + (', ChronoAffichageSnapshotAt = NULL' if has_chrono_snapshot_at else '')
@@ -1750,12 +2223,24 @@ def update_traitement(traitement_id, data):
                     sql_fin = f"""
                         UPDATE WEB_TRAITEMENTS
                         SET DteDeb = ?, DteFin = ?, NbOp = ?, PdtC = ?, PdtNNC = ?, PdtANC = ?,
-                            NbPers = ?, PostesReel = ?, TpsReel = ?{op_set}{cloture_set}{desc_set}{nom_fd_set}{chrono_clear_fin},
+                            NbPers = ?, PostesReel = ?, TpsReel = ?{tps_pause_fin_set}{op_set}{cloture_set}{desc_set}{nom_fd_set}{chrono_clear_fin},
                             DateModification = GETDATE()
                         WHERE ID = ?
                     """
-                    params_fin = (dte_deb, dte_fin, nb_op, pdt_c, pdt_nnc, pdt_anc, nb_pers,
-                                  data.get('postes_reel'), tps_reel) + op_param + cloture_param + desc_param + nom_fd_param + (traitement_id,)
+                    params_fin = (
+                        dte_deb,
+                        dte_fin,
+                        nb_op,
+                        pdt_c,
+                        pdt_nnc,
+                        pdt_anc,
+                        nb_pers,
+                        data.get('postes_reel'),
+                        tps_reel,
+                    )
+                    if has_tps_pause and dte_fin is not None:
+                        params_fin += (tps_pause_total_h,)
+                    params_fin += op_param + cloture_param + desc_param + nom_fd_param + (traitement_id,)
                     cursor.execute(sql_fin, params_fin)
                 else:
                     cursor.execute(sql_update, params)
@@ -1821,6 +2306,9 @@ def update_chrono_affichage(traitement_id, temps_ecoule_sec, en_pause=None):
     """
     ensure_temps_ecoule_affichage_en_pause_column()
     ensure_chrono_affichage_snapshot_at_column()
+    if is_traitement_controle_valide(traitement_id):
+        print("[projet11] update_chrono_affichage refusé : traitement validé au contrôle.")
+        return False
     sec = max(0, int(temps_ecoule_sec))
     if en_pause is None:
         pause_val = 1
@@ -1865,6 +2353,8 @@ def update_operateur_traitement(traitement_id, matricule_personel):
     Met à jour uniquement l'opérateur (Matricule_personel, Nom_personel, Prenom_personel)
     d'un traitement. Récupère Nom et Prenom depuis la table personel.
     """
+    if is_traitement_controle_valide(traitement_id):
+        return False
     if matricule_personel is None:
         return False
     try:
@@ -1894,6 +2384,8 @@ def update_operateur_traitement(traitement_id, matricule_personel):
 
 def update_cloture_traitement(traitement_id, cloture_val):
     """Met à jour uniquement la colonne Cloture (0 ou 1) d'un traitement."""
+    if is_traitement_controle_valide(traitement_id):
+        return False
     try:
         cloture = 1 if cloture_val in (1, '1', True) else 0
         with get_db_cursor() as cursor:
@@ -2092,6 +2584,9 @@ def delete_traitement(traitement_id):
     Returns:
         bool: True si succès, False sinon
     """
+    if is_traitement_controle_valide(traitement_id):
+        print("[projet11] delete_traitement refusé : traitement validé au contrôle.")
+        return False
     try:
         with get_db_cursor() as cursor:
             cursor.execute("DELETE FROM WEB_TRAITEMENTS_OUVERTURE WHERE TraitementId = ?", (traitement_id,))

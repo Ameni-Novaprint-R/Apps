@@ -245,6 +245,12 @@
 
             <div class="card">
                 <div class="card-body">
+                    {% if traitement_data and traitement_data.get('controle_valide') %}
+                    <div class="alert alert-warning mb-3" role="alert">
+                        <strong><i class="fas fa-lock"></i> Fiche validée au contrôle.</strong>
+                        Elle n’est plus modifiable tant qu’un responsable habilité ne l’a pas dévalidée depuis la liste des traitements.
+                    </div>
+                    {% endif %}
                     <form id="formNouveauTraitement">
                         <!-- ÉTAPE 1: Sélection du numéro de commande -->
                         <div class="row">
@@ -363,6 +369,9 @@
                                         <span class="badge bg-warning text-dark"><i class="fas fa-pause"></i> En pause</span>
                                     </div>
                                     <small class="d-block chrono-demarre" style="margin: 0;">Démarré à: <span id="chronoStart"></span></small>
+                                    <small class="d-block text-muted mt-1" id="chronoPauseTotalWrap" style="display: none;">
+                                        Temps total en pause : <strong id="pauseTotalDisplay">00:00:00</strong>
+                                    </small>
                                 </div>
                                 <!-- Mode "terminé" : affichage du temps réel enregistré (TpsReel) -->
                                 <div id="chronoBoxTermine" style="display: none;">
@@ -375,17 +384,21 @@
                             <!-- Section Dates (visible en mode modification pour modifier début/fin et recalculer TpsReel) -->
                             <div id="sectionDatesModification" class="mb-4" style="display: none;">
                                 <h5 class="mb-3"><i class="fas fa-calendar-alt"></i> Dates du traitement</h5>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
+                                <div class="d-flex flex-row flex-nowrap align-items-end gap-2 mb-3">
+                                    <div class="flex-fill min-w-0">
                                         <label for="dte_deb_visible" class="form-label"><strong>Date de début</strong></label>
-                                        <input type="datetime-local" class="form-control" id="dte_deb_visible">
+                                        <input type="datetime-local" class="form-control" id="dte_deb_visible" step="1">
                                     </div>
-                                    <div class="col-md-6 mb-3">
+                                    <div class="flex-shrink-0" style="width: 10rem; max-width: 40%;">
+                                        <label for="total_pause_fiche_display" class="form-label"><strong>Temps total en pause</strong></label>
+                                        <input type="text" class="form-control bg-light text-center fw-semibold" id="total_pause_fiche_display" readonly tabindex="-1" value="—" title="Somme des pauses enregistrées (non modifiable)" aria-readonly="true">
+                                    </div>
+                                    <div class="flex-fill min-w-0">
                                         <label for="dte_fin_visible" class="form-label"><strong>Date de fin</strong></label>
-                                        <input type="datetime-local" class="form-control" id="dte_fin_visible">
+                                        <input type="datetime-local" class="form-control" id="dte_fin_visible" step="1">
                                     </div>
                                 </div>
-                                <small class="text-muted">La modification des dates recalculera automatiquement le temps réel (TpsReel) à l'enregistrement.</small>
+                                <small class="text-muted">La modification des dates recalculera le temps réel (TpsReel) à l’enregistrement. Le temps total en pause est calculé à partir des pauses enregistrées et n’est pas modifiable ici.</small>
                             </div>
 
                             <h5 class="mb-3">3️⃣ Informations du Traitement Actuel</h5>
@@ -550,6 +563,8 @@ let servicesPrevusMap = {};
 let formesDecoupeChargees = false;
 let storedFormValues = null;
 let restaurationEtatPlanifiee = false;
+/** Secondes de pause totale (fiche terminée en modification) — pour l’aperçu TpsReel hors plage début/fin. */
+let projet11TotalPauseSecModification = 0;
 
 function estServiceTypo() {
     return Number(currentServiceId) === 5;
@@ -637,6 +652,31 @@ function parseChronoSnapshotUtc(iso) {
     if (/Z$|[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
     var t = s.indexOf('T') === -1 ? s.replace(' ', 'T') : s;
     return new Date(t + (/Z$|[+-]\d/.test(t) ? '' : 'Z'));
+}
+
+function projet11FormatSecHMS(totalSec) {
+    var s = Math.max(0, parseInt(totalSec, 10) || 0);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+}
+
+function projet11RefreshPauseTotalFromApi() {
+    var tid = currentTraitementId || traitementIdFromUrl;
+    if (!tid) return;
+    fetch('/projet11/api/traitements/' + tid)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d || d.error) return;
+            var s = typeof d.total_pause_sec === 'number' ? d.total_pause_sec : 0;
+            if (d.tps_pause_total != null && d.tps_pause_total !== '' && !isNaN(parseFloat(d.tps_pause_total))) {
+                s = Math.max(s, Math.round(parseFloat(d.tps_pause_total) * 3600));
+            }
+            $('#pauseTotalDisplay').text(projet11FormatSecHMS(s));
+            $('#chronoPauseTotalWrap').css('display', 'block');
+        })
+        .catch(function() {});
 }
 
 /** Snapshot temps de production pour persistance (fermeture X popup / onglet, saveEnCours). */
@@ -858,6 +898,18 @@ function planifierRestaurationEtatSauvegarde() {
     essayer();
 }
 
+/** Fiche validée au contrôle : champs et actions de sauvegarde désactivés (Annuler reste actif pour fermer). */
+function projet11AppliquerLectureSeuleControle() {
+    var form = document.getElementById('formNouveauTraitement');
+    if (!form) return;
+    form.querySelectorAll('input, select, textarea, button').forEach(function(el) {
+        if (el.type === 'hidden') return;
+        if (el.id === 'btnAnnuler') return;
+        if (el.id === 'total_pause_fiche_display') return;
+        el.disabled = true;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[DEBUG] DOMContentLoaded - traitementIdFromUrl:', traitementIdFromUrl);
     console.log('[DEBUG] DOMContentLoaded - traitementDataFromServer:', traitementDataFromServer);
@@ -889,9 +941,17 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('[DEBUG] Mode modification détecté, ID:', traitementIdFromUrl);
         console.log('[DEBUG] Données du traitement:', JSON.stringify(traitementDataFromServer, null, 2));
         chargerDonneesTraitement(traitementDataFromServer);
+        if (Number(traitementDataFromServer.controle_valide) === 1 || traitementDataFromServer.controle_valide === true) {
+            projet11AppliquerLectureSeuleControle();
+        }
         // Plein écran : réappliquer la visibilité des boutons Clôturer/Déclôturer après un court délai (évite masquage par autre script/CSS)
         if (window.self === window.top && !estModeEmbed) {
-            setTimeout(function() { appliquerVisibilitéBoutonsCloture(traitementDataFromServer); }, 300);
+            setTimeout(function() {
+                appliquerVisibilitéBoutonsCloture(traitementDataFromServer);
+                if (Number(traitementDataFromServer.controle_valide) === 1 || traitementDataFromServer.controle_valide === true) {
+                    projet11AppliquerLectureSeuleControle();
+                }
+            }, 300);
         }
     } else if (traitementIdFromUrl && !traitementDataFromServer) {
         // Message déjà fourni par le serveur (traitement introuvable)
@@ -996,6 +1056,7 @@ function appliquerVisibilitéBoutonsCloture(data) {
 // Fonction pour charger les données d'un traitement existant
 function chargerDonneesTraitement(data) {
     console.log('[DEBUG] Chargement des données du traitement:', data);
+    projet11TotalPauseSecModification = 0;
     
     // Changer le titre de la page en mode modification
     const titrePage = document.getElementById('titrePageTraitement');
@@ -1287,12 +1348,29 @@ function remplirChampsTraitement(data) {
                         }
                         // Afficher la section Dates pour modification (les deux champs avec leurs valeurs)
                         $('#sectionDatesModification').show();
+                        $('#chronoPauseTotalWrap').hide();
+                        var psFiche = 0;
+                        if (typeof data.total_pause_sec === 'number') {
+                            psFiche = data.total_pause_sec;
+                        } else if (data.tps_pause_total != null && data.tps_pause_total !== '' && !isNaN(parseFloat(data.tps_pause_total))) {
+                            psFiche = Math.round(parseFloat(data.tps_pause_total) * 3600);
+                        }
+                        var elPauseFiche = document.getElementById('total_pause_fiche_display');
+                        if (elPauseFiche) {
+                            elPauseFiche.value = projet11FormatSecHMS(psFiche);
+                        }
+                        projet11TotalPauseSecModification = psFiche;
                         const dteDeb = document.getElementById('dte_deb');
                         const dteFin = document.getElementById('dte_fin');
                         const dteDebVis = document.getElementById('dte_deb_visible');
                         const dteFinVis = document.getElementById('dte_fin_visible');
-                        if (dteDebVis && dteDeb && dteDeb.value) dteDebVis.value = dteDeb.value.slice(0, 16);
-                        if (dteFinVis && dteFin && dteFin.value) dteFinVis.value = dteFin.value.slice(0, 16);
+                        function copierHiddenVersDateTimeLocalVisuel(hid, vis) {
+                            if (!vis || !hid || !hid.value) return;
+                            var v = hid.value.trim();
+                            vis.value = v.length >= 19 ? v.slice(0, 19) : (v.length === 16 ? v : v.slice(0, 16));
+                        }
+                        copierHiddenVersDateTimeLocalVisuel(dteDeb, dteDebVis);
+                        copierHiddenVersDateTimeLocalVisuel(dteFin, dteFinVis);
                     }
                 }
             }
@@ -1331,6 +1409,9 @@ function remplirChampsTraitement(data) {
         }
     }
     
+    if (!data.dte_fin && (currentTraitementId || traitementIdFromUrl)) {
+        projet11RefreshPauseTotalFromApi();
+    }
     console.log('[DEBUG] Champs remplis avec succès');
 }
 function matcherContient(params, data) {
@@ -2142,6 +2223,15 @@ function formatDateTimeLocal(date) {
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
+/** Valeur datetime-local (HH:MM ou HH:MM:SS) → chaîne pour champs cachés YYYY-MM-DDTHH:MM:SS */
+function normaliserChaineDateTimeLocalPourHidden(s) {
+    if (!s) return '';
+    var t = String(s).trim();
+    if (t.length === 16) return t + ':00';
+    if (t.length >= 19) return t.slice(0, 19);
+    return t;
+}
+
 /** Convertit des heures décimales (ex: 2.583) en chaîne HH:MM:SS */
 function heuresDecimalesVersHhMmSs(heures) {
     if (heures == null || heures === undefined || isNaN(heures)) return '00:00:00';
@@ -2159,18 +2249,22 @@ function syncDatesModificationEtTpsReel() {
     const dteDeb = document.getElementById('dte_deb');
     const dteFin = document.getElementById('dte_fin');
     if (!dteDebVis || !dteFinVis || !dteDeb || !dteFin) return;
-    // datetime-local donne YYYY-MM-DDTHH:MM, on ajoute :00 pour les secondes
-    const vDeb = dteDebVis.value ? (dteDebVis.value.length === 16 ? dteDebVis.value + ':00' : dteDebVis.value) : '';
-    const vFin = dteFinVis.value ? (dteFinVis.value.length === 16 ? dteFinVis.value + ':00' : dteFinVis.value) : '';
-    dteDeb.value = vDeb;
-    dteFin.value = vFin;
+    const vDeb = normaliserChaineDateTimeLocalPourHidden(dteDebVis.value);
+    const vFin = normaliserChaineDateTimeLocalPourHidden(dteFinVis.value);
+    // Ne jamais écraser avec une chaîne vide : en fiche en cours la section dates est masquée et les
+    // champs visibles sont vides — sinon on efface le vrai DteDeb et le correctif utilisait chronoStart
+    // (instant de reprise / réouverture), d’où TpsReel faux (ex. 25 s au lieu de 15 min).
+    if (vDeb) dteDeb.value = vDeb;
+    if (vFin) dteFin.value = vFin;
     // Mettre à jour l'affichage du temps réel si les deux dates sont renseignées
     if (vDeb && vFin && $('#chronoBoxTermine').is(':visible')) {
         const deb = new Date(vDeb.replace(' ', 'T'));
         const fin = new Date(vFin.replace(' ', 'T'));
         if (!isNaN(deb.getTime()) && !isNaN(fin.getTime())) {
-            const heures = (fin - deb) / 3600000;
-            $('#chronoValeurTermine').text(heuresDecimalesVersHhMmSs(heures));
+            var brutSec = Math.max(0, Math.round((fin - deb) / 1000));
+            var pauseSec = Math.max(0, parseInt(projet11TotalPauseSecModification, 10) || 0);
+            var netSec = Math.max(0, brutSec - pauseSec);
+            $('#chronoValeurTermine').text(projet11FormatSecHMS(netSec));
         }
     }
 }
@@ -2264,6 +2358,8 @@ function demarrerChrono() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: PROJET11_SESSION_ID })
             }).catch(function() {});
+            $('#chronoPauseTotalWrap').css('display', 'block');
+            projet11RefreshPauseTotalFromApi();
             var btnCloturer = document.getElementById('btnCloturer');
             var btnDecloturer = document.getElementById('btnDecloturer');
             if (btnCloturer && btnDecloturer) {
@@ -2287,28 +2383,49 @@ function demarrerChrono() {
 
 // Fonction globale pour mettre en pause / reprendre le chronomètre
 window.togglePauseChrono = function() {
+    function applyPauseTotalFromResponse(res) {
+        if (res && res.success && typeof res.total_pause_sec === 'number') {
+            $('#pauseTotalDisplay').text(projet11FormatSecHMS(res.total_pause_sec));
+            $('#chronoPauseTotalWrap').css('display', 'block');
+        }
+    }
     // Cas : affichage gelé (réouverture après pause) -> clic "Reprendre" pour relancer le chrono
     if (chronoIsPaused && chronoStart == null) {
-        chronoStart = new Date();
-        chronoIsPaused = false;
-        $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
-        $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
-        $('#chronoPauseIndicator').css('visibility', 'hidden');
-        syncChronoPanneVisibility();
-        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
-        chronoInterval = setInterval(function() {
-            if (!chronoIsPaused) {
-                var now = new Date();
-                var diff = now - chronoStart;
-                var totalTime = chronoTotalElapsed + diff;
-                var heures = Math.floor(totalTime / 3600000);
-                var minutes = Math.floor((totalTime % 3600000) / 60000);
-                var secondes = Math.floor((totalTime % 60000) / 1000);
-                $('#chronoDisplay').text(
-                    (heures + '').padStart(2, '0') + ':' + (minutes + '').padStart(2, '0') + ':' + (secondes + '').padStart(2, '0')
-                );
-            }
-        }, 1000);
+        var tidF = currentTraitementId || traitementIdFromUrl;
+        function resumeFrozen() {
+            chronoStart = new Date();
+            chronoIsPaused = false;
+            $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
+            $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
+            $('#chronoPauseIndicator').css('visibility', 'hidden');
+            syncChronoPanneVisibility();
+            $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
+            chronoInterval = setInterval(function() {
+                if (!chronoIsPaused) {
+                    var now = new Date();
+                    var diff = now - chronoStart;
+                    var totalTime = chronoTotalElapsed + diff;
+                    var heures = Math.floor(totalTime / 3600000);
+                    var minutes = Math.floor((totalTime % 3600000) / 60000);
+                    var secondes = Math.floor((totalTime % 60000) / 1000);
+                    $('#chronoDisplay').text(
+                        (heures + '').padStart(2, '0') + ':' + (minutes + '').padStart(2, '0') + ':' + (secondes + '').padStart(2, '0')
+                    );
+                }
+            }, 1000);
+        }
+        if (tidF) {
+            fetch('/projet11/api/traitements/' + tidF + '/pause/end', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            }).then(function(r) { return r.json(); }).then(function(res) {
+                applyPauseTotalFromResponse(res);
+                resumeFrozen();
+            }).catch(function() { resumeFrozen(); });
+        } else {
+            resumeFrozen();
+        }
         return;
     }
     if (!chronoStart && !chronoTotalElapsed) {
@@ -2316,38 +2433,63 @@ window.togglePauseChrono = function() {
     }
 
     if (chronoIsPaused) {
-        // Reprendre le chronomètre
-        var now = new Date();
-        var diffAvantPause = chronoPausedTime ? (chronoPausedTime - chronoStart) : 0;
-        chronoTotalElapsed += diffAvantPause;
-        chronoStart = now;
-        chronoIsPaused = false;
-        chronoPausedTime = null;
-
-        $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
-        $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
-        $('#chronoPauseIndicator').css('visibility', 'hidden');
-        syncChronoPanneVisibility();
-        $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
-    } else {
-        // Mettre en pause : enregistrer le temps affiché côté serveur pour réouverture
-        chronoPausedTime = new Date();
-        chronoIsPaused = true;
-        var totalSec = Math.floor((chronoTotalElapsed + (chronoPausedTime - chronoStart)) / 1000);
-        var tid = currentTraitementId || traitementIdFromUrl;
-        if (tid && estModeEmbed) {
-            fetch('/projet11/api/traitements/' + tid + '/chrono_affichage', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ temps_ecoule_sec: totalSec, en_pause: true })
-            }).catch(function() {});
+        var tidR = currentTraitementId || traitementIdFromUrl;
+        function resumeAfterPause() {
+            var now = new Date();
+            var diffAvantPause = chronoPausedTime ? (chronoPausedTime - chronoStart) : 0;
+            chronoTotalElapsed += diffAvantPause;
+            chronoStart = now;
+            chronoIsPaused = false;
+            chronoPausedTime = null;
+            $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
+            $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
+            $('#chronoPauseIndicator').css('visibility', 'hidden');
+            syncChronoPanneVisibility();
+            $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
         }
-
-        $('#btnPauseChrono').html('<i class="fas fa-play"></i> Reprendre');
-        $('#btnPauseChrono').removeClass('btn-warning').addClass('btn-success');
-        $('#chronoPauseIndicator').css('visibility', 'visible');
-        syncChronoPanneVisibility();
-        $('#chronoBox').removeClass('alert-info').addClass('alert-warning');
+        if (tidR) {
+            fetch('/projet11/api/traitements/' + tidR + '/pause/end', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            }).then(function(r) { return r.json(); }).then(function(res) {
+                applyPauseTotalFromResponse(res);
+                resumeAfterPause();
+            }).catch(function() { resumeAfterPause(); });
+        } else {
+            resumeAfterPause();
+        }
+    } else {
+        var tidP = currentTraitementId || traitementIdFromUrl;
+        function doLocalPause() {
+            chronoPausedTime = new Date();
+            chronoIsPaused = true;
+            var totalSec = Math.floor((chronoTotalElapsed + (chronoPausedTime - chronoStart)) / 1000);
+            if (tidP && estModeEmbed) {
+                fetch('/projet11/api/traitements/' + tidP + '/chrono_affichage', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ temps_ecoule_sec: totalSec, en_pause: true })
+                }).catch(function() {});
+            }
+            $('#btnPauseChrono').html('<i class="fas fa-play"></i> Reprendre');
+            $('#btnPauseChrono').removeClass('btn-warning').addClass('btn-success');
+            $('#chronoPauseIndicator').css('visibility', 'visible');
+            syncChronoPanneVisibility();
+            $('#chronoBox').removeClass('alert-info').addClass('alert-warning');
+        }
+        if (tidP) {
+            fetch('/projet11/api/traitements/' + tidP + '/pause/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            }).then(function(r) { return r.json(); }).then(function(res) {
+                applyPauseTotalFromResponse(res);
+                doLocalPause();
+            }).catch(function() { doLocalPause(); });
+        } else {
+            doLocalPause();
+        }
     }
 };
 
@@ -2649,13 +2791,23 @@ $('#formNouveauTraitement').on('submit', function(e) {
     } // Fin de effectuerEnregistrement()
     
     // Vérifier et récupérer la date de début si nécessaire
-    let dteDebValue = $('#dte_deb').val();
-    // En modification d'une fiche "en cours", la date de début peut être portée par le chronomètre (chronoStart)
-    if (!dteDebValue && (currentTraitementId || traitementIdFromUrl) && operateurPrincipal && chronoStart) {
-        dteDebValue = formatDateTimeLocal(chronoStart);
-        $('#dte_deb').val(dteDebValue);
+    let dteDebValue = ($('#dte_deb').val() || '').trim();
+    // Ne pas utiliser chronoStart ici : après pause ou fermeture X + reprise, chronoStart est l’ancrage
+    // du segment courant, pas la vraie DteDeb en base.
+    if (!dteDebValue && (currentTraitementId || traitementIdFromUrl) && traitementDataFromServer && traitementDataFromServer.dte_deb) {
+        try {
+            var dDebSrv = typeof traitementDataFromServer.dte_deb === 'string'
+                ? new Date(traitementDataFromServer.dte_deb.replace(' ', 'T'))
+                : new Date(traitementDataFromServer.dte_deb);
+            if (!isNaN(dDebSrv.getTime())) {
+                dteDebValue = formatDateTimeLocal(dDebSrv);
+                $('#dte_deb').val(dteDebValue);
+            }
+        } catch (eSrvDeb) {
+            console.warn('[DEBUG] Impossible de parser dte_deb depuis traitementDataFromServer:', eSrvDeb);
+        }
     }
-    
+
     // Si la date de début est toujours manquante mais qu'un traitement existe, récupérer depuis le serveur
     if (!dteDebValue && (currentTraitementId || traitementIdFromUrl)) {
         const idToFetch = currentTraitementId || traitementIdFromUrl;
@@ -2722,9 +2874,16 @@ function saveEnCoursOnClose() {
     }
     const operateurPrincipal = $('#operateur_1').attr('data-matricule');
     if (!operateurPrincipal) return;
-    let dteDebValue = $('#dte_deb').val();
-    if (!dteDebValue && chronoStart) {
-        dteDebValue = formatDateTimeLocal(chronoStart);
+    let dteDebValue = ($('#dte_deb').val() || '').trim();
+    if (!dteDebValue && traitementDataFromServer && traitementDataFromServer.dte_deb) {
+        try {
+            var dDebClose = typeof traitementDataFromServer.dte_deb === 'string'
+                ? new Date(traitementDataFromServer.dte_deb.replace(' ', 'T'))
+                : new Date(traitementDataFromServer.dte_deb);
+            if (!isNaN(dDebClose.getTime())) {
+                dteDebValue = formatDateTimeLocal(dDebClose);
+            }
+        } catch (eClose) { /* ignore */ }
     }
     if (!dteDebValue) return;
     const idFicheRaw = $('#id_fiche_travail').val();

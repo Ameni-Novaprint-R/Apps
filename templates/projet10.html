@@ -722,31 +722,22 @@
         
         #section-statistiques.active #statistiques-container {
             display: flex !important;
+            flex-direction: column !important;
             visibility: visible !important;
             opacity: 1 !important;
             width: 100% !important;
+            max-width: 1320px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
             min-height: auto !important;
             height: auto !important;
             max-height: none !important;
-            flex-wrap: wrap !important;
+            flex-wrap: nowrap !important;
             overflow: visible !important;
             align-items: stretch !important;
         }
         
-        #section-statistiques.active #statistiques-container .col-12 {
-            width: 100% !important;
-            min-height: auto !important;
-            height: auto !important;
-            max-height: none !important;
-            display: block !important;
-            overflow: visible !important;
-        }
-        
-        #section-statistiques.active #statistiques-container .col-12 > .card {
-            height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-        }
+        /* Ne pas forcer width:100% sur .col-12 des grilles Bootstrap (col-12 col-lg-6, etc.) */
         
         #section-statistiques.active #statistiques-container .col-12 > .card > .card-body {
             height: auto !important;
@@ -890,7 +881,7 @@
             margin-left: -15px !important;
             margin-right: -15px !important;
             width: 100% !important;
-            min-height: 200px !important;
+            min-height: auto !important;
             height: auto !important;
         }
         
@@ -904,7 +895,171 @@
         .container-fluid > #section-statistiques.active {
             display: block !important;
             width: 100% !important;
-            min-height: 300px !important;
+            min-height: auto !important;
+        }
+
+        /* Section statistiques : bloc centré, largeur max */
+        #section-statistiques.active .p10-stats-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding: 0 1rem 2rem;
+            box-sizing: border-box;
+        }
+        #section-statistiques.active .p10-stats-layout > .p10-stats-page-header,
+        #section-statistiques.active .p10-stats-layout > .p10-stats-container {
+            width: 100%;
+            max-width: 1320px;
+        }
+        #section-statistiques.active .p10-stats-page-header {
+            justify-content: center;
+        }
+        @media (min-width: 576px) {
+            #section-statistiques.active .p10-stats-page-header {
+                justify-content: space-between;
+            }
+        }
+        #section-statistiques.active .p10-stats-page-header h3 {
+            line-height: 1.3;
+        }
+        /* Filtres : flex (évite col-12 à 100 % qui écrase les champs date) */
+        #section-statistiques.active .p10-stats-filters-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 0.65rem 1rem;
+        }
+        #section-statistiques.active .p10-stats-filter-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        #section-statistiques.active .p10-stats-filters-row input[type="date"] {
+            min-width: 10.75rem;
+            width: 100%;
+            max-width: 11.5rem;
+        }
+        #section-statistiques.active .p10-stats-filter-machine {
+            flex: 1 1 12rem;
+            min-width: min(100%, 11rem);
+            max-width: 22rem;
+        }
+        #section-statistiques.active .p10-stats-filter-machine .form-control {
+            min-width: 0;
+        }
+        #section-statistiques.active .p10-stats-filter-seuil .form-control {
+            width: 100%;
+            min-width: 5.5rem;
+            max-width: 7rem;
+        }
+        #section-statistiques.active .p10-stats-filter-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        @media (min-width: 1200px) {
+            #section-statistiques.active .p10-stats-filters-row {
+                flex-wrap: nowrap;
+                align-items: flex-end;
+                gap: 0.75rem 1.25rem;
+            }
+            #section-statistiques.active .p10-stats-filter-actions {
+                margin-left: auto;
+                flex-shrink: 0;
+            }
+        }
+        /* Espace modéré uniquement entre les deux cartes tableaux (pas les colonnes internes) */
+        #section-statistiques.active .p10-stats-tables-row {
+            --bs-gutter-x: 1.25rem;
+        }
+        @media (min-width: 1200px) {
+            #section-statistiques.active .p10-stats-tables-row {
+                --bs-gutter-x: 1.75rem;
+            }
+        }
+        #section-statistiques.active #p10-stats-globales,
+        #section-statistiques.active #p10-stats-dossiers {
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        /* 5 tuiles « Quantités » : une ligne dès lg (scroll horizontal si trop étroit) */
+        @media (max-width: 991.98px) {
+            #section-statistiques.active .p10-stats-qty-scroll {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-left: -0.25rem;
+                margin-right: -0.25rem;
+                padding-bottom: 0.25rem;
+            }
+            #section-statistiques.active .p10-stats-qty-scroll .p10-stats-qty-row {
+                flex-wrap: nowrap !important;
+                min-width: 36rem;
+            }
+            #section-statistiques.active .p10-stats-qty-scroll .p10-stats-qty-row > .col {
+                flex: 0 0 auto;
+                width: 11rem;
+                max-width: 11rem;
+            }
+        }
+        #section-statistiques.active .p10-stats-container .card {
+            border-radius: 0.5rem;
+            box-shadow: 0 0.08rem 0.35rem rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.07);
+            overflow: hidden;
+        }
+        #section-statistiques.active .p10-stats-container .card-header {
+            padding: 0.7rem 1.15rem;
+        }
+        #section-statistiques.active .p10-stats-container .card-header h5 {
+            font-size: 1.05rem;
+            margin-bottom: 0 !important;
+        }
+        #section-statistiques.active .p10-stats-container .card-body {
+            padding: 1rem 1.15rem 1.15rem;
+        }
+        #section-statistiques.active .p10-stats-container .card-body.p-0 .table-responsive {
+            max-height: min(55vh, 520px) !important;
+            overflow: auto !important;
+        }
+        #section-statistiques.active .p10-stats-container .table {
+            margin-bottom: 0;
+            font-size: 0.92rem;
+        }
+        #section-statistiques.active .p10-stats-container .table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            font-weight: 600;
+            font-size: 0.8125rem;
+            padding: 0.55rem 0.7rem;
+            white-space: nowrap;
+            background: var(--bs-light, #f8f9fa) !important;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+        }
+        #section-statistiques.active .p10-stats-container .table tbody td {
+            padding: 0.5rem 0.7rem;
+            vertical-align: middle;
+        }
+        #section-statistiques.active .p10-stats-container #p10-stats-globales .p10-stats-kpi-row .border.rounded-3 {
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-top: 0.4rem !important;
+            padding-bottom: 0.4rem !important;
+            padding-left: 0.55rem !important;
+            padding-right: 0.55rem !important;
+        }
+        #section-statistiques.active .p10-stats-container #p10-stats-globales .p10-stats-kpi-row .p10-stats-kpi-value {
+            line-height: 1.15;
+            margin-top: 0.05rem;
+        }
+        #section-statistiques.active .p10-stats-container #p10-stats-globales .p10-stats-kpi-row .fs-3,
+        #section-statistiques.active .p10-stats-container #p10-stats-globales .p10-stats-kpi-row .fs-4 {
+            font-size: clamp(1.1rem, 2.2vw, 1.4rem) !important;
         }
         
         /* CORRECTION CRITIQUE: Forcer la visibilité du parent container-fluid */
@@ -1054,7 +1209,7 @@
                             <th>Machine Découpe</th>
                             <th>Opérateur M. de découpe</th>
                             <th>Rebuts</th>
-                            <th>Manque à Gagner</th>
+                            <th>Màg. (TND)</th>
                             <th>Coût de Rebuts</th>
                             <th>Taux de Rebuts</th>
                             <th>Validation</th>
@@ -1072,15 +1227,17 @@
     <!-- Section Statistiques (avant le modal pour éviter les conflits d'affichage) -->
     {% if show_statistiques %}
     <div class="content-section" id="section-statistiques">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3>Statistiques de Contrôle Qualité</h3>
-            <button class="btn btn-primary btn-sm" onclick="chargerStatistiques()">
-                🔄 Actualiser les statistiques
-            </button>
-        </div>
-        <div class="row" id="statistiques-container">
-            <div class="col-12 text-center text-muted py-4" id="stats-placeholder">
-                <p>Les statistiques vont se charger automatiquement...</p>
+        <div class="p10-stats-layout">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p10-stats-page-header">
+                <h3 class="h4 mb-0">Statistiques de Contrôle Qualité</h3>
+                <button type="button" class="btn btn-primary" onclick="chargerStatistiques()">
+                    🔄 Actualiser les statistiques
+                </button>
+            </div>
+            <div id="statistiques-container" class="p10-stats-container w-100">
+                <div class="text-center text-muted py-5 px-3 rounded-3 bg-light border" id="stats-placeholder">
+                    <p class="mb-0">Ouvrez cette section puis cliquez sur « Actualiser les statistiques ».</p>
+                </div>
             </div>
         </div>
     </div>
@@ -1646,6 +1803,7 @@
         // Constantes pour les droits d'action (injectées depuis le serveur)
         const P10_CAN_EDIT_CONTROLE = {{ 'true' if has_action_access(12) else 'false' }};
         const P10_CAN_DELETE_CONTROLE = {{ 'true' if has_action_access(13) else 'false' }};
+        const P10_CAN_EXPORT_EXCEL = {{ 'true' if is_super_user() or has_action_access(6) else 'false' }};
         
         // S'assurer que reinitialiserFormulaire est définie avant ouvrirModalNouveauControle
         if (typeof window.reinitialiserFormulaire === 'undefined') {
@@ -3026,7 +3184,7 @@ function initialiserDataTable() {
         { titre: 'Machine Découpe', filtre: true, toggle: true, className: 'col-machine', width: '160px' },
         { titre: 'Opérateur M. de découpe', filtre: true, toggle: true, className: 'col-operateur-dec', width: '220px' },
         { titre: 'Rebuts', filtre: true, toggle: true, className: 'col-rebus', width: '100px' },
-        { titre: 'Manque à Gagner', filtre: true, toggle: true, className: 'col-manqagan', width: '150px' },
+        { titre: 'Màg. (TND)', filtre: true, toggle: true, className: 'col-manqagan', width: '150px' },
         { titre: 'Coût de Rebuts', filtre: true, toggle: true, className: 'col-crebut', width: '150px' },
         { titre: 'Taux de Rebuts', filtre: true, toggle: true, className: 'col-taux-rebuts', width: '120px' },
         { titre: 'Validation', filtre: true, toggle: true, className: 'col-validation', width: '150px' },
@@ -3302,535 +3460,244 @@ function initialiserDataTable() {
     });
 }
 
-// Charger les statistiques - VERSION ULTRA SIMPLIFIÉE
+// Tableau de bord statistiques (filtres, agrégats économiques, sections unifiées)
+function p10StatsQueryCore() {
+    const d1 = (document.getElementById('p10-stats-date-debut') || {}).value || '';
+    const d2 = (document.getElementById('p10-stats-date-fin') || {}).value || '';
+    const m = ((document.getElementById('p10-stats-machine') || {}).value || '').trim();
+    const parts = [];
+    if (d1) parts.push('date_debut=' + encodeURIComponent(d1));
+    if (d2) parts.push('date_fin=' + encodeURIComponent(d2));
+    if (m) parts.push('machine_impression=' + encodeURIComponent(m));
+    return parts.join('&');
+}
+
+function p10StatsDossiersQuery() {
+    const core = p10StatsQueryCore();
+    const seuil = (document.getElementById('p10-stats-seuil') || {}).value || '10';
+    return (core ? core + '&' : '') + 'seuil=' + encodeURIComponent(seuil);
+}
+
+function p10StatsEnsureFiltersDom() {
+    const wrap = document.getElementById('statistiques-container');
+    if (!wrap) return;
+    const hadTabs = !!document.getElementById('p10-stats-tabs-nav');
+    const globEl = document.getElementById('p10-stats-globales');
+    const flatOk = document.getElementById('p10-stats-date-debut') && !hadTabs && globEl && wrap.contains(globEl)
+        && document.getElementById('p10-stats-machines') && document.getElementById('p10-stats-tables-row');
+    if (flatOk) return;
+    wrap.innerHTML = `
+<div class="card mb-4 border-secondary" id="p10-stats-filters-card">
+  <div class="card-header py-2 d-flex flex-wrap align-items-center gap-2"><strong>Filtres</strong> <span class="text-muted small fw-normal">(optionnel — fiche WEB_CONTROLES_QUALITE)</span></div>
+  <div class="card-body py-2 px-3">
+    <div class="p10-stats-filters-row">
+      <div class="p10-stats-filter-group">
+        <label class="form-label small mb-0" for="p10-stats-date-debut">Date début</label>
+        <input type="date" class="form-control form-control-sm" id="p10-stats-date-debut">
+      </div>
+      <div class="p10-stats-filter-group">
+        <label class="form-label small mb-0" for="p10-stats-date-fin">Date fin</label>
+        <input type="date" class="form-control form-control-sm" id="p10-stats-date-fin">
+      </div>
+      <div class="p10-stats-filter-group p10-stats-filter-machine">
+        <label class="form-label small mb-0" for="p10-stats-machine">Machine impression</label>
+        <input type="text" class="form-control form-control-sm" id="p10-stats-machine" list="p10-stats-machines-datalist" placeholder="Toutes" autocomplete="off">
+        <datalist id="p10-stats-machines-datalist"></datalist>
+      </div>
+      <div class="p10-stats-filter-group p10-stats-filter-seuil">
+        <label class="form-label small mb-0" for="p10-stats-seuil">Seuil dossiers (%)</label>
+        <input type="number" class="form-control form-control-sm" id="p10-stats-seuil" min="0" max="100" step="0.1" value="10">
+      </div>
+      <div class="p10-stats-filter-actions pt-1 pt-xl-0">
+        <button type="button" class="btn btn-primary btn-sm" id="p10-stats-btn-refresh">Actualiser</button>
+        <a href="#" class="btn btn-success btn-sm" id="p10-stats-btn-excel" style="display:none;">Excel</a>
+        <a href="#" class="btn btn-outline-secondary btn-sm" id="p10-stats-btn-pdf" style="display:none;" title="Exporter la section statistiques en PDF (filtres appliqués)">PDF</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="p10-stats-globales"></div>
+<div class="row p10-stats-tables-row mt-3 mt-xl-4 g-3 gx-xl-3" id="p10-stats-tables-row">
+  <div class="col-12 col-xl-6 mb-4 mb-xl-0" id="p10-stats-machines-col"><div id="p10-stats-machines"></div></div>
+  <div class="col-12 col-xl-6" id="p10-stats-operateurs-col"><div id="p10-stats-operateurs"></div></div>
+</div>
+<div id="p10-stats-dossiers" class="mt-4"></div>`;
+    const btn = document.getElementById('p10-stats-btn-refresh');
+    if (btn) btn.addEventListener('click', function () { chargerStatistiques(); });
+    fetch('/projet10/api/statistiques/machines-distinct')
+        .then(function (r) { return r.json(); })
+        .then(function (names) {
+            const dl = document.getElementById('p10-stats-machines-datalist');
+            if (!dl || !Array.isArray(names)) return;
+            dl.innerHTML = names.map(function (n) {
+                const v = String(n).replace(/"/g, '&quot;');
+                return '<option value="' + v + '"></option>';
+            }).join('');
+        }).catch(function () {});
+}
+
+function p10StatsFormatInt(num) {
+    if (num === null || num === undefined) return '0';
+    return Number(num).toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+}
+function p10StatsFormatDec3(num) {
+    if (num === null || num === undefined) return '0,000';
+    return Number(num).toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+}
+function p10StatsFormatDec2(num) {
+    if (num === null || num === undefined) return '0,00';
+    return Number(num).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function p10RenderStatsGlobales(data) {
+    const el = document.getElementById('p10-stats-globales');
+    if (!el) return;
+    const tauxValidation = data.total_controles > 0
+        ? ((data.controles_valides / data.total_controles) * 100).toFixed(3)
+        : '0,000';
+    el.innerHTML = `
+<div class="card mb-0">
+  <div class="card-header bg-primary text-white"><h5 class="mb-0">Indicateurs globaux</h5></div>
+  <div class="card-body py-2 pb-3">
+    <div class="row row-cols-1 row-cols-md-3 g-2 p10-stats-kpi-row">
+      <div class="col"><div class="border rounded-3 text-center h-100 bg-light bg-opacity-50"><div class="text-muted small text-uppercase lh-sm" style="letter-spacing:.02em;font-size:0.65rem;">Total contrôles</div><div class="fs-4 fw-bold text-primary p10-stats-kpi-value">${data.total_controles || 0}</div></div></div>
+      <div class="col"><div class="border rounded-3 text-center h-100 bg-light bg-opacity-50"><div class="text-muted small text-uppercase lh-sm" style="letter-spacing:.02em;font-size:0.65rem;">Contrôles validés</div><div class="fs-4 fw-bold text-success p10-stats-kpi-value">${data.controles_valides || 0}</div><div class="small text-muted mt-0 lh-1" style="font-size:0.7rem;">${tauxValidation}%</div></div></div>
+      <div class="col"><div class="border rounded-3 text-center h-100 bg-light bg-opacity-50"><div class="text-muted small text-uppercase lh-sm" style="letter-spacing:.02em;font-size:0.65rem;">Rebut moyen / fiche</div><div class="fs-4 fw-bold text-warning p10-stats-kpi-value">${p10StatsFormatDec3(data.rebus_moyen)}</div></div></div>
+    </div>
+    <hr class="my-3">
+    <h6 class="text-muted text-uppercase small mb-2" style="letter-spacing:.04em;">Quantités et taux (fiche)</h6>
+    <div class="p10-stats-qty-scroll">
+    <div class="row row-cols-2 row-cols-lg-5 g-2 p10-stats-qty-row">
+      <div class="col"><div class="border rounded-3 p-2 h-100"><div class="small text-muted text-truncate" title="Total produit">Total produit</div><div class="fw-bold small">${p10StatsFormatInt(data.total_produit)} <span class="text-muted fw-normal">p.</span></div></div></div>
+      <div class="col"><div class="border rounded-3 p-2 h-100"><div class="small text-muted text-truncate" title="Conforme enregistré (pied)">Conforme (pied)</div><div class="fw-bold small text-success">${p10StatsFormatInt(data.total_conforme)}</div></div></div>
+      <div class="col"><div class="border rounded-3 p-2 h-100"><div class="small text-muted">Rebut (fiche)</div><div class="fw-bold small text-danger">${p10StatsFormatInt(data.total_rebus)}</div></div></div>
+      <div class="col"><div class="border rounded-3 p-2 h-100"><div class="small text-muted">Taux conf.</div><div class="fw-bold small">${p10StatsFormatDec3(data.taux_conformite || 0)} %</div></div></div>
+      <div class="col"><div class="border rounded-3 p-2 h-100"><div class="small text-muted">Taux rebut</div><div class="fw-bold small">${p10StatsFormatDec3(data.taux_rebus || 0)} %</div></div></div>
+    </div>
+    </div>
+    <hr class="my-3">
+    <h6 class="text-muted text-uppercase small mb-2" style="letter-spacing:.04em;">Impact économique (TND)</h6>
+    <div class="row row-cols-1 row-cols-md-2 g-2">
+      <div class="col"><div class="border rounded-3 p-2 p-md-3 h-100"><div class="small text-muted">Σ Màg. (TND)</div><div class="fw-bold fs-6">${p10StatsFormatDec3(data.sum_manq_agan)}</div></div></div>
+      <div class="col"><div class="border rounded-3 p-2 p-md-3 h-100"><div class="small text-muted">Σ Coût rebuts (TND)</div><div class="fw-bold fs-6">${p10StatsFormatDec3(data.sum_crebut)}</div></div></div>
+    </div>
+  </div>
+</div>`;
+}
+
+function p10StatsBadgeTauxRebut(tr) {
+    const t = Number(tr) || 0;
+    if (t <= 5) return 'success';
+    if (t <= 10) return 'warning';
+    return 'danger';
+}
+
+function p10RenderStatsMachines(data) {
+    const el = document.getElementById('p10-stats-machines');
+    if (!el) return;
+    if (!data || !data.length) {
+        el.innerHTML = '<div class="alert alert-info mb-0 rounded-3 shadow-sm">Aucune donnée par machine d\'impression pour ces filtres.</div>';
+        return;
+    }
+    let rows = '';
+    data.forEach(function (m) {
+        const badge = p10StatsBadgeTauxRebut(m.taux_rebut);
+        rows += '<tr><td><strong>' + (m.machine || '-') + '</strong></td><td class="text-center">' + p10StatsFormatInt(m.nombre_controles) + '</td><td class="text-center text-danger">' + p10StatsFormatInt(m.total_rebut) + '</td><td class="text-end">' + p10StatsFormatDec3(m.sum_manq_agan || 0) + '</td><td class="text-center"><span class="badge bg-' + badge + '">' + p10StatsFormatDec2(m.taux_rebut || 0) + ' %</span></td></tr>';
+    });
+    el.innerHTML = '<div class="card h-100 mb-0"><div class="card-header py-2"><h5 class="mb-0 fs-6">Performance par machine d\'impression</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-striped table-hover mb-0"><thead class="table-light"><tr><th>Machine</th><th class="text-center">Nb contrôles</th><th class="text-center">Rebut</th><th class="text-end">Màg. (TND)</th><th class="text-center">Taux de rebut</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+}
+
+function p10RenderStatsOperateurs(data) {
+    const el = document.getElementById('p10-stats-operateurs');
+    if (!el) return;
+    if (!data || !data.length) {
+        el.innerHTML = '<div class="alert alert-info mb-0 rounded-3 shadow-sm">Aucune donnée par opérateur machine d\'impression pour ces filtres.</div>';
+        return;
+    }
+    let rows = '';
+    data.forEach(function (o) {
+        const badge = p10StatsBadgeTauxRebut(o.taux_rebut);
+        const nom = String(o.operateur_machine_impression || '-').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        rows += '<tr><td><strong>' + nom + '</strong></td><td class="text-center">' + p10StatsFormatInt(o.nombre_controles) + '</td><td class="text-center text-danger">' + p10StatsFormatInt(o.total_rebut) + '</td><td class="text-end">' + p10StatsFormatDec3(o.sum_manq_agan || 0) + '</td><td class="text-center"><span class="badge bg-' + badge + '">' + p10StatsFormatDec2(o.taux_rebut || 0) + ' %</span></td></tr>';
+    });
+    el.innerHTML = '<div class="card h-100 mb-0"><div class="card-header bg-info text-white py-2"><h5 class="mb-0 fs-6">Performance par opérateur machine d\'impression</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-striped table-hover mb-0"><thead class="table-light"><tr><th>Opérateur M. impression</th><th class="text-center">Nb contrôles</th><th class="text-center">Rebut</th><th class="text-end">Màg. (TND)</th><th class="text-center">Taux de rebut</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+}
+
+function p10RenderStatsDossiers(data, seuil) {
+    const el = document.getElementById('p10-stats-dossiers');
+    if (!el) return;
+    if (!data || !data.length) {
+        el.innerHTML = '<div class="alert alert-success mb-0 rounded-3 shadow-sm">Aucun dossier au-dessus du seuil ' + seuil + '% (données fiche).</div>';
+        return;
+    }
+    let rows = '';
+    data.forEach(function (d) {
+        const df = d.date ? new Date(d.date).toLocaleDateString('fr-FR') : '';
+        const op = (d.operateur || '').replace(/</g, '');
+        const mac = (d.machine || '').replace(/</g, '');
+        rows += '<tr><td><strong>' + (d.Numero_COMMANDES || '') + '</strong></td><td>' + df + '</td><td>' + op + '</td><td>' + mac + '</td><td class="text-center">' + p10StatsFormatInt(d.total_conforme) + '</td><td class="text-center">' + p10StatsFormatInt(d.total_rebus) + '</td><td class="text-center">' + p10StatsFormatInt(d.total_produit) + '</td><td class="text-center"><span class="badge bg-danger">' + p10StatsFormatDec2(d.taux_rebus) + ' %</span></td></tr>';
+    });
+    el.innerHTML = '<div class="card"><div class="card-header bg-danger text-white"><h5 class="mb-0">Dossiers à risque (taux rebut fiche ≥ ' + seuil + '%)</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-striped mb-0"><thead class="table-light"><tr><th>N° Dossier</th><th>Date</th><th>Opérateur</th><th>Machine</th><th class="text-center">Conf.</th><th class="text-center">Rebut</th><th class="text-center">Total</th><th class="text-center">Taux rebut</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+}
+
 function chargerStatistiques() {
-    console.log('=== DEBUT chargerStatistiques ===');
-    const container = document.getElementById('statistiques-container');
     const section = document.getElementById('section-statistiques');
-    
-    if (!container) {
-        console.error('ERREUR: Container statistiques-container introuvable!');
-        alert('Erreur: Le conteneur des statistiques est introuvable!');
-        return;
-    }
-    
-    if (!section) {
-        console.error('ERREUR: Section section-statistiques introuvable!');
-        alert('Erreur: La section statistiques est introuvable!');
-        return;
-    }
-    
-    // Vérifier que la section est visible et forcer l'affichage si nécessaire
-    const computedStyle = window.getComputedStyle(section);
-    const isVisible = section.classList.contains('active') && 
-                      computedStyle.display !== 'none' && 
-                      computedStyle.visibility !== 'hidden' && 
-                      parseFloat(computedStyle.opacity) > 0;
-    
-    if (!isVisible) {
-        console.warn('ATTENTION: La section statistiques n\'est pas visible. Forçage de l\'affichage...');
-        // Forcer l'affichage avec important
+    if (section) {
         section.classList.add('active');
-        section.style.setProperty('display', 'block', 'important');
-        section.style.setProperty('visibility', 'visible', 'important');
-        section.style.setProperty('opacity', '1', 'important');
-        
-        // Vérifier aussi les parents - CORRECTION CRITIQUE pour visibility: hidden
-        let parent = section.parentElement;
-        while (parent && parent !== document.body) {
-            const parentStyle = window.getComputedStyle(parent);
-            if (parentStyle.display === 'none') {
-                console.warn('Parent avec display:none trouvé:', parent);
-                parent.style.setProperty('display', 'block', 'important');
-            }
-            // CORRECTION CRITIQUE: Vérifier aussi visibility: hidden
-            if (parentStyle.visibility === 'hidden') {
-                console.warn('Parent avec visibility:hidden trouvé:', parent);
-                parent.style.setProperty('visibility', 'visible', 'important');
-            }
-            if (parseFloat(parentStyle.opacity) === 0) {
-                console.warn('Parent avec opacity:0 trouvé:', parent);
-                parent.style.setProperty('opacity', '1', 'important');
-            }
-            parent = parent.parentElement;
+    }
+    p10StatsEnsureFiltersDom();
+    const qCore = p10StatsQueryCore();
+    const qDos = p10StatsDossiersQuery();
+    const seuilVal = (document.getElementById('p10-stats-seuil') || {}).value || '10';
+
+    const excelBtn = document.getElementById('p10-stats-btn-excel');
+    const pdfBtn = document.getElementById('p10-stats-btn-pdf');
+    const hasExport = typeof P10_CAN_EXPORT_EXCEL !== 'undefined' && P10_CAN_EXPORT_EXCEL;
+    if (excelBtn) {
+        excelBtn.style.display = hasExport ? 'inline-block' : 'none';
+        if (hasExport) {
+            const base = '/projet10/statistiques/export-excel';
+            excelBtn.href = qCore ? base + '?' + qCore : base;
         }
     }
-    
-    const finalComputedStyle = window.getComputedStyle(section);
-    console.log('Container trouvé, section visible:', finalComputedStyle.display, 'opacity:', finalComputedStyle.opacity, 'visibility:', finalComputedStyle.visibility, 'has active class:', section.classList.contains('active'));
-    console.log('Appel API...');
-    
-    // Afficher un message de chargement
-    container.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Chargement...</span></div><p class="mt-2">Chargement des statistiques...</p></div>';
-    
-    fetch('/projet10/api/statistiques')
-        .then(res => res.json())
-        .then(data => {
-            console.log('Données reçues:', data);
-            
-            // Formater les nombres avec séparateurs de milliers
-            const formatNumber = (num) => {
-                if (num === null || num === undefined) return '0';
-                return num.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
-            };
-            
-            // Formater les décimales avec 3 chiffres après la virgule
-            const formatDecimal = (num) => {
-                if (num === null || num === undefined) return '0,000';
-                return num.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-            };
-            
-            // Calculer le taux de validation
-            const tauxValidation = data.total_controles > 0 
-                ? ((data.controles_valides / data.total_controles) * 100).toFixed(3)
-                : '0.000';
-            
-            console.log('Construction du HTML SIMPLIFIÉ...');
-            
-            // HTML pour afficher les statistiques - Structure simplifiée sans row imbriquée
-            const html = `
-                <div class="col-12" style="width: 100% !important; display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; max-height: none !important; overflow: visible !important;">
-                    <div class="card mb-4" style="display: block !important; visibility: visible !important; opacity: 1 !important; min-height: auto !important; height: auto !important; max-height: none !important; overflow: visible !important;">
-                        <div class="card-header bg-primary text-white" style="display: block !important; visibility: visible !important;">
-                            <h4 class="mb-0">📊 Statistiques Globales</h4>
-                        </div>
-                        <div class="card-body" style="display: block !important; visibility: visible !important; opacity: 1 !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important; padding: 1.5rem !important;">
-                            <div class="row" style="display: flex !important; flex-wrap: wrap !important; margin-left: -15px !important; margin-right: -15px !important; width: 100% !important; align-items: stretch !important; height: auto !important; min-height: auto !important; max-height: none !important; overflow: visible !important;">
-                                <div class="col-md-6 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 50% !important; max-width: 50% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-primary" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Total Contrôles</h5>
-                                            <h2 class="text-primary mb-0" style="line-height: 1.4 !important; overflow: visible !important; height: auto !important; max-height: none !important;">${data.total_controles || 0}</h2>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 50% !important; max-width: 50% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-success" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Contrôles Validés</h5>
-                                            <h2 class="text-success mb-0" style="line-height: 1.4 !important; overflow: visible !important; height: auto !important; max-height: none !important;">${data.controles_valides || 0}</h2>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 33.333% !important; max-width: 33.333% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-info" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Total Produit</h5>
-                                            <h3 class="text-info mb-1" style="line-height: 1.4 !important; overflow: visible !important; word-wrap: break-word !important; padding-bottom: 0 !important; margin-bottom: 0.5rem !important; height: auto !important; max-height: none !important;">${formatNumber(data.total_produit || 0)}</h3>
-                                            <small class="text-muted" style="display: block !important; margin-top: 0.5rem !important; overflow: visible !important; height: auto !important;">pièces</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 33.333% !important; max-width: 33.333% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-success" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Total Conforme</h5>
-                                            <h3 class="text-success mb-1" style="line-height: 1.4 !important; overflow: visible !important; word-wrap: break-word !important; padding-bottom: 0 !important; margin-bottom: 0.5rem !important; height: auto !important; max-height: none !important;">${formatNumber(data.total_conforme || 0)}</h3>
-                                            <small class="text-muted" style="display: block !important; margin-top: 0.5rem !important; overflow: visible !important; height: auto !important;">pièces</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 33.333% !important; max-width: 33.333% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-danger" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Total Rebus</h5>
-                                            <h3 class="text-danger mb-1" style="line-height: 1.4 !important; overflow: visible !important; word-wrap: break-word !important; padding-bottom: 0 !important; margin-bottom: 0.5rem !important; height: auto !important; max-height: none !important;">${formatNumber(data.total_non_conforme || 0)}</h3>
-                                            <small class="text-muted" style="display: block !important; margin-top: 0.5rem !important; overflow: visible !important; height: auto !important;">pièces</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 50% !important; max-width: 50% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-success" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Taux de Conformité</h5>
-                                            <h2 class="text-success mb-0" style="line-height: 1.4 !important; overflow: visible !important; height: auto !important; max-height: none !important;">${formatDecimal(data.taux_conformite || 0)}%</h2>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 50% !important; max-width: 50% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-danger" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Taux de Rebus</h5>
-                                            <h2 class="text-danger mb-0" style="line-height: 1.4 !important; overflow: visible !important; height: auto !important; max-height: none !important;">${formatDecimal(data.taux_rebus || 0)}%</h2>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-12 mb-3" style="display: flex !important; visibility: visible !important; opacity: 1 !important; flex: 0 0 100% !important; max-width: 100% !important; padding-left: 15px !important; padding-right: 15px !important; align-items: stretch !important; height: auto !important;">
-                                    <div class="card border-warning" style="display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; min-height: auto !important; width: 100% !important; overflow: visible !important; max-height: none !important;">
-                                        <div class="card-body text-center" style="display: block !important; visibility: visible !important; padding: 1.25rem 1rem !important; overflow: visible !important; height: auto !important; min-height: auto !important; max-height: none !important;">
-                                            <h5 class="text-muted" style="margin-bottom: 0.75rem !important; overflow: visible !important; height: auto !important;">Rebus Moyen par Contrôle</h5>
-                                            <h2 class="text-warning mb-0" style="line-height: 1.4 !important; overflow: visible !important; word-wrap: break-word !important; padding-bottom: 0 !important; height: auto !important; max-height: none !important;">${formatDecimal(data.rebus_moyen || 0)}</h2>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            console.log('Injection du HTML...');
-            console.log('HTML à injecter (premiers 500 caractères):', html.substring(0, 500));
-            console.log('Container avant injection:', container);
-            console.log('Container parent (section):', container.parentElement);
-            
-            // S'assurer que la section est bien active avant d'injecter
-            if (section) {
-                section.classList.add('active');
-                section.style.setProperty('display', 'block', 'important');
-                section.style.setProperty('visibility', 'visible', 'important');
-                section.style.setProperty('opacity', '1', 'important');
-                section.style.setProperty('min-height', '300px', 'important');
-                section.style.setProperty('width', '100%', 'important');
-                section.style.setProperty('height', 'auto', 'important');
-                
-                // Vérifier et corriger le parent si nécessaire - CORRECTION CRITIQUE
-                const sectionParent = section.parentElement;
-                if (sectionParent) {
-                    const parentStyle = window.getComputedStyle(sectionParent);
-                    console.log('Parent de la section avant injection:', parentStyle.display, parentStyle.visibility, parentStyle.height);
-                    
-                    // CORRECTION CRITIQUE: Forcer visibility: visible sur le parent
-                    if (parentStyle.visibility === 'hidden') {
-                        console.warn('PROBLÈME: Parent a visibility: hidden avant injection ! Correction...');
-                        sectionParent.style.setProperty('visibility', 'visible', 'important');
-                    }
-                    
-                    // Forcer display, visibility et opacity sur le parent
-                    sectionParent.style.setProperty('display', 'block', 'important');
-                    sectionParent.style.setProperty('visibility', 'visible', 'important');
-                    sectionParent.style.setProperty('opacity', '1', 'important');
-                    
-                    // S'assurer que le parent permet l'expansion complète
-                    sectionParent.style.setProperty('height', 'auto', 'important');
-                    sectionParent.style.setProperty('min-height', 'auto', 'important');
-                    sectionParent.style.setProperty('max-height', 'none', 'important');
-                    sectionParent.style.setProperty('overflow', 'visible', 'important');
-                }
-            }
-            
-            // Injecter directement le HTML
-            try {
-                container.innerHTML = html;
-                console.log('HTML injecté dans le container avec succès');
-                console.log('Nombre d\'éléments après injection:', container.children.length);
-                
-                // Vérifier immédiatement si le HTML est là
-                const testCard = container.querySelector('.card');
-                if (testCard) {
-                    console.log('Carte trouvée immédiatement après injection:', testCard);
-                } else {
-                    console.error('ERREUR: Aucune carte trouvée immédiatement après injection!');
-                    console.log('Contenu du container:', container.innerHTML.substring(0, 300));
-                }
-            } catch (error) {
-                console.error('ERREUR lors de l\'injection du HTML:', error);
-            }
-            
-            // Forcer immédiatement l'affichage après injection
-            requestAnimationFrame(() => {
-                // Forcer l'affichage de la section SANS limitation de hauteur
-                if (section) {
-                    section.classList.add('active');
-                    section.style.setProperty('display', 'block', 'important');
-                    section.style.setProperty('visibility', 'visible', 'important');
-                    section.style.setProperty('opacity', '1', 'important');
-                    section.style.setProperty('min-height', 'auto', 'important');
-                    section.style.setProperty('height', 'auto', 'important');
-                    section.style.setProperty('max-height', 'none', 'important');
-                    section.style.setProperty('width', '100%', 'important');
-                    section.style.setProperty('overflow', 'visible', 'important');
-                    
-                    // Forcer TOUS les parents jusqu'à body pour permettre l'expansion complète
-                    let currentElement = section;
-                    while (currentElement && currentElement !== document.body) {
-                        currentElement = currentElement.parentElement;
-                        if (currentElement) {
-                            currentElement.style.setProperty('height', 'auto', 'important');
-                            currentElement.style.setProperty('min-height', 'auto', 'important');
-                            currentElement.style.setProperty('max-height', 'none', 'important');
-                            currentElement.style.setProperty('overflow', 'visible', 'important');
-                        }
-                    }
-                }
-                
-                // Forcer l'affichage du container sans limitation de hauteur
-                container.style.cssText = 'display: flex !important; visibility: visible !important; opacity: 1 !important; width: 100% !important; min-height: auto !important; height: auto !important; max-height: none !important; flex-wrap: wrap !important; overflow: visible !important; align-items: stretch !important;';
-                
-                // Forcer l'affichage de tous les enfants avec des styles explicites
-                // CORRECTION: Les colonnes Bootstrap doivent utiliser flex, pas block
-                Array.from(container.querySelectorAll('.row')).forEach(row => {
-                    row.style.setProperty('display', 'flex', 'important');
-                    row.style.setProperty('flex-wrap', 'wrap', 'important');
-                    row.style.setProperty('visibility', 'visible', 'important');
-                    row.style.setProperty('opacity', '1', 'important');
-                    row.style.setProperty('height', 'auto', 'important');
-                    row.style.setProperty('min-height', 'auto', 'important');
-                    row.style.setProperty('max-height', 'none', 'important');
-                    row.style.setProperty('overflow', 'visible', 'important');
-                    row.style.setProperty('align-items', 'stretch', 'important');
-                });
-                
-                // Forcer spécifiquement les colonnes Bootstrap avec flex
-                Array.from(container.querySelectorAll('.col-12, .col-md-4, .col-md-6')).forEach(col => {
-                    col.style.setProperty('display', 'flex', 'important');
-                    col.style.setProperty('visibility', 'visible', 'important');
-                    col.style.setProperty('opacity', '1', 'important');
-                    col.style.setProperty('height', 'auto', 'important');
-                    col.style.setProperty('min-height', 'auto', 'important');
-                    col.style.setProperty('max-height', 'none', 'important');
-                    col.style.setProperty('overflow', 'visible', 'important');
-                    col.style.setProperty('align-items', 'stretch', 'important');
-                    if (col.classList.contains('col-12')) {
-                        col.style.setProperty('flex', '0 0 100%', 'important');
-                        col.style.setProperty('max-width', '100%', 'important');
-                    } else if (col.classList.contains('col-md-6')) {
-                        col.style.setProperty('flex', '0 0 50%', 'important');
-                        col.style.setProperty('max-width', '50%', 'important');
-                    } else if (col.classList.contains('col-md-4')) {
-                        col.style.setProperty('flex', '0 0 33.333%', 'important');
-                        col.style.setProperty('max-width', '33.333%', 'important');
-                    }
-                });
-                
-                // Forcer les cartes avec overflow visible et hauteur auto
-                Array.from(container.querySelectorAll('.card')).forEach(card => {
-                    card.style.setProperty('display', 'block', 'important');
-                    card.style.setProperty('visibility', 'visible', 'important');
-                    card.style.setProperty('opacity', '1', 'important');
-                    
-                    // Hauteur différente selon le type de colonne
-                    const parentCol = card.closest('.col-md-4, .col-md-6, .col-12');
-                    
-                    // Supprimer toute limitation de hauteur
-                    card.style.setProperty('height', 'auto', 'important');
-                    card.style.setProperty('min-height', 'auto', 'important');
-                    card.style.setProperty('max-height', 'none', 'important');
-                    card.style.setProperty('width', '100%', 'important');
-                    card.style.setProperty('overflow', 'visible', 'important');
-                    
-                    // Forcer aussi les card-body avec padding raisonnable
-                    const cardBody = card.querySelector('.card-body');
-                    if (cardBody) {
-                        cardBody.style.setProperty('overflow', 'visible', 'important');
-                        cardBody.style.setProperty('height', 'auto', 'important');
-                        cardBody.style.setProperty('min-height', 'auto', 'important');
-                        cardBody.style.setProperty('max-height', 'none', 'important');
-                        // Padding uniforme et raisonnable pour toutes les cartes
-                        cardBody.style.setProperty('padding', '1.25rem 1rem', 'important');
-                    }
-                    
-                    // Forcer les titres et nombres à être visibles avec espacement raisonnable
-                    const headings = card.querySelectorAll('h2, h3, h5');
-                    headings.forEach(h => {
-                        h.style.setProperty('overflow', 'visible', 'important');
-                        h.style.setProperty('line-height', '1.4', 'important');
-                        h.style.setProperty('word-wrap', 'break-word', 'important');
-                        h.style.setProperty('padding-bottom', '0', 'important');
-                        h.style.setProperty('height', 'auto', 'important');
-                        h.style.setProperty('max-height', 'none', 'important');
-                        if (h.tagName === 'H3') {
-                            h.style.setProperty('margin-bottom', '0.5rem', 'important');
-                            h.style.setProperty('margin-top', '0', 'important');
-                        }
-                        if (h.tagName === 'H5') {
-                            h.style.setProperty('margin-bottom', '0.75rem', 'important');
-                        }
-                    });
-                    
-                    // Forcer les small avec espacement raisonnable
-                    const smalls = card.querySelectorAll('small');
-                    smalls.forEach(s => {
-                        s.style.setProperty('overflow', 'visible', 'important');
-                        s.style.setProperty('display', 'block', 'important');
-                        s.style.setProperty('margin-top', '0.5rem', 'important');
-                        s.style.setProperty('height', 'auto', 'important');
-                    });
-                });
-                
-                // Forcer aussi la carte principale et son card-body
-                const mainCard = container.querySelector('.col-12 > .card');
-                if (mainCard) {
-                    mainCard.style.setProperty('height', 'auto', 'important');
-                    mainCard.style.setProperty('min-height', 'auto', 'important');
-                    mainCard.style.setProperty('max-height', 'none', 'important');
-                    mainCard.style.setProperty('overflow', 'visible', 'important');
-                    const mainCardBody = mainCard.querySelector('.card-body');
-                    if (mainCardBody) {
-                        mainCardBody.style.setProperty('height', 'auto', 'important');
-                        mainCardBody.style.setProperty('min-height', 'auto', 'important');
-                        mainCardBody.style.setProperty('max-height', 'none', 'important');
-                        mainCardBody.style.setProperty('overflow', 'visible', 'important');
-                        mainCardBody.style.setProperty('padding-bottom', '1rem', 'important');
-                    }
-                }
-                
-                // Vérifier et corriger toutes les cartes une dernière fois
-                setTimeout(() => {
-                    Array.from(container.querySelectorAll('.card')).forEach(card => {
-                        const cardBody = card.querySelector('.card-body');
-                        if (cardBody) {
-                            const computedHeight = window.getComputedStyle(cardBody).height;
-                            const offsetHeight = cardBody.offsetHeight;
-                            console.log('Card-body height:', computedHeight, 'offsetHeight:', offsetHeight);
-                            
-                            // Si la hauteur calculée est inférieure à offsetHeight, forcer
-                            if (computedHeight !== 'auto' && parseFloat(computedHeight) < offsetHeight) {
-                                cardBody.style.setProperty('height', 'auto', 'important');
-                            }
-                        }
-                    });
-                }, 300);
-            });
-            
-            // Vérifier que le HTML a bien été injecté
-            console.log('Container après injection:', container);
-            console.log('Nombre d\'éléments enfants:', container.children.length);
-            console.log('Premier enfant:', container.firstElementChild);
-            
-            // Forcer l'affichage de la section et du container après l'injection du HTML
-            if (section) {
-                // S'assurer que la section reste visible
-                section.classList.add('active');
-                section.style.setProperty('display', 'block', 'important');
-                section.style.setProperty('visibility', 'visible', 'important');
-                section.style.setProperty('opacity', '1', 'important');
-                
-                // Forcer aussi que le container soit visible (row Bootstrap utilise flex)
-                container.style.setProperty('display', 'flex', 'important');
-                container.style.setProperty('visibility', 'visible', 'important');
-                container.style.setProperty('opacity', '1', 'important');
-                container.style.setProperty('width', '100%', 'important');
-                container.style.setProperty('min-height', 'auto', 'important');
-                container.style.setProperty('height', 'auto', 'important');
-                container.style.setProperty('max-height', 'none', 'important');
-                container.style.setProperty('flex-wrap', 'wrap', 'important');
-                container.style.setProperty('overflow', 'visible', 'important');
-                container.style.setProperty('align-items', 'stretch', 'important');
-                
-                // S'assurer que tous les enfants sont visibles et ont des dimensions
-                Array.from(container.children).forEach((child, index) => {
-                    child.style.setProperty('visibility', 'visible', 'important');
-                    child.style.setProperty('opacity', '1', 'important');
-                    child.style.setProperty('display', 'block', 'important');
-                    if (child.classList.contains('col-12')) {
-                        child.style.setProperty('width', '100%', 'important');
-                        child.style.setProperty('min-height', '150px', 'important');
-                        child.style.setProperty('height', 'auto', 'important');
-                    }
-                    console.log(`Enfant ${index} - offsetHeight:`, child.offsetHeight, 'offsetWidth:', child.offsetWidth);
-                });
-                
-                // Vérifier que la section est bien visible après l'injection
-                setTimeout(() => {
-                    const finalStyle = window.getComputedStyle(section);
-                    const containerStyle = window.getComputedStyle(container);
-                    console.log('Section après injection - display:', finalStyle.display, 'visibility:', finalStyle.visibility, 'opacity:', finalStyle.opacity);
-                    console.log('Container visible:', containerStyle.display, 'visibility:', containerStyle.visibility, 'opacity:', containerStyle.opacity);
-                    console.log('Container parent (section) visible:', finalStyle.display);
-                    console.log('Container offsetHeight:', container.offsetHeight, 'offsetWidth:', container.offsetWidth);
-                    console.log('Section offsetHeight:', section.offsetHeight, 'offsetWidth:', section.offsetWidth);
-                    
-                    // Toujours forcer les dimensions pour garantir l'affichage
-                    section.style.setProperty('display', 'block', 'important');
-                    section.style.setProperty('visibility', 'visible', 'important');
-                    section.style.setProperty('opacity', '1', 'important');
-                    section.style.setProperty('min-height', '300px', 'important');
-                    section.style.setProperty('width', '100%', 'important');
-                    section.style.setProperty('height', 'auto', 'important');
-                    section.style.setProperty('padding', '25px 20px', 'important');
-                    
-                    container.style.setProperty('display', 'flex', 'important');
-                    container.style.setProperty('visibility', 'visible', 'important');
-                    container.style.setProperty('opacity', '1', 'important');
-                    container.style.setProperty('min-height', '200px', 'important');
-                    container.style.setProperty('width', '100%', 'important');
-                    container.style.setProperty('height', 'auto', 'important');
-                    container.style.setProperty('flex-wrap', 'wrap', 'important');
-                    
-                    // Vérifier si le contenu est vraiment là
-                    const firstCard = container.querySelector('.card');
-                    if (firstCard) {
-                        console.log('Première carte trouvée:', firstCard);
-                        const cardStyle = window.getComputedStyle(firstCard);
-                        console.log('Première carte visible:', cardStyle.display, 'height:', cardStyle.height, 'width:', cardStyle.width);
-                        console.log('Première carte offsetHeight:', firstCard.offsetHeight, 'offsetWidth:', firstCard.offsetWidth);
-                        
-                        // Forcer les dimensions de la carte
-                        firstCard.style.setProperty('display', 'block', 'important');
-                        firstCard.style.setProperty('visibility', 'visible', 'important');
-                        firstCard.style.setProperty('opacity', '1', 'important');
-                        firstCard.style.setProperty('min-height', '100px', 'important');
-                        firstCard.style.setProperty('width', '100%', 'important');
-                        firstCard.style.setProperty('height', 'auto', 'important');
-                    } else {
-                        console.error('Aucune carte trouvée dans le container!');
-                        console.log('Contenu du container:', container.innerHTML.substring(0, 200));
-                    }
-                    
-                    // Vérifier le parent de la section
-                    const sectionParent = section.parentElement;
-                    if (sectionParent) {
-                        const parentStyle = window.getComputedStyle(sectionParent);
-                        console.log('Parent de la section - display:', parentStyle.display, 'visibility:', parentStyle.visibility, 'height:', parentStyle.height, 'width:', parentStyle.width);
-                        console.log('Parent offsetHeight:', sectionParent.offsetHeight, 'offsetWidth:', sectionParent.offsetWidth);
-                        
-                        // CORRECTION CRITIQUE: Le parent a visibility: hidden !
-                        if (parentStyle.visibility === 'hidden') {
-                            console.warn('PROBLÈME TROUVÉ: Le parent a visibility: hidden ! Correction en cours...');
-                            sectionParent.style.setProperty('visibility', 'visible', 'important');
-                        }
-                        
-                        // Forcer les dimensions et la visibilité du parent
-                        sectionParent.style.setProperty('display', 'block', 'important');
-                        sectionParent.style.setProperty('visibility', 'visible', 'important');
-                        sectionParent.style.setProperty('opacity', '1', 'important');
-                        
-                        if (sectionParent.offsetHeight === 0 || parentStyle.height === '0px') {
-                            console.warn('Parent a une hauteur 0, forçage...');
-                            sectionParent.style.setProperty('min-height', '300px', 'important');
-                            sectionParent.style.setProperty('height', 'auto', 'important');
-                        }
-                    }
-                    
-                    // Forcer le scroll vers la section pour s'assurer qu'elle est visible
-                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    
-                    // Dernière tentative : forcer le reflow du navigateur
-                    void section.offsetHeight;
-                    void container.offsetHeight;
-                    
-                    // Vérifier une dernière fois les dimensions
-                    console.log('Dernière vérification - Section offsetHeight:', section.offsetHeight, 'offsetWidth:', section.offsetWidth);
-                    console.log('Dernière vérification - Container offsetHeight:', container.offsetHeight, 'offsetWidth:', container.offsetWidth);
-                    
-                    if (section.offsetHeight === 0) {
-                        console.error('ERREUR CRITIQUE: La section a toujours une hauteur de 0 après tous les correctifs!');
-                        // Essayer de créer un élément de test pour voir si le problème vient du CSS
-                        const testDiv = document.createElement('div');
-                        testDiv.style.cssText = 'background: red; height: 100px; width: 100%; padding: 20px;';
-                        testDiv.textContent = 'TEST VISIBILITÉ';
-                        section.insertBefore(testDiv, section.firstChild);
-                        console.log('Élément de test ajouté. Si vous voyez un rectangle rouge, le problème vient du contenu HTML.');
-                    }
-                }, 500);
-            }
-            
-            console.log('=== FIN chargerStatistiques ===');
-        })
-        .catch(error => {
-            console.error('=== ERREUR dans chargerStatistiques ===', error);
-            const container = document.getElementById('statistiques-container');
-            if (container) {
-                container.innerHTML = `
-                    <div class="col-12">
-                        <div class="alert alert-danger">
-                            <strong>Erreur:</strong> Impossible de charger les statistiques. ${error.message}
-                        </div>
-                    </div>
-                `;
-            }
-        });
+    if (pdfBtn) {
+        pdfBtn.style.display = hasExport ? 'inline-block' : 'none';
+        if (hasExport) {
+            const basePdf = '/projet10/statistiques/export-pdf';
+            pdfBtn.href = qDos ? basePdf + '?' + qDos : basePdf + '?seuil=' + encodeURIComponent(String(seuilVal));
+        }
+    }
+
+    const g = document.getElementById('p10-stats-globales');
+    const m = document.getElementById('p10-stats-machines');
+    const o = document.getElementById('p10-stats-operateurs');
+    const d = document.getElementById('p10-stats-dossiers');
+    if (g) g.innerHTML = '<div class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm"></div> Chargement…</div>';
+    if (m) m.innerHTML = '';
+    if (o) o.innerHTML = '';
+    if (d) d.innerHTML = '';
+
+    const u1 = '/projet10/api/statistiques' + (qCore ? '?' + qCore : '');
+    const u2 = '/projet10/api/statistiques/machines' + (qCore ? '?' + qCore : '');
+    const u3 = '/projet10/api/statistiques/operateurs-impression' + (qCore ? '?' + qCore : '');
+    const u4 = '/projet10/api/statistiques/dossiers-probleme' + (qDos ? '?' + qDos : '?seuil=10');
+
+    Promise.all([
+        fetch(u1).then(function (r) { return r.json(); }),
+        fetch(u2).then(function (r) { return r.json(); }),
+        fetch(u3).then(function (r) { return r.json(); }),
+        fetch(u4).then(function (r) { return r.json(); })
+    ]).then(function (results) {
+        p10RenderStatsGlobales(results[0]);
+        p10RenderStatsMachines(results[1]);
+        p10RenderStatsOperateurs(results[2]);
+        p10RenderStatsDossiers(results[3], seuilVal);
+    }).catch(function (err) {
+        const wrap = document.getElementById('statistiques-container');
+        if (wrap) {
+            wrap.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement des statistiques.</div>';
+        }
+    });
 }
 
 // Charger les statistiques par machine
@@ -3850,33 +3717,33 @@ function chargerStatsMachines() {
             const formatNumber = (num) => (num || 0).toLocaleString('fr-FR');
             
             let html = `
-                <h4 class="text-primary mb-3">🏭 Performance par Machine d'Impression</h4>
+                <h4 class="text-primary mb-3">🏭 Performance par machine d'impression</h4>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover">
                         <thead class="table-primary">
                             <tr>
                                 <th>Machine</th>
                                 <th class="text-center">Nb Contrôles</th>
-                                <th class="text-center">Total Conforme</th>
-                                <th class="text-center">Total Rebus</th>
-                                <th class="text-center">Total Produit</th>
-                                <th class="text-center">Taux Conformité</th>
+                                <th class="text-center">Rebut</th>
+                                <th class="text-end">Màg. (TND)</th>
+                                <th class="text-center">Taux de rebut</th>
                             </tr>
                         </thead>
                         <tbody>
             `;
             
             data.forEach(m => {
-                const badgeClass = m.taux_conformite >= 95 ? 'success' : (m.taux_conformite >= 90 ? 'warning' : 'danger');
+                const tr = Number(m.taux_rebut) || 0;
+                const badgeClass = tr <= 5 ? 'success' : (tr <= 10 ? 'warning' : 'danger');
+                const manq = (m.sum_manq_agan !== undefined && m.sum_manq_agan !== null) ? Number(m.sum_manq_agan) : 0;
                 html += `
                     <tr>
                         <td><strong>${m.machine}</strong></td>
                         <td class="text-center">${formatNumber(m.nombre_controles)}</td>
-                        <td class="text-center text-success">${formatNumber(m.total_conforme)}</td>
-                        <td class="text-center text-danger">${formatNumber(m.total_rebus)}</td>
-                        <td class="text-center">${formatNumber(m.total_produit)}</td>
+                        <td class="text-center text-danger">${formatNumber(m.total_rebut)}</td>
+                        <td class="text-end">${manq.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</td>
                         <td class="text-center">
-                            <span class="badge bg-${badgeClass}">${m.taux_conformite}%</span>
+                            <span class="badge bg-${badgeClass}">${tr.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %</span>
                         </td>
                     </tr>
                 `;
@@ -4013,7 +3880,7 @@ function chargerDossiersProbleme() {
                         <td class="text-center text-danger">${formatNumber(d.total_rebus)}</td>
                         <td class="text-center">${formatNumber(d.total_produit)}</td>
                         <td class="text-center">
-                            <span class="badge bg-danger">${d.taux_rebus}%</span>
+                            <span class="badge bg-danger">${(Number(d.taux_rebus) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %</span>
                         </td>
                     </tr>
                 `;
