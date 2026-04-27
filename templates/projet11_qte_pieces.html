@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 11 - Quantité en pièces par commande{% endblock %}
+
+{% block head %}
+<!-- jQuery + DataTables (même stack que Liste des traitements) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<style>
+  #tableCommandePieces { font-size: 0.82rem; }
+  #tableCommandePieces td, #tableCommandePieces th { white-space: nowrap; }
+  #tableCommandePieces th.col-ref, #tableCommandePieces td.col-ref { max-width: 420px; }
+  .p11-ref-truncate { max-width: 420px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+  .pose-input { width: 90px; text-align: center; }
+  .qte-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge-source { font-size: 0.72rem; }
+  .btn-save-row { min-width: 110px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">
+      <i class="fas fa-th"></i> Quantité en pièces par commande
+    </h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('projet11.index') }}">
+        <i class="fas fa-arrow-left"></i> Retour
+      </a>
+      <button class="btn btn-outline-primary btn-sm" id="btnReload">
+        <i class="fas fa-sync"></i> Recharger
+      </button>
+    </div>
+  </div>
+
+  <div class="alert alert-info py-2">
+    <strong>Règle :</strong> Quantité finale = Quantité commandée (QteComm) × Nombre de poses × Nombre de modèles.
+    <span class="ms-2 text-muted">Le “Nombre de poses” est pré-rempli depuis la Référence quand possible, puis modifiable et enregistrable.</span>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0" id="tableCommandePieces">
+          <thead class="table-dark">
+            <tr>
+              <th style="width:70px;">ID</th>
+              <th style="width:140px;">N° commande</th>
+              <th class="col-ref">Référence</th>
+              <th style="width:150px;">Quantité commandée</th>
+              <th style="width:170px;">Nombre de poses</th>
+              <th style="width:170px;">Nombre de modèles</th>
+              <th style="width:170px;">Quantité finale</th>
+              <th style="width:140px;">Enregistrer</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <small class="text-muted d-block mt-2">
+        Astuce : si la référence contient “24 poses” ou “12 P”, la valeur est extraite automatiquement (modifiable ensuite).
+      </small>
+    </div>
+  </div>
+</div>
+
+<script>
+function fmtNum(n) {
+  if (n === null || n === undefined || n === '') return '-';
+  const v = Number(n);
+  if (!isFinite(v)) return String(n);
+  return v.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
+}
+
+function computeFinale(qteComm, pose, modeles) {
+  const qc = Number(qteComm);
+  const p = parseInt(pose, 10);
+  const m = parseInt(modeles, 10);
+  if (!isFinite(qc) || !isFinite(p) || p <= 0) return null;
+  if (!isFinite(m) || m <= 0) return qc * p; // pas de modèles -> sans facteur
+  return qc * p * m;
+}
+
+let dt = null;
+
+function renderRow(r) {
+  const source = r.nombre_pose_source || 'vide';
+  const badgeClass = source === 'saved' ? 'bg-success' : (source === 'extrait' ? 'bg-primary' : 'bg-secondary');
+  const badgeLabel = source === 'saved' ? 'enregistré' : (source === 'extrait' ? 'extrait' : (source === 'defaut' ? 'défaut' : 'à saisir'));
+  const poseVal = (r.nombre_pose !== null && r.nombre_pose !== undefined) ? r.nombre_pose : '';
+  const qteF = computeFinale(r.qte_comm, poseVal, r.nombre_modeles);
+  const refTitle = (r.reference || '').replace(/"/g, '&quot;');
+
+  return `
+    <tr data-id="${r.id}" data-num="${(r.numero||'').replace(/"/g,'&quot;')}" data-ref="${refTitle}" data-qc="${r.qte_comm ?? ''}" data-modeles="${(r.nombre_modeles ?? '')}">
+      <td class="text-center">${r.id}</td>
+      <td><strong>${r.numero || '-'}</strong></td>
+      <td class="col-ref"><span class="p11-ref-truncate" title="${refTitle}">${r.reference || '-'}</span></td>
+      <td class="qte-num">${fmtNum(r.qte_comm)}</td>
+      <td class="text-center">
+        <div class="d-flex align-items-center justify-content-center gap-2">
+          <input class="form-control form-control-sm pose-input" type="number" min="1" step="1" value="${poseVal}">
+          <span class="badge ${badgeClass} badge-source">${badgeLabel}</span>
+        </div>
+      </td>
+      <td class="text-center">${(r.nombre_modeles !== null && r.nombre_modeles !== undefined) ? r.nombre_modeles : '-'}</td>
+      <td class="qte-num qte-finale">${qteF === null ? '-' : fmtNum(qteF)}</td>
+      <td class="text-center">
+        <button type="button" class="btn btn-sm btn-outline-success btn-save-row">
+          <i class="fas fa-save"></i> Enregistrer
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
+function attachRowEvents() {
+  $('#tableCommandePieces').off('input', '.pose-input').on('input', '.pose-input', function() {
+    const $tr = $(this).closest('tr');
+    const qc = $tr.data('qc');
+    const pose = $(this).val();
+    const modeles = $tr.data('modeles');
+    const qteF = computeFinale(qc, pose, modeles);
+    $tr.find('.qte-finale').text(qteF === null ? '-' : fmtNum(qteF));
+  });
+
+  $('#tableCommandePieces').off('click', '.btn-save-row').on('click', '.btn-save-row', function() {
+    const $btn = $(this);
+    const $tr = $btn.closest('tr');
+    const id = $tr.data('id');
+    const pose = $tr.find('.pose-input').val();
+    $btn.prop('disabled', true).removeClass('btn-outline-success').addClass('btn-secondary');
+    fetch('/projet11/api/commandes-qte-unitaires/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre_pose: pose })
+    }).then(r => r.json().then(j => ({ ok: r.ok, j })))
+      .then(res => {
+        if (!res.ok) throw new Error(res.j && res.j.error ? res.j.error : 'Erreur');
+        $btn.removeClass('btn-secondary').addClass('btn-success');
+        $btn.html('<i class="fas fa-check"></i> Enregistré');
+        setTimeout(() => {
+          $btn.removeClass('btn-success').addClass('btn-outline-success');
+          $btn.html('<i class="fas fa-save"></i> Enregistrer');
+          $btn.prop('disabled', false);
+          // Marquer badge "enregistré"
+          const $badge = $tr.find('.badge-source');
+          $badge.removeClass('bg-primary bg-secondary').addClass('bg-success').text('enregistré');
+        }, 700);
+      })
+      .catch(err => {
+        alert(err && err.message ? err.message : 'Erreur lors de l’enregistrement');
+        $btn.removeClass('btn-secondary').addClass('btn-outline-success');
+        $btn.html('<i class="fas fa-save"></i> Enregistrer');
+        $btn.prop('disabled', false);
+      });
+  });
+}
+
+function loadData() {
+  const $tbody = $('#tableCommandePieces tbody');
+  $tbody.html('<tr><td colspan="7" class="text-center text-muted py-4">Chargement…</td></tr>');
+  fetch('/projet11/api/commandes-qte-unitaires?limit=2000')
+    .then(r => r.json())
+    .then(data => {
+      const rows = (data && data.rows) ? data.rows : [];
+      $tbody.empty();
+      rows.forEach(r => $tbody.append(renderRow(r)));
+      if (dt) {
+        dt.destroy();
+        dt = null;
+      }
+      dt = $('#tableCommandePieces').DataTable({
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json' },
+        order: [[0, 'desc']],
+        pageLength: 25,
+        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'Tous']],
+        autoWidth: false
+      });
+      attachRowEvents();
+    })
+    .catch(() => {
+      $tbody.html('<tr><td colspan="7" class="text-center text-danger py-4">Erreur de chargement.</td></tr>');
+    });
+}
+
+$(document).ready(function() {
+  $('#btnReload').on('click', loadData);
+  loadData();
+});
+</script>
+{% endblock %}
+

@@ -694,46 +694,187 @@
     }
 
     .form-group label {
-        display: block;
-        margin-bottom: 8px;
         color: #333;
         font-weight: 600;
     }
 
-    /* Wrapper pour les champs avec symbole ▼ */
+    /* Titres de champs uniquement (pas le cadre combo ni les cases à cocher) */
+    .form-group label:not(.input-wrapper):not(.checkbox-etat):not(.checkbox-nature) {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    /* Champ + ▼ : doit rester en flex row (sinon .form-group label imposait block et le ▼ passait en dessous, centré) */
+    .form-group label.input-wrapper {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        justify-content: flex-start;
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 0;
+        font-weight: normal;
+        cursor: text;
+    }
+
+    /* Champ + ▼ : un seul cadre arrondi, pas de trait ni fond différent entre la zone texte et le ▼ */
     .input-wrapper {
         position: relative;
         width: 100%;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        justify-content: flex-start;
     }
-    
-    .input-indicator {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #999;
+
+    .input-wrapper.no-indicator {
+        display: block;
+    }
+
+    .input-wrapper:not(.no-indicator) {
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        background: #fff;
+        box-sizing: border-box;
+        transition: border-color 0.3s ease;
+    }
+
+    .input-wrapper:not(.no-indicator):has(input[readonly]) {
+        background-color: #f0f0f0;
+    }
+
+    .form-group .input-wrapper:not(.no-indicator):focus-within {
+        border-color: #e91e63;
+    }
+
+    #reparationModal .form-group .input-wrapper:not(.no-indicator):focus-within {
+        border-color: #9c27b0;
+    }
+
+    .input-wrapper:not(.no-indicator) > input {
+        flex: 1 1 0%;
+        min-width: 0;
+        width: auto !important;
+        max-width: none;
+        margin: 0;
+        padding: 12px 4px 12px 12px;
+        border: none !important;
+        border-radius: 0 !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        font-size: 1em;
+        font-family: inherit;
+    }
+
+    .input-wrapper:not(.no-indicator) > input:focus {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Modal réparation : règle #id + input plus forte que .input-wrapper > input */
+    #reparationModal .form-group .input-wrapper:not(.no-indicator) > input {
+        border: none !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+        width: auto !important;
+        flex: 1 1 0%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    #reparationModal .form-group .input-wrapper:not(.no-indicator) > input:focus {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    /* ▼ : span dans <label class="input-wrapper"> (tout le cadre active le champ) */
+    label.input-wrapper .input-indicator {
+        flex: 0 0 32px;
+        flex-shrink: 0;
+        align-self: stretch;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: #888;
         font-size: 0.75em;
-        pointer-events: auto;
-        z-index: 1;
+        font-weight: normal;
+        font-family: inherit;
+        line-height: 1;
         cursor: pointer;
         transition: color 0.2s ease;
         user-select: none;
-        display: inline-block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-    
-    .input-indicator:hover {
-        color: #666;
+
+    label.input-wrapper .input-indicator:hover {
+        color: #444;
     }
-    
+
+    /* Liste personnalisée (remplace le datalist natif : même largeur que le champ, ▼ fiable) */
+    .gmao-combo-dropdown {
+        position: fixed;
+        box-sizing: border-box;
+        max-height: 260px;
+        overflow-y: auto;
+        background: #fff;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+    }
+
+    .gmao-combo-option {
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 0.95em;
+        line-height: 1.35;
+        border-bottom: 1px solid #eee;
+        word-break: break-word;
+    }
+
+    .gmao-combo-option:last-child {
+        border-bottom: none;
+    }
+
+    .gmao-combo-option:hover,
+    .gmao-combo-option.gmao-combo-highlight {
+        background: #f0f4ff;
+    }
+
+    .gmao-combo-option.gmao-combo-empty {
+        color: #888;
+        cursor: default;
+        font-style: italic;
+    }
+
+    .gmao-combo-option.gmao-combo-empty:hover {
+        background: #fff;
+    }
+
+    #reparationModal .gmao-combo-option:hover,
+    #reparationModal .gmao-combo-option.gmao-combo-highlight {
+        background: #f3e5f5;
+    }
+
+    /* Formulaire détail lecture seule : le form a pointer-events:none */
+    #detailsForm label.input-wrapper {
+        pointer-events: auto;
+    }
+
     /* Exclure le symbole pour certains champs spécifiques */
     .input-wrapper.no-indicator .input-indicator {
         display: none;
-    }
-    
-    /* Pour textarea, ajuster la position du symbole en haut */
-    .input-wrapper:has(textarea) .input-indicator {
-        top: 15px;
-        transform: none;
     }
     
     .form-group input,
@@ -1341,15 +1482,15 @@
         <form id="demandeForm">
             <div class="form-group">
                 <label for="dte_dem_in">Date et Heure *</label>
-                <div class="input-wrapper">
-                    <input type="datetime-local" id="dte_dem_in" name="dte_dem_in" required readonly style="background-color: #f0f0f0; cursor: not-allowed;">
-                    <span class="input-indicator" onclick="showInputList('dte_dem_in')">▼</span>
-                </div>
+                <label class="input-wrapper">
+                    <input type="datetime-local" id="dte_dem_in" name="dte_dem_in" required readonly style="cursor: pointer;" onclick="showInputList('dte_dem_in')">
+                    <span class="input-indicator" aria-hidden="true" onclick="showInputList('dte_dem_in')">▼</span>
+                </label>
             </div>
 
             <div class="form-group">
                 <label for="operateur_reclamant">Opérateur Demandeur *</label>
-                <div class="input-wrapper">
+                <label class="input-wrapper">
                     <input type="text" 
                            id="operateur_reclamant" 
                            name="operateur_reclamant" 
@@ -1358,8 +1499,8 @@
                            autocomplete="off"
                            data-matricule=""
                            required>
-                    <span class="input-indicator" onclick="showInputList('operateur_reclamant')">▼</span>
-                </div>
+                    <span class="input-indicator" aria-hidden="true">▼</span>
+                </label>
                 <datalist id="operateurs_list">
                     {% for op in operateurs %}
                     <option value="{{ op.nom }} {{ op.prenom }} (Matricule: {{ op.matricule }})" 
@@ -1373,7 +1514,7 @@
 
             <div class="form-group">
                 <label for="machine_input">Machine *</label>
-                <div class="input-wrapper">
+                <label class="input-wrapper">
                     <input type="text" 
                            id="machine_input" 
                            name="machine_input" 
@@ -1381,8 +1522,8 @@
                            placeholder="-- Tapez pour rechercher une machine --"
                            autocomplete="off"
                            required>
-                    <span class="input-indicator" onclick="showInputList('machine_input')">▼</span>
-                </div>
+                    <span class="input-indicator" aria-hidden="true">▼</span>
+                </label>
                 <datalist id="machines_list">
                     {% for machine in machines %}
                     <option value="{{ machine.nom }}">
@@ -1436,7 +1577,7 @@
         <!-- Sélection de la demande (visible seulement pour Nouvelle fiche de Réparation) -->
         <div id="selection-demande" class="form-group" style="display: none;">
             <label for="select_demande_input">Sélectionner une demande d'intervention</label>
-            <div class="input-wrapper">
+            <label class="input-wrapper">
                 <input type="text" 
                        id="select_demande_input" 
                        name="select_demande_input" 
@@ -1444,8 +1585,8 @@
                        placeholder="-- Tapez pour rechercher une demande --"
                        autocomplete="off"
                        data-demande-id="">
-                <span class="input-indicator" onclick="showInputList('select_demande_input')">▼</span>
-            </div>
+                <span class="input-indicator" aria-hidden="true">▼</span>
+            </label>
             <datalist id="demandes_list">
                 <!-- Sera rempli dynamiquement -->
             </datalist>
@@ -1457,7 +1598,7 @@
             <!-- 0. Sélection du préventif (visible uniquement pour les interventions préventives) -->
             <div class="form-group" id="preventive-task-selection-group" style="display: none;">
                 <label for="preventive_task_select">Préventif associé *</label>
-                <div class="input-wrapper">
+                <label class="input-wrapper">
                     <input type="text" 
                            id="preventive_task_select" 
                            name="preventive_task_select" 
@@ -1465,8 +1606,8 @@
                            placeholder="-- Tapez pour rechercher un préventif --"
                            autocomplete="off"
                            data-preventive-id="">
-                    <span class="input-indicator" onclick="showInputList('preventive_task_select')">▼</span>
-                </div>
+                    <span class="input-indicator" aria-hidden="true">▼</span>
+                </label>
                 <datalist id="preventive_tasks_list">
                     <!-- Sera rempli dynamiquement -->
                 </datalist>
@@ -1477,15 +1618,15 @@
             <!-- 1. Machine Concernée -->
             <div class="form-group" id="machine-reparation-group">
                 <label for="machine_reparation">Machine Concernée *</label>
-                <div class="input-wrapper">
+                <label class="input-wrapper">
                     <input type="text" 
                            id="machine_reparation" 
                            name="machine_reparation" 
                            list="machines_list_rep"
                            placeholder="-- Tapez pour rechercher une machine --"
                            autocomplete="off">
-                    <span class="input-indicator" onclick="showInputList('machine_reparation')">▼</span>
-                </div>
+                    <span class="input-indicator" aria-hidden="true">▼</span>
+                </label>
                 <datalist id="machines_list_rep">
                     {% for machine in machines %}
                     <option value="{{ machine.nom }}">
@@ -1498,7 +1639,7 @@
             <!-- 2. Intervenant -->
             <div class="form-group">
                 <label for="intervenant_input">Intervenant *</label>
-                <div class="input-wrapper">
+                <label class="input-wrapper">
                     <input type="text" 
                            id="intervenant_input" 
                            name="intervenant_input" 
@@ -1507,8 +1648,8 @@
                            autocomplete="off"
                            data-matricule=""
                            required>
-                    <span class="input-indicator" onclick="showInputList('intervenant_input')">▼</span>
-                </div>
+                    <span class="input-indicator" aria-hidden="true">▼</span>
+                </label>
                 <datalist id="intervenants_list">
                     {% for op in operateurs %}
                     <option value="{{ op.nom }} {{ op.prenom }} (Matricule: {{ op.matricule }})" 
@@ -1651,26 +1792,232 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="{{ url_for('static', filename='js/html2pdf.bundle.min.js') }}"></script>
 <script>
-    // Fonction pour afficher la liste au clic sur le symbole ▼
+    // Liste datalist : préférer <label for="id">▼</label> (activation native = même effet qu’un clic dans le champ).
+    // datetime-local : label avec preventDefault + showPicker (readonly / calendrier).
     function showInputList(inputId) {
         const input = document.getElementById(inputId);
         if (!input) return;
-        
-        // Si le champ a un datalist, déclencher l'affichage de la liste
-        if (input.hasAttribute('list')) {
-            // Focus sur le champ et simuler une saisie pour afficher la liste
-            input.focus();
-            // Pour les champs avec datalist, on peut déclencher l'événement input
-            // ou simplement faire un focus qui affichera la liste
-            input.click();
-        } else if (input.type === 'datetime-local') {
-            // Pour les champs datetime-local, ouvrir le sélecteur de date
-            input.showPicker ? input.showPicker() : input.focus();
-        } else {
-            // Pour les autres champs, simplement mettre le focus
-            input.focus();
+
+        if (input.type === 'datetime-local') {
+            if (typeof input.showPicker === 'function') {
+                try {
+                    input.showPicker();
+                } catch (e) {
+                    input.focus({ preventScroll: true });
+                }
+            } else {
+                input.focus({ preventScroll: true });
+            }
+            return;
         }
+
+        if (input.hasAttribute('list')) {
+            input.focus({ preventScroll: true });
+            try {
+                input.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'ArrowDown',
+                    code: 'ArrowDown',
+                    keyCode: 40,
+                    bubbles: true,
+                    cancelable: true
+                }));
+            } catch (e) {}
+            return;
+        }
+
+        input.focus({ preventScroll: true });
     }
+
+    /** Remplace le datalist natif (liste étroite + ▼ capricieux) par une liste alignée sur le cadre. */
+    (function () {
+        const comboState = new WeakMap();
+
+        function hideAllGmaoCombos() {
+            document.querySelectorAll('.gmao-combo-dropdown[data-gmao-open="1"]').forEach(function (dd) {
+                dd.dataset.gmaoOpen = '0';
+                dd.style.display = 'none';
+                dd.hidden = true;
+            });
+        }
+
+        function positionDropdown(dd, wrapper) {
+            const r = wrapper.getBoundingClientRect();
+            dd.style.position = 'fixed';
+            dd.style.left = Math.round(r.left) + 'px';
+            dd.style.width = Math.round(r.width) + 'px';
+            dd.style.top = Math.round(r.bottom + 4) + 'px';
+        }
+
+        function getOptionsFromDatalist(listId) {
+            const dl = document.getElementById(listId);
+            if (!dl) return [];
+            return Array.prototype.map.call(dl.querySelectorAll('option'), function (opt) {
+                const o = { value: opt.value || '', attrs: {} };
+                if (opt.attributes) {
+                    for (let i = 0; i < opt.attributes.length; i++) {
+                        const a = opt.attributes[i];
+                        if (a.name.indexOf('data-') === 0) {
+                            o.attrs[a.name] = a.value;
+                        }
+                    }
+                }
+                return o;
+            }).filter(function (x) { return x.value.length > 0; });
+        }
+
+        function renderOptions(dd, input, items, forceShowAll) {
+            const q = (input.value || '').toLowerCase().trim();
+            let rows = items;
+            if (!forceShowAll && q.length > 0) {
+                rows = items.filter(function (it) {
+                    return it.value.toLowerCase().indexOf(q) !== -1;
+                });
+            }
+            dd.innerHTML = '';
+            const maxRows = 400;
+            const slice = rows.slice(0, maxRows);
+            slice.forEach(function (it) {
+                const row = document.createElement('div');
+                row.className = 'gmao-combo-option';
+                row.textContent = it.value;
+                row.setAttribute('role', 'option');
+                Object.keys(it.attrs).forEach(function (k) {
+                    row.setAttribute(k, it.attrs[k]);
+                });
+                row.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                });
+                row.addEventListener('click', function () {
+                    input.value = it.value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    hideAllGmaoCombos();
+                });
+                dd.appendChild(row);
+            });
+            if (slice.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'gmao-combo-option gmao-combo-empty';
+                empty.textContent = items.length === 0 ? 'Aucune proposition' : 'Aucun résultat';
+                dd.appendChild(empty);
+            }
+        }
+
+        function showGmaoCombo(input, forceShowAll) {
+            const st = comboState.get(input);
+            if (!st) return;
+            const items = getOptionsFromDatalist(st.listId);
+            renderOptions(st.dd, input, items, !!forceShowAll);
+            document.body.appendChild(st.dd);
+            st.dd._gmaoWrapper = st.wrapper;
+            positionDropdown(st.dd, st.wrapper);
+            st.dd.dataset.gmaoOpen = '1';
+            st.dd.style.display = 'block';
+            st.dd.hidden = false;
+        }
+
+        window.gmaoHideAllCombos = hideAllGmaoCombos;
+
+        window.gmaoBindComboInput = function (input) {
+            if (!input || input.dataset.gmaoComboInited === '1') return;
+            if (input.type === 'datetime-local') return;
+            const listId = input.getAttribute('list');
+            if (!listId) return;
+            if (!document.getElementById(listId)) return;
+            const wrapper = input.closest('label.input-wrapper');
+            if (!wrapper) return;
+
+            input.dataset.gmaoComboInited = '1';
+            input.removeAttribute('list');
+
+            const dd = document.createElement('div');
+            dd.className = 'gmao-combo-dropdown';
+            dd.setAttribute('role', 'listbox');
+            dd.hidden = true;
+            dd.style.display = 'none';
+            document.body.appendChild(dd);
+
+            comboState.set(input, { listId: listId, dd: dd, wrapper: wrapper });
+
+            input.addEventListener('input', function () {
+                if (comboState.get(input)) {
+                    hideAllGmaoCombos();
+                    showGmaoCombo(input, false);
+                }
+            });
+
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    hideAllGmaoCombos();
+                }
+            });
+
+            const ind = wrapper.querySelector('.input-indicator');
+            if (ind) {
+                ind.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    window._gmaoSuppressFocusinClose = true;
+                    hideAllGmaoCombos();
+                    input.focus({ preventScroll: true });
+                    showGmaoCombo(input, true);
+                    setTimeout(function () {
+                        window._gmaoSuppressFocusinClose = false;
+                    }, 0);
+                });
+            }
+
+            if (!window._gmaoComboGlobalBound) {
+                window._gmaoComboGlobalBound = true;
+                document.addEventListener('focusin', function (e) {
+                    if (window._gmaoSuppressFocusinClose) {
+                        return;
+                    }
+                    const t = e.target;
+                    if (t && t.closest && t.closest('.gmao-combo-dropdown')) {
+                        return;
+                    }
+                    if (t && t.tagName === 'INPUT' && comboState.has(t)) {
+                        hideAllGmaoCombos();
+                        return;
+                    }
+                    hideAllGmaoCombos();
+                });
+                document.addEventListener('mousedown', function (e) {
+                    if (e.target.closest && e.target.closest('.gmao-combo-dropdown')) {
+                        return;
+                    }
+                    if (e.target.closest && e.target.closest('label.input-wrapper')) {
+                        return;
+                    }
+                    hideAllGmaoCombos();
+                }, true);
+                window.addEventListener('scroll', function () {
+                    hideAllGmaoCombos();
+                }, true);
+                window.addEventListener('resize', function () {
+                    hideAllGmaoCombos();
+                });
+            }
+        };
+
+        window.gmaoBindCombosIn = function (root) {
+            root = root || document;
+            root.querySelectorAll('label.input-wrapper > input[list]').forEach(function (inp) {
+                if (inp.type === 'datetime-local') return;
+                window.gmaoBindComboInput(inp);
+            });
+        };
+
+        /** form.reset() peut réinjecter l’attribut list depuis le HTML initial */
+        window.gmaoEnsureComboFieldState = function (root) {
+            root = root || document;
+            root.querySelectorAll('input[data-gmao-combo-inited="1"]').forEach(function (inp) {
+                if (inp.hasAttribute('list')) {
+                    inp.removeAttribute('list');
+                }
+            });
+        };
+    })();
     
     // Sélection du type de maintenance
     function selectMaintenanceType(type) {
@@ -2354,20 +2701,20 @@
                 // Date et Heure
                 html += '<div class="form-group">';
                 html += '<label for="details_dte_dem_in">Date et Heure *</label>';
-                html += '<div class="input-wrapper"><input type="datetime-local" id="details_dte_dem_in" value="' + dateValue + '" readonly style="background-color: #f0f0f0; cursor: not-allowed;"><span class="input-indicator" onclick="showInputList(\'details_dte_dem_in\')">▼</span></div>';
+                html += '<label class="input-wrapper"><input type="datetime-local" id="details_dte_dem_in" value="' + dateValue + '" readonly style="cursor: pointer;" onclick="showInputList(\'details_dte_dem_in\')"><span class="input-indicator" aria-hidden="true" onclick="showInputList(\'details_dte_dem_in\')">▼</span></label>';
                 html += '</div>';
                 
                 // Opérateur Demandeur
                 html += '<div class="form-group">';
                 html += '<label for="details_operateur">Opérateur Demandeur *</label>';
-                html += '<div class="input-wrapper"><input type="text" id="details_operateur" value="' + (demande.oper_dem || '') + '" readonly style="background-color: #f0f0f0; cursor: not-allowed;"><span class="input-indicator" onclick="showInputList(\'details_operateur\')">▼</span></div>';
+                html += '<label class="input-wrapper"><input type="text" id="details_operateur" value="' + (demande.oper_dem || '') + '" readonly style="cursor: not-allowed;"><span class="input-indicator" aria-hidden="true">▼</span></label>';
                 html += '<small style="color: #666; font-size: 0.9em;">Tapez un nom ou prénom pour rechercher</small>';
                 html += '</div>';
                 
                 // Machine
                 html += '<div class="form-group">';
                 html += '<label for="details_machine">Machine *</label>';
-                html += '<div class="input-wrapper"><input type="text" id="details_machine" value="' + (demande.postes_reel || '') + '" readonly style="background-color: #f0f0f0; cursor: not-allowed;"><span class="input-indicator" onclick="showInputList(\'details_machine\')">▼</span></div>';
+                html += '<label class="input-wrapper"><input type="text" id="details_machine" value="' + (demande.postes_reel || '') + '" readonly style="cursor: not-allowed;"><span class="input-indicator" aria-hidden="true">▼</span></label>';
                 html += '<small style="color: #666; font-size: 0.9em;">Tapez le nom de la machine pour rechercher</small>';
                 html += '</div>';
                 
@@ -2867,7 +3214,7 @@
             <div class="article-dynamic-row" data-article-id="${articleId}" data-db-id="${articleData ? articleData.id : ''}">
                 <div class="form-group">
                     <label>Article</label>
-                    <div class="input-wrapper">
+                    <label class="input-wrapper">
                         <input type="text" 
                                class="article-input" 
                                id="${articleId}_input" 
@@ -2876,8 +3223,8 @@
                                placeholder="-- Tapez pour rechercher un article --"
                                autocomplete="off"
                                data-id-article="">
-                        <span class="input-indicator" onclick="showInputList('${articleId}_input')">▼</span>
-                    </div>
+                        <span class="input-indicator" aria-hidden="true">▼</span>
+                    </label>
                     <input type="hidden" class="article-id-hidden" id="${articleId}_id_hidden" value="${articleData ? articleData.id_article : ''}">
                 </div>
                 <div class="form-group">
@@ -2982,6 +3329,11 @@
                 e.preventDefault();
             }
         });
+
+        var artInputEl = document.getElementById(articleId + '_input');
+        if (artInputEl && typeof window.gmaoBindComboInput === 'function') {
+            window.gmaoBindComboInput(artInputEl);
+        }
         
         return articleId;
     }
@@ -3757,6 +4109,18 @@
 
     // Initialisation
     $(document).ready(function() {
+        if (typeof gmaoBindCombosIn === 'function') {
+            gmaoBindCombosIn(document.body);
+        }
+        $('#reparationForm, #demandeForm').on('reset', function () {
+            var el = this;
+            setTimeout(function () {
+                if (typeof gmaoEnsureComboFieldState === 'function') {
+                    gmaoEnsureComboFieldState(el);
+                }
+            }, 0);
+        });
+
         // Ouverture depuis projet11 (panne machine) : préremplir Machine et Intervenant
         (function() {
             var params = new URLSearchParams(window.location.search);

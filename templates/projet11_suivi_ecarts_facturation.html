@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 11 - Suivi des écarts de facturation par dossier{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<style>
+  #tableEcartsFactu { font-size: 0.82rem; }
+  #tableEcartsFactu td, #tableEcartsFactu th { white-space: nowrap; }
+  #tableEcartsFactu td.col-ref, #tableEcartsFactu th.col-ref { max-width: 420px; }
+  .p11-ref-truncate { max-width: 420px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+  .p11-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .p11-fact-list { white-space: normal !important; max-width: 360px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">
+      <i class="fas fa-file-invoice-dollar"></i> Suivi des écarts de facturation par dossier
+    </h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('projet11.index') }}">
+        <i class="fas fa-arrow-left"></i> Retour
+      </a>
+      <button class="btn btn-outline-primary btn-sm" id="btnReload">
+        <i class="fas fa-sync"></i> Recharger
+      </button>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body py-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <label for="filtreNumero" class="form-label mb-1">Filtrer par N° dossier (optionnel)</label>
+          <input id="filtreNumero" class="form-control form-control-sm" type="text"
+                 placeholder="ex: 2025  ou  202601-202603  ou  202601 à 202603">
+          <div class="form-text">
+            Préfixe : <code>2025</code> → tous les dossiers commençant par <code>2025</code>.
+            Intervalle : <code>202601-202603</code> ou <code>202601 à 202603</code> → pour des codes entièrement numériques de même longueur (ex. <code>YYYYMM</code>), tous les numéros du premier mois au dernier inclus (<code>202603…</code> compris ; exclut <code>202604…</code>).
+          </div>
+        </div>
+        <div class="col-md-3">
+          <button type="button" class="btn btn-primary btn-sm w-100" id="btnAppliquerFiltre">
+            <i class="fas fa-filter"></i> Appliquer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info py-2">
+    Affichage limité aux dossiers ayant au moins une facture (<code>FACTURES_ELEM</code>) ou un <code>NumFact</code> renseigné sur <code>COMMANDES</code>.
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0" id="tableEcartsFactu">
+          <thead class="table-dark">
+            <tr>
+              <th>N° dossier</th>
+              <th>Client</th>
+              <th class="col-ref">Référence</th>
+              <th>Quantité commandée</th>
+              <th>Quantité livrée</th>
+              <th>Quantité facturée</th>
+              <th>Prix de vente commande réel</th>
+              <th>Total facturé</th>
+              <th>N° facture(s)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function fmtNum(n) {
+  if (n === null || n === undefined || n === '') return '-';
+  const v = Number(n);
+  if (!isFinite(v)) return String(n);
+  return v.toLocaleString('fr-FR', { maximumFractionDigits: 4 });
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+let dt = null;
+
+function buildRows(rows) {
+  const $tb = $('#tableEcartsFactu tbody');
+  $tb.empty();
+  (rows || []).forEach(function(r) {
+    const ref = escHtml(r.reference || '');
+    const facts = escHtml(r.numeros_factures || '') || '-';
+    $tb.append(`
+      <tr>
+        <td><strong>${escHtml(r.numero_dossier || '-')}</strong></td>
+        <td>${escHtml(r.client || '-')}</td>
+        <td class="col-ref"><span class="p11-ref-truncate" title="${ref}">${ref || '-'}</span></td>
+        <td class="p11-num">${fmtNum(r.qte_comm)}</td>
+        <td class="p11-num">${fmtNum(r.qte_liv)}</td>
+        <td class="p11-num">${fmtNum(r.qte_facturee)}</td>
+        <td class="p11-num">${fmtNum(r.prx_vte_reel_ext)}</td>
+        <td class="p11-num">${fmtNum(r.total_fact)}</td>
+        <td class="p11-fact-list small">${facts}</td>
+      </tr>
+    `);
+  });
+}
+
+function loadData() {
+  const q = ($('#filtreNumero').val() || '').trim();
+  const $tb = $('#tableEcartsFactu tbody');
+  // Détruire DataTables AVANT de toucher au tbody : sinon destroy() restaure
+  // le DOM du premier chargement et annule visuellement le filtre.
+  if (dt) {
+    dt.destroy();
+    dt = null;
+  }
+  $tb.html('<tr><td colspan="9" class="text-center text-muted py-4">Chargement…</td></tr>');
+  const url = '/projet11/api/suivi-ecarts-facturation?limit=4000' + (q ? ('&q=' + encodeURIComponent(q)) : '');
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.error) throw new Error(data.error);
+      const rows = (data && data.rows) ? data.rows : [];
+      buildRows(rows);
+      dt = $('#tableEcartsFactu').DataTable({
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json' },
+        order: [[0, 'desc']],
+        pageLength: 25,
+        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'Tous']],
+        autoWidth: false
+      });
+    })
+    .catch(() => {
+      $tb.html('<tr><td colspan="9" class="text-center text-danger py-4">Erreur de chargement.</td></tr>');
+    });
+}
+
+$(document).ready(function() {
+  $('#btnReload').on('click', loadData);
+  $('#btnAppliquerFiltre').on('click', loadData);
+  loadData();
+});
+</script>
+{% endblock %}

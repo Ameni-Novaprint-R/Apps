@@ -469,6 +469,35 @@
                                 </div>
                             </div>
 
+                            <div class="row" id="row-compteur-qte">
+                                <div class="col-md-4 mb-3">
+                                    <label for="compteur_mode" class="form-label">
+                                        <strong>Mode quantité</strong>
+                                    </label>
+                                    <select class="form-select" id="compteur_mode">
+                                        <option value="journalier" selected>Journalier (saisie directe)</option>
+                                        <option value="cumulatif">Cumulatif (calcul automatique)</option>
+                                    </select>
+                                    <small class="text-muted">Par défaut : journalier. Le cumulatif calcule la quantité avec la dernière lecture enregistrée pour ce dossier + service + machine réelle.</small>
+                                </div>
+                                <div class="col-md-4 mb-3" id="compteurLectureWrap" style="display:none;">
+                                    <label for="compteur_lecture" class="form-label">
+                                        <strong>Lecture compteur machine</strong>
+                                    </label>
+                                    <input type="number" class="form-control" id="compteur_lecture" min="0" placeholder="ex: 35000">
+                                    <small class="text-muted" id="compteurDerniereLectureInfo">Dernière lecture : -</small>
+                                </div>
+                                <div class="col-md-4 mb-3" id="compteurCalcWrap" style="display:none;">
+                                    <label class="form-label">
+                                        <strong>Quantité calculée</strong>
+                                    </label>
+                                    <input type="text" class="form-control" id="compteur_qte_calc" readonly value="-">
+                                    <div class="form-text">
+                                        Appliquée automatiquement à <strong>Quantité produite conforme</strong>.
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="row mb-3" id="row-forme-decoupe" style="display: none;">
                                 <div class="col-md-12">
                                     <label for="nom_fd" class="form-label">
@@ -551,6 +580,91 @@ let chronoInterval = null;
 let chronoIsPaused = false;
 let chronoPausedTime = null; // Temps écoulé avant la pause (en millisecondes)
 let chronoTotalElapsed = 0; // Temps total écoulé (pour gérer les pauses multiples)
+let chronoServerOffsetMs = 0; // server_utc_now - Date.now() (corrige l'horloge locale)
+
+function chronoNowMs() {
+    return Date.now() + (chronoServerOffsetMs || 0);
+}
+
+function chronoNowDate() {
+    return new Date(chronoNowMs());
+}
+
+function getCompteurKey() {
+    const numero = (currentNumeroCommande || '').trim();
+    const service = (currentService || '').trim();
+    const machine = ($('#machine_reelle').val() || '').trim();
+    return { numero, service, machine };
+}
+
+let compteurDerniereLecture = null;
+
+function setCompteurModeUi(mode) {
+    const cumul = (mode === 'cumulatif');
+    $('#compteurLectureWrap').css('display', cumul ? 'block' : 'none');
+    $('#compteurCalcWrap').css('display', cumul ? 'block' : 'none');
+    if (!cumul) {
+        $('#compteur_lecture').val('');
+        $('#compteur_qte_calc').val('-');
+        $('#compteurDerniereLectureInfo').text('Dernière lecture : -');
+        compteurDerniereLecture = null;
+    }
+}
+
+function refreshDerniereLectureCompteur() {
+    const k = getCompteurKey();
+    const excludeId = currentTraitementId || traitementIdFromUrl || null;
+    if (!k.numero || !k.service || !k.machine) {
+        compteurDerniereLecture = null;
+        $('#compteurDerniereLectureInfo').text('Dernière lecture : -');
+        return Promise.resolve(null);
+    }
+    const url = '/projet11/api/compteur/dernier'
+        + '?numero=' + encodeURIComponent(k.numero)
+        + '&service=' + encodeURIComponent(k.service)
+        + '&machine=' + encodeURIComponent(k.machine)
+        + (excludeId ? ('&exclude_id=' + encodeURIComponent(excludeId)) : '');
+    return fetch(url)
+        .then(r => r.json())
+        .then(d => {
+            compteurDerniereLecture = (d && d.last_lecture != null) ? Number(d.last_lecture) : null;
+            $('#compteurDerniereLectureInfo').text(
+                'Dernière lecture : ' + (compteurDerniereLecture != null ? compteurDerniereLecture.toLocaleString('fr-FR') : '-')
+            );
+            return compteurDerniereLecture;
+        })
+        .catch(() => {
+            compteurDerniereLecture = null;
+            $('#compteurDerniereLectureInfo').text('Dernière lecture : -');
+            return null;
+        });
+}
+
+function applyCompteurCumulatifIfPossible() {
+    const mode = ($('#compteur_mode').val() || 'journalier');
+    if (mode !== 'cumulatif') return;
+    const lecture = Number($('#compteur_lecture').val());
+    if (!isFinite(lecture) || lecture < 0) {
+        $('#compteur_qte_calc').val('-');
+        return;
+    }
+    const prev = (compteurDerniereLecture != null) ? Number(compteurDerniereLecture) : null;
+    if (prev == null) {
+        // première lecture : point de départ
+        $('#compteur_qte_calc').val('0');
+        $('#pdt_c').val(0);
+        return;
+    }
+    let delta = lecture - prev;
+    if (delta < 0) {
+        // compteur reset : on considère la lecture comme quantité du jour
+        delta = lecture;
+    }
+    delta = Math.max(0, Math.floor(delta));
+    $('#compteur_qte_calc').val(delta.toLocaleString('fr-FR'));
+    // Appliquer automatiquement au champ conforme
+    $('#pdt_c').val(delta);
+}
 let currentNumeroCommande = null;
 let currentService = null;
 let currentServiceId = null;
@@ -691,10 +805,10 @@ function getChronoSnapshotForPersistence() {
         return { sec: Math.floor((chronoTotalElapsed + (chronoPausedTime - chronoStart)) / 1000), en_pause: true };
     }
     if (chronoIsPaused && chronoStart) {
-        return { sec: Math.floor((chronoTotalElapsed + (new Date() - chronoStart)) / 1000), en_pause: true };
+        return { sec: Math.floor((chronoTotalElapsed + (chronoNowDate() - chronoStart)) / 1000), en_pause: true };
     }
     if (chronoStart && !chronoIsPaused) {
-        return { sec: Math.floor((chronoTotalElapsed + (new Date() - chronoStart)) / 1000), en_pause: false };
+        return { sec: Math.floor((chronoTotalElapsed + (chronoNowDate() - chronoStart)) / 1000), en_pause: false };
     }
     return null;
 }
@@ -808,6 +922,28 @@ $(document).on('click', '#operateurEncoursModalBtnOk', function() {
     verifierOperateurEncoursFermerModal(true);
 });
 
+// Mode quantité (journalier/cumulatif)
+$(document).on('change', '#compteur_mode', function() {
+    const mode = ($('#compteur_mode').val() || 'journalier');
+    setCompteurModeUi(mode);
+    if (mode === 'cumulatif') {
+        refreshDerniereLectureCompteur().then(function() {
+            applyCompteurCumulatifIfPossible();
+        });
+    }
+});
+$(document).on('input', '#compteur_lecture', function() {
+    applyCompteurCumulatifIfPossible();
+});
+$(document).on('change', '#machine_reelle', function() {
+    const mode = ($('#compteur_mode').val() || 'journalier');
+    if (mode === 'cumulatif') {
+        refreshDerniereLectureCompteur().then(function() {
+            applyCompteurCumulatifIfPossible();
+        });
+    }
+});
+
 function restaurerChronoDepuisFormulaire() {
     const dteDebInput = document.getElementById('dte_deb');
     const dteFinInput = document.getElementById('dte_fin');
@@ -857,7 +993,7 @@ function restaurerChronoDepuisFormulaire() {
     
     chronoInterval = setInterval(() => {
         if (!chronoIsPaused) {
-            const now = new Date();
+            const now = chronoNowDate();
             const diff = now - chronoStart;
             const totalTime = chronoTotalElapsed + diff;
             
@@ -1208,6 +1344,22 @@ function remplirChampsTraitement(data) {
             champPdtANC.value = data.pdt_anc || 0;
         }
     }
+    // Mode quantité (journalier/cumulatif) + lecture compteur
+    try {
+        const mode = (data.compteur_mode === 1 || data.compteur_mode === true || data.compteur_mode === '1' || data.compteur_mode === 'cumulatif')
+            ? 'cumulatif'
+            : 'journalier';
+        $('#compteur_mode').val(mode);
+        setCompteurModeUi(mode);
+        if (mode === 'cumulatif') {
+            if (data.compteur_lecture != null && data.compteur_lecture !== '') {
+                $('#compteur_lecture').val(data.compteur_lecture);
+            }
+            refreshDerniereLectureCompteur().then(function() {
+                applyCompteurCumulatifIfPossible();
+            });
+        }
+    } catch (eMode) { /* ignore */ }
     if (data.nom_fd !== undefined && data.nom_fd !== null) {
         const champNomFd = document.getElementById('nom_fd');
         if (champNomFd) {
@@ -1264,6 +1416,13 @@ function remplirChampsTraitement(data) {
                             clearInterval(chronoInterval);
                             chronoInterval = null;
                         }
+                        // Ajuster l'horloge côté client à partir de l'heure serveur (si fournie)
+                        if (data.server_utc_now) {
+                            var srv = parseChronoSnapshotUtc(data.server_utc_now);
+                            if (srv && !isNaN(srv.getTime())) {
+                                chronoServerOffsetMs = srv.getTime() - Date.now();
+                            }
+                        }
                         if (tempsAfficheSec > 0 && affichageEnPause) {
                             chronoStart = null;
                             var h = Math.floor(tempsAfficheSec / 3600);
@@ -1280,13 +1439,13 @@ function remplirChampsTraitement(data) {
                             chronoIsPaused = true;
                         } else if (tempsAfficheSec > 0 && !affichageEnPause) {
                             var snapDt = parseChronoSnapshotUtc(data.chrono_affichage_snapshot_at);
-                            chronoStart = (snapDt && !isNaN(snapDt.getTime())) ? snapDt : new Date();
+                            chronoStart = (snapDt && !isNaN(snapDt.getTime())) ? snapDt : chronoNowDate();
                             chronoIsPaused = false;
                             $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
                             $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
                             chronoInterval = setInterval(function() {
                                 if (!chronoIsPaused) {
-                                    var now = new Date();
+                                    var now = chronoNowDate();
                                     var diff = now - chronoStart;
                                     var totalTime = chronoTotalElapsed + diff;
                                     var heures = Math.floor(totalTime / 3600000);
@@ -1302,7 +1461,7 @@ function remplirChampsTraitement(data) {
                             chronoStart = dteDeb;
                             chronoInterval = setInterval(function() {
                                 if (!chronoIsPaused) {
-                                    var now = new Date();
+                                    var now = chronoNowDate();
                                     var diff = now - chronoStart;
                                     var totalTime = chronoTotalElapsed + diff;
                                     var heures = Math.floor(totalTime / 3600000);
@@ -2286,7 +2445,7 @@ function demarrerChrono() {
         return;
     }
 
-    chronoStart = new Date();
+    chronoStart = chronoNowDate();
     const dateDebut = formatDateTimeLocal(chronoStart);
     $('#dte_deb').val(dateDebut);
     $('#chronoStart').text(chronoStart.toLocaleString('fr-FR', {
@@ -2308,7 +2467,7 @@ function demarrerChrono() {
 
     chronoInterval = setInterval(() => {
         if (!chronoIsPaused) {
-            const now = new Date();
+            const now = chronoNowDate();
             const diff = now - chronoStart;
             const totalTime = chronoTotalElapsed + diff;
 
@@ -2325,6 +2484,8 @@ function demarrerChrono() {
     const pdtC = parseInt($('#pdt_c').val(), 10);
     const pdtNNC = parseInt($('#pdt_nnc').val(), 10);
     const pdtANC = parseInt($('#pdt_anc').val(), 10);
+    const compteurMode = ($('#compteur_mode').val() || 'journalier');
+    const compteurLecture = ($('#compteur_lecture').val() || '').trim();
     const payload = {
         id_fiche_travail: idFicheTravail,
         dte_deb: dateDebut,
@@ -2336,7 +2497,9 @@ function demarrerChrono() {
         nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
         pdt_c: Number.isFinite(pdtC) && pdtC >= 0 ? pdtC : 0,
         pdt_nnc: Number.isFinite(pdtNNC) && pdtNNC >= 0 ? pdtNNC : 0,
-        pdt_anc: Number.isFinite(pdtANC) && pdtANC >= 0 ? pdtANC : 0
+        pdt_anc: Number.isFinite(pdtANC) && pdtANC >= 0 ? pdtANC : 0,
+        compteur_mode: compteurMode,
+        compteur_lecture: compteurMode === 'cumulatif' ? compteurLecture : null
     };
 
     startTraitementEnCours = true;
@@ -2393,7 +2556,7 @@ window.togglePauseChrono = function() {
     if (chronoIsPaused && chronoStart == null) {
         var tidF = currentTraitementId || traitementIdFromUrl;
         function resumeFrozen() {
-            chronoStart = new Date();
+            chronoStart = chronoNowDate();
             chronoIsPaused = false;
             $('#btnPauseChrono').html('<i class="fas fa-pause"></i> Pause');
             $('#btnPauseChrono').removeClass('btn-success').addClass('btn-warning');
@@ -2402,7 +2565,7 @@ window.togglePauseChrono = function() {
             $('#chronoBox').removeClass('alert-warning').addClass('alert-info');
             chronoInterval = setInterval(function() {
                 if (!chronoIsPaused) {
-                    var now = new Date();
+                    var now = chronoNowDate();
                     var diff = now - chronoStart;
                     var totalTime = chronoTotalElapsed + diff;
                     var heures = Math.floor(totalTime / 3600000);
@@ -2435,7 +2598,7 @@ window.togglePauseChrono = function() {
     if (chronoIsPaused) {
         var tidR = currentTraitementId || traitementIdFromUrl;
         function resumeAfterPause() {
-            var now = new Date();
+            var now = chronoNowDate();
             var diffAvantPause = chronoPausedTime ? (chronoPausedTime - chronoStart) : 0;
             chronoTotalElapsed += diffAvantPause;
             chronoStart = now;
@@ -2462,7 +2625,7 @@ window.togglePauseChrono = function() {
     } else {
         var tidP = currentTraitementId || traitementIdFromUrl;
         function doLocalPause() {
-            chronoPausedTime = new Date();
+            chronoPausedTime = chronoNowDate();
             chronoIsPaused = true;
             var totalSec = Math.floor((chronoTotalElapsed + (chronoPausedTime - chronoStart)) / 1000);
             if (tidP && estModeEmbed) {
@@ -2597,7 +2760,7 @@ $('#formNouveauTraitement').on('submit', function(e) {
     // Ne pas écraser dte_fin si on modifie une fiche déjà terminée (section dates visible)
     const hasDatesModification = $('#sectionDatesModification').is(':visible');
     if (!hasDatesModification) {
-        const now = new Date();
+        const now = chronoNowDate();
         $('#dte_fin').val(formatDateTimeLocal(now));
     }
     
@@ -2712,12 +2875,14 @@ $('#formNouveauTraitement').on('submit', function(e) {
         numero_commande: currentNumeroCommande || null,
         nom_service: currentService || null,
         nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
-        description: ($('#traitement_description').val() || '').trim() || null
+        description: ($('#traitement_description').val() || '').trim() || null,
+        compteur_mode: ($('#compteur_mode').val() || 'journalier'),
+        compteur_lecture: ($('#compteur_mode').val() === 'cumulatif') ? (($('#compteur_lecture').val() || '').trim() || null) : null
     };
     if (window._enregistrerAvecCloture) {
         data.cloture = 1;
         if (!dteFinValue) {
-            const now = new Date();
+            const now = chronoNowDate();
             data.dte_fin = formatDateTimeLocal(now);
         }
     }
@@ -2912,7 +3077,9 @@ function saveEnCoursOnClose() {
         numero_commande: currentNumeroCommande || null,
         nom_service: currentService || null,
         nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
-        description: ($('#traitement_description').val() || '').trim() || null
+        description: ($('#traitement_description').val() || '').trim() || null,
+        compteur_mode: ($('#compteur_mode').val() || 'journalier'),
+        compteur_lecture: ($('#compteur_mode').val() === 'cumulatif') ? (($('#compteur_lecture').val() || '').trim() || null) : null
     };
     fetch(`/projet11/api/traitements/${idToUse}`, {
         method: 'PUT',

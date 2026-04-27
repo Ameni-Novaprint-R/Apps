@@ -220,6 +220,43 @@ def set_mot_de_passe(matricule, new_mdp, old_mdp=None):
             cursor.connection.rollback()
             return {"success": False, "error": str(e)}
 
+
+def set_mot_de_passe_force(matricule, new_mdp):
+    """
+    Force le mot de passe d'un employé sans vérifier l'ancien (maintenance / admin).
+    Ne pas exposer sur une route publique sans contrôle strict.
+    """
+    if new_mdp is None or len(str(new_mdp).strip()) < 1:
+        return {"success": False, "error": "Mot de passe requis"}
+    try:
+        m = int(matricule)
+    except (TypeError, ValueError):
+        return {"success": False, "error": "Matricule invalide"}
+    with get_db_cursor() as cursor:
+        try:
+            cursor.execute(
+                "SELECT Matricule FROM [dbo].[personel] WHERE Matricule = ?",
+                (m,),
+            )
+            if not cursor.fetchone():
+                return {"success": False, "error": f"Employé matricule {m} introuvable"}
+            new_mdp_hash = bcrypt.hashpw(
+                str(new_mdp).encode("utf-8"), bcrypt.gensalt()
+            ).decode("utf-8")
+            cursor.execute(
+                "UPDATE [dbo].[personel] SET mdp = ? WHERE Matricule = ?",
+                (new_mdp_hash, m),
+            )
+            cursor.connection.commit()
+            return {"success": True, "message": f"Mot de passe réinitialisé pour le matricule {m}"}
+        except Exception as e:
+            print(f"Erreur set_mot_de_passe_force: {e}")
+            import traceback
+            traceback.print_exc()
+            cursor.connection.rollback()
+            return {"success": False, "error": str(e)}
+
+
 def archiver_employe(matricule, archive=True):
     """Archive ou désarchive un employé"""
     with get_db_cursor() as cursor:

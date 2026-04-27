@@ -147,6 +147,18 @@
                 <span>Suivi Production</span>
             </a>
             {% endif %}
+            {% if show_qte_pieces %}
+            <a href="{{ url_for('projet11.quantite_pieces_par_commande') }}" class="section-btn" style="text-decoration: none;">
+                <span>🧩</span>
+                <span>Quantité en pièces par commande</span>
+            </a>
+            {% endif %}
+            {% if show_suivi_ecarts_facturation %}
+            <a href="{{ url_for('projet11.suivi_ecarts_facturation_par_dossier') }}" class="section-btn" style="text-decoration: none;">
+                <span>🧾</span>
+                <span>Suivi des écarts de facturation par dossier</span>
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -208,7 +220,7 @@
     })();
     </script>
     
-    {% if not show_nouvelle_fiche and not show_liste_traitements and not show_statistiques and not show_suivi_production %}
+    {% if not show_nouvelle_fiche and not show_liste_traitements and not show_statistiques and not show_suivi_production and not show_qte_pieces and not show_suivi_ecarts_facturation %}
     <div class="alert alert-warning mt-4">
         <i class="fas fa-exclamation-triangle"></i>
         Vous n'avez accès à aucune section du Projet 11. Veuillez contacter l'administrateur pour obtenir les droits nécessaires.
@@ -248,11 +260,15 @@
         text-align: center;
     }
 
+    /* Grille 3 colonnes → 6 sections sur 2 lignes (au lieu d’une seule ligne étirée) */
     .section-options {
-        display: flex;
-        justify-content: center;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 16px;
-        flex-wrap: wrap;
+        max-width: 1100px;
+        margin: 0 auto;
+        justify-items: stretch;
+        align-items: stretch;
     }
 
     .section-btn {
@@ -262,19 +278,18 @@
         text-decoration: none;
         border-radius: 8px;
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         transition: all 0.3s;
         border: 2px solid #ddd;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         cursor: pointer;
         user-select: none;
-        flex: 1;
-        min-width: 0;
-        max-width: 25%;
+        width: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+        text-align: center;
     }
 
     .section-btn-oneline {
@@ -333,12 +348,15 @@
         border-color: #4caf50;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 992px) {
         .section-options {
-            flex-direction: column;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        .section-btn {
-            max-width: 100%;
+    }
+
+    @media (max-width: 576px) {
+        .section-options {
+            grid-template-columns: 1fr;
         }
         .section-btn-oneline {
             white-space: normal;

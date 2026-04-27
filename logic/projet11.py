@@ -9,6 +9,7 @@ Module pour gérer les traitements avec données provenant de plusieurs tables
 from datetime import datetime
 from contextlib import contextmanager
 from decimal import Decimal
+import re
 import pyodbc
 # Utiliser la fonction de connexion de db.py qui fonctionne déjà
 from db import get_db_cursor
@@ -47,6 +48,358 @@ _nom_fd_column_ensured = False
 _chrono_affichage_en_pause_ensured = False
 _chrono_affichage_snapshot_at_ensured = False
 _controle_valide_columns_ensured = False
+_compteur_mode_column_ensured = False
+_compteur_lecture_column_ensured = False
+
+_web_commande_qte_unitaire_ensured = False
+
+
+def ensure_web_commande_qte_unitaire_table():
+    """Crée/évolue WEB_COMMANDE_QTE_UNITAIRE (cache calcul quantité finale)."""
+    global _web_commande_qte_unitaire_ensured
+    if _web_commande_qte_unitaire_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS c
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='WEB_COMMANDE_QTE_UNITAIRE'
+                """
+            )
+            if cursor.fetchone().c > 0:
+                # Évolution schéma si table déjà présente
+                if not column_exists(cursor, 'WEB_COMMANDE_QTE_UNITAIRE', 'NombreModeles'):
+                    cursor.execute("ALTER TABLE dbo.WEB_COMMANDE_QTE_UNITAIRE ADD NombreModeles INT NULL")
+                if not column_exists(cursor, 'WEB_COMMANDE_QTE_UNITAIRE', 'QteFinale'):
+                    cursor.execute("ALTER TABLE dbo.WEB_COMMANDE_QTE_UNITAIRE ADD QteFinale DECIMAL(18, 3) NULL")
+                cursor.connection.commit()
+                _web_commande_qte_unitaire_ensured = True
+                return
+            cursor.execute(
+                """
+                CREATE TABLE dbo.WEB_COMMANDE_QTE_UNITAIRE (
+                    ID INT NOT NULL PRIMARY KEY,
+                    Numero NVARCHAR(50) NULL,
+                    Reference NVARCHAR(255) NULL,
+                    QteComm DECIMAL(18, 3) NULL,
+                    NombrePose INT NULL,
+                    NombreModeles INT NULL,
+                    QteFinale DECIMAL(18, 3) NULL,
+                    QteUnitaire DECIMAL(18, 3) NULL -- compat: ancienne colonne
+                );
+                """
+            )
+            cursor.connection.commit()
+            _web_commande_qte_unitaire_ensured = True
+            print("[projet11] Table WEB_COMMANDE_QTE_UNITAIRE créée.")
+    except Exception as e:
+        print(f"[projet11] ensure_web_commande_qte_unitaire_table: {e}")
+    finally:
+        _web_commande_qte_unitaire_ensured = True
+
+
+def extract_nombre_pose(reference):
+    """
+    Extraction heuristique du nombre de poses depuis Reference.
+    Exemples attendus: "PLANCHE 24 POSES", "planche 9 poses", "12 P".
+    """
+    if not reference:
+        return None
+    try:
+        import re
+        s = str(reference)
+        # Chercher un entier suivi de "pose", "poses" ou "p" (P) même sans espaces (ex: "PLANCHE16POSES")
+        # Ne pas exiger une frontière de mot avant le nombre (sinon "PLANCHE16..." ne matche pas).
+        m = re.search(r"(?i)(?<!\d)(\d{1,3})\s*(?:poses?\b|p\b)", s)
+        if not m:
+            # Variante "PLANCHE16POSES" / "PLANCHE 16 POSES"
+            m = re.search(r"(?i)planch(?:e)?\s*(\d{1,3})\s*poses?\b", s)
+        if m:
+            v = int(m.group(1))
+            if 1 <= v <= 999:
+                return v
+        return None
+    except Exception:
+        return None
+
+
+def get_commandes_qte_unitaires(limit=2000):
+    """Retourne les commandes + poses + modèles + quantité finale calculée."""
+    ensure_web_commande_qte_unitaire_table()
+    lim = int(limit) if limit else 2000
+    if lim <= 0:
+        lim = 2000
+    lim = min(lim, 10000)
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT TOP (?)
+                C.ID,
+                C.Numero,
+                C.Reference,
+                C.QteComm,
+                C.ID_DEVIS,
+                W.NombrePose AS NombrePoseSaved,
+                W.NombreModeles AS NombreModelesSaved,
+                DE.Modeles AS NombreModelesDevis
+            FROM COMMANDES C
+            LEFT JOIN WEB_COMMANDE_QTE_UNITAIRE W ON W.ID = C.ID
+            LEFT JOIN (
+                SELECT ID_DEVIS, MAX(Modeles) AS Modeles
+                FROM DEV_ELEM
+                GROUP BY ID_DEVIS
+            ) DE ON DE.ID_DEVIS = C.ID_DEVIS
+            WHERE C.Numero IS NOT NULL AND LTRIM(RTRIM(C.Numero)) <> ''
+            ORDER BY C.ID DESC
+            """,
+            (lim,),
+        )
+        rows = []
+        for r in cursor.fetchall():
+            qte_comm = None
+            try:
+                qte_comm = float(r.QteComm) if r.QteComm is not None else None
+            except Exception:
+                qte_comm = None
+            saved_pose = None
+            try:
+                saved_pose = int(r.NombrePoseSaved) if r.NombrePoseSaved is not None else None
+            except Exception:
+                saved_pose = None
+            ref = (r.Reference or '').strip() if hasattr(r, "Reference") else ""
+            extracted = extract_nombre_pose(ref)
+            pose = saved_pose if saved_pose is not None else extracted
+            if pose is None:
+                pose = 1
+            saved_modeles = None
+            try:
+                saved_modeles = int(r.NombreModelesSaved) if r.NombreModelesSaved is not None else None
+            except Exception:
+                saved_modeles = None
+            devis_modeles = None
+            try:
+                devis_modeles = int(r.NombreModelesDevis) if r.NombreModelesDevis is not None else None
+            except Exception:
+                devis_modeles = None
+            nb_modeles = saved_modeles if saved_modeles is not None else devis_modeles
+
+            qte_finale = None
+            if qte_comm is not None and pose is not None:
+                try:
+                    if nb_modeles is None:
+                        qte_finale = qte_comm * float(pose)
+                    else:
+                        qte_finale = qte_comm * float(pose) * float(nb_modeles)
+                except Exception:
+                    qte_finale = None
+            rows.append(
+                {
+                    "id": int(r.ID),
+                    "numero": (r.Numero or "").strip(),
+                    "reference": ref,
+                    "qte_comm": qte_comm,
+                    "nombre_pose": pose,
+                    "nombre_pose_extrait": extracted,
+                    "nombre_pose_source": "saved" if saved_pose is not None else ("extrait" if extracted is not None else "defaut"),
+                    "nombre_modeles": nb_modeles,
+                    "nombre_modeles_source": "saved" if saved_modeles is not None else ("devis" if devis_modeles is not None else "vide"),
+                    "qte_finale": qte_finale,
+                }
+            )
+        return rows
+
+
+def upsert_commande_qte_unitaire(id_commande, numero, reference, qte_comm, nombre_pose, nombre_modeles):
+    """Upsert WEB_COMMANDE_QTE_UNITAIRE (ID=COMMANDES.ID)."""
+    ensure_web_commande_qte_unitaire_table()
+    try:
+        tid = int(id_commande)
+    except Exception:
+        return False, "ID commande invalide"
+    try:
+        pose = int(nombre_pose) if nombre_pose is not None and str(nombre_pose).strip() != "" else None
+    except Exception:
+        pose = None
+    if pose is not None and pose <= 0:
+        pose = None
+    try:
+        nb_modeles = int(nombre_modeles) if nombre_modeles is not None and str(nombre_modeles).strip() != "" else None
+    except Exception:
+        nb_modeles = None
+    if nb_modeles is not None and nb_modeles <= 0:
+        nb_modeles = None
+    qte_finale = None
+    try:
+        qc = float(qte_comm) if qte_comm is not None and str(qte_comm).strip() != "" else None
+    except Exception:
+        qc = None
+    if qc is not None and pose is not None:
+        if nb_modeles is None:
+            qte_finale = qc * float(pose)
+        else:
+            qte_finale = qc * float(pose) * float(nb_modeles)
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                """
+                MERGE dbo.WEB_COMMANDE_QTE_UNITAIRE AS T
+                USING (SELECT ? AS ID) AS S
+                ON T.ID = S.ID
+                WHEN MATCHED THEN
+                    UPDATE SET Numero = ?, Reference = ?, QteComm = ?, NombrePose = ?, NombreModeles = ?, QteFinale = ?, QteUnitaire = ?
+                WHEN NOT MATCHED THEN
+                    INSERT (ID, Numero, Reference, QteComm, NombrePose, NombreModeles, QteFinale, QteUnitaire)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    tid,
+                    (numero or "")[:50],
+                    (reference or "")[:255],
+                    qc,
+                    pose,
+                    nb_modeles,
+                    qte_finale,
+                    qte_finale,
+                    tid,
+                    (numero or "")[:50],
+                    (reference or "")[:255],
+                    qc,
+                    pose,
+                    nb_modeles,
+                    qte_finale,
+                    qte_finale,
+                ),
+            )
+            cursor.connection.commit()
+            return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def parse_filtre_numero_dossier_ecarts(q):
+    """
+    Filtre N° dossier :
+    - intervalle : "202601-202603" ou "202601 à 202603"
+      Bornes entièrement numériques et de même longueur : plage [de, fin] au sens
+      préfixes prolongeables (ex. 202602-202603 → >= 202602 et < 202604, donc tout 202603… inclus).
+    - sinon : préfixe (ex: "2025" -> LIKE '2025%')
+    """
+    s = (q or "").strip()
+    if not s:
+        return {"type": "none"}
+    m = re.match(r"^\s*(\d+)\s*(?:-|à|to)\s*(\d+)\s*$", s, flags=re.IGNORECASE)
+    if m:
+        return {"type": "interval", "de": m.group(1), "a": m.group(2)}
+    return {"type": "prefix", "prefix": s}
+
+
+def get_suivi_ecarts_facturation_par_dossier(filtre_numero=None, limit=4000):
+    """
+    Suivi des écarts de facturation par dossier (COMMANDES + FACTURES_ELEM + FACTURES).
+    Affiche uniquement les dossiers ayant au moins une ligne FACTURES_ELEM ou un NumFact renseigné.
+    """
+    lim = int(limit) if limit else 4000
+    if lim <= 0:
+        lim = 4000
+    lim = min(lim, 20000)
+
+    filt = parse_filtre_numero_dossier_ecarts(filtre_numero)
+
+    rows_out = []
+    with get_db_cursor() as cursor:
+        has_numfact = column_exists(cursor, "COMMANDES", "NumFact")
+        if has_numfact:
+            fact_where = (
+                "(EXISTS (SELECT 1 FROM FACTURES_ELEM fe0 WHERE fe0.ID_COMMANDE = C.ID) "
+                "OR (C.NumFact IS NOT NULL AND LTRIM(RTRIM(C.NumFact)) <> ''))"
+            )
+        else:
+            fact_where = "EXISTS (SELECT 1 FROM FACTURES_ELEM fe0 WHERE fe0.ID_COMMANDE = C.ID)"
+
+        num_expr = "LTRIM(RTRIM(CAST(C.Numero AS NVARCHAR(4000))))"
+        where_sql = [fact_where, "C.Numero IS NOT NULL", f"{num_expr} <> ''"]
+        params = []
+
+        if filt.get("type") == "interval":
+            de, a = filt["de"], filt["a"]
+
+            if (
+                re.fullmatch(r"\d+", de)
+                and re.fullmatch(r"\d+", a)
+                and len(de) == len(a)
+            ):
+                L = len(de)
+                id_de, id_a = int(de), int(a)
+                if id_de > id_a:
+                    id_de, id_a = id_a, id_de
+                de_s = str(id_de).zfill(L)
+                a_excl = str(id_a + 1)
+                where_sql.append(f"{num_expr} >= ? AND {num_expr} < ?")
+                params.extend([de_s, a_excl])
+            else:
+                where_sql.append(f"{num_expr} >= ? AND {num_expr} <= ?")
+                params.extend([de, a])
+        elif filt.get("type") == "prefix":
+            where_sql.append(f"{num_expr} LIKE ?")
+            params.append(f"{filt['prefix']}%")
+
+        coalesce_numfact = (
+            "NULLIF(LTRIM(RTRIM(C.NumFact)), '')"
+            if has_numfact
+            else "CAST(NULL AS NVARCHAR(4000))"
+        )
+
+        sql = f"""
+            SELECT TOP (?)
+                C.ID,
+                C.Numero AS numero_dossier,
+                ISNULL(NULLIF(LTRIM(RTRIM(S.RaiSocTri)), ''), '-') AS client,
+                C.Reference AS reference,
+                C.QteComm AS qte_comm,
+                C.QteLiv AS qte_liv,
+                ISNULL((
+                    SELECT SUM(CAST(FE.QteFact AS DECIMAL(18, 4)))
+                    FROM FACTURES_ELEM FE
+                    WHERE FE.ID_COMMANDE = C.ID
+                ), 0) AS qte_facturee,
+                C.PrxVteReelExt AS prx_vte_reel_ext,
+                C.TotalFact AS total_fact,
+                COALESCE((
+                    SELECT STRING_AGG(x.Numero, ', ')
+                    FROM (
+                        SELECT DISTINCT CAST(F.Numero AS NVARCHAR(4000)) AS Numero
+                        FROM FACTURES_ELEM FE2
+                        INNER JOIN FACTURES F ON F.ID = FE2.ID_FACTURE
+                        WHERE FE2.ID_COMMANDE = C.ID
+                    ) x
+                ), {coalesce_numfact}) AS numeros_factures
+            FROM COMMANDES C
+            LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
+            WHERE {' AND '.join(where_sql)}
+            ORDER BY {num_expr} DESC
+        """
+
+        params_full = [lim] + list(params)
+        cursor.execute(sql, tuple(params_full))
+        for r in cursor.fetchall():
+            rows_out.append(
+                {
+                    "id": int(r.ID),
+                    "numero_dossier": (r.numero_dossier or "").strip(),
+                    "client": (r.client or "-").strip(),
+                    "reference": (r.reference or "").strip() if r.reference else "",
+                    "qte_comm": float(r.qte_comm) if r.qte_comm is not None else None,
+                    "qte_liv": float(r.qte_liv) if r.qte_liv is not None else None,
+                    "qte_facturee": float(r.qte_facturee) if r.qte_facturee is not None else 0.0,
+                    "prx_vte_reel_ext": float(r.prx_vte_reel_ext) if r.prx_vte_reel_ext is not None else None,
+                    "total_fact": float(r.total_fact) if r.total_fact is not None else None,
+                    "numeros_factures": (r.numeros_factures or "").strip() if r.numeros_factures else "",
+                }
+            )
+    return rows_out
+
 
 def _get_liste_traitements_validation_action_id():
     """
@@ -455,6 +808,80 @@ def ensure_chrono_affichage_snapshot_at_column():
         print(f"[projet11] ensure_chrono_affichage_snapshot_at_column: {e}")
     finally:
         _chrono_affichage_snapshot_at_ensured = True
+
+
+def ensure_compteur_mode_column():
+    """Colonne CompteurMode : 0=journalier (saisie directe), 1=cumulatif (diff lectures)."""
+    global _compteur_mode_column_ensured
+    if _compteur_mode_column_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, "WEB_TRAITEMENTS", "CompteurMode"):
+                cursor.execute(
+                    "ALTER TABLE dbo.WEB_TRAITEMENTS ADD CompteurMode TINYINT NULL DEFAULT 0"
+                )
+            cursor.connection.commit()
+    except Exception as e:
+        print(f"[projet11] ensure_compteur_mode_column: {e}")
+    finally:
+        _compteur_mode_column_ensured = True
+
+
+def ensure_compteur_lecture_column():
+    """Colonne CompteurLecture : lecture du compteur machine (entier)."""
+    global _compteur_lecture_column_ensured
+    if _compteur_lecture_column_ensured:
+        return
+    try:
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, "WEB_TRAITEMENTS", "CompteurLecture"):
+                cursor.execute("ALTER TABLE dbo.WEB_TRAITEMENTS ADD CompteurLecture INT NULL")
+            cursor.connection.commit()
+    except Exception as e:
+        print(f"[projet11] ensure_compteur_lecture_column: {e}")
+    finally:
+        _compteur_lecture_column_ensured = True
+
+
+def get_last_compteur_lecture(numero_commande, nom_service, machine_reelle, exclude_id=None):
+    """Dernière lecture compteur pour (dossier + service + machine réelle)."""
+    ensure_compteur_lecture_column()
+    try:
+        numero = (numero_commande or "").strip()
+        service = (nom_service or "").strip()
+        machine = (machine_reelle or "").strip()
+        if not numero or not service or not machine:
+            return None
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, "WEB_TRAITEMENTS", "CompteurLecture"):
+                return None
+            exclude_sql = ""
+            params = [numero, service, machine]
+            if exclude_id:
+                exclude_sql = " AND ID <> ?"
+                params.append(int(exclude_id))
+            cursor.execute(
+                f"""
+                SELECT TOP 1 CompteurLecture
+                FROM WEB_TRAITEMENTS
+                WHERE LTRIM(RTRIM(Numero_COMMANDES)) = ?
+                  AND LTRIM(RTRIM(Nom_GP_SERVICES)) = ?
+                  AND LTRIM(RTRIM(PostesReel)) = ?
+                  AND CompteurLecture IS NOT NULL
+                  {exclude_sql}
+                ORDER BY DateCreation DESC, ID DESC
+                """,
+                tuple(params),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            v = getattr(row, "CompteurLecture", None)
+            return int(v) if v is not None else None
+    except Exception as e:
+        print(f"[projet11] get_last_compteur_lecture: {e}")
+        return None
 
 
 def ensure_temps_ecoule_affichage_en_pause_column():
@@ -1447,6 +1874,8 @@ def get_traitement_by_id(traitement_id):
     ensure_nom_fd_column()
     ensure_temps_ecoule_affichage_en_pause_column()
     ensure_chrono_affichage_snapshot_at_column()
+    ensure_compteur_mode_column()
+    ensure_compteur_lecture_column()
     ensure_controle_valide_columns()
     ensure_tps_pause_total_column()
     ensure_web_traitements_pause_table()
@@ -1456,11 +1885,15 @@ def get_traitement_by_id(traitement_id):
         has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
         has_chrono_en_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause')
         has_chrono_snapshot_at = column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt')
+        has_compteur_mode = column_exists(cursor, 'WEB_TRAITEMENTS', 'CompteurMode')
+        has_compteur_lecture = column_exists(cursor, 'WEB_TRAITEMENTS', 'CompteurLecture')
         has_controle = column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValide')
         has_tps_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TpsPauseTotal')
         tps_pause_col = ', TpsPauseTotal' if has_tps_pause else ''
         chrono_en_pause_col = ', TempsEcouleAffichageEnPause' if has_chrono_en_pause else ''
         chrono_snapshot_at_col = ', ChronoAffichageSnapshotAt' if has_chrono_snapshot_at else ''
+        compteur_mode_col = ', CompteurMode' if has_compteur_mode else ''
+        compteur_lecture_col = ', CompteurLecture' if has_compteur_lecture else ''
         cloture_col = ', Cloture' if has_cloture else ''
         desc_col = ', Description' if has_description else ''
         nom_fd_col = ', NOM_FD' if has_nom_fd else ''
@@ -1499,7 +1932,7 @@ def get_traitement_by_id(traitement_id):
                     DateCreation,
                     DateModification,
                     TempsEcouleAffichageSec
-                    """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + controle_col + tps_pause_col + """
+                    """ + chrono_en_pause_col + chrono_snapshot_at_col + compteur_mode_col + compteur_lecture_col + cloture_col + desc_col + nom_fd_col + controle_col + tps_pause_col + """
                 FROM WEB_TRAITEMENTS
                 WHERE ID = ?
             """, (traitement_id,))
@@ -1536,7 +1969,7 @@ def get_traitement_by_id(traitement_id):
                             DateCreation,
                             DateModification,
                             TempsEcouleAffichageSec
-                            """ + chrono_en_pause_col + chrono_snapshot_at_col + cloture_col + desc_col + nom_fd_col + controle_col + tps_pause_col + """
+                            """ + chrono_en_pause_col + chrono_snapshot_at_col + compteur_mode_col + compteur_lecture_col + cloture_col + desc_col + nom_fd_col + controle_col + tps_pause_col + """
                         FROM WEB_TRAITEMENTS
                         WHERE ID = ?
                     """, (traitement_id,))
@@ -1608,6 +2041,9 @@ def get_traitement_by_id(traitement_id):
                     chrono_snap_str += '.{:03d}'.format(snap_val.microsecond // 1000)
                 chrono_snap_str += 'Z'
 
+        # Horodatage serveur (UTC) pour corriger un éventuel décalage d'horloge côté poste
+        server_utc_now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+
         return {
             "id": row.ID,
             "id_fiche_travail": row.ID_FICHE_TRAVAIL,
@@ -1639,6 +2075,9 @@ def get_traitement_by_id(traitement_id):
             "temps_ecoule_affichage_sec": getattr(row, 'TempsEcouleAffichageSec', None),
             "temps_ecoule_affichage_en_pause": getattr(row, 'TempsEcouleAffichageEnPause', None),
             "chrono_affichage_snapshot_at": chrono_snap_str,
+            "server_utc_now": server_utc_now,
+            "compteur_mode": _to_int(getattr(row, "CompteurMode", 0)) if has_compteur_mode else 0,
+            "compteur_lecture": getattr(row, "CompteurLecture", None) if has_compteur_lecture else None,
             "cloture": _to_int(getattr(row, 'Cloture', 0)),
             "description": getattr(row, 'Description', None) or '',
             "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip(),
@@ -1673,6 +2112,8 @@ def create_traitement(data):
         int: ID du traitement créé, ou None en cas d'erreur
     """
     ensure_nom_fd_column()
+    ensure_compteur_mode_column()
+    ensure_compteur_lecture_column()
     try:
         print(f"[DEBUG] Début create_traitement avec data: {data}")
         with get_db_cursor() as cursor:
@@ -1896,6 +2337,26 @@ def create_traitement(data):
                 has_cloture = column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture')
                 has_description = column_exists(cursor, 'WEB_TRAITEMENTS', 'Description')
                 has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
+                has_compteur_mode = column_exists(cursor, 'WEB_TRAITEMENTS', 'CompteurMode')
+                has_compteur_lecture = column_exists(cursor, 'WEB_TRAITEMENTS', 'CompteurLecture')
+
+                compteur_mode_col = ', CompteurMode' if has_compteur_mode else ''
+                compteur_mode_ph = ', ?' if has_compteur_mode else ''
+                compteur_mode_params = (
+                    (1 if data.get('compteur_mode') in (1, '1', True, 'cumulatif') else 0,)
+                    if has_compteur_mode
+                    else ()
+                )
+
+                compteur_lecture_col = ', CompteurLecture' if has_compteur_lecture else ''
+                compteur_lecture_ph = ', ?' if has_compteur_lecture else ''
+                cl = data.get('compteur_lecture')
+                try:
+                    cl_val = int(cl) if cl is not None and str(cl).strip() != '' else None
+                except (TypeError, ValueError):
+                    cl_val = None
+                compteur_lecture_params = (cl_val,) if has_compteur_lecture else ()
+
                 cloture_col = ', Cloture' if has_cloture else ''
                 cloture_ph = ', ?' if has_cloture else ''
                 cloture_params = (cloture_val,) if has_cloture else ()
@@ -1928,9 +2389,9 @@ def create_traitement(data):
                         PdtC,
                         PdtNNC,
                         PdtANC,
-                        TpsReel{cloture_col}{desc_col}{nom_fd_col}
+                        TpsReel{compteur_mode_col}{compteur_lecture_col}{cloture_col}{desc_col}{nom_fd_col}
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{cloture_ph}{desc_ph}{nom_fd_ph})
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{compteur_mode_ph}{compteur_lecture_ph}{cloture_ph}{desc_ph}{nom_fd_ph})
                 """, (
                     id_fiche_insert,  # NULL pour service non prévu, ID valide sinon
                     traitement_data[0] if traitement_data else None,  # ID_GP_TRAITEMENTS (traçabilité)
@@ -1963,7 +2424,7 @@ def create_traitement(data):
                     pdt_anc,
                     # Temps réel calculé
                     tps_reel
-                ) + cloture_params + desc_params + nom_fd_params)
+                ) + compteur_mode_params + compteur_lecture_params + cloture_params + desc_params + nom_fd_params)
                 
                 print("[DEBUG] INSERT réussi")
                 if id_fiche_insert:
@@ -2054,6 +2515,8 @@ def update_traitement(traitement_id, data):
         bool: True si succès, False sinon
     """
     ensure_nom_fd_column()
+    ensure_compteur_mode_column()
+    ensure_compteur_lecture_column()
     ensure_controle_valide_columns()
     try:
         with get_db_cursor() as cursor:
@@ -2188,10 +2651,14 @@ def update_traitement(traitement_id, data):
             has_chrono_en_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TempsEcouleAffichageEnPause')
             has_chrono_snapshot_at = column_exists(cursor, 'WEB_TRAITEMENTS', 'ChronoAffichageSnapshotAt')
             has_tps_pause = column_exists(cursor, 'WEB_TRAITEMENTS', 'TpsPauseTotal')
+            has_compteur_mode = column_exists(cursor, 'WEB_TRAITEMENTS', 'CompteurMode')
+            has_compteur_lecture = column_exists(cursor, 'WEB_TRAITEMENTS', 'CompteurLecture')
             tps_pause_fin_set = ', TpsPauseTotal = ?' if (has_tps_pause and dte_fin is not None) else ''
             chrono_clear_fin = ', TempsEcouleAffichageSec = NULL' + (
                 ', TempsEcouleAffichageEnPause = NULL' if has_chrono_en_pause else ''
             ) + (', ChronoAffichageSnapshotAt = NULL' if has_chrono_snapshot_at else '')
+            compteur_mode_set = ', CompteurMode = ?' if has_compteur_mode else ''
+            compteur_lecture_set = ', CompteurLecture = ?' if has_compteur_lecture else ''
             sql_update = f"""
                 UPDATE WEB_TRAITEMENTS
                 SET 
@@ -2203,10 +2670,16 @@ def update_traitement(traitement_id, data):
                     PdtANC = ?,
                     NbPers = ?,
                     PostesReel = ?,
-                    TpsReel = ?{op_set}{cloture_set}{desc_set}{nom_fd_set},
+                    TpsReel = ?{op_set}{cloture_set}{desc_set}{nom_fd_set}{compteur_mode_set}{compteur_lecture_set},
                     DateModification = GETDATE()
                 WHERE ID = ?
             """
+            cmode = 1 if data.get('compteur_mode') in (1, '1', True, 'cumulatif') else 0
+            clec = data.get('compteur_lecture')
+            try:
+                clec_val = int(clec) if clec is not None and str(clec).strip() != '' else None
+            except (TypeError, ValueError):
+                clec_val = None
             params = (
                 dte_deb,
                 dte_fin,
@@ -2217,7 +2690,11 @@ def update_traitement(traitement_id, data):
                 nb_pers,
                 data.get('postes_reel'),
                 tps_reel
-            ) + op_param + cloture_param + desc_param + nom_fd_param + (traitement_id,)
+            ) + op_param + cloture_param + desc_param + nom_fd_param + (
+                (cmode,) if has_compteur_mode else ()
+            ) + (
+                (clec_val,) if has_compteur_lecture else ()
+            ) + (traitement_id,)
             try:
                 if dte_fin is not None:
                     sql_fin = f"""

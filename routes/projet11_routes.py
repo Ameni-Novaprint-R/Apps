@@ -139,6 +139,8 @@ def index():
         show_liste_traitements = False
         show_statistiques = False
         show_suivi_production = False
+        show_qte_pieces = False
+        show_suivi_ecarts_facturation = False
         
         if is_super_user():
             # Super-utilisateur : toutes les sections
@@ -146,6 +148,8 @@ def index():
             show_liste_traitements = True
             show_statistiques = True
             show_suivi_production = True
+            show_qte_pieces = True
+            show_suivi_ecarts_facturation = True
         else:
             # Vérifier chaque section autorisée par son nom pour déterminer quelle carte afficher
             for section in authorized_sections:
@@ -176,6 +180,22 @@ def index():
                     (('suivi' in section_nom_lower and 'production' in section_nom_lower) or
                      section_id == all_sections_map.get('suivi production', -1))):
                     show_suivi_production = True
+
+                # Section "Quantité en pièces par commande"
+                if (section_id in authorized_section_ids and
+                    (('quantité' in section_nom_lower and 'pièce' in section_nom_lower) or
+                     ('quantite' in section_nom_lower and 'piece' in section_nom_lower) or
+                     section_id == all_sections_map.get('quantité en pièces par commande', -1) or
+                     section_id == all_sections_map.get('quantite en pieces par commande', -1))):
+                    show_qte_pieces = True
+
+                # Section "Suivi des écarts de facturation par dossier"
+                if (section_id in authorized_section_ids and
+                    (section_id == all_sections_map.get('suivi des écarts de facturation par dossier', -1) or
+                     (('écart' in section_nom_lower or 'ecart' in section_nom_lower) and
+                      ('facturation' in section_nom_lower or 'facture' in section_nom_lower) and
+                      ('dossier' in section_nom_lower)))):
+                    show_suivi_ecarts_facturation = True
         
         show_tableau_comparatif = show_statistiques
         show_tableau_bord = show_statistiques
@@ -185,6 +205,8 @@ def index():
                              show_liste_traitements=show_liste_traitements,
                              show_statistiques=show_statistiques,
                              show_suivi_production=show_suivi_production,
+                             show_qte_pieces=show_qte_pieces,
+                             show_suivi_ecarts_facturation=show_suivi_ecarts_facturation,
                              show_tableau_comparatif=show_tableau_comparatif,
                              show_tableau_bord=show_tableau_bord)
     except Exception as e:
@@ -198,8 +220,139 @@ def index():
                              show_liste_traitements=True,
                              show_statistiques=True,
                              show_suivi_production=True,
+                             show_qte_pieces=True,
+                             show_suivi_ecarts_facturation=True,
                              show_tableau_comparatif=True,
                              show_tableau_bord=True)
+
+
+@projet11_bp.route('/projet11/quantite-pieces')
+def quantite_pieces_par_commande():
+    """Section : Quantité en pièces par commande (COMMANDES.QteComm * NombrePose)."""
+    try:
+        from flask import flash, redirect, url_for
+        section_id = None
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT WS.ID
+                    FROM WEB_SECTIONS WS
+                    INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                    WHERE WP.NumProj = 11 AND WS.Nom = 'Quantité en pièces par commande'
+                    """
+                )
+                row = cursor.fetchone()
+                if row:
+                    section_id = row.ID
+        except Exception:
+            section_id = None
+
+        if section_id and not is_super_user() and not has_section_access(section_id):
+            flash("Vous n'avez pas accès à cette section.", "error")
+            return redirect(url_for('projet11.index'))
+
+        return render_template('projet11_qte_pieces.html')
+    except Exception as e:
+        print(f"Erreur dans quantite_pieces_par_commande: {e}")
+        from flask import flash, redirect, url_for
+        flash("Erreur lors du chargement de la section Quantité en pièces.", "error")
+        return redirect(url_for('projet11.index'))
+
+
+@projet11_bp.route('/projet11/api/commandes-qte-unitaires', methods=['GET'])
+def api_commandes_qte_unitaires():
+    """API: liste commandes + calcul quantité unitaire."""
+    try:
+        limit = request.args.get('limit', 2000)
+        rows = projet11.get_commandes_qte_unitaires(limit=limit)
+        return jsonify({"rows": rows})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/commandes-qte-unitaires/<int:commande_id>', methods=['POST', 'PATCH', 'PUT'])
+def api_save_commande_qte_unitaire(commande_id):
+    """API: sauvegarde nombre de poses (et qte unitaire) pour une commande."""
+    try:
+        data = request.get_json(silent=True) or {}
+        nombre_pose = data.get("nombre_pose")
+        # Toujours recoller les valeurs COMMANDES (source de vérité) pour Numero/Reference/QteComm
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                "SELECT ID, Numero, Reference, QteComm, ID_DEVIS FROM COMMANDES WHERE ID = ?",
+                (commande_id,),
+            )
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({"error": "Commande introuvable"}), 404
+            # Nombre de modèles via DEV_ELEM.ID_DEVIS
+            cursor.execute(
+                "SELECT MAX(Modeles) AS Modeles FROM DEV_ELEM WHERE ID_DEVIS = ?",
+                (getattr(r, "ID_DEVIS", None),),
+            )
+            mrow = cursor.fetchone()
+            nombre_modeles = getattr(mrow, "Modeles", None) if mrow else None
+            ok, err = projet11.upsert_commande_qte_unitaire(
+                id_commande=r.ID,
+                numero=r.Numero,
+                reference=r.Reference,
+                qte_comm=r.QteComm,
+                nombre_pose=nombre_pose,
+                nombre_modeles=nombre_modeles,
+            )
+            if not ok:
+                return jsonify({"error": err or "Erreur sauvegarde"}), 500
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/suivi-ecarts-facturation')
+def suivi_ecarts_facturation_par_dossier():
+    """Section : Suivi des écarts de facturation par dossier."""
+    try:
+        from flask import flash, redirect, url_for
+        from db import get_db_cursor
+        section_id = None
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT WS.ID
+                    FROM WEB_SECTIONS WS
+                    INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
+                    WHERE WP.NumProj = 11 AND WS.Nom = N'Suivi des écarts de facturation par dossier'
+                    """
+                )
+                row = cursor.fetchone()
+                if row:
+                    section_id = row.ID
+        except Exception:
+            section_id = None
+
+        if section_id and not is_super_user() and not has_section_access(section_id):
+            flash("Vous n'avez pas accès à cette section.", "error")
+            return redirect(url_for('projet11.index'))
+
+        return render_template('projet11_suivi_ecarts_facturation.html')
+    except Exception as e:
+        print(f"Erreur dans suivi_ecarts_facturation_par_dossier: {e}")
+        from flask import flash, redirect, url_for
+        flash("Erreur lors du chargement du suivi des écarts de facturation.", "error")
+        return redirect(url_for('projet11.index'))
+
+
+@projet11_bp.route('/projet11/api/suivi-ecarts-facturation', methods=['GET'])
+def api_suivi_ecarts_facturation():
+    """API: données tableau suivi écarts facturation par dossier."""
+    try:
+        q = request.args.get('q', '')
+        limit = request.args.get('limit', 4000)
+        rows = projet11.get_suivi_ecarts_facturation_par_dossier(filtre_numero=q, limit=limit)
+        return jsonify({"rows": rows})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @projet11_bp.route('/projet11/suivi-production')
@@ -532,6 +685,12 @@ def api_create_traitement():
         data['pdt_nnc'] = _safe_int(data.get('pdt_nnc'))
         data['pdt_anc'] = _safe_int(data.get('pdt_anc'))
         data['nb_op'] = data['pdt_c'] + data['pdt_nnc'] + data['pdt_anc']
+        # Compteur quantité (optionnel)
+        data['compteur_mode'] = (data.get('compteur_mode') or 0)
+        try:
+            data['compteur_lecture'] = int(data.get('compteur_lecture')) if data.get('compteur_lecture') not in (None, '') else None
+        except (TypeError, ValueError):
+            data['compteur_lecture'] = None
 
         if data['nb_op'] <= 0:
             return jsonify({"error": "Veuillez saisir au moins une quantité produite"}), 400
@@ -631,6 +790,11 @@ def api_start_traitement():
         data['pdt_nnc'] = _safe_int(data.get('pdt_nnc'))
         data['pdt_anc'] = _safe_int(data.get('pdt_anc'))
         data['nb_pers'] = max(1, _safe_int(data.get('nb_pers'), 1))
+        data['compteur_mode'] = (data.get('compteur_mode') or 0)
+        try:
+            data['compteur_lecture'] = int(data.get('compteur_lecture')) if data.get('compteur_lecture') not in (None, '') else None
+        except (TypeError, ValueError):
+            data['compteur_lecture'] = None
 
         # Matricule opérateur (peut être None si non fourni)
         matricule = data.get('matricule_personel')
@@ -733,6 +897,11 @@ def api_update_traitement(traitement_id):
         data['pdt_c'] = _safe_int(data.get('pdt_c'))
         data['pdt_nnc'] = _safe_int(data.get('pdt_nnc'))
         data['pdt_anc'] = _safe_int(data.get('pdt_anc'))
+        data['compteur_mode'] = (data.get('compteur_mode') or 0)
+        try:
+            data['compteur_lecture'] = int(data.get('compteur_lecture')) if data.get('compteur_lecture') not in (None, '') else None
+        except (TypeError, ValueError):
+            data['compteur_lecture'] = None
         
         # Convertir les dates si nécessaire
         # CORRECTION: Gérer l'heure locale du navigateur (sans conversion UTC)
@@ -802,6 +971,24 @@ def api_update_chrono_affichage(traitement_id):
         if success:
             return jsonify({"success": True})
         return jsonify({"error": "Mise à jour impossible"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@projet11_bp.route('/projet11/api/compteur/dernier', methods=['GET'])
+def api_compteur_dernier():
+    """Retourne la dernière lecture compteur pour (dossier + service + machine réelle)."""
+    try:
+        numero = request.args.get('numero', '') or ''
+        service = request.args.get('service', '') or ''
+        machine = request.args.get('machine', '') or ''
+        exclude_id = request.args.get('exclude_id')
+        try:
+            exclude_id = int(exclude_id) if exclude_id not in (None, '') else None
+        except (TypeError, ValueError):
+            exclude_id = None
+        last_val = projet11.get_last_compteur_lecture(numero, service, machine, exclude_id=exclude_id)
+        return jsonify({"last_lecture": last_val})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

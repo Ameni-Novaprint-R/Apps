@@ -101,6 +101,19 @@
         margin-bottom: 12px;
     }
     #projet19BtnEnregistrerVue { margin-left: auto; }
+    .table-scroll-top {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        height: 14px;
+        border-radius: 6px;
+        background: transparent;
+        margin-bottom: 8px;
+    }
+    .table-scroll-inner-top { height: 1px; }
+    .table-scroll-top::-webkit-scrollbar { height: 12px; }
+    .table-scroll-top::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.3); border-radius: 6px; }
+    .table-scroll-top::-webkit-scrollbar-track { background-color: transparent; }
     .dossiers-table {
         width: 100%;
         max-width: 100%;
@@ -514,6 +527,9 @@
     </div>
     
     <!-- Tableau des dossiers -->
+    <div id="table-scroll-top" class="table-scroll-top">
+        <div class="table-scroll-inner-top"></div>
+    </div>
     <div class="table-responsive" style="overflow-x: auto; width: 100%;">
             <table id="dossiers-table" class="dossiers-table table table-striped table-hover" style="width: 100%; table-layout: auto; max-width: none;">
                 <thead>
@@ -1926,6 +1942,7 @@ function initializeDataTable() {
                 console.log('[initializeDataTable] Filtres par colonne initialisés');
             }
         });
+        setupHorizontalScrollSync();
         console.log('[initializeDataTable] ✅ DataTable créé avec succès');
     } catch (error) {
         console.error('[initializeDataTable] ❌ Erreur lors de l\'initialisation de DataTable:', error);
@@ -3302,7 +3319,9 @@ function saveNewDossierFromPopup() {
     const quantite = parseInt(document.getElementById('popup-quantite').value) || null;
     const prixVenteTotal = parseFloat(document.getElementById('popup-prix-vente-total').textContent.replace(',', '.')) || null;
     const ctEstime = parseFloat(document.getElementById('popup-ct-estime').textContent.replace(',', '.')) || null;
-    const dateInventaire = (document.getElementById('popup-date-inventaire').value || '').trim() || null;
+    const popupDateInventaireEl = document.getElementById('popup-date-inventaire');
+    const popupDateInventaireValue = popupDateInventaireEl ? (popupDateInventaireEl.value || '').trim() : '';
+    const dateInventaire = popupDateInventaireValue || (activeInventaireDate || '').trim() || null;
     
     // Récupérer ctRel depuis le DOM (doit être calculé avant)
     const ctRelElement = document.getElementById('popup-ct-rel');
