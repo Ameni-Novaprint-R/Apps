@@ -11,6 +11,16 @@ from flask import request
 from io import BytesIO
 import pandas as pd
 from openpyxl.styles import PatternFill
+import os
+import socket
+import time
+
+try:
+    from local_env import load_project_env
+
+    load_project_env()
+except ImportError:
+    pass
 
 projet21_bp = Blueprint('projet21', __name__, url_prefix='/projet21')
 
@@ -25,6 +35,18 @@ SOURCE_CONFIG = {
     'password': 'Graphis0ft'
 }
 
+XRT_SOURCE_CONFIG = {
+    # IMPORTANT: la base XRT est STRICTEMENT en lecture seule côté synchro.
+    # Le mot de passe et le nom de base sont fournis via variables d'environnement.
+    # NOTE: l'instance nommée nécessite SQL Browser (UDP 1434) pour la résolution.
+    # Pour fiabilité, on force TCP+port connu.
+    'server': r'tcp:SRV-XRT2,1433',
+    'database_env': 'XRT_DATABASE',
+    'database_default': 'SXA',
+    'username': 'NOVAPRINT1',
+    'password_env': 'XRT_PASSWORD',
+}
+
 TARGET_CONFIG = {
     'server': '192.168.10.225',
     'database': 'novaprint_restored',
@@ -34,6 +56,32 @@ TARGET_CONFIG = {
 }
 
 sync_status = {'running': False, 'message': '', 'progress': 0, 'details': [], 'code_version': PROJET21_CODE_VERSION}
+xrt_sync_status = {'running': False, 'message': '', 'progress': 0, 'details': [], 'code_version': PROJET21_CODE_VERSION}
+
+# Synchro XRT « miroir » (INSERT/UPDATE) : plafond de lignes pour chargement mémoire complet.
+# Au-delà, si écart COUNT ou checksum : recopie table via xrt_copy_table_full (flux fetchmany).
+XRT_MIRROR_MAX_ROWS_IN_MEMORY = int(os.environ.get("XRT_MIRROR_MAX_ROWS_IN_MEMORY", "50000"))
+
+def get_xrt_source_runtime_config():
+    db = os.environ.get(XRT_SOURCE_CONFIG['database_env'], '').strip() or XRT_SOURCE_CONFIG.get('database_default', '')
+    pwd = os.environ.get(XRT_SOURCE_CONFIG['password_env'], '').strip()
+    if not db:
+        raise Exception(
+            f"Configuration manquante: variable d'environnement {XRT_SOURCE_CONFIG['database_env']} (nom de base XRT)."
+        )
+    if not pwd:
+        raise Exception(
+            f"Configuration manquante: variable d'environnement {XRT_SOURCE_CONFIG['password_env']} "
+            f"(mot de passe SQL de {XRT_SOURCE_CONFIG['username']}). "
+            "Définissez-la pour le compte qui lance l’application, ou créez un fichier .env à la racine du projet "
+            f"avec une ligne {XRT_SOURCE_CONFIG['password_env']}=… puis redémarrez Flask."
+        )
+    return {
+        'server': XRT_SOURCE_CONFIG['server'],
+        'database': db,
+        'username': XRT_SOURCE_CONFIG['username'],
+        'password': pwd,
+    }
 
 def get_connection(config, readonly=False):
     """
@@ -75,6 +123,134 @@ def get_connection(config, readonly=False):
         conn.execute("SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED")
     return conn
 
+def xrt_connection_diagnostics():
+    """
+    Diagnostic détaillé (lecture seule) de la connectivité XRT.
+    - Ne modifie aucune donnée.
+    - Tente plusieurs drivers/options et formats serveur.
+    """
+    started = datetime.now()
+    report = {
+        'started_at': started.isoformat(),
+        'source': {
+            'server_configured': XRT_SOURCE_CONFIG.get('server'),
+            'database': None,
+            'username': XRT_SOURCE_CONFIG.get('username'),
+        },
+        'odbc': {
+            'available_drivers': [],
+        },
+        'dns': {},
+        'tcp': {},
+        'odbc_attempts': [],
+    }
+
+    # Config runtime (base + password)
+    try:
+        cfg = get_xrt_source_runtime_config()
+        report['source']['database'] = cfg.get('database')
+    except Exception as e:
+        report['config_error'] = str(e)
+        report['ended_at'] = datetime.now().isoformat()
+        return report
+
+    # DNS resolution (best-effort)
+    raw_server = (cfg.get('server') or '').strip()
+    host = raw_server.split('\\')[0].strip()
+    if host.lower().startswith('tcp:'):
+        host = host[4:]
+    # retirer port éventuel "host,1433"
+    if ',' in host:
+        host = host.split(',', 1)[0].strip()
+    report['dns']['host'] = host
+    try:
+        infos = socket.getaddrinfo(host, None)
+        addrs = sorted({i[4][0] for i in infos if i and i[4]})
+        report['dns']['resolved'] = addrs
+    except Exception as e:
+        report['dns']['error'] = str(e)
+
+    # TCP reachability test (1433) - best effort
+    def test_tcp(port: int, timeout_s: float = 2.0):
+        t0 = time.time()
+        try:
+            with socket.create_connection((host, port), timeout=timeout_s):
+                return {'port': port, 'ok': True, 'ms': int((time.time() - t0) * 1000)}
+        except Exception as e:
+            return {'port': port, 'ok': False, 'ms': int((time.time() - t0) * 1000), 'error': str(e)}
+
+    if host:
+        report['tcp']['1433'] = test_tcp(1433)
+        # 1434 (SQL Browser) - TCP test only (UDP non testé ici)
+        report['tcp']['1434'] = test_tcp(1434)
+
+    # ODBC attempts
+    try:
+        report['odbc']['available_drivers'] = list(pyodbc.drivers())
+    except Exception as e:
+        report['odbc']['available_drivers_error'] = str(e)
+
+    available = set(report.get('odbc', {}).get('available_drivers') or [])
+    driver_candidates = [d for d in ["ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"] if d in available]
+    if not driver_candidates:
+        report['odbc']['error'] = "Aucun driver ODBC SQL Server compatible trouvé (ODBC Driver 17/18)."
+        report['ended_at'] = datetime.now().isoformat()
+        return report
+    server_candidates = [
+        cfg['server'],               # ex: tcp:SRV-XRT2,1433
+        f"tcp:{host},1433",          # fallback: force TCP+port
+        f"tcp:{host}",               # fallback: force TCP sans port
+        host,                        # fallback: default instance
+    ]
+    # Deduplicate while keeping order
+    seen = set()
+    server_candidates = [s for s in server_candidates if s and not (s in seen or seen.add(s))]
+
+    option_sets = [
+        {'Encrypt': 'no', 'TrustServerCertificate': 'yes'},
+        {'Encrypt': 'yes', 'TrustServerCertificate': 'yes'},
+        {},  # no options
+    ]
+
+    for drv in driver_candidates:
+        for srv in server_candidates:
+            for opts in option_sets:
+                attempt = {
+                    'driver': drv,
+                    'server': srv,
+                    'database': cfg['database'],
+                    'options': opts,
+                    'ok': False,
+                }
+                try:
+                    opt_str = ''.join([f"{k}={v};" for k, v in opts.items()])
+                    conn_str = (
+                        f"DRIVER={{{drv}}};"
+                        f"SERVER={srv};"
+                        f"DATABASE={cfg['database']};"
+                        f"UID={cfg['username']};"
+                        f"PWD={cfg['password']};"
+                        f"{opt_str}"
+                        f"Connection Timeout=3;"
+                    )
+                    t0 = time.time()
+                    conn = pyodbc.connect(conn_str)
+                    cur = conn.cursor()
+                    cur.execute("SELECT 1")
+                    _ = cur.fetchone()
+                    conn.close()
+                    attempt['ok'] = True
+                    attempt['ms'] = int((time.time() - t0) * 1000)
+                    report['odbc_attempts'].append(attempt)
+                    report['ended_at'] = datetime.now().isoformat()
+                    return report
+                except Exception as e:
+                    attempt['error'] = str(e)
+                    report['odbc_attempts'].append(attempt)
+
+    report['ended_at'] = datetime.now().isoformat()
+    return report
+
 def get_primary_keys(cursor, table_name):
     # Utiliser sys.objects et sys.index_columns pour une meilleure compatibilité
     cursor.execute("""
@@ -107,6 +283,898 @@ def get_table_columns(cursor, table_name):
         ORDER BY ORDINAL_POSITION
     """, (table_name,))
     return cursor.fetchall()
+
+def get_table_columns_full(cursor, schema_name, table_name):
+    cursor.execute(
+        """
+        SELECT
+            COLUMN_NAME,
+            DATA_TYPE,
+            CHARACTER_MAXIMUM_LENGTH,
+            NUMERIC_PRECISION,
+            NUMERIC_SCALE,
+            DATETIME_PRECISION,
+            IS_NULLABLE,
+            COLUMN_DEFAULT
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+        ORDER BY ORDINAL_POSITION
+        """,
+        (schema_name, table_name),
+    )
+    return cursor.fetchall()
+
+def get_identity_columns(cursor, schema_name, table_name):
+    cursor.execute(
+        """
+        SELECT c.name
+        FROM sys.columns c
+        INNER JOIN sys.tables t ON c.object_id = t.object_id
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE s.name = ? AND t.name = ? AND c.is_identity = 1
+        """,
+        (schema_name, table_name),
+    )
+    return {r[0] for r in cursor.fetchall()}
+
+
+def has_identity_column_scoped(cursor, schema_name, table_name):
+    """Colonne IDENTITY pour une table qualifiée schéma."""
+    cursor.execute(
+        """
+        SELECT COUNT(*)
+        FROM sys.columns c
+        INNER JOIN sys.tables t ON c.object_id = t.object_id
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE s.name = ? AND t.name = ? AND c.is_identity = 1
+        """,
+        (schema_name, table_name),
+    )
+    return cursor.fetchone()[0] > 0
+
+
+def get_primary_keys_scoped(cursor, schema_name, table_name):
+    """Clé primaire pour une table source qualifiée schéma (évite l’ambiguïté multi-schémas)."""
+    cursor.execute(
+        """
+        SELECT c.name
+        FROM sys.indexes i
+        INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+        INNER JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+        INNER JOIN sys.tables t ON i.object_id = t.object_id
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE i.is_primary_key = 1 AND s.name = ? AND t.name = ?
+        ORDER BY ic.key_ordinal
+        """,
+        (schema_name, table_name),
+    )
+    result = [row[0] for row in cursor.fetchall()]
+    if not result:
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = 'ID'
+            """,
+            (schema_name, table_name),
+        )
+        row = cursor.fetchone()
+        if row:
+            return [row[0]]
+    return result
+
+
+def xrt_count_rows(cursor, schema_name, table_name):
+    cursor.execute(f"SELECT COUNT(*) FROM [{schema_name}].[{table_name}]")
+    return int(cursor.fetchone()[0] or 0)
+
+
+def xrt_table_checksum_agg(cursor, schema_name, table_name):
+    """
+    Agrégat CHECKSUM par table (détection de divergence avec même COUNT).
+    Retourne None si la requête échoue (types non supportés, etc.).
+    """
+    try:
+        cursor.execute(
+            f"SELECT CHECKSUM_AGG(CAST(BINARY_CHECKSUM(*) AS BIGINT)) FROM [{schema_name}].[{table_name}]"
+        )
+        row = cursor.fetchone()
+        return None if row is None else row[0]
+    except Exception:
+        return None
+
+
+def ensure_target_schema(cursor, schema_name):
+    cursor.execute(
+        f"""
+        IF SCHEMA_ID(N'{schema_name}') IS NULL
+            EXEC(N'CREATE SCHEMA [{schema_name}] AUTHORIZATION [dbo];');
+        """
+    )
+
+def build_create_table_sql_xrt(source_cursor, source_schema, table_name, target_schema='XRT'):
+    tgt_name = xrt_target_table_name(source_schema, table_name)
+    cols = get_table_columns_full(source_cursor, source_schema, table_name)
+    identity_cols = get_identity_columns(source_cursor, source_schema, table_name)
+
+    col_defs = []
+    for (
+        col_name,
+        data_type,
+        char_len,
+        num_prec,
+        num_scale,
+        dt_prec,
+        is_nullable,
+        col_default,
+    ) in cols:
+        dt = (data_type or '').lower()
+        type_sql = data_type
+        if dt in ('varchar', 'nvarchar', 'char', 'nchar', 'binary', 'varbinary'):
+            if char_len is None:
+                type_sql = data_type
+            elif int(char_len) < 0:
+                type_sql = f"{data_type}(MAX)"
+            else:
+                type_sql = f"{data_type}({int(char_len)})"
+        elif dt in ('decimal', 'numeric'):
+            if num_prec is not None and num_scale is not None:
+                type_sql = f"{data_type}({int(num_prec)},{int(num_scale)})"
+        elif dt in ('datetime2', 'time', 'datetimeoffset'):
+            if dt_prec is not None:
+                type_sql = f"{data_type}({int(dt_prec)})"
+
+        null_sql = "NULL" if (is_nullable or '').upper() == 'YES' else "NOT NULL"
+        identity_sql = " IDENTITY(1,1)" if col_name in identity_cols else ""
+        default_sql = f" DEFAULT {col_default}" if col_default else ""
+        col_defs.append(f"[{col_name}] {type_sql}{identity_sql}{default_sql} {null_sql}")
+
+    create_sql = (
+        f"CREATE TABLE [{target_schema}].[{tgt_name}] (\n  " + ",\n  ".join(col_defs) + "\n)"
+    )
+    return create_sql
+
+def xrt_list_source_tables(source_cursor):
+    source_cursor.execute(
+        """
+        SELECT s.name AS schema_name, t.name AS table_name
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE t.is_ms_shipped = 0
+        ORDER BY s.name, t.name
+        """
+    )
+    return [(r[0], r[1]) for r in source_cursor.fetchall()]
+
+def xrt_target_table_name(source_schema: str, table_name: str) -> str:
+    """
+    Nom de table dans le schéma XRT (cible) pour éviter les collisions entre schémas sources.
+    - dbo.* : on conserve le nom
+    - autre schéma : prefixe SCHEMA__TABLE
+    """
+    if (source_schema or "").lower() == "dbo":
+        return table_name
+    safe_schema = (source_schema or "").replace(".", "_").replace(" ", "_")
+    return f"{safe_schema}__{table_name}"
+
+
+def xrt_target_table_exists(target_cursor, target_schema: str, tgt_name: str) -> bool:
+    """True si la table cible existe déjà dans le schéma (pour mode complétion sans DROP global)."""
+    target_cursor.execute(
+        """
+        SELECT 1
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE LOWER(s.name) = LOWER(?) AND LOWER(t.name) = LOWER(?)
+        """,
+        (target_schema, tgt_name),
+    )
+    return target_cursor.fetchone() is not None
+
+
+def xrt_drop_all_user_tables_in_schema(cursor, schema_name: str) -> int:
+    """
+    Supprime toutes les tables utilisateur d'un schéma (cible), en respectant un ordre compatible FK intra-schéma.
+    Retourne le nombre de DROP tentés.
+    """
+    cursor.execute(
+        """
+        SELECT t.name AS table_name
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE s.name = ? AND t.is_ms_shipped = 0;
+        """,
+        (schema_name,),
+    )
+    all_tbl = [r[0] for r in cursor.fetchall()]
+    if not all_tbl:
+        return 0
+    all_set = set(all_tbl)
+
+    cursor.execute(
+        """
+        SELECT tp.name AS parent_table, tr.name AS child_table
+        FROM sys.foreign_keys fk
+        INNER JOIN sys.tables tp ON fk.referenced_object_id = tp.object_id
+        INNER JOIN sys.schemas sch_p ON tp.schema_id = sch_p.schema_id
+        INNER JOIN sys.tables tr ON fk.parent_object_id = tr.object_id
+        INNER JOIN sys.schemas sch_c ON tr.schema_id = sch_c.schema_id
+        WHERE sch_p.name = ? AND sch_c.name = ?;
+        """,
+        (schema_name, schema_name),
+    )
+
+    parent_to_children = {t: set() for t in all_tbl}
+    indeg = {t: 0 for t in all_tbl}
+    for parent_name, child_name in cursor.fetchall():
+        if parent_name in all_set and child_name in all_set:
+            parent_to_children[parent_name].add(child_name)
+            indeg[child_name] += 1
+
+    queue = [t for t in all_tbl if indeg[t] == 0]
+    topo = []
+    while queue:
+        n = queue.pop(0)
+        topo.append(n)
+        for ch in parent_to_children.get(n, set()):
+            indeg[ch] -= 1
+            if indeg[ch] == 0:
+                queue.append(ch)
+
+    if len(topo) < len(all_tbl):
+        # cycles ou FK complexes: compléter par nom (dernier recours)
+        remaining = [t for t in sorted(all_tbl) if t not in topo]
+        topo.extend(remaining)
+
+    dropped = 0
+    for tname in reversed(topo):
+        cursor.execute(
+            f"IF OBJECT_ID(N'[{schema_name}].[{tname}]', N'U') IS NOT NULL DROP TABLE [{schema_name}].[{tname}];"
+        )
+        dropped += 1
+    return dropped
+
+
+def xrt_sort_tables_for_copy_cursor(source_cursor, tables):
+    if not tables:
+        return tables
+
+    table_set = set(tables)
+
+    source_cursor.execute(
+        """
+        SELECT sch_p.name AS parent_schema, tp.name AS parent_table,
+               sch_c.name AS child_schema, tr.name AS child_table
+        FROM sys.foreign_keys fk
+        INNER JOIN sys.tables tr ON fk.parent_object_id = tr.object_id
+        INNER JOIN sys.schemas sch_c ON tr.schema_id = sch_c.schema_id
+        INNER JOIN sys.tables tp ON fk.referenced_object_id = tp.object_id
+        INNER JOIN sys.schemas sch_p ON tp.schema_id = sch_p.schema_id
+        WHERE tr.is_ms_shipped = 0 AND tp.is_ms_shipped = 0;
+        """
+    )
+
+    # Graphe: enfant -> parents
+    parents_of = {t: set() for t in table_set}
+    children_of = {t: set() for t in table_set}
+
+    for ps, pt, cs, ct in source_cursor.fetchall():
+        parent = (ps, pt)
+        child = (cs, ct)
+        if parent in table_set and child in table_set and parent != child:
+            parents_of[child].add(parent)
+            children_of[parent].add(child)
+
+    # Kahn: privilégier les tables sans parent dans l'ensemble
+    indeg = {t: len(parents_of[t]) for t in table_set}
+    queue = [t for t in table_set if indeg[t] == 0]
+    queue.sort(key=lambda x: (x[0].lower(), x[1].lower()))
+    ordered = []
+    while queue:
+        n = queue.pop(0)
+        ordered.append(n)
+        for ch in sorted(children_of.get(n, set()), key=lambda x: (x[0].lower(), x[1].lower())):
+            indeg[ch] -= 1
+            if indeg[ch] == 0:
+                queue.append(ch)
+        queue.sort(key=lambda x: (x[0].lower(), x[1].lower()))
+
+    if len(ordered) < len(table_set):
+        remaining = [t for t in sorted(table_set, key=lambda x: (x[0].lower(), x[1].lower())) if t not in ordered]
+        ordered.extend(remaining)
+
+    return ordered
+
+
+def xrt_copy_table_full(source_cursor, target_cursor, source_schema, table_name, status, target_schema='XRT', batch_size=2000):
+    # Drop + recreate to guarantee full mirror
+    tgt_name = xrt_target_table_name(source_schema, table_name)
+    identity_cols = get_identity_columns(source_cursor, source_schema, table_name)
+    identity_on = False
+
+    target_cursor.execute(
+        f"IF OBJECT_ID(N'[{target_schema}].[{tgt_name}]', N'U') IS NOT NULL DROP TABLE [{target_schema}].[{tgt_name}];"
+    )
+    create_sql = build_create_table_sql_xrt(source_cursor, source_schema, table_name, target_schema=target_schema)
+    target_cursor.execute(create_sql)
+
+    # Read-only source
+    source_cursor.execute(f"SELECT * FROM [{source_schema}].[{table_name}]")
+    columns = [d[0] for d in source_cursor.description]
+    if not columns:
+        return 0
+
+    col_list = ", ".join([f"[{c}]" for c in columns])
+    placeholders = ", ".join(["?"] * len(columns))
+    insert_sql = f"INSERT INTO [{target_schema}].[{tgt_name}] ({col_list}) VALUES ({placeholders})"
+
+    inserted = 0
+    target_cursor.fast_executemany = True
+    try:
+        if identity_cols:
+            target_cursor.execute(
+                f"SET IDENTITY_INSERT [{target_schema}].[{tgt_name}] ON"
+            )
+            identity_on = True
+        while True:
+            rows = source_cursor.fetchmany(batch_size)
+            if not rows:
+                break
+            target_cursor.executemany(insert_sql, rows)
+            inserted += len(rows)
+            if inserted % (batch_size * 5) == 0:
+                status['details'].append(
+                    f"   … {source_schema}.{table_name} -> {target_schema}.{tgt_name}: {inserted} lignes copiées"
+                )
+    finally:
+        if identity_on:
+            target_cursor.execute(
+                f"SET IDENTITY_INSERT [{target_schema}].[{tgt_name}] OFF"
+            )
+
+    return inserted
+
+def xrt_sync_databases():
+    global xrt_sync_status
+    xrt_sync_status = {'running': True, 'message': 'Démarrage XRT...', 'progress': 0, 'details': [], 'code_version': PROJET21_CODE_VERSION}
+    xrt_sync_status['details'].append(
+        f"🧩 Version code Projet21: {PROJET21_CODE_VERSION} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+    )
+    xrt_sync_status['details'].append("🔒 Source XRT: lecture seule (aucune écriture).")
+    started_at = datetime.now()
+
+    try:
+        xrt_cfg = get_xrt_source_runtime_config()
+        source_conn = get_connection(xrt_cfg, readonly=True)
+        source_cursor = source_conn.cursor()
+
+        target_conn = get_connection(TARGET_CONFIG)
+        target_cursor = target_conn.cursor()
+        ensure_target_schema(target_cursor, 'XRT')
+        target_conn.commit()
+
+        dropped = xrt_drop_all_user_tables_in_schema(target_cursor, 'XRT')
+        target_conn.commit()
+        xrt_sync_status['details'].append(
+            f"🧹 Schéma XRT nettoyé en cible: {dropped} table(s) supprimée(s) (si présentes)"
+        )
+
+        tables = xrt_list_source_tables(source_cursor)
+        tables = xrt_sort_tables_for_copy_cursor(source_cursor, tables)
+        total = len(tables)
+        xrt_sync_status['details'].append(f"📦 Tables XRT détectées: {total}")
+
+        total_inserted = 0
+        errors = 0
+
+        for i, (schema_name, table_name) in enumerate(tables, start=1):
+            xrt_sync_status['message'] = f"XRT: copie {schema_name}.{table_name}"
+            xrt_sync_status['progress'] = int((i / max(1, total)) * 100)
+            try:
+                inserted = xrt_copy_table_full(source_cursor, target_cursor, schema_name, table_name, xrt_sync_status)
+                target_conn.commit()
+                total_inserted += inserted
+                xrt_sync_status['details'].append(f"✓ {schema_name}.{table_name}: {inserted} ligne(s) copiée(s)")
+            except Exception as e_tbl:
+                target_conn.rollback()
+                errors += 1
+                xrt_sync_status['details'].append(f"✗ {schema_name}.{table_name}: {str(e_tbl)[:220]}")
+
+        ended_at = datetime.now()
+        xrt_sync_status['details'].append("")
+        xrt_sync_status['details'].append(f"🕒 Début: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(f"🕒 Fin:   {ended_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(f"📌 Total lignes copiées: {total_inserted}")
+        xrt_sync_status['details'].append(f"⚠ Erreurs: {errors}")
+
+        xrt_sync_status['message'] = 'Synchronisation XRT terminée'
+        xrt_sync_status['progress'] = 100
+
+        try:
+            source_conn.close()
+        except:
+            pass
+        try:
+            target_conn.close()
+        except:
+            pass
+    except Exception as e:
+        xrt_sync_status['message'] = f'Erreur XRT: {str(e)}'
+        xrt_sync_status['details'].append(f"Erreur globale XRT: {str(e)}")
+    finally:
+        xrt_sync_status['running'] = False
+
+
+def xrt_sync_databases_missing_only():
+    """
+    Copie uniquement les tables source dont la table XRT correspondante n'existe pas encore en cible.
+    Ne supprime pas le schéma XRT ni les tables déjà synchronisées (reprise après synchro interrompue).
+    """
+    global xrt_sync_status
+    xrt_sync_status = {
+        'running': True,
+        'message': 'Analyse des tables XRT manquantes...',
+        'progress': 0,
+        'details': [],
+        'code_version': PROJET21_CODE_VERSION,
+    }
+    xrt_sync_status['details'].append(
+        f"🧩 Version code Projet21: {PROJET21_CODE_VERSION} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+    )
+    xrt_sync_status['details'].append("🔒 Source XRT: lecture seule (aucune écriture).")
+    xrt_sync_status['details'].append("➕ Mode: compléter uniquement les tables absentes en XRT (pas de nettoyage global).")
+    started_at = datetime.now()
+
+    try:
+        xrt_cfg = get_xrt_source_runtime_config()
+        source_conn = get_connection(xrt_cfg, readonly=True)
+        source_cursor = source_conn.cursor()
+
+        target_conn = get_connection(TARGET_CONFIG)
+        target_cursor = target_conn.cursor()
+        ensure_target_schema(target_cursor, 'XRT')
+        target_conn.commit()
+
+        tables = xrt_list_source_tables(source_cursor)
+        tables = xrt_sort_tables_for_copy_cursor(source_cursor, tables)
+
+        missing_list = []
+        existing_n = 0
+        for schema_name, table_name in tables:
+            tgt_name = xrt_target_table_name(schema_name, table_name)
+            if xrt_target_table_exists(target_cursor, 'XRT', tgt_name):
+                existing_n += 1
+            else:
+                missing_list.append((schema_name, table_name))
+
+        xrt_sync_status['details'].append(
+            f"📊 Tables source: {len(tables)} | Déjà présentes en XRT: {existing_n} | À copier: {len(missing_list)}"
+        )
+
+        total = len(missing_list)
+        total_inserted = 0
+        errors = 0
+
+        if total == 0:
+            xrt_sync_status['message'] = 'Aucune table manquante'
+            xrt_sync_status['progress'] = 100
+        else:
+            for i, (schema_name, table_name) in enumerate(missing_list, start=1):
+                xrt_sync_status['message'] = f"XRT (complément): {schema_name}.{table_name}"
+                xrt_sync_status['progress'] = int((i / max(1, total)) * 100)
+                try:
+                    inserted = xrt_copy_table_full(
+                        source_cursor, target_cursor, schema_name, table_name, xrt_sync_status
+                    )
+                    target_conn.commit()
+                    total_inserted += inserted
+                    xrt_sync_status['details'].append(
+                        f"✓ {schema_name}.{table_name}: {inserted} ligne(s) copiée(s)"
+                    )
+                except Exception as e_tbl:
+                    target_conn.rollback()
+                    errors += 1
+                    xrt_sync_status['details'].append(
+                        f"✗ {schema_name}.{table_name}: {str(e_tbl)[:220]}"
+                    )
+
+            xrt_sync_status['message'] = 'Complément XRT terminé'
+            xrt_sync_status['progress'] = 100
+
+        ended_at = datetime.now()
+        xrt_sync_status['details'].append("")
+        xrt_sync_status['details'].append(f"🕒 Début: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(f"🕒 Fin:   {ended_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(f"📌 Lignes copiées (ce run): {total_inserted}")
+        xrt_sync_status['details'].append(f"⚠ Erreurs: {errors}")
+
+        try:
+            source_conn.close()
+        except Exception:
+            pass
+        try:
+            target_conn.close()
+        except Exception:
+            pass
+    except Exception as e:
+        xrt_sync_status['message'] = f'Erreur XRT (complément): {str(e)}'
+        xrt_sync_status['details'].append(f"Erreur globale XRT: {str(e)}")
+    finally:
+        xrt_sync_status['running'] = False
+
+
+def xrt_sync_databases_count_mismatch_only():
+    """
+    Recopie (DROP + CREATE + données) uniquement les tables déjà présentes en XRT
+    dont COUNT(source) diffère de COUNT(cible). Utile après une vérif « KO comptes différents »
+    sans tout resynchroniser.
+    """
+    global xrt_sync_status
+    xrt_sync_status = {
+        'running': True,
+        'message': 'Analyse des écarts de comptage XRT…',
+        'progress': 0,
+        'details': [],
+        'code_version': PROJET21_CODE_VERSION,
+    }
+    xrt_sync_status['details'].append(
+        f"🧩 Version code Projet21: {PROJET21_CODE_VERSION} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+    )
+    xrt_sync_status['details'].append("🔒 Source XRT: lecture seule (aucune écriture).")
+    xrt_sync_status['details'].append(
+        "🔧 Mode: recopier uniquement les tables avec COUNT(source) ≠ COUNT(cible) dans le schéma XRT."
+    )
+    started_at = datetime.now()
+
+    try:
+        xrt_cfg = get_xrt_source_runtime_config()
+        source_conn = get_connection(xrt_cfg, readonly=True)
+        source_cursor = source_conn.cursor()
+
+        target_conn = get_connection(TARGET_CONFIG)
+        target_cursor = target_conn.cursor()
+        ensure_target_schema(target_cursor, 'XRT')
+        target_conn.commit()
+
+        tables = xrt_list_source_tables(source_cursor)
+
+        mismatch_list = []
+        for schema_name, table_name in tables:
+            tgt_name = xrt_target_table_name(schema_name, table_name)
+            try:
+                source_cursor.execute(f"SELECT COUNT(*) FROM [{schema_name}].[{table_name}]")
+                src_count = int(source_cursor.fetchone()[0] or 0)
+                if not xrt_target_table_exists(target_cursor, 'XRT', tgt_name):
+                    continue
+                target_cursor.execute(f"SELECT COUNT(*) FROM [XRT].[{tgt_name}]")
+                tgt_count = int(target_cursor.fetchone()[0] or 0)
+                if src_count != tgt_count:
+                    mismatch_list.append((schema_name, table_name, src_count, tgt_count))
+            except Exception:
+                continue
+
+        mismatch_sorted = [
+            (s, t) for s, t, _sc, _tc in mismatch_list
+        ]
+        mismatch_sorted = xrt_sort_tables_for_copy_cursor(source_cursor, mismatch_sorted)
+
+        xrt_sync_status['details'].append(
+            f"📊 Tables avec écart de comptage: {len(mismatch_list)} "
+            f"(sur {len(tables)} tables source)"
+        )
+        for schema_name, table_name, sc, tc in mismatch_list:
+            tgt_name = xrt_target_table_name(schema_name, table_name)
+            xrt_sync_status['details'].append(
+                f"   • {schema_name}.{table_name} -> XRT.{tgt_name}: source={sc} cible={tc}"
+            )
+
+        total = len(mismatch_sorted)
+        total_inserted = 0
+        errors = 0
+
+        if total == 0:
+            xrt_sync_status['message'] = 'Aucun écart de comptage'
+            xrt_sync_status['progress'] = 100
+        else:
+            for i, (schema_name, table_name) in enumerate(mismatch_sorted, start=1):
+                xrt_sync_status['message'] = f"XRT (réalignement comptage): {schema_name}.{table_name}"
+                xrt_sync_status['progress'] = int((i / max(1, total)) * 100)
+                try:
+                    inserted = xrt_copy_table_full(
+                        source_cursor, target_cursor, schema_name, table_name, xrt_sync_status
+                    )
+                    target_conn.commit()
+                    total_inserted += inserted
+                    xrt_sync_status['details'].append(
+                        f"✓ {schema_name}.{table_name}: {inserted} ligne(s) recopiée(s)"
+                    )
+                except Exception as e_tbl:
+                    target_conn.rollback()
+                    errors += 1
+                    xrt_sync_status['details'].append(
+                        f"✗ {schema_name}.{table_name}: {str(e_tbl)[:220]}"
+                    )
+
+            xrt_sync_status['message'] = 'Réalignement comptages XRT terminé'
+            xrt_sync_status['progress'] = 100
+
+        ended_at = datetime.now()
+        xrt_sync_status['details'].append("")
+        xrt_sync_status['details'].append(f"🕒 Début: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(f"🕒 Fin:   {ended_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(f"📌 Lignes copiées (ce run): {total_inserted}")
+        xrt_sync_status['details'].append(f"⚠ Erreurs: {errors}")
+
+        try:
+            source_conn.close()
+        except Exception:
+            pass
+        try:
+            target_conn.close()
+        except Exception:
+            pass
+    except Exception as e:
+        xrt_sync_status['message'] = f'Erreur XRT (réalignement): {str(e)}'
+        xrt_sync_status['details'].append(f"Erreur globale XRT: {str(e)}")
+    finally:
+        xrt_sync_status['running'] = False
+
+
+def xrt_sync_databases_incremental():
+    """
+    Synchronisation XRT type « miroir » sans vider le schéma :
+    - table absente en XRT : création + copie complète (flux fetchmany) ;
+    - table présente : détection d’écart COUNT puis CHECKSUM_AGG(BINARY_CHECKSUM(*)) ;
+      si écart et volume ≤ XRT_MIRROR_MAX_ROWS_IN_MEMORY : INSERT / UPDATE en mémoire (PK requise) ;
+      sinon : recopie complète de la table (xrt_copy_table_full) ;
+    - phase finale : suppression (ordre inverse FK) des lignes cible dont la PK n’existe plus en source.
+
+    Source strictement en lecture seule.
+    """
+    global xrt_sync_status
+    xrt_sync_status = {
+        'running': True,
+        'message': 'Analyse XRT (détection + miroir)…',
+        'progress': 0,
+        'details': [],
+        'code_version': PROJET21_CODE_VERSION,
+    }
+    xrt_sync_status['details'].append(
+        f"🧩 Version code Projet21: {PROJET21_CODE_VERSION} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+    )
+    xrt_sync_status['details'].append("🔒 Source XRT: lecture seule (aucune écriture).")
+    xrt_sync_status['details'].append(
+        f"📌 Mode: miroir cible — détection COUNT + checksum ; plafond mémoire "
+        f"{XRT_MIRROR_MAX_ROWS_IN_MEMORY} lignes/table (env XRT_MIRROR_MAX_ROWS_IN_MEMORY)."
+    )
+    started_at = datetime.now()
+
+    total_inserted = 0
+    total_updated = 0
+    full_copies = 0
+    tables_aligned = 0
+    orphans_deleted_total = 0
+    errors = 0
+
+    try:
+        xrt_cfg = get_xrt_source_runtime_config()
+        source_conn = get_connection(xrt_cfg, readonly=True)
+        source_cursor = source_conn.cursor()
+
+        target_conn = get_connection(TARGET_CONFIG)
+        target_cursor = target_conn.cursor()
+        ensure_target_schema(target_cursor, 'XRT')
+        target_conn.commit()
+
+        tables = xrt_list_source_tables(source_cursor)
+        sorted_tables = xrt_sort_tables_for_copy_cursor(source_cursor, tables)
+        n_tables = len(sorted_tables)
+
+        for i, (schema_name, table_name) in enumerate(sorted_tables, start=1):
+            xrt_sync_status['message'] = f"XRT: {schema_name}.{table_name}"
+            xrt_sync_status['progress'] = int((i / max(1, n_tables)) * 88)
+            tgt_name = xrt_target_table_name(schema_name, table_name)
+
+            try:
+                if not xrt_target_table_exists(target_cursor, 'XRT', tgt_name):
+                    ins = xrt_copy_table_full(
+                        source_cursor, target_cursor, schema_name, table_name, xrt_sync_status
+                    )
+                    target_conn.commit()
+                    total_inserted += ins
+                    full_copies += 1
+                    xrt_sync_status['details'].append(
+                        f"✓ {schema_name}.{table_name}: nouvelle table → {ins} ligne(s) copiée(s)"
+                    )
+                    continue
+
+                src_n = xrt_count_rows(source_cursor, schema_name, table_name)
+                tgt_n = xrt_count_rows(target_cursor, 'XRT', tgt_name)
+
+                if src_n == 0 and tgt_n == 0:
+                    tables_aligned += 1
+                    xrt_sync_status['details'].append(
+                        f"○ {schema_name}.{table_name}: vide source/cible — inchangé"
+                    )
+                    continue
+
+                if src_n == 0 and tgt_n > 0:
+                    xrt_sync_status['details'].append(
+                        f"   … {schema_name}.{table_name}: source vide, {tgt_n} ligne(s) en cible "
+                        f"— suppression orphelins en fin de synchro"
+                    )
+                    continue
+
+                need_sync = False
+                reason = ""
+                if src_n != tgt_n:
+                    need_sync = True
+                    reason = f"comptage src={src_n} ≠ cible={tgt_n}"
+                else:
+                    cs_s = xrt_table_checksum_agg(source_cursor, schema_name, table_name)
+                    cs_t = xrt_table_checksum_agg(target_cursor, 'XRT', tgt_name)
+                    if cs_s is None or cs_t is None:
+                        need_sync = True
+                        reason = "checksum indisponible — synchro forcée"
+                    elif cs_s != cs_t:
+                        need_sync = True
+                        reason = "checksum différent (même comptage)"
+
+                if not need_sync:
+                    tables_aligned += 1
+                    xrt_sync_status['details'].append(
+                        f"○ {schema_name}.{table_name}: COUNT et checksum alignés — inchangé"
+                    )
+                    continue
+
+                pk_cols = get_primary_keys_scoped(source_cursor, schema_name, table_name)
+
+                use_full_copy = (not pk_cols) or (src_n > XRT_MIRROR_MAX_ROWS_IN_MEMORY)
+
+                if use_full_copy:
+                    why_bits = []
+                    if not pk_cols:
+                        why_bits.append("sans PK")
+                    if pk_cols and src_n > XRT_MIRROR_MAX_ROWS_IN_MEMORY:
+                        why_bits.append(f">{XRT_MIRROR_MAX_ROWS_IN_MEMORY} lignes")
+                    xrt_sync_status['details'].append(
+                        f"   … {schema_name}.{table_name}: écart ({reason}) → recopie complète "
+                        f"({', '.join(why_bits)})"
+                    )
+                    try:
+                        ins = xrt_copy_table_full(
+                            source_cursor, target_cursor, schema_name, table_name, xrt_sync_status
+                        )
+                        target_conn.commit()
+                        total_inserted += ins
+                        full_copies += 1
+                        xrt_sync_status['details'].append(
+                            f"✓ {schema_name}.{table_name}: recopie complète {ins} ligne(s)"
+                        )
+                    except Exception as e_full:
+                        target_conn.rollback()
+                        errors += 1
+                        xrt_sync_status['details'].append(
+                            f"✗ {schema_name}.{table_name} (recopie): {str(e_full)[:220]}"
+                        )
+                    continue
+
+                xrt_sync_status['details'].append(
+                    f"   … {schema_name}.{table_name}: écart ({reason}) → miroir mémoire "
+                    f"(≤{XRT_MIRROR_MAX_ROWS_IN_MEMORY} lignes)"
+                )
+                try:
+                    ins, upd = xrt_sync_table_mirror_memory(
+                        source_cursor,
+                        target_cursor,
+                        schema_name,
+                        table_name,
+                        'XRT',
+                        tgt_name,
+                    )
+                    target_conn.commit()
+                    total_inserted += ins
+                    total_updated += upd
+                    xrt_sync_status['details'].append(
+                        f"✓ {schema_name}.{table_name}: miroir {ins} inséré(s), {upd} mis(e)(s) à jour"
+                    )
+                except Exception as e_m:
+                    target_conn.rollback()
+                    xrt_sync_status['details'].append(
+                        f"   ⚠ {schema_name}.{table_name}: miroir échoué ({str(e_m)[:120]}) "
+                        f"— tentative recopie complète"
+                    )
+                    try:
+                        ins = xrt_copy_table_full(
+                            source_cursor, target_cursor, schema_name, table_name, xrt_sync_status
+                        )
+                        target_conn.commit()
+                        total_inserted += ins
+                        full_copies += 1
+                        xrt_sync_status['details'].append(
+                            f"✓ {schema_name}.{table_name}: recopie de secours {ins} ligne(s)"
+                        )
+                    except Exception as e2:
+                        target_conn.rollback()
+                        errors += 1
+                        xrt_sync_status['details'].append(
+                            f"✗ {schema_name}.{table_name}: {str(e2)[:220]}"
+                        )
+
+            except Exception as e_tbl:
+                try:
+                    target_conn.rollback()
+                except Exception:
+                    pass
+                errors += 1
+                xrt_sync_status['details'].append(
+                    f"✗ {schema_name}.{table_name}: {str(e_tbl)[:220]}"
+                )
+
+        xrt_sync_status['message'] = "XRT: suppression des orphelins cible…"
+        xrt_sync_status['progress'] = 92
+        xrt_sync_status['details'].append(
+            "\n🧹 Lignes présentes en cible mais absentes de la source (ordre inverse FK)…"
+        )
+
+        for j, (schema_name, table_name) in enumerate(reversed(sorted_tables), start=1):
+            xrt_sync_status['progress'] = 92 + int((j / max(1, n_tables)) * 7)
+            tgt_name = xrt_target_table_name(schema_name, table_name)
+            if not xrt_target_table_exists(target_cursor, 'XRT', tgt_name):
+                continue
+            pk_cols = get_primary_keys_scoped(source_cursor, schema_name, table_name)
+            if not pk_cols:
+                continue
+            try:
+                nd = xrt_delete_orphans_xrt(
+                    source_cursor,
+                    target_cursor,
+                    target_conn,
+                    schema_name,
+                    table_name,
+                    'XRT',
+                    tgt_name,
+                    pk_cols,
+                    xrt_sync_status,
+                )
+                orphans_deleted_total += nd
+                if nd > 0:
+                    xrt_sync_status['details'].append(
+                        f"🧹 {schema_name}.{table_name}: {nd} ligne(s) orpheline(s) supprimée(s)"
+                    )
+            except Exception:
+                pass
+
+        if orphans_deleted_total == 0:
+            xrt_sync_status['details'].append("○ Aucune ligne orpheline supprimée")
+
+        ended_at = datetime.now()
+        xrt_sync_status['details'].append("")
+        xrt_sync_status['details'].append(f"🕒 Début: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(f"🕒 Fin:   {ended_at.strftime('%Y-%m-%d %H:%M:%S')}")
+        xrt_sync_status['details'].append(
+            f"📌 Résumé: tables inchangées={tables_aligned}, recopies complètes={full_copies}, "
+            f"lignes insérées={total_inserted}, lignes mises à jour={total_updated}, "
+            f"orphelins supprimés={orphans_deleted_total}"
+        )
+        xrt_sync_status['details'].append(f"⚠ Erreurs: {errors}")
+
+        xrt_sync_status['message'] = 'Synchronisation XRT terminée'
+        xrt_sync_status['progress'] = 100
+
+        try:
+            source_conn.close()
+        except Exception:
+            pass
+        try:
+            target_conn.close()
+        except Exception:
+            pass
+    except Exception as e:
+        xrt_sync_status['message'] = f'Erreur XRT (synchro miroir): {str(e)}'
+        xrt_sync_status['details'].append(f"Erreur globale XRT: {str(e)}")
+    finally:
+        xrt_sync_status['running'] = False
+
 
 def has_identity_column(cursor, table_name):
     """Vérifie si une table a une colonne IDENTITY"""
@@ -343,6 +1411,211 @@ def compare_rows_for_update(source_row_dict, target_row_dict, exclude_cols=None)
                     update_values[col] = source_val
     
     return len(diff_cols) > 0, diff_cols, update_values
+
+
+def xrt_delete_orphans_xrt(
+    source_cursor,
+    target_cursor,
+    target_conn,
+    source_schema,
+    source_table,
+    target_schema,
+    target_table,
+    pk_columns,
+    sync_status,
+):
+    """
+    Supprime en schéma XRT les lignes dont la PK n’existe plus dans la source (lecture seule source).
+    """
+    deleted = 0
+    pk_select = ", ".join([f"[{pk}]" for pk in pk_columns])
+    try:
+        source_cursor.execute(f"SELECT {pk_select} FROM [{source_schema}].[{source_table}]")
+        source_pks = set()
+        for row in source_cursor.fetchall():
+            if len(pk_columns) == 1:
+                source_pks.add(row[0])
+            else:
+                source_pks.add(tuple(row))
+
+        target_cursor.execute(f"SELECT {pk_select} FROM [{target_schema}].[{target_table}]")
+        target_pk_list = []
+        for row in target_cursor.fetchall():
+            if len(pk_columns) == 1:
+                target_pk_list.append(row[0])
+            else:
+                target_pk_list.append(tuple(row))
+
+        orphans = [pk for pk in target_pk_list if pk not in source_pks]
+        if not orphans:
+            return 0
+
+        batch_size = 500
+        if len(pk_columns) == 1:
+            col = pk_columns[0]
+            for i in range(0, len(orphans), batch_size):
+                batch = orphans[i : i + batch_size]
+                placeholders = ", ".join(["?"] * len(batch))
+                target_cursor.execute(
+                    f"DELETE FROM [{target_schema}].[{target_table}] WHERE [{col}] IN ({placeholders})",
+                    tuple(batch),
+                )
+                rc = target_cursor.rowcount
+                deleted += len(batch) if rc == -1 else rc
+        else:
+            where_parts = [f"[{pk}] = ?" for pk in pk_columns]
+            where_sql = " AND ".join(where_parts)
+            for pk in orphans:
+                target_cursor.execute(
+                    f"DELETE FROM [{target_schema}].[{target_table}] WHERE {where_sql}",
+                    tuple(pk),
+                )
+                rc = target_cursor.rowcount
+                deleted += 1 if rc == -1 else max(rc, 0)
+
+        target_conn.commit()
+        return deleted
+    except Exception as e:
+        err_str = str(e)
+        try:
+            target_conn.rollback()
+        except Exception:
+            pass
+        sync_status["details"].append(
+            f"  ⚠ Orphelins {source_schema}.{source_table}: {err_str[:200]}"
+        )
+        return 0
+
+
+def xrt_sync_table_mirror_memory(
+    source_cursor,
+    target_cursor,
+    source_schema,
+    source_table,
+    target_schema,
+    tgt_name,
+):
+    """
+    Alignement ligne à ligne (INSERT lignes nouvelles, UPDATE colonnes divergentes).
+    Ne supprime pas les orphelins (phase séparée). Pas de commit ici.
+    Retourne (inserted, updated).
+    """
+    pk_columns = get_primary_keys_scoped(source_cursor, source_schema, source_table)
+    if not pk_columns:
+        raise RuntimeError("PK introuvable pour synchro miroir mémoire")
+
+    source_cursor.execute(f"SELECT * FROM [{source_schema}].[{source_table}] WHERE 1=0")
+    columns = [d[0] for d in source_cursor.description]
+    if not columns:
+        return 0, 0
+
+    col_list = ", ".join([f"[{c}]" for c in columns])
+    placeholders = ", ".join(["?"] * len(columns))
+
+    source_cursor.execute(f"SELECT {col_list} FROM [{source_schema}].[{source_table}]")
+    source_rows = source_cursor.fetchall()
+
+    target_cursor.execute(f"SELECT * FROM [{target_schema}].[{tgt_name}] WHERE 1=0")
+    tgt_desc = target_cursor.description or []
+    tgt_columns = [d[0] for d in tgt_desc]
+    target_col_names = set(tgt_columns)
+
+    target_cursor.execute(f"SELECT * FROM [{target_schema}].[{tgt_name}]")
+    existing_rows_by_pk = {}
+    for row in target_cursor.fetchall():
+        row_dict = {tgt_columns[i]: row[i] for i in range(len(tgt_columns))}
+        if len(pk_columns) == 1:
+            pk_key = row_dict[pk_columns[0]]
+        else:
+            pk_key = tuple(row_dict[pk] for pk in pk_columns)
+        existing_rows_by_pk[pk_key] = row_dict
+
+    pk_indices = [columns.index(pk) for pk in pk_columns]
+    exclude_cols = set(pk_columns)
+
+    identity_on = has_identity_column_scoped(target_cursor, target_schema, tgt_name)
+    inserted = 0
+    updated = 0
+    batch = []
+
+    target_cursor.fast_executemany = True
+
+    try:
+        if identity_on:
+            target_cursor.execute(
+                f"SET IDENTITY_INSERT [{target_schema}].[{tgt_name}] ON"
+            )
+
+        for row in source_rows:
+            row_dict = {columns[i]: row[i] for i in range(len(columns))}
+            if len(pk_columns) == 1:
+                pk_one = row[pk_indices[0]]
+                pk_exists = pk_one in existing_rows_by_pk
+                pk_for_where = pk_one
+            else:
+                pk_tuple = tuple(row[i] for i in pk_indices)
+                pk_exists = pk_tuple in existing_rows_by_pk
+                pk_for_where = pk_tuple
+
+            if pk_exists:
+                target_row_dict = existing_rows_by_pk[pk_for_where]
+                has_diff, diff_cols, update_values = compare_rows_for_update(
+                    row_dict, target_row_dict, exclude_cols
+                )
+                if has_diff:
+                    diff_cols = [c for c in diff_cols if c in target_col_names]
+                    update_values = {
+                        c: update_values[c] for c in diff_cols if c in update_values
+                    }
+                    if diff_cols:
+                        if len(pk_columns) == 1:
+                            where_pk = f"[{pk_columns[0]}] = ?"
+                            set_clauses = [f"[{col}] = ?" for col in diff_cols]
+                            set_values = [update_values[col] for col in diff_cols]
+                            update_sql = (
+                                f"UPDATE [{target_schema}].[{tgt_name}] SET {', '.join(set_clauses)} "
+                                f"WHERE {where_pk}"
+                            )
+                            target_cursor.execute(
+                                update_sql, tuple(set_values) + (pk_for_where,)
+                            )
+                        else:
+                            where_parts = [f"[{pk}] = ?" for pk in pk_columns]
+                            where_pk = " AND ".join(where_parts)
+                            set_clauses = [f"[{col}] = ?" for col in diff_cols]
+                            set_values = [update_values[col] for col in diff_cols]
+                            update_sql = (
+                                f"UPDATE [{target_schema}].[{tgt_name}] SET {', '.join(set_clauses)} "
+                                f"WHERE {where_pk}"
+                            )
+                            target_cursor.execute(
+                                update_sql, tuple(set_values) + pk_for_where
+                            )
+                        updated += 1
+            else:
+                batch.append(list(row))
+                if len(batch) >= 100:
+                    target_cursor.executemany(
+                        f"INSERT INTO [{target_schema}].[{tgt_name}] ({col_list}) VALUES ({placeholders})",
+                        batch,
+                    )
+                    inserted += len(batch)
+                    batch = []
+
+        if batch:
+            target_cursor.executemany(
+                f"INSERT INTO [{target_schema}].[{tgt_name}] ({col_list}) VALUES ({placeholders})",
+                batch,
+            )
+            inserted += len(batch)
+
+    finally:
+        if identity_on:
+            target_cursor.execute(
+                f"SET IDENTITY_INSERT [{target_schema}].[{tgt_name}] OFF"
+            )
+
+    return inserted, updated
 
 
 def sync_delete_orphan_rows_from_table(source_cursor, target_cursor, target_conn, table_name, pk_columns, sync_status):
@@ -2373,6 +3646,240 @@ def get_status():
     payload = dict(sync_status) if isinstance(sync_status, dict) else {'running': False, 'message': '', 'progress': 0, 'details': []}
     payload['code_version'] = PROJET21_CODE_VERSION
     return jsonify(payload)
+
+@projet21_bp.route('/xrt/sync', methods=['POST'])
+def start_xrt_sync():
+    global xrt_sync_status
+    if xrt_sync_status.get('running'):
+        return jsonify({'error': 'Synchronisation XRT déjà en cours'}), 400
+    thread = threading.Thread(target=xrt_sync_databases_incremental)
+    thread.start()
+    return jsonify({'status': 'started'})
+
+
+@projet21_bp.route('/xrt/sync-full', methods=['POST'])
+def start_xrt_sync_full():
+    """
+    Synchronisation XRT « plein » : vide le schéma XRT puis recopie tout.
+    Réservé aux cas exceptionnels (pas exposé dans l’UI standard).
+    """
+    global xrt_sync_status
+    if xrt_sync_status.get('running'):
+        return jsonify({'error': 'Synchronisation XRT déjà en cours'}), 400
+    thread = threading.Thread(target=xrt_sync_databases)
+    thread.start()
+    return jsonify({'status': 'started'})
+
+
+@projet21_bp.route('/xrt/sync-missing', methods=['POST'])
+def start_xrt_sync_missing():
+    global xrt_sync_status
+    if xrt_sync_status.get('running'):
+        return jsonify({'error': 'Synchronisation XRT déjà en cours'}), 400
+    thread = threading.Thread(target=xrt_sync_databases_missing_only)
+    thread.start()
+    return jsonify({'status': 'started'})
+
+@projet21_bp.route('/xrt/sync-mismatch', methods=['POST'])
+def start_xrt_sync_mismatch():
+    global xrt_sync_status
+    if xrt_sync_status.get('running'):
+        return jsonify({'error': 'Synchronisation XRT déjà en cours'}), 400
+    thread = threading.Thread(target=xrt_sync_databases_count_mismatch_only)
+    thread.start()
+    return jsonify({'status': 'started'})
+
+@projet21_bp.route('/xrt/status')
+def get_xrt_status():
+    payload = dict(xrt_sync_status) if isinstance(xrt_sync_status, dict) else {'running': False, 'message': '', 'progress': 0, 'details': []}
+    payload['code_version'] = PROJET21_CODE_VERSION
+    return jsonify(payload)
+
+@projet21_bp.route('/xrt/verify', methods=['POST'])
+def verify_xrt_sync():
+    """
+    Vérifie la synchronisation XRT : comptes source vs cible, puis si égalité des comptes,
+    agrégat CHECKSUM_AGG(BINARY_CHECKSUM(*)) comme indicateur de divergence de contenu.
+    La source reste strictement en lecture seule.
+    """
+    try:
+        xrt_cfg = get_xrt_source_runtime_config()
+        source_conn = get_connection(xrt_cfg, readonly=True)
+        source_cursor = source_conn.cursor()
+
+        target_conn = get_connection(TARGET_CONFIG)
+        target_cursor = target_conn.cursor()
+        ensure_target_schema(target_cursor, 'XRT')
+
+        tables = xrt_list_source_tables(source_cursor)
+
+        ok = 0
+        ok_count_only = 0  # comptages égaux, checksum NULL des deux côtés (non = échec de synchro)
+        ko_absent = 0
+        ko_mismatch = 0
+        ko_checksum = 0
+        ko_checksum_na = 0
+        ko_other = 0
+        lines = []
+        lines.append("=== Vérification synchronisation XRT ===")
+        lines.append(f"Date/heure: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"Source: {xrt_cfg['server']} / {xrt_cfg['database']} (READ ONLY)")
+        lines.append(f"Cible: {TARGET_CONFIG['server']} / {TARGET_CONFIG['database']} (schema XRT)")
+        lines.append(
+            "Méthode: COUNT puis, si comptes égaux et table non vide, CHECKSUM_AGG(CAST(BINARY_CHECKSUM(*) AS BIGINT))."
+        )
+        lines.append(
+            "Si le checksum ne peut pas être calculé (NULL) côté source et cible, seul le comptage est retenu (○) — "
+            "ce n’est pas un échec de synchronisation."
+        )
+        lines.append("")
+
+        for schema_name, table_name in tables:
+            tgt_name = xrt_target_table_name(schema_name, table_name)
+            try:
+                source_cursor.execute(f"SELECT COUNT(*) FROM [{schema_name}].[{table_name}]")
+                src_count = int(source_cursor.fetchone()[0] or 0)
+
+                if not xrt_target_table_exists(target_cursor, 'XRT', tgt_name):
+                    ko_absent += 1
+                    lines.append(
+                        f"✗ {schema_name}.{table_name} -> XRT.{tgt_name}: absente en cible "
+                        f"(source: {src_count} ligne(s))"
+                    )
+                    continue
+
+                target_cursor.execute(f"SELECT COUNT(*) FROM [XRT].[{tgt_name}]")
+                tgt_count = int(target_cursor.fetchone()[0] or 0)
+
+                if src_count != tgt_count:
+                    ko_mismatch += 1
+                    lines.append(
+                        f"✗ {schema_name}.{table_name} -> XRT.{tgt_name}: "
+                        f"comptage source={src_count} cible={tgt_count}"
+                    )
+                    continue
+
+                # Comptages égaux
+                if src_count == 0:
+                    ok += 1
+                    lines.append(
+                        f"✓ {schema_name}.{table_name} -> XRT.{tgt_name}: vide aligné (0 ligne)"
+                    )
+                    continue
+
+                cs_s = xrt_table_checksum_agg(source_cursor, schema_name, table_name)
+                cs_t = xrt_table_checksum_agg(target_cursor, 'XRT', tgt_name)
+
+                if cs_s is None and cs_t is None:
+                    ok += 1
+                    ok_count_only += 1
+                    lines.append(
+                        f"○ {schema_name}.{table_name} -> XRT.{tgt_name}: {src_count} ligne(s), "
+                        f"comptage OK — checksum agrégé indisponible (BINARY_CHECKSUM limité selon types de colonnes)"
+                    )
+                    continue
+
+                if cs_s is None or cs_t is None:
+                    ko_checksum_na += 1
+                    lines.append(
+                        f"✗ {schema_name}.{table_name} -> XRT.{tgt_name}: {src_count} ligne(s), "
+                        f"checksum partiellement indisponible (src={cs_s!r} cible={cs_t!r}) "
+                        f"— situation inhabituelle, comparer ou resynchroniser"
+                    )
+                    continue
+
+                if cs_s != cs_t:
+                    ko_checksum += 1
+                    lines.append(
+                        f"✗ {schema_name}.{table_name} -> XRT.{tgt_name}: comptage OK ({src_count}) "
+                        f"mais checksum différent (source={cs_s} cible={cs_t})"
+                    )
+                else:
+                    ok += 1
+                    lines.append(
+                        f"✓ {schema_name}.{table_name} -> XRT.{tgt_name}: {src_count} ligne(s), checksum aligné"
+                    )
+            except Exception as e_tbl:
+                ko_other += 1
+                lines.append(f"✗ {schema_name}.{table_name}: erreur vérif: {str(e_tbl)[:200]}")
+
+        ko = ko_absent + ko_mismatch + ko_checksum + ko_checksum_na + ko_other
+        lines.append("")
+        lines.append(
+            f"Résumé: OK={ok} | KO={ko} | Tables={len(tables)} "
+            f"(absentes en XRT: {ko_absent}, comptes différents: {ko_mismatch}, "
+            f"contenu différent (checksum): {ko_checksum}, "
+            f"checksum partiellement indisponible (KO): {ko_checksum_na}, "
+            f"OK sur comptage seul (checksum NULL des deux côtés): {ok_count_only}, "
+            f"autres erreurs: {ko_other})"
+        )
+        note_chk = (
+            "Note: collision BINARY_CHECKSUM rare ; ○ = même nombre de lignes sans contrôle checksum SQL complet."
+        )
+        lines.append(note_chk)
+
+        if ko_absent and not ko_mismatch and not ko_checksum and not ko_checksum_na and not ko_other:
+            lines.append(
+                "→ Interprétation: les KO sont des tables non créées en schéma XRT (synchro incomplète). "
+                "Utilisez « Synchroniser XRT » puis relancez la vérification."
+            )
+        if ko_mismatch and not ko_absent and not ko_checksum and not ko_checksum_na and not ko_other:
+            lines.append(
+                "→ Interprétation: écarts de comptage typiques = activité sur la source entre synchro et vérif, "
+                "ou résidus (*_WM). Utilisez « Synchroniser XRT » (miroir par PK / checksum, orphelins ; "
+                "recopie complète seulement si table volumineuse ou sans PK), puis revérifiez."
+            )
+        if ko_checksum and not ko_absent and not ko_mismatch and not ko_checksum_na and not ko_other:
+            lines.append(
+                "→ Interprétation: même nombre de lignes mais données différentes (mises à jour source, "
+                "remplacements de lignes, etc.). Utilisez « Synchroniser XRT » pour réaligner, puis revérifiez."
+            )
+        if ko_checksum_na and not ko_absent and not ko_mismatch and not ko_checksum and not ko_other:
+            lines.append(
+                "→ Interprétation: checksum NULL d’un seul côté (rare). Contrôlez la table ou resynchronisez ; "
+                "les lignes ○ (checksum NULL des deux côtés mais même comptage) sont des OK, pas des KO."
+            )
+        if ko_absent and ko_mismatch and not ko_checksum and not ko_checksum_na and not ko_other:
+            lines.append(
+                "→ Interprétation: tables absentes et écarts de comptage. « Synchroniser XRT » complète les "
+                "manquantes et réaligne les divergences (miroir ou recopie selon le cas), puis revérifiez."
+            )
+        mixed = sum(
+            1
+            for x in (ko_absent, ko_mismatch, ko_checksum, ko_checksum_na, ko_other)
+            if x > 0
+        )
+        if mixed >= 2 and ko > 0:
+            lines.append(
+                "→ Interprétation (situation mixte): combinez les actions ci-dessus selon les catégories du résumé ; "
+                "« Synchroniser XRT » traite en général comptages, contenu (checksum) et orphelins."
+            )
+
+        try:
+            source_conn.close()
+        except:
+            pass
+        try:
+            target_conn.close()
+        except:
+            pass
+
+        return jsonify({'success': True, 'output': "\n".join(lines)})
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+@projet21_bp.route('/xrt/ping', methods=['GET'])
+def xrt_ping():
+    """
+    Diagnostic de connectivité XRT (lecture seule).
+    Retourne un JSON détaillé, sans toucher aux données.
+    """
+    try:
+        return jsonify({'success': True, 'diagnostic': xrt_connection_diagnostics()})
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 @projet21_bp.route('/verify', methods=['POST'])
 def verify_sync():

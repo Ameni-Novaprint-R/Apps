@@ -3,6 +3,10 @@
 """
 Application Flask principale - Portail Novaprint
 """
+from local_env import load_project_env
+
+load_project_env()
+
 from datetime import datetime
 from flask import Flask, render_template, jsonify
 from logic.auth import is_authenticated, get_current_user, get_user_projects, get_user_sections, has_action_access, is_super_user

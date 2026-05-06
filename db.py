@@ -222,6 +222,11 @@ def init_formes_tables():
         cursor.connection.commit()
 
 
+# Compatibilité historique: Projet 24 importait init_web_formes_tables
+def init_web_formes_tables():
+    return init_formes_tables()
+
+
 @contextmanager
 def get_db_cursor():
     conn = get_db_connection()
@@ -2102,7 +2107,7 @@ def get_web_s_dos_encours(search_numero=None):
                 SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
-                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire')
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire', 'PrePressProsetterOverride')
             """)
             existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
             avancement_exists = 'Nom_GP_SERVICES' in existing_cols
@@ -2113,6 +2118,7 @@ def get_web_s_dos_encours(search_numero=None):
             cout_total_exists = 'CoutTotal' in existing_cols
             ct_rel_exists = 'CtRel' in existing_cols
             date_inventaire_exists = 'DateInventaire' in existing_cols
+            prepress_override_exists = 'PrePressProsetterOverride' in existing_cols
         except Exception as e:
             print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
             avancement_exists = False
@@ -2123,6 +2129,7 @@ def get_web_s_dos_encours(search_numero=None):
             cout_total_exists = False
             ct_rel_exists = False
             date_inventaire_exists = False
+            prepress_override_exists = False
         
         # Construire la liste des colonnes dynamiquement
         columns_list = ['ID', 'Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
@@ -2142,6 +2149,8 @@ def get_web_s_dos_encours(search_numero=None):
             columns_list.append('CtRel')
         if date_inventaire_exists:
             columns_list.append('DateInventaire')
+        if prepress_override_exists:
+            columns_list.append('PrePressProsetterOverride')
         columns_list.extend(['DateCreation', 'DateModification'])
         
         select_cols = ', '.join(columns_list)
@@ -2251,6 +2260,11 @@ def get_web_s_dos_encours(search_numero=None):
                 dossier["date_inventaire"] = date_inventaire_value.isoformat() if date_inventaire_value else None
             else:
                 dossier["date_inventaire"] = None
+            if prepress_override_exists:
+                pp_val = row.PrePressProsetterOverride if hasattr(row, 'PrePressProsetterOverride') else None
+                dossier["prepress_prosetter_override"] = float(round(pp_val, 3)) if pp_val is not None else None
+            else:
+                dossier["prepress_prosetter_override"] = None
             
             result.append(dossier)
         return result
@@ -2278,7 +2292,7 @@ def get_web_s_dos_encours_by_numero(numero):
                 SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
-                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire')
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire', 'PrePressProsetterOverride')
             """)
             existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
             avancement_exists = 'Nom_GP_SERVICES' in existing_cols
@@ -2289,6 +2303,7 @@ def get_web_s_dos_encours_by_numero(numero):
             cout_total_exists = 'CoutTotal' in existing_cols
             ct_rel_exists = 'CtRel' in existing_cols
             date_inventaire_exists = 'DateInventaire' in existing_cols
+            prepress_override_exists = 'PrePressProsetterOverride' in existing_cols
         except Exception as e:
             print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
             avancement_exists = False
@@ -2299,6 +2314,7 @@ def get_web_s_dos_encours_by_numero(numero):
             cout_total_exists = False
             ct_rel_exists = False
             date_inventaire_exists = False
+            prepress_override_exists = False
         
         # Construire la liste des colonnes dynamiquement
         columns_list = ['ID', 'Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
@@ -2318,6 +2334,8 @@ def get_web_s_dos_encours_by_numero(numero):
             columns_list.append('CtRel')
         if date_inventaire_exists:
             columns_list.append('DateInventaire')
+        if prepress_override_exists:
+            columns_list.append('PrePressProsetterOverride')
         columns_list.extend(['DateCreation', 'DateModification'])
         
         select_cols = ', '.join(columns_list)
@@ -2414,11 +2432,16 @@ def get_web_s_dos_encours_by_numero(numero):
                 dossier["date_inventaire"] = date_inventaire_value.isoformat() if date_inventaire_value else None
             else:
                 dossier["date_inventaire"] = None
+            if prepress_override_exists:
+                pp_val = row.PrePressProsetterOverride if hasattr(row, 'PrePressProsetterOverride') else None
+                dossier["prepress_prosetter_override"] = float(round(pp_val, 3)) if pp_val is not None else None
+            else:
+                dossier["prepress_prosetter_override"] = None
             
             return dossier
         return None
 
-def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, avancement=None, quantite=None, prix_vente_total=None, ct_estime=None, cout_total=None, ct_rel=None, date_inventaire=None):
+def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, avancement=None, quantite=None, prix_vente_total=None, ct_estime=None, cout_total=None, ct_rel=None, date_inventaire=None, prepress_prosetter_override=None):
     """
     Crée un nouveau dossier dans WEB_S_DOS_ENCOURS
     Les données peuvent être copiées depuis COMMANDES et SOCIETES si nécessaire
@@ -2472,7 +2495,7 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
                 SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
-                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire')
+                AND COLUMN_NAME IN ('Nom_GP_SERVICES', 'PrixVenteUnitaire', 'QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'DateInventaire', 'PrePressProsetterOverride')
             """)
             existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
             avancement_exists = 'Nom_GP_SERVICES' in existing_cols
@@ -2483,6 +2506,7 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
             cout_total_exists = 'CoutTotal' in existing_cols
             ct_rel_exists = 'CtRel' in existing_cols
             date_inventaire_exists = 'DateInventaire' in existing_cols
+            prepress_override_exists = 'PrePressProsetterOverride' in existing_cols
         except Exception as e:
             print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
             avancement_exists = False
@@ -2493,6 +2517,7 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
             cout_total_exists = False
             ct_rel_exists = False
             date_inventaire_exists = False
+            prepress_override_exists = False
         
         # Construire la requête INSERT dynamiquement selon les colonnes disponibles
         columns = ['Numero_COMMANDES', 'RaiSocTri_SOCIETES', 'Reference_COMMANDES', 'Coef_COMMANDES']
@@ -2548,6 +2573,10 @@ def create_web_s_dos_encours(numero, client=None, reference=None, marge=None, av
         if date_inventaire_exists:
             columns.append('DateInventaire')
             values.append(date_inventaire)
+            placeholders.append('?')
+        if prepress_override_exists:
+            columns.append('PrePressProsetterOverride')
+            values.append(prepress_prosetter_override)
             placeholders.append('?')
         
         print(f"[DEBUG create_web_s_dos_encours] Colonnes: {columns}")
@@ -2619,7 +2648,7 @@ def update_web_s_dos_encours_avancement(id_dossier, avancement):
         cursor.connection.commit()
         return cursor.rowcount > 0
 
-def update_web_s_dos_encours_quantite_prix_total(id_dossier, quantite, prix_vente_total, ct_estime=None, cout_total=None, ct_rel=None):
+def update_web_s_dos_encours_quantite_prix_total(id_dossier, quantite, prix_vente_total, ct_estime=None, cout_total=None, ct_rel=None, prepress_prosetter_override=None):
     """
     Met à jour la quantité (QteComm_COMMANDES), le prix de vente total (PrixVenteTotal), 
     le coût total estimé (CTEstimé), le coût total (CoutTotal) et le coût total réel (CtRel) d'un dossier dans WEB_S_DOS_ENCOURS
@@ -2636,7 +2665,7 @@ def update_web_s_dos_encours_quantite_prix_total(id_dossier, quantite, prix_vent
                 SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_NAME = 'WEB_S_DOS_ENCOURS' 
-                AND COLUMN_NAME IN ('QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel')
+                AND COLUMN_NAME IN ('QteComm_COMMANDES', 'PrixVenteTotal', 'CTEstimé', 'CoutTotal', 'CtRel', 'PrePressProsetterOverride')
             """)
             existing_cols = {row.COLUMN_NAME for row in cursor.fetchall()}
             quantite_exists = 'QteComm_COMMANDES' in existing_cols
@@ -2644,6 +2673,7 @@ def update_web_s_dos_encours_quantite_prix_total(id_dossier, quantite, prix_vent
             ct_estime_exists = 'CTEstimé' in existing_cols
             cout_total_exists = 'CoutTotal' in existing_cols
             ct_rel_exists = 'CtRel' in existing_cols
+            prepress_override_exists = 'PrePressProsetterOverride' in existing_cols
         except Exception as e:
             print(f"[WARNING] Erreur lors de la vérification des colonnes: {e}")
             return False
@@ -2675,6 +2705,10 @@ def update_web_s_dos_encours_quantite_prix_total(id_dossier, quantite, prix_vent
         if ct_rel_exists and ct_rel is not None:
             update_parts.append('CtRel = ?')
             values.append(ct_rel)
+        
+        if prepress_override_exists:
+            update_parts.append('PrePressProsetterOverride = ?')
+            values.append(prepress_prosetter_override)
         
         update_parts.append('DateModification = GETDATE()')
         values.append(id_dossier)

@@ -288,6 +288,7 @@ def api_create_dossier():
         ct_estime = data.get('ct_estime')  # CTEstimé - valeur calculée dans l'application
         cout_total = data.get('cout_total')  # CoutTotal - valeur calculée dans l'application
         date_inventaire_str = (data.get('date_inventaire') or '').strip()
+        prepress_override = data.get('prepress_override')
         
         # Convertir quantite en int si elle est fournie
         if quantite is not None:
@@ -318,6 +319,14 @@ def api_create_dossier():
                 cout_total = round(float(cout_total), 3)
             except (ValueError, TypeError):
                 return jsonify({"error": "Le coût total doit être un nombre"}), 400
+        
+        if prepress_override is not None and prepress_override != "":
+            try:
+                prepress_override = round(float(prepress_override), 3)
+            except (ValueError, TypeError):
+                return jsonify({"error": "Le montant PRE-PRESS modifié doit être un nombre"}), 400
+        else:
+            prepress_override = None
         
         date_inventaire = None
         if date_inventaire_str:
@@ -369,7 +378,8 @@ def api_create_dossier():
             ct_estime=ct_estime,
             cout_total=cout_total,
             ct_rel=ct_rel,
-            date_inventaire=date_inventaire
+            date_inventaire=date_inventaire,
+            prepress_prosetter_override=prepress_override
         )
         
         if dossier_id is None:
@@ -432,6 +442,7 @@ def api_update_quantite_prix_total():
         ct_estime = data.get('ct_estime')  # CTEstimé - valeur calculée dans l'application
         cout_total = data.get('cout_total')  # CoutTotal - valeur calculée dans l'application
         ct_rel = data.get('ct_rel')  # CtRel - valeur calculée dans l'application: (CoutTotal / QteComm_COMMANDES) * Quantité
+        prepress_override = data.get('prepress_override')
         
         if not dossier_id:
             return jsonify({"error": "ID est requis"}), 400
@@ -473,8 +484,16 @@ def api_update_quantite_prix_total():
             except (ValueError, TypeError):
                 return jsonify({"error": "Le coût total réel doit être un nombre"}), 400
         
+        if prepress_override is not None and prepress_override != "":
+            try:
+                prepress_override = round(float(prepress_override), 3)
+            except (ValueError, TypeError):
+                return jsonify({"error": "Le montant PRE-PRESS modifié doit être un nombre"}), 400
+        else:
+            prepress_override = None
+        
         # Mise à jour uniquement dans WEB_S_DOS_ENCOURS
-        success = update_web_s_dos_encours_quantite_prix_total(dossier_id, quantite, prix_vente_total, ct_estime, cout_total, ct_rel)
+        success = update_web_s_dos_encours_quantite_prix_total(dossier_id, quantite, prix_vente_total, ct_estime, cout_total, ct_rel, prepress_override)
         
         if success:
             return jsonify({

@@ -17,6 +17,159 @@
     font-size: 0.9rem;
     color: #6c757d;
 }
+/* Tableau croisé : lisibilité + sticky headers */
+.p11-pivot-wrap {
+    overflow: auto;
+    max-height: 70vh;
+}
+.p11-pivot-table th,
+.p11-pivot-table td {
+    white-space: nowrap;
+    font-size: 0.82rem;
+    vertical-align: top;
+}
+.p11-pivot-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #f8f9fa;
+}
+.p11-pivot-table .p11-sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    background: #ffffff;
+}
+.p11-pivot-table .p11-sticky-service {
+    left: 0;
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+}
+.p11-pivot-table .p11-sticky-machine {
+    left: 160px;
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+}
+.p11-pivot-table thead th.p11-sticky-col {
+    background: #f8f9fa;
+}
+.p11-pivot-table thead th.p11-sticky-machine {
+    z-index: 5;
+}
+.p11-pivot-table thead th.p11-sticky-service {
+    z-index: 5;
+}
+.p11-pivot-table thead th.p11-op-col {
+    min-width: 140px;
+}
+.p11-pivot-cell {
+    line-height: 1.25;
+}
+.p11-pivot-cell .p11-cad {
+    font-weight: 700;
+}
+.p11-pivot-cell .p11-meta {
+    color: #6c757d;
+    font-size: 0.74rem;
+}
+
+/* Filtres type Excel (dropdown checkboxes) */
+.p11-filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+}
+.p11-filter-dd {
+    position: relative;
+    display: inline-block;
+}
+.p11-filter-panel {
+    position: fixed;
+    width: 320px;
+    max-height: 360px;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+    padding: 10px;
+    z-index: 50;
+    display: none;
+}
+.p11-filter-panel.open { display: block; }
+.p11-filter-panel .p11-filter-search {
+    width: 100%;
+    margin-bottom: 8px;
+}
+.p11-filter-panel .p11-filter-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.p11-filter-panel .p11-filter-actions .btn {
+    padding: 2px 8px;
+}
+.p11-filter-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.86rem;
+    padding: 2px 0;
+    margin: 0;
+    cursor: pointer;
+}
+.p11-filter-muted {
+    font-size: 0.78rem;
+    color: #6c757d;
+}
+.p11-filter-hint {
+    font-size: 0.78rem;
+    color: #6c757d;
+    margin-top: 6px;
+}
+
+.p11-th-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.p11-th-filter .p11-filter-icon {
+    border: 0;
+    background: transparent;
+    padding: 2px 4px;
+    color: #6c757d;
+}
+.p11-th-filter .p11-filter-icon:hover {
+    color: #0d6efd;
+}
+
+/* Tableau Cadence par machine : plus compact */
+#tableCadenceMachines th,
+#tableCadenceMachines td {
+    font-size: 0.85rem; /* réduction ~0.5 par rapport au rendu bootstrap */
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+#tableCadenceMachines .badge {
+    padding: 0.18rem 0.42rem;
+    font-size: 0.75rem;
+}
+#tableCadenceMachines th.p11-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+#tableCadenceMachines th.p11-sortable:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+.p11-sort-icon {
+    margin-left: 6px;
+    font-size: 0.8em;
+    opacity: 0.7;
+}
 </style>
 {% endblock %}
 
@@ -66,80 +219,87 @@
         </div>
     </div>
 
-    <!-- KPIs synthèse -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card shadow-sm kpi-card border-primary">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted mb-2">
-                        <i class="fas fa-cog me-1"></i> Cadence moy. machines
-                    </h6>
-                    <div class="kpi-value text-primary">{{ "%.2f"|format(cadence_moy_machines) }}</div>
-                    <span class="kpi-unit">op/h</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card shadow-sm kpi-card border-success">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted mb-2">
-                        <i class="fas fa-user-cog me-1"></i> Cadence moy. opérateurs
-                    </h6>
-                    <div class="kpi-value text-success">{{ "%.2f"|format(cadence_moy_operateurs) }}</div>
-                    <span class="kpi-unit">op/h</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card shadow-sm kpi-card">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted mb-2">
-                        <i class="fas fa-industry me-1"></i> Machines analysées
-                    </h6>
-                    <div class="kpi-value">{{ cadence_machines|length }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card shadow-sm kpi-card">
-                <div class="card-body">
-                    <h6 class="text-uppercase text-muted mb-2">
-                        <i class="fas fa-users me-1"></i> Opérateurs analysés
-                    </h6>
-                    <div class="kpi-value">{{ cadence_operateurs|length }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    {# KPIs supprimés : les compteurs sont dans les titres des tableaux #}
 
     <div class="row g-4">
         <!-- Cadence par machine (groupé par service) -->
-        <div class="col-12 col-xl-6">
+        <div class="col-12">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light">
-                    <h5 class="mb-0">
-                        <i class="fas fa-cogs me-2 text-primary"></i>
-                        Cadence par machine <small class="text-muted">(par service, opérations/heure)</small>
-                    </h5>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs me-2 text-primary"></i>
+                            Cadence par machine <small class="text-muted">(par service, opérations/heure) — {{ cadence_machines|length }} machine(s)</small>
+                        </h5>
+                        <div class="p11-filterbar">
+                            {# Panels propres au tableau "Cadence par machine" #}
+                            <div class="p11-filter-dd">
+                                <div class="p11-filter-panel" id="panelFilterServicesMachines">
+                                    <input type="text" class="form-control form-control-sm p11-filter-search" placeholder="Rechercher…" id="searchServices">
+                                    <div class="p11-filter-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="servicesSelectAll">Tout</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="servicesSelectNone">Aucun</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="servicesKeepSearch">Garder résultats</button>
+                                    </div>
+                                    <div class="p11-filter-list" id="servicesList"></div>
+                                    <div class="p11-filter-muted mt-2">Filtre appliqué à ce tableau uniquement.</div>
+                                </div>
+                            </div>
+                            <div class="p11-filter-dd">
+                                <div class="p11-filter-panel" id="panelFilterMachinesMachines">
+                                    <input type="text" class="form-control form-control-sm p11-filter-search" placeholder="Rechercher…" id="searchMachines">
+                                    <div class="p11-filter-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="machinesSelectAll">Tout</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="machinesSelectNone">Aucun</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="machinesKeepSearch">Garder résultats</button>
+                                    </div>
+                                    <div class="p11-filter-list" id="machinesList"></div>
+                                    <div class="p11-filter-muted mt-2">Filtre appliqué à ce tableau uniquement.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+                        <table class="table table-hover align-middle mb-0" id="tableCadenceMachines">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Service</th>
-                                    <th>Machine</th>
-                                    <th class="text-center">Nb traitements</th>
-                                    <th class="text-end">Total opérations</th>
-                                    <th class="text-end">Total heures</th>
-                                    <th class="text-end"><strong>Cadence (op/h)</strong></th>
+                                    <th>
+                                        <span class="p11-th-filter">
+                                            Service
+                                            <button type="button" class="p11-filter-icon" id="iconFilterServices" title="Filtrer services">
+                                                <i class="fas fa-filter"></i>
+                                            </button>
+                                        </span>
+                                    </th>
+                                    <th>
+                                        <span class="p11-th-filter">
+                                            Machine
+                                            <button type="button" class="p11-filter-icon" id="iconFilterMachines" title="Filtrer machines">
+                                                <i class="fas fa-filter"></i>
+                                            </button>
+                                        </span>
+                                    </th>
+                                    <th class="text-center p11-sortable" data-sort-col="2" data-sort-type="num">
+                                        Nb traitements <span class="p11-sort-icon">↕</span>
+                                    </th>
+                                    <th class="text-end p11-sortable" data-sort-col="3" data-sort-type="num">
+                                        Total opérations <span class="p11-sort-icon">↕</span>
+                                    </th>
+                                    <th class="text-end p11-sortable" data-sort-col="4" data-sort-type="num">
+                                        Total heures <span class="p11-sort-icon">↕</span>
+                                    </th>
+                                    <th class="text-end p11-sortable" data-sort-col="5" data-sort-type="num">
+                                        <strong>Cadence (op/h)</strong> <span class="p11-sort-icon">↕</span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for m in cadence_machines %}
                                 <tr>
-                                    <td><span class="badge bg-light text-dark">{{ m.service }}</span></td>
-                                    <td><strong>{{ m.machine }}</strong></td>
+                                    <td><span class="badge bg-light text-dark p11-service-name">{{ m.service }}</span></td>
+                                    <td><strong class="p11-machine-name">{{ m.machine }}</strong></td>
                                     <td class="text-center">{{ m.nb_traitements }}</td>
                                     <td class="text-end">{{ m.total_operations }}</td>
                                     <td class="text-end">{{ "%.2f"|format(m.total_heures) }} h</td>
@@ -161,41 +321,109 @@
             </div>
         </div>
 
-        <!-- Cadence par opérateur -->
-        <div class="col-12 col-xl-6">
+        <!-- Cadence par opérateur (tableau croisé Machine x Opérateur) -->
+        <div class="col-12">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-light">
-                    <h5 class="mb-0">
-                        <i class="fas fa-user-tie me-2 text-success"></i>
-                        Cadence par opérateur <small class="text-muted">(opérations/heure)</small>
-                    </h5>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user-tie me-2 text-success"></i>
+                            Cadence par opérateur <small class="text-muted">(opérations/heure) — {{ pivot_machine_operateur.operateurs|length }} opérateur(s)</small>
+                        </h5>
+                        <div class="p11-filterbar">
+                            {# Panels propres au tableau "Cadence par opérateur" (Service/Machine) #}
+                            <div class="p11-filter-dd">
+                                <div class="p11-filter-panel" id="panelFilterServicesPivot">
+                                    <input type="text" class="form-control form-control-sm p11-filter-search" placeholder="Rechercher…" id="searchServicesPivot">
+                                    <div class="p11-filter-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="servicesPivotSelectAll">Tout</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="servicesPivotSelectNone">Aucun</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="servicesPivotKeepSearch">Garder résultats</button>
+                                    </div>
+                                    <div class="p11-filter-list" id="servicesPivotList"></div>
+                                    <div class="p11-filter-muted mt-2">Filtre appliqué à ce tableau uniquement.</div>
+                                </div>
+                            </div>
+                            <div class="p11-filter-dd">
+                                <div class="p11-filter-panel" id="panelFilterMachinesPivot">
+                                    <input type="text" class="form-control form-control-sm p11-filter-search" placeholder="Rechercher…" id="searchMachinesPivot">
+                                    <div class="p11-filter-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="machinesPivotSelectAll">Tout</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="machinesPivotSelectNone">Aucun</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="machinesPivotKeepSearch">Garder résultats</button>
+                                    </div>
+                                    <div class="p11-filter-list" id="machinesPivotList"></div>
+                                    <div class="p11-filter-muted mt-2">Filtre appliqué à ce tableau uniquement.</div>
+                                </div>
+                            </div>
+                            <div class="p11-filter-dd">
+                                <button type="button" class="btn btn-outline-success btn-sm" id="btnFilterOperateurs">
+                                    <i class="fas fa-filter"></i> Opérateurs
+                                </button>
+                                <div class="p11-filter-panel" id="panelFilterOperateurs">
+                                    <input type="text" class="form-control form-control-sm p11-filter-search" placeholder="Rechercher…" id="searchOperateurs">
+                                    <div class="p11-filter-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="operateursSelectAll">Tout</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="operateursSelectNone">Aucun</button>
+                                    </div>
+                                    <div class="p11-filter-list" id="operateursList"></div>
+                                    <div class="p11-filter-muted mt-2">Filtre appliqué aux colonnes du tableau croisé.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
+                    <div class="p11-pivot-wrap border rounded">
+                        <table class="table table-sm table-bordered mb-0 p11-pivot-table" id="tablePivotMO">
+                            <thead>
                                 <tr>
-                                    <th>Opérateur</th>
-                                    <th class="text-center">Nb traitements</th>
-                                    <th class="text-end">Total opérations</th>
-                                    <th class="text-end">Total heures</th>
-                                    <th class="text-end"><strong>Cadence (op/h)</strong></th>
+                                    <th class="p11-sticky-col p11-sticky-service">
+                                        <span class="p11-th-filter">
+                                            Service
+                                            <button type="button" class="p11-filter-icon" id="iconFilterServicesPivot" title="Filtrer services">
+                                                <i class="fas fa-filter"></i>
+                                            </button>
+                                        </span>
+                                    </th>
+                                    <th class="p11-sticky-col p11-sticky-machine">
+                                        <span class="p11-th-filter">
+                                            Machine
+                                            <button type="button" class="p11-filter-icon" id="iconFilterMachinesPivot" title="Filtrer machines">
+                                                <i class="fas fa-filter"></i>
+                                            </button>
+                                        </span>
+                                    </th>
+                                    {% for op in pivot_machine_operateur.operateurs %}
+                                    <th class="text-center p11-op-col" data-op="{{ op }}">{{ op }}</th>
+                                    {% endfor %}
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for o in cadence_operateurs %}
-                                <tr>
-                                    <td><strong>{{ o.operateur }}</strong></td>
-                                    <td class="text-center">{{ o.nb_traitements }}</td>
-                                    <td class="text-end">{{ o.total_operations }}</td>
-                                    <td class="text-end">{{ "%.2f"|format(o.total_heures) }} h</td>
-                                    <td class="text-end">
-                                        <span class="badge bg-success">{{ "%.2f"|format(o.cadence) }}</span>
+                                {% for r in pivot_machine_operateur.rows %}
+                                <tr class="p11-machine-row" data-machine="{{ r.machine }}" data-service="{{ r.service }}">
+                                    <td class="p11-sticky-col p11-sticky-service"><span class="badge bg-light text-dark p11-service-name">{{ r.service }}</span></td>
+                                    <td class="p11-sticky-col p11-sticky-machine"><strong class="p11-machine-name">{{ r.machine }}</strong></td>
+                                    {% for op in pivot_machine_operateur.operateurs %}
+                                    {% set cell = pivot_machine_operateur.cells.get((r.service, r.machine), {}).get(op) %}
+                                    <td class="text-center p11-op-cell" data-op="{{ op }}">
+                                        {% if cell %}
+                                        <div class="p11-pivot-cell">
+                                            <div class="p11-cad">{{ "%.2f"|format(cell.cadence) }}</div>
+                                            <div class="p11-meta">
+                                                {{ cell.nb_dossiers }} dossier(s)<br>
+                                                {{ cell.nb_operations }} op
+                                            </div>
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
                                     </td>
+                                    {% endfor %}
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">
+                                    <td class="text-center text-muted py-4" colspan="{{ 2 + (pivot_machine_operateur.operateurs|length) }}">
                                         Aucune donnée pour la période sélectionnée (traitements terminés avec temps réel > 0).
                                     </td>
                                 </tr>
@@ -311,6 +539,314 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // ------------------------------
+    // Filtres type Excel (séparés par tableau)
+    // ------------------------------
+    function qs(id) { return document.getElementById(id); }
+
+    function openPanelNearAnchor(panel, anchor) {
+        if (!panel || !anchor) return;
+        // Fermer les autres panels
+        [
+            'panelFilterMachinesMachines',
+            'panelFilterServicesMachines',
+            'panelFilterMachinesPivot',
+            'panelFilterServicesPivot',
+            'panelFilterOperateurs',
+        ].forEach(function(id) {
+            const p = qs(id);
+            if (p && p !== panel) p.classList.remove('open');
+        });
+        const r = anchor.getBoundingClientRect();
+        panel.classList.add('open');
+        // Après ouverture, calculer la position (panel a une taille)
+        const pr = panel.getBoundingClientRect();
+        let left = Math.min(window.innerWidth - pr.width - 10, Math.max(10, r.left));
+        let top = r.bottom + 6;
+        if (top + pr.height > window.innerHeight - 10) {
+            top = Math.max(10, r.top - pr.height - 6);
+        }
+        panel.style.left = left + 'px';
+        panel.style.top = top + 'px';
+    }
+
+    document.addEventListener('click', function(ev) {
+        const t = ev.target;
+        [
+            ['panelFilterMachinesMachines', 'iconFilterMachines'],
+            ['panelFilterServicesMachines', 'iconFilterServices'],
+            ['panelFilterMachinesPivot', 'iconFilterMachinesPivot'],
+            ['panelFilterServicesPivot', 'iconFilterServicesPivot'],
+            ['panelFilterOperateurs', 'btnFilterOperateurs'],
+        ].forEach(function(pair) {
+            const p = qs(pair[0]);
+            const b = qs(pair[1]);
+            if (p && p.classList.contains('open') && !p.contains(t) && b && !b.contains(t)) {
+                p.classList.remove('open');
+            }
+        });
+    });
+
+    function uniqueSorted(arr) {
+        const s = new Set();
+        (arr || []).forEach(function(x) { if (x != null && String(x).trim()) s.add(String(x).trim()); });
+        return Array.from(s).sort(function(a,b){ return a.localeCompare(b, 'fr'); });
+    }
+
+    const pivotRows = {{ pivot_machine_operateur.rows|tojson }};
+    const pivotMachines = uniqueSorted(pivotRows.map(function(r){ return r.machine; }));
+    const pivotServices = uniqueSorted(pivotRows.map(function(r){ return r.service; }));
+    const operateurs = uniqueSorted({{ pivot_machine_operateur.operateurs|tojson }});
+
+    const machinesTable = uniqueSorted(
+        [].slice.call(document.querySelectorAll('#tableCadenceMachines .p11-machine-name')).map(function(el){ return el.textContent.trim(); })
+    );
+    const servicesTable = uniqueSorted(
+        [].slice.call(document.querySelectorAll('#tableCadenceMachines .p11-service-name')).map(function(el){ return el.textContent.trim(); })
+    );
+
+    const selectedMachinesTable = new Set(machinesTable);
+    const selectedServicesTable = new Set(servicesTable);
+    const selectedMachinesPivot = new Set(pivotMachines);
+    const selectedServicesPivot = new Set(pivotServices);
+    const selectedOperateurs = new Set(operateurs);
+
+    function renderChecklist(containerId, items, selectedSet, searchValue, onChange) {
+        const c = qs(containerId);
+        if (!c) return;
+        const q = (searchValue || '').toLowerCase();
+        c.innerHTML = '';
+        items.forEach(function(name) {
+            if (q && name.toLowerCase().indexOf(q) === -1) return;
+            const wrap = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = selectedSet.has(name);
+            cb.dataset.value = name;
+            cb.dataset.label = name;
+            cb.addEventListener('change', function() {
+                if (cb.checked) selectedSet.add(name); else selectedSet.delete(name);
+                if (typeof onChange === 'function') onChange();
+            });
+            wrap.appendChild(cb);
+            const sp = document.createElement('span');
+            sp.textContent = name;
+            wrap.appendChild(sp);
+            c.appendChild(wrap);
+        });
+    }
+
+    function keepOnlySearchResults(items, selectedSet, searchValue) {
+        const q = (searchValue || '').toLowerCase().trim();
+        if (!q) return;
+        selectedSet.clear();
+        items.forEach(function(name) {
+            if (name.toLowerCase().indexOf(q) !== -1) selectedSet.add(name);
+        });
+    }
+
+    function applyFiltersMachinesTable() {
+        const rows = document.querySelectorAll('#tableCadenceMachines tbody tr');
+        rows.forEach(function(tr) {
+            const mEl = tr.querySelector('.p11-machine-name');
+            const sEl = tr.querySelector('.p11-service-name');
+            if (!mEl) return;
+            const m = mEl.textContent.trim();
+            const s = sEl ? sEl.textContent.trim() : '';
+            const show = selectedMachinesTable.has(m) && (!s || selectedServicesTable.has(s));
+            tr.style.display = show ? '' : 'none';
+        });
+    }
+
+    function applyFiltersPivot() {
+        document.querySelectorAll('#tablePivotMO tbody tr.p11-machine-row').forEach(function(tr) {
+            const m = tr.getAttribute('data-machine') || '';
+            const s = tr.getAttribute('data-service') || '';
+            const show = selectedMachinesPivot.has(m) && (!s || selectedServicesPivot.has(s));
+            tr.style.display = show ? '' : 'none';
+        });
+
+        const opHeaders = document.querySelectorAll('#tablePivotMO thead th.p11-op-col');
+        opHeaders.forEach(function(th, idx) {
+            const op = th.getAttribute('data-op') || '';
+            let show = selectedOperateurs.has(op);
+            th.style.display = show ? '' : 'none';
+            const colIndex = idx + 2; // 2 sticky cols (Service, Machine)
+            document.querySelectorAll('#tablePivotMO tbody tr').forEach(function(tr) {
+                const td = tr.children[colIndex];
+                if (td) td.style.display = show ? '' : 'none';
+            });
+        });
+
+        // Si un filtre machine/service est appliqué, masquer les opérateurs sans données sur les lignes visibles
+        const machineFiltered = selectedMachinesPivot.size !== pivotMachines.length;
+        const serviceFiltered = selectedServicesPivot.size !== pivotServices.length;
+        if (machineFiltered || serviceFiltered) {
+            const visibleRows = [].slice.call(document.querySelectorAll('#tablePivotMO tbody tr.p11-machine-row'))
+                .filter(function(tr){ return tr.style.display !== 'none'; });
+            const opHeaders2 = [].slice.call(document.querySelectorAll('#tablePivotMO thead th.p11-op-col'));
+            opHeaders2.forEach(function(th, idx) {
+                const op = th.getAttribute('data-op') || '';
+                if (!selectedOperateurs.has(op)) return; // déjà masqué par filtre opérateur
+                const colIndex = idx + 2;
+                let anyData = false;
+                for (let i=0; i<visibleRows.length; i++) {
+                    const td = visibleRows[i].children[colIndex];
+                    if (!td) continue;
+                    const txt = (td.textContent || '').trim();
+                    if (txt && txt !== '-') { anyData = true; break; }
+                }
+                const show = anyData;
+                th.style.display = show ? '' : 'none';
+                document.querySelectorAll('#tablePivotMO tbody tr').forEach(function(tr) {
+                    const td = tr.children[colIndex];
+                    if (td) td.style.display = show ? '' : 'none';
+                });
+            });
+        }
+    }
+
+    // Toggle panels
+    const iconMM = qs('iconFilterMachines');
+    const panelMM = qs('panelFilterMachinesMachines');
+    if (iconMM && panelMM) iconMM.addEventListener('click', function(ev){ ev.preventDefault(); openPanelNearAnchor(panelMM, iconMM); });
+    const iconSM = qs('iconFilterServices');
+    const panelSM = qs('panelFilterServicesMachines');
+    if (iconSM && panelSM) iconSM.addEventListener('click', function(ev){ ev.preventDefault(); openPanelNearAnchor(panelSM, iconSM); });
+    const iconMP = qs('iconFilterMachinesPivot');
+    const panelMP = qs('panelFilterMachinesPivot');
+    if (iconMP && panelMP) iconMP.addEventListener('click', function(ev){ ev.preventDefault(); openPanelNearAnchor(panelMP, iconMP); });
+    const iconSP = qs('iconFilterServicesPivot');
+    const panelSP = qs('panelFilterServicesPivot');
+    if (iconSP && panelSP) iconSP.addEventListener('click', function(ev){ ev.preventDefault(); openPanelNearAnchor(panelSP, iconSP); });
+
+    const btnO = qs('btnFilterOperateurs');
+    const panelO = qs('panelFilterOperateurs');
+    if (btnO && panelO) btnO.addEventListener('click', function(){ openPanelNearAnchor(panelO, btnO); });
+
+    // Render + wire (machines table)
+    const searchMachines = qs('searchMachines');
+    const searchServices = qs('searchServices');
+    if (searchMachines) searchMachines.addEventListener('input', function(){
+        renderChecklist('machinesList', machinesTable, selectedMachinesTable, searchMachines.value, applyFiltersMachinesTable);
+    });
+    if (searchServices) searchServices.addEventListener('input', function(){
+        renderChecklist('servicesList', servicesTable, selectedServicesTable, searchServices.value, applyFiltersMachinesTable);
+    });
+    const mmAll = qs('machinesSelectAll');
+    const mmNone = qs('machinesSelectNone');
+    if (mmAll) mmAll.addEventListener('click', function(){ machinesTable.forEach(function(x){ selectedMachinesTable.add(x); }); renderChecklist('machinesList', machinesTable, selectedMachinesTable, (searchMachines && searchMachines.value) || '', applyFiltersMachinesTable); applyFiltersMachinesTable(); });
+    if (mmNone) mmNone.addEventListener('click', function(){ selectedMachinesTable.clear(); renderChecklist('machinesList', machinesTable, selectedMachinesTable, (searchMachines && searchMachines.value) || '', applyFiltersMachinesTable); applyFiltersMachinesTable(); });
+    const mmKeep = qs('machinesKeepSearch');
+    if (mmKeep) mmKeep.addEventListener('click', function(){
+        keepOnlySearchResults(machinesTable, selectedMachinesTable, (searchMachines && searchMachines.value) || '');
+        renderChecklist('machinesList', machinesTable, selectedMachinesTable, (searchMachines && searchMachines.value) || '', applyFiltersMachinesTable);
+        applyFiltersMachinesTable();
+    });
+    const smAll = qs('servicesSelectAll');
+    const smNone = qs('servicesSelectNone');
+    if (smAll) smAll.addEventListener('click', function(){ servicesTable.forEach(function(x){ selectedServicesTable.add(x); }); renderChecklist('servicesList', servicesTable, selectedServicesTable, (searchServices && searchServices.value) || '', applyFiltersMachinesTable); applyFiltersMachinesTable(); });
+    if (smNone) smNone.addEventListener('click', function(){ selectedServicesTable.clear(); renderChecklist('servicesList', servicesTable, selectedServicesTable, (searchServices && searchServices.value) || '', applyFiltersMachinesTable); applyFiltersMachinesTable(); });
+    const smKeep = qs('servicesKeepSearch');
+    if (smKeep) smKeep.addEventListener('click', function(){
+        keepOnlySearchResults(servicesTable, selectedServicesTable, (searchServices && searchServices.value) || '');
+        renderChecklist('servicesList', servicesTable, selectedServicesTable, (searchServices && searchServices.value) || '', applyFiltersMachinesTable);
+        applyFiltersMachinesTable();
+    });
+
+    // Render + wire (pivot)
+    const searchMachinesPivot = qs('searchMachinesPivot');
+    const searchServicesPivot = qs('searchServicesPivot');
+    if (searchMachinesPivot) searchMachinesPivot.addEventListener('input', function(){
+        renderChecklist('machinesPivotList', pivotMachines, selectedMachinesPivot, searchMachinesPivot.value, applyFiltersPivot);
+    });
+    if (searchServicesPivot) searchServicesPivot.addEventListener('input', function(){
+        renderChecklist('servicesPivotList', pivotServices, selectedServicesPivot, searchServicesPivot.value, applyFiltersPivot);
+    });
+    const mpAll = qs('machinesPivotSelectAll');
+    const mpNone = qs('machinesPivotSelectNone');
+    if (mpAll) mpAll.addEventListener('click', function(){ pivotMachines.forEach(function(x){ selectedMachinesPivot.add(x); }); renderChecklist('machinesPivotList', pivotMachines, selectedMachinesPivot, (searchMachinesPivot && searchMachinesPivot.value) || '', applyFiltersPivot); applyFiltersPivot(); });
+    if (mpNone) mpNone.addEventListener('click', function(){ selectedMachinesPivot.clear(); renderChecklist('machinesPivotList', pivotMachines, selectedMachinesPivot, (searchMachinesPivot && searchMachinesPivot.value) || '', applyFiltersPivot); applyFiltersPivot(); });
+    const mpKeep = qs('machinesPivotKeepSearch');
+    if (mpKeep) mpKeep.addEventListener('click', function(){
+        keepOnlySearchResults(pivotMachines, selectedMachinesPivot, (searchMachinesPivot && searchMachinesPivot.value) || '');
+        renderChecklist('machinesPivotList', pivotMachines, selectedMachinesPivot, (searchMachinesPivot && searchMachinesPivot.value) || '', applyFiltersPivot);
+        applyFiltersPivot();
+    });
+    const spAll = qs('servicesPivotSelectAll');
+    const spNone = qs('servicesPivotSelectNone');
+    if (spAll) spAll.addEventListener('click', function(){ pivotServices.forEach(function(x){ selectedServicesPivot.add(x); }); renderChecklist('servicesPivotList', pivotServices, selectedServicesPivot, (searchServicesPivot && searchServicesPivot.value) || '', applyFiltersPivot); applyFiltersPivot(); });
+    if (spNone) spNone.addEventListener('click', function(){ selectedServicesPivot.clear(); renderChecklist('servicesPivotList', pivotServices, selectedServicesPivot, (searchServicesPivot && searchServicesPivot.value) || '', applyFiltersPivot); applyFiltersPivot(); });
+    const spKeep = qs('servicesPivotKeepSearch');
+    if (spKeep) spKeep.addEventListener('click', function(){
+        keepOnlySearchResults(pivotServices, selectedServicesPivot, (searchServicesPivot && searchServicesPivot.value) || '');
+        renderChecklist('servicesPivotList', pivotServices, selectedServicesPivot, (searchServicesPivot && searchServicesPivot.value) || '', applyFiltersPivot);
+        applyFiltersPivot();
+    });
+
+    // Render + wire (opérateurs)
+    const searchOperateurs = qs('searchOperateurs');
+    if (searchOperateurs) searchOperateurs.addEventListener('input', function(){
+        renderChecklist('operateursList', operateurs, selectedOperateurs, searchOperateurs.value, applyFiltersPivot);
+    });
+    const oAll = qs('operateursSelectAll');
+    const oNone = qs('operateursSelectNone');
+    if (oAll) oAll.addEventListener('click', function(){ operateurs.forEach(function(x){ selectedOperateurs.add(x); }); renderChecklist('operateursList', operateurs, selectedOperateurs, (searchOperateurs && searchOperateurs.value) || '', applyFiltersPivot); applyFiltersPivot(); });
+    if (oNone) oNone.addEventListener('click', function(){ selectedOperateurs.clear(); renderChecklist('operateursList', operateurs, selectedOperateurs, (searchOperateurs && searchOperateurs.value) || '', applyFiltersPivot); applyFiltersPivot(); });
+
+    // Initial render
+    renderChecklist('machinesList', machinesTable, selectedMachinesTable, '', applyFiltersMachinesTable);
+    renderChecklist('servicesList', servicesTable, selectedServicesTable, '', applyFiltersMachinesTable);
+    renderChecklist('machinesPivotList', pivotMachines, selectedMachinesPivot, '', applyFiltersPivot);
+    renderChecklist('servicesPivotList', pivotServices, selectedServicesPivot, '', applyFiltersPivot);
+    renderChecklist('operateursList', operateurs, selectedOperateurs, '', applyFiltersPivot);
+    applyFiltersMachinesTable();
+    applyFiltersPivot();
+
+    // ------------------------------
+    // Tri tableau Cadence par machine (clic entête)
+    // ------------------------------
+    (function initSortMachines() {
+        const table = qs('tableCadenceMachines');
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        function parseNum(text) {
+            const s = (text || '')
+                .replace(/\s+/g, '')
+                .replace(/h$/i, '')
+                .replace(/,/g, '.');
+            const v = parseFloat(s);
+            return isFinite(v) ? v : 0;
+        }
+
+        function getCellValue(tr, colIndex) {
+            const td = tr.children[colIndex];
+            if (!td) return 0;
+            return parseNum(td.textContent);
+        }
+
+        const state = { col: null, dir: 1 };
+        table.querySelectorAll('th.p11-sortable').forEach(function(th) {
+            th.addEventListener('click', function() {
+                const col = parseInt(th.getAttribute('data-sort-col') || '', 10);
+                if (!isFinite(col)) return;
+                if (state.col === col) state.dir = -state.dir;
+                else { state.col = col; state.dir = -1; } // desc par défaut
+
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                rows.sort(function(a, b) {
+                    const av = getCellValue(a, col);
+                    const bv = getCellValue(b, col);
+                    if (av === bv) return 0;
+                    return (av < bv ? -1 : 1) * state.dir;
+                });
+                rows.forEach(function(r) { tbody.appendChild(r); });
+            });
+        });
+    })();
 });
 </script>
 {% endblock %}

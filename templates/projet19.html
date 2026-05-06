@@ -933,6 +933,25 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
 }
+    .service-cost-input {
+        width: 110px;
+        text-align: right;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    /* Supprimer les flèches du input number (Chrome/Edge/Safari) */
+    .service-cost-input::-webkit-outer-spin-button,
+    .service-cost-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    /* Supprimer les flèches du input number (Firefox) */
+    .service-cost-input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
 </style>
 
 <script>
@@ -952,6 +971,41 @@ let popupSearchTimeout = null;
 let activeInventaireDate = localStorage.getItem('projet19_active_date_inventaire') || '';
 let activeSectionId = null;
 const PROJET19_VUE_STORAGE_KEY = 'projet19_dossiers_vue';
+let popupPrepressOverrideFromDossier = null;
+
+function isPrepressProsetterName(name) {
+    const raw = (name || '').toString().trim().toUpperCase();
+    // Tolérant: selon les données, on peut recevoir "PRE-PRESS" seul, ou avec détails.
+    // On déclenche l'édition dès qu'on reconnaît la prépresse Prosetter.
+    if (!raw) return false;
+    const normalized = raw.replace(/[^A-Z0-9]/g, '');
+    // Exemples acceptés:
+    // - "PRE-PRESS"
+    // - "PRE-PRESS (PROSETTER)"
+    // - "PREPRESSPROSETTER"
+    if (normalized === 'PREPRESS') return true;
+    if (normalized.includes('PREPRESS') && normalized.includes('PROSETTER')) return true;
+    if (raw.includes('PRE-PRESS') && raw.includes('PROSETTER')) return true;
+    return false;
+}
+
+function getPrepressOverrideToSend() {
+    const prepressItems = Object.values(popupServicesData || {}).filter(s => isPrepressProsetterName(s.nom));
+    if (!prepressItems.length) return null;
+    const anyOverride = prepressItems.some(s => !!s.user_override);
+    if (!anyOverride) return null;
+    const sum = prepressItems.reduce((acc, s) => acc + (parseFloat(s.cout) || 0), 0);
+    return Math.round(sum * 1000) / 1000;
+}
+
+function computeCtEstimeFromPrixTotalAndMarge(prixVenteTotal, margePourcentage) {
+    const pv = parseFloat(prixVenteTotal);
+    const m = parseFloat(margePourcentage);
+    if (isNaN(pv) || isNaN(m)) return null;
+    const denom = 1 + (m / 100);
+    if (denom === 0) return null;
+    return pv / denom;
+}
 
 function formatInventaireDateDisplay(dateValue) {
     if (!dateValue) return '-';
@@ -1072,8 +1126,9 @@ function recalculerPrixTotalEdit(dossierId) {
                 const margePourcentage = parseFloat(margeText.replace('%', '').replace(',', '.')) || 0;
                 // Convertir le pourcentage en décimal (45.9% -> 0.459)
                 const margeDecimal = margePourcentage / 100;
-                if (margeDecimal >= 0 && prixTotal > 0) {
-                    const ctEstime = prixTotal / (1 + margeDecimal);
+                const denom = 1 + margeDecimal;
+                if (prixTotal > 0 && denom !== 0) {
+                    const ctEstime = prixTotal / denom;
                     ctEstimeDisplay.textContent = ctEstime.toFixed(3).replace('.', ',');
                     ctEstimeDisplay.setAttribute('data-ct-estime', ctEstime);
                     console.log('[recalculerPrixTotalEdit] CT Estimé:', prixTotal, '/ (1 +', margeDecimal, ') =', ctEstime);
@@ -1237,8 +1292,9 @@ function calculerPrixTotal() {
                 const margePourcentage = parseFloat(margeText.replace('%', '').replace(',', '.')) || 0;
                 // Convertir le pourcentage en décimal (45.9% -> 0.459)
                 const margeDecimal = margePourcentage / 100;
-                if (margeDecimal >= 0 && prixTotal > 0) {
-                    const ctEstime = prixTotal / (1 + margeDecimal);
+                const denom = 1 + margeDecimal;
+                if (prixTotal > 0 && denom !== 0) {
+                    const ctEstime = prixTotal / denom;
                     inputCtEstime.textContent = ctEstime.toFixed(3).replace('.', ',');
                     inputCtEstime.setAttribute('data-ct-estime', ctEstime);
                     console.log('[calculerPrixTotal] CT Estimé:', prixTotal, '/ (1 +', margeDecimal, ') =', ctEstime);
@@ -2086,7 +2142,17 @@ function createDossierRow(dossier) {
     let ctEstimeValue = null;
     if (dossier.ct_estime !== null && dossier.ct_estime !== undefined) {
         ctEstimeValue = parseFloat(dossier.ct_estime);
-        ctEstimeDisplay = ctEstimeValue.toFixed(3).replace('.', ',');
+    } else if (prixTotalValue !== null && dossier.marge !== null && dossier.marge !== undefined) {
+        const margePourcentage = parseFloat(dossier.marge);
+        if (!isNaN(margePourcentage)) {
+            const denom = 1 + (margePourcentage / 100);
+            if (denom !== 0) {
+                ctEstimeValue = prixTotalValue / denom;
+            }
+        }
+    }
+    if (ctEstimeValue !== null && ctEstimeValue !== undefined && !isNaN(ctEstimeValue)) {
+        ctEstimeDisplay = parseFloat(ctEstimeValue).toFixed(3).replace('.', ',');
     }
     
     let coutTotalDisplay = '-';
@@ -2710,6 +2776,7 @@ function openNewDossierPopup() {
     popupCommandeData = null;
     popupServicesData = {};
     window.popupCheckedServices = []; // Réinitialiser les services cochés en mode création
+    popupPrepressOverrideFromDossier = null;
     
     // Focus sur le champ numéro
     setTimeout(() => {
@@ -2801,10 +2868,16 @@ function openEditDossierPopup(dossierId) {
         : '-';
     document.getElementById('popup-prix-vente-total').textContent = prixTotalDisplay;
     
-    // Coût total estimé
-    const ctEstimeDisplay = dossier.ct_estime !== null && dossier.ct_estime !== undefined 
-        ? parseFloat(dossier.ct_estime).toFixed(3).replace('.', ',') 
-        : '-';
+    // Coût total estimé (fallback si NULL en base)
+    let ctEstimeDisplay = '-';
+    if (dossier.ct_estime !== null && dossier.ct_estime !== undefined) {
+        ctEstimeDisplay = parseFloat(dossier.ct_estime).toFixed(3).replace('.', ',');
+    } else if (dossier.prix_vente_total !== null && dossier.prix_vente_total !== undefined && dossier.marge !== null && dossier.marge !== undefined) {
+        const calc = computeCtEstimeFromPrixTotalAndMarge(dossier.prix_vente_total, dossier.marge);
+        if (calc !== null && !isNaN(calc)) {
+            ctEstimeDisplay = parseFloat(calc).toFixed(3).replace('.', ',');
+        }
+    }
     document.getElementById('popup-ct-estime').textContent = ctEstimeDisplay;
     
     // Coût total
@@ -2828,6 +2901,9 @@ function openEditDossierPopup(dossierId) {
         prix_vente_unitaire: dossier.prix_vente_unitaire,
         quantite: dossier.quantite
     };
+    popupPrepressOverrideFromDossier = dossier.prepress_prosetter_override !== null && dossier.prepress_prosetter_override !== undefined
+        ? parseFloat(dossier.prepress_prosetter_override)
+        : null;
     
     // Récupérer les services cochés depuis le localStorage pour ce dossier
     const storageKey = `projet19_checked_services_${dossier.numero}`;
@@ -3024,7 +3100,9 @@ function loadServiceCosts(numero, services) {
             nom_poste: service.nom_poste || null,
             id_fiche_travail: service.id_fiche_travail || null,
             checked: false,
-            cout: cout
+            cout: cout,
+            cout_original: cout,
+            user_override: false
         };
     });
     
@@ -3162,7 +3240,19 @@ function loadServiceCosts(numero, services) {
                            ${isChecked ? 'checked' : ''}
                            onchange="updateCoutTotalPopup()">
                     <span class="service-name">${displayName}</span>
-                    <span class="service-cost">${serviceData.cout.toFixed(3)}</span>
+                    ${
+                        isPrepressProsetterName(serviceData.nom)
+                            ? `<input type="number" class="service-cost service-cost-input" data-service-id="${serviceData.id}" step="0.001" min="0" value="${(function(){ 
+                                    const override = (popupEditMode && popupPrepressOverrideFromDossier != null) ? popupPrepressOverrideFromDossier : null;
+                                    if (override != null && !isNaN(override)) {
+                                        serviceData.cout = override;
+                                        serviceData.user_override = true;
+                                        return override.toFixed(3);
+                                    }
+                                    return (serviceData.cout || 0).toFixed(3);
+                                })()}" oninput="updatePrepressCostFromInput('${serviceData.id}')" onblur="formatPrepressInput('${serviceData.id}')">`
+                            : `<span class="service-cost">${(serviceData.cout || 0).toFixed(3)}</span>`
+                    }
                 </div>
             `;
         });
@@ -3184,6 +3274,29 @@ function loadServiceCosts(numero, services) {
                 calculerCtRelPopup();
             }
         }, 100);
+    }
+}
+
+function updatePrepressCostFromInput(serviceId) {
+    const input = document.querySelector(`.service-cost-input[data-service-id="${serviceId}"]`);
+    if (!input || !popupServicesData[serviceId]) return;
+    const val = parseFloat((input.value || '').replace(',', '.'));
+    const v = !isNaN(val) ? val : 0;
+    popupServicesData[serviceId].cout = v;
+    const orig = parseFloat(popupServicesData[serviceId].cout_original);
+    popupServicesData[serviceId].user_override = !isNaN(orig) ? Math.abs(v - orig) > 0.0005 : true;
+    updateCoutTotalPopup();
+}
+
+function formatPrepressInput(serviceId) {
+    const input = document.querySelector(`.service-cost-input[data-service-id="${serviceId}"]`);
+    if (!input) return;
+    const val = parseFloat((input.value || '').replace(',', '.'));
+    const v = !isNaN(val) ? val : 0;
+    input.value = v.toFixed(3);
+    // Re-synchroniser le modèle avec la valeur formatée
+    if (popupServicesData[serviceId]) {
+        popupServicesData[serviceId].cout = v;
     }
 }
 
@@ -3224,10 +3337,10 @@ function calculerRecapitulatifPopup() {
     // Coût total estimé = Prix de vente total / (1 + Marge)
     // La marge est stockée en pourcentage (ex: 45.9), donc on divise par 100 pour obtenir la valeur décimale
     let ctEstime = 0;
-    if (marge > 0) {
-        // Convertir le pourcentage en décimal (45.9 -> 0.459)
-        const margeDecimal = marge / 100;
-        ctEstime = prixVenteTotal / (1 + margeDecimal);
+    const margeDecimal = marge / 100;
+    const denom = 1 + margeDecimal;
+    if (prixVenteTotal > 0 && denom !== 0) {
+        ctEstime = prixVenteTotal / denom;
     }
     document.getElementById('popup-ct-estime').textContent = ctEstime.toFixed(3);
     
@@ -3384,7 +3497,8 @@ function saveNewDossierFromPopup() {
         ct_estime: ctEstime,
         cout_total: coutTotal,
         date_inventaire: dateInventaire,
-        ct_rel: ctRel
+        ct_rel: ctRel,
+        prepress_override: getPrepressOverrideToSend()
     };
     
     console.log('[saveNewDossierFromPopup] Payload JSON à envoyer:', JSON.stringify(payload, null, 2));
@@ -3457,7 +3571,8 @@ function updateDossierFromPopup(dossierId, data) {
         prix_vente_total: data.prixVenteTotal,
         ct_estime: data.ctEstime,
         cout_total: data.coutTotal,
-        ct_rel: data.ctRel
+        ct_rel: data.ctRel,
+        prepress_override: getPrepressOverrideToSend()
     };
     
     console.log('[updateDossierFromPopup] Payload:', JSON.stringify(payload, null, 2));
@@ -3750,9 +3865,15 @@ function printDossierRow(dossierId) {
     const prixTotalDisplay = dossier.prix_vente_total !== null && dossier.prix_vente_total !== undefined 
         ? parseFloat(dossier.prix_vente_total).toFixed(3).replace('.', ',') 
         : '-';
-    const ctEstimeDisplay = dossier.ct_estime !== null && dossier.ct_estime !== undefined 
-        ? parseFloat(dossier.ct_estime).toFixed(3).replace('.', ',') 
-        : '-';
+    let ctEstimeDisplay = '-';
+    if (dossier.ct_estime !== null && dossier.ct_estime !== undefined) {
+        ctEstimeDisplay = parseFloat(dossier.ct_estime).toFixed(3).replace('.', ',');
+    } else if (dossier.prix_vente_total !== null && dossier.prix_vente_total !== undefined && dossier.marge !== null && dossier.marge !== undefined) {
+        const calc = computeCtEstimeFromPrixTotalAndMarge(dossier.prix_vente_total, dossier.marge);
+        if (calc !== null && !isNaN(calc)) {
+            ctEstimeDisplay = parseFloat(calc).toFixed(3).replace('.', ',');
+        }
+    }
     const coutTotalDisplay = dossier.cout_total !== null && dossier.cout_total !== undefined 
         ? parseFloat(dossier.cout_total).toFixed(3).replace('.', ',') 
         : '-';

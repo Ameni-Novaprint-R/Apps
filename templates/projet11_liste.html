@@ -660,6 +660,47 @@ th.col-actions, td.col-actions {
                                             </button>
                                             {% endif %}
                                         </div>
+                                        {# Template "actions quand NON validé" : utilisé pour restaurer après Dévalidation sans recharger #}
+                                        <div class="d-none p11-actions-not-validated">
+                                            <div class="actions-buttons-group">
+                                                <button class="btn-action-modern btn-action-view btn-view-traitement" data-id="{{ t.id }}" title="Voir les détails" data-bs-toggle="tooltip">
+                                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                                    </svg>
+                                                </button>
+                                                {% if reprise_action_id and has_action_access(reprise_action_id) and not t.dte_fin and not t.cloture %}
+                                                <button class="btn-action-modern btn-action-reprise btn-reprise-traitement" data-id="{{ t.id }}" title="Reprise" data-bs-toggle="tooltip">
+                                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                                                    </svg>
+                                                </button>
+                                                {% endif %}
+                                                {% if can_validate_controle and (t.cloture or t.dte_fin) %}
+                                                <button type="button" class="btn-action-modern btn-controle-valider text-success" data-id="{{ t.id }}" title="Valider le contrôle des données" data-bs-toggle="tooltip">
+                                                    <i class="fas fa-clipboard-check"></i>
+                                                </button>
+                                                {% endif %}
+                                                {% if has_action_access(3) and (t.cloture or t.dte_fin) %}
+                                                <button class="btn-action-modern btn-action-edit btn-edit-traitement" data-id="{{ t.id }}" title="Modifier" data-bs-toggle="tooltip">
+                                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                                    </svg>
+                                                </button>
+                                                {% endif %}
+                                                {% if has_action_access(4) %}
+                                                <button class="btn-action-modern btn-action-delete btn-delete-traitement" data-id="{{ t.id }}" title="Supprimer" data-bs-toggle="tooltip">
+                                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                                    </svg>
+                                                </button>
+                                                {% endif %}
+                                                {% if debloquer_action_id and has_action_access(debloquer_action_id) and not t.dte_fin and not t.cloture and t.id in ids_verrouilles %}
+                                                <button type="button" class="btn-action-modern btn-debloquer-traitement" data-id="{{ t.id }}" title="Débloquer (libérer le verrou)" data-bs-toggle="tooltip">
+                                                    <i class="fas fa-lock-open"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% else %}
@@ -961,7 +1002,10 @@ $(document).ready(function() {
             if (bootstrap.Tooltip.getInstance(triggerEl)) {
                 bootstrap.Tooltip.getInstance(triggerEl).dispose();
             }
-            new bootstrap.Tooltip(triggerEl);
+            new bootstrap.Tooltip(triggerEl, {
+                delay: { show: 150, hide: 50 },
+                trigger: 'hover focus'
+            });
         });
     }
 
@@ -1082,17 +1126,84 @@ $(document).ready(function() {
         }
     });
 
+    function p11UpdateControleRow($row, res) {
+        const isValide = !!(res && (res.controle_valide === 1 || res.controle_valide === true));
+        const dte = (res && res.controle_valide_dte) ? String(res.controle_valide_dte) : null;
+        const mat = (res && res.controle_valide_matricule != null) ? String(res.controle_valide_matricule) : null;
+        const title = isValide
+            ? ('Validé' + (dte ? (' le ' + dte) : '') + (mat ? (' — mat. ' + mat) : ''))
+            : 'Non validé';
+
+        const $ctrlCell = $row.find('td.col-controle');
+        if ($ctrlCell.length) {
+            if (isValide) {
+                $ctrlCell.html('<strong title="' + title.replace(/"/g, '&quot;') + '">Validé</strong>');
+            } else {
+                $ctrlCell.html('<span class="text-muted">Non validé</span>');
+            }
+        }
+
+        const $actions = $row.find('td.col-actions .actions-buttons-group');
+        if ($actions.length) {
+            const id = $row.find('.btn-controle-valider, .btn-controle-devalider').first().data('id')
+                || $row.find('.btn-view-traitement').first().data('id');
+
+            if (isValide) {
+                // Sauver l'état des actions avant validation pour pouvoir le restaurer à la dévalidation
+                if (!$row.attr('data-actions-before-controle')) {
+                    $row.attr('data-actions-before-controle', $actions.html() || '');
+                }
+                // Ne garder que "Consulter" et "Dévalider"
+                const $view = $actions.find('.btn-view-traitement').first().clone(true);
+                $actions.empty();
+                if ($view.length) {
+                    $actions.append($view);
+                }
+                $actions.append(
+                    '<button type="button" class="btn-action-modern btn-controle-devalider text-warning" data-id="' + id + '" title="Dévalider le contrôle des données" data-bs-toggle="tooltip">' +
+                    '<i class="fas fa-undo"></i>' +
+                    '</button>'
+                );
+            } else {
+                // Restaurer les actions d'avant validation si disponibles
+                const before = $row.attr('data-actions-before-controle');
+                if (before != null && before !== '') {
+                    $actions.html(before);
+                    $row.removeAttr('data-actions-before-controle');
+                } else {
+                    // Si la ligne était déjà validée au chargement, on restaure depuis le template pré-rendu
+                    const tpl = $row.find('.p11-actions-not-validated').first();
+                    const tplHtml = tpl.length ? tpl.html() : '';
+                    if (tplHtml) {
+                        $actions.replaceWith(tplHtml);
+                    }
+                }
+            }
+        }
+
+        // Réinitialiser les tooltips bootstrap si présents
+        try {
+            if (window.bootstrap && bootstrap.Tooltip) {
+                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+                    try { bootstrap.Tooltip.getInstance(el)?.dispose(); } catch (e) {}
+                    try { new bootstrap.Tooltip(el); } catch (e) {}
+                });
+            }
+        } catch (e) {}
+    }
+
     $(document).on('click', '.btn-controle-valider', function() {
         const id = $(this).data('id');
         if (!id) return;
-        if (!confirm('Valider le contrôle des données pour ce traitement ? La fiche ne pourra plus être modifiée tant qu’elle n’est pas dévalidée.')) return;
         const $btn = $(this);
+        const $row = $btn.closest('tr');
+        try { bootstrap.Tooltip.getInstance(this)?.hide(); } catch (e) {}
         $btn.prop('disabled', true);
         fetch('/projet11/api/traitements/' + id + '/controle-valider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
             .then(function(res) {
                 if (res.ok && res.j && res.j.success) {
-                    location.reload();
+                    p11UpdateControleRow($row, res.j);
                 } else {
                     alert(res.j && res.j.error ? res.j.error : 'Erreur lors de la validation.');
                     $btn.prop('disabled', false);
@@ -1107,14 +1218,15 @@ $(document).ready(function() {
     $(document).on('click', '.btn-controle-devalider', function() {
         const id = $(this).data('id');
         if (!id) return;
-        if (!confirm('Retirer la validation contrôle ? La fiche redeviendra modifiable.')) return;
         const $btn = $(this);
+        const $row = $btn.closest('tr');
+        try { bootstrap.Tooltip.getInstance(this)?.hide(); } catch (e) {}
         $btn.prop('disabled', true);
         fetch('/projet11/api/traitements/' + id + '/controle-devalider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
             .then(function(res) {
                 if (res.ok && res.j && res.j.success) {
-                    location.reload();
+                    p11UpdateControleRow($row, res.j);
                 } else {
                     alert(res.j && res.j.error ? res.j.error : 'Erreur lors de la dévalidation.');
                     $btn.prop('disabled', false);

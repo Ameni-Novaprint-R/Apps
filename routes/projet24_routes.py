@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, jsonify, send_from_direct
 from werkzeug.utils import secure_filename
 from logic.auth import login_required, get_current_user, get_user_sections, has_project_access, is_super_user
 from logic import projet24 as p24
-from db import init_formes_tables
+from db import init_web_formes_tables
 
 # Dossier d'upload PDF (à adapter selon l'environnement 192.168.10.225)
 UPLOAD_FOLDER = os.environ.get('PROJET24_UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'BCFORMES'))
@@ -405,9 +405,9 @@ def serve_upload(filename):
 def register_formes_tables():
     """Appelé au démarrage pour créer les tables si besoin."""
     try:
-        init_formes_tables()
+        init_web_formes_tables()
     except Exception as e:
-        print(f"[Projet 24] init_formes_tables: {e}")
+        print(f"[Projet 24] init_web_formes_tables: {e}")
 
 
 def ensure_projet24_in_web_projets():

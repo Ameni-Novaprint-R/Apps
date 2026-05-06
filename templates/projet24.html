@@ -223,8 +223,9 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">Nom (vide = génération auto)</label>
-                <input type="text" class="form-control" name="forme_nom" id="nf_forme_nom" placeholder="ex: VAR26001" maxlength="20">
+                <label class="form-label">Nom (généré automatiquement)</label>
+                <input type="text" class="form-control" name="forme_nom" id="nf_forme_nom" placeholder="Généré à l’enregistrement" maxlength="20" readonly>
+                <small class="text-muted">Le nom est généré automatiquement et garanti unique.</small>
             </div>
             <div class="row">
                 <div class="col-md-4 mb-3">
@@ -992,12 +993,30 @@
                     msgEl.style.display = 'block';
                     return;
                 }
+                const createdNom = data && data.forme && data.forme.nom ? data.forme.nom : null;
                 msgEl.className = 'mt-3 alert alert-success';
                 msgEl.textContent = 'Forme créée avec succès.';
                 msgEl.style.display = 'block';
+                if (createdNom) {
+                    try {
+                        const nomField = document.getElementById('nf_forme_nom');
+                        if (nomField) nomField.value = createdNom;
+                    } catch (e) {}
+                    const doCopy = async () => {
+                        try { await navigator.clipboard.writeText(createdNom); } catch (e) {}
+                    };
+                    // Popup simple + copie auto (si autorisé)
+                    doCopy();
+                    alert('Nom généré : ' + createdNom + '\n\n(Il a été copié dans le presse-papiers si votre navigateur l’autorise.)');
+                }
                 form.reset();
                 document.getElementById('nf_nombre_pose').value = 1;
                 document.getElementById('nf_cout_initial').value = 0;
+                // Laisser le nom affiché après reset
+                if (createdNom) {
+                    const nomField = document.getElementById('nf_forme_nom');
+                    if (nomField) nomField.value = createdNom;
+                }
             })
             .catch(err => {
                 msgEl.className = 'mt-3 alert alert-danger';

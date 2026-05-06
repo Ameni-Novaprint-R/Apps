@@ -338,12 +338,34 @@
         <button class="sync-section__toggle" type="button" aria-expanded="false" aria-controls="sync-xrt-content">
             <div class="sync-section__header">
                 <h2 class="sync-section__title">Synchronisation XRT</h2>
-                <p class="sync-section__desc">Section réservée à des développements ultérieurs.</p>
+                <p class="sync-section__desc">Synchronisation en lecture seule depuis XRT → schéma <b>XRT</b> de novaprint_restored.</p>
             </div>
         </button>
         <div class="sync-section__content" id="sync-xrt-content">
-            <div class="sync-section__placeholder">
-                À venir : fonctionnalités de synchronisation XRT (en cours de conception).
+            <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
+                <button id="xrtSyncBtn" onclick="startXrtSync()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+                    🔄 Synchroniser XRT
+                </button>
+                <button id="xrtVerifyBtn" onclick="verifyXrtSync()" style="flex: 1; min-width: 200px; background: linear-gradient(135deg, #007bff, #0056b3); color: white; border: none; padding: 18px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+                    🔍 Vérifier synchronisation
+                </button>
+            </div>
+            <p style="margin: 0 0 12px 0; font-size: 13px; color: #555;">
+                Ne vide pas le schéma XRT. Tables absentes : création + copie. Sinon détection d’écart par nombre de lignes puis checksum SQL ; tables jusqu’au plafond mémoire (variable d’environnement XRT_MIRROR_MAX_ROWS_IN_MEMORY, défaut 50 000 lignes) : alignement par clé primaire (inserts / mises à jour), puis suppression des lignes orphelines en fin de synchro ; au-delà du plafond ou sans PK : recopie complète de la table. Source toujours en lecture seule.
+            </p>
+
+            <div id="xrtProgressContainer" style="display: none; margin-top: 20px;">
+                <div style="background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
+                    <div id="xrtProgressFill" style="background: linear-gradient(90deg, #28a745, #20c997); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                </div>
+                <p id="xrtStatusText" style="text-align: center; margin-top: 10px; color: #666;">En attente...</p>
+            </div>
+
+            <div id="xrtLogContainer" style="display: none; margin-top: 20px; max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa;"></div>
+
+            <div id="xrtVerifyContainer" style="display: none; margin-top: 20px; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa;">
+                <h3 style="margin-top: 0;">🔍 Résultats de la vérification XRT</h3>
+                <pre id="xrtVerifyOutput" style="font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; max-height: 500px; overflow-y: auto; background: white; padding: 15px; border-radius: 4px;"></pre>
             </div>
         </div>
     </section>
@@ -362,6 +384,8 @@ let autoSyncMissingOffset = 0;
 let autoSyncExtraOffset = 0;
 let autoSyncDuplicateOffset = 0;
 
+let xrtPolling = null;
+
 function startSync() {
     document.getElementById('syncBtn').disabled = true;
     document.getElementById('syncBtn').style.background = '#6c757d';
@@ -373,6 +397,80 @@ function startSync() {
         .then(r => r.json())
         .then(() => {
             polling = setInterval(checkStatus, 500);
+        });
+}
+
+function setXrtSyncButtonsDisabled(disabled) {
+    const sync = document.getElementById('xrtSyncBtn');
+    if (sync) {
+        sync.disabled = disabled;
+        sync.style.background = disabled ? '#6c757d' : 'linear-gradient(135deg, #28a745, #20c997)';
+    }
+}
+
+function startXrtSync() {
+    setXrtSyncButtonsDisabled(true);
+    document.getElementById('xrtProgressContainer').style.display = 'block';
+    document.getElementById('xrtLogContainer').style.display = 'block';
+    document.getElementById('xrtLogContainer').innerHTML = '';
+    document.getElementById('xrtVerifyContainer').style.display = 'none';
+
+    fetch('/projet21/xrt/sync', { method: 'POST' })
+        .then(r => r.json())
+        .then((data) => {
+            if (data && data.error) {
+                throw new Error(data.error);
+            }
+            xrtPolling = setInterval(checkXrtStatus, 500);
+        })
+        .catch(err => {
+            document.getElementById('xrtStatusText').textContent = 'Erreur: ' + err.message;
+            setXrtSyncButtonsDisabled(false);
+        });
+}
+
+function checkXrtStatus() {
+    fetch('/projet21/xrt/status')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('xrtProgressFill').style.width = (data.progress || 0) + '%';
+            document.getElementById('xrtStatusText').textContent = data.message || '';
+
+            const logContainer = document.getElementById('xrtLogContainer');
+            const details = Array.isArray(data.details) ? data.details : [];
+            logContainer.innerHTML = details.map(d =>
+                `<div style="font-family: Consolas, monospace; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #eee;">${d}</div>`
+            ).join('');
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            if (!data.running) {
+                clearInterval(xrtPolling);
+                setXrtSyncButtonsDisabled(false);
+            }
+        });
+}
+
+function verifyXrtSync() {
+    document.getElementById('xrtVerifyBtn').disabled = true;
+    document.getElementById('xrtVerifyBtn').style.background = '#6c757d';
+    document.getElementById('xrtVerifyContainer').style.display = 'block';
+    document.getElementById('xrtVerifyOutput').textContent = 'Vérification en cours...';
+
+    fetch('/projet21/xrt/verify', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.success) {
+                document.getElementById('xrtVerifyOutput').textContent = data.output || '';
+            } else {
+                document.getElementById('xrtVerifyOutput').textContent = 'Erreur: ' + (data.error || 'Erreur inconnue');
+            }
+            document.getElementById('xrtVerifyBtn').disabled = false;
+            document.getElementById('xrtVerifyBtn').style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
+        })
+        .catch(err => {
+            document.getElementById('xrtVerifyOutput').textContent = 'Erreur: ' + err.message;
+            document.getElementById('xrtVerifyBtn').disabled = false;
+            document.getElementById('xrtVerifyBtn').style.background = 'linear-gradient(135deg, #007bff, #0056b3)';
         });
 }
 

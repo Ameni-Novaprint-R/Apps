@@ -979,12 +979,12 @@ def _is_typo_service(cursor, service_name):
 
 
 def _apply_nom_fd_tirages_delta(cursor, nom_fd, delta):
-    """Applique un delta de tirages à FORMES_DECOUPE.TOTAL_TIRAGES pour une forme."""
+    """Applique un delta de tirages à WEB_FORMES_DECOUPE.TOTAL_TIRAGES pour une forme (tables dédiées Projet 24)."""
     nom_fd = (nom_fd or '').strip()
     if not nom_fd or not delta:
         return
     cursor.execute("""
-        UPDATE FORMES_DECOUPE
+        UPDATE WEB_FORMES_DECOUPE
         SET TOTAL_TIRAGES = CASE
             WHEN ISNULL(TOTAL_TIRAGES, 0) + ? < 0 THEN 0
             ELSE ISNULL(TOTAL_TIRAGES, 0) + ?
@@ -2700,7 +2700,7 @@ def update_traitement(traitement_id, data):
                     sql_fin = f"""
                         UPDATE WEB_TRAITEMENTS
                         SET DteDeb = ?, DteFin = ?, NbOp = ?, PdtC = ?, PdtNNC = ?, PdtANC = ?,
-                            NbPers = ?, PostesReel = ?, TpsReel = ?{tps_pause_fin_set}{op_set}{cloture_set}{desc_set}{nom_fd_set}{chrono_clear_fin},
+                            NbPers = ?, PostesReel = ?, TpsReel = ?{tps_pause_fin_set}{op_set}{cloture_set}{desc_set}{nom_fd_set}{compteur_mode_set}{compteur_lecture_set}{chrono_clear_fin},
                             DateModification = GETDATE()
                         WHERE ID = ?
                     """
@@ -2717,7 +2717,12 @@ def update_traitement(traitement_id, data):
                     )
                     if has_tps_pause and dte_fin is not None:
                         params_fin += (tps_pause_total_h,)
-                    params_fin += op_param + cloture_param + desc_param + nom_fd_param + (traitement_id,)
+                    params_fin += op_param + cloture_param + desc_param + nom_fd_param
+                    if has_compteur_mode:
+                        params_fin += (cmode,)
+                    if has_compteur_lecture:
+                        params_fin += (clec_val,)
+                    params_fin += (traitement_id,)
                     cursor.execute(sql_fin, params_fin)
                 else:
                     cursor.execute(sql_update, params)
@@ -3316,6 +3321,99 @@ def get_cadence_par_operateur(date_debut=None, date_fin=None):
             "cadence": cadence
         })
     return result
+
+
+def get_cadence_pivot_machine_operateur(date_debut=None, date_fin=None):
+    """
+    Tableau croisé Machine x Opérateur.
+    Cellule (machine, opérateur) :
+    - cadence (op/h) = somme NbOp / somme TpsReel
+    - nb_dossiers = COUNT(DISTINCT Numero_COMMANDES)
+    - nb_operations = somme NbOp
+    Filtre sur DteFin (traitements terminés). TpsReel > 0 requis.
+    """
+    sql = """
+        SELECT
+            ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné') AS service,
+            ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné') AS machine,
+            ISNULL(LTRIM(RTRIM(Nom_personel)), '') AS nom,
+            ISNULL(LTRIM(RTRIM(Prenom_personel)), '') AS prenom,
+            COUNT(DISTINCT LTRIM(RTRIM(CAST(Numero_COMMANDES AS NVARCHAR(50))))) AS nb_dossiers,
+            SUM(ISNULL(NbOp, 0)) AS total_operations,
+            SUM(ISNULL(TpsReel, 0)) AS total_heures
+        FROM WEB_TRAITEMENTS
+        WHERE DteFin IS NOT NULL
+          AND TpsReel IS NOT NULL
+          AND TpsReel > 0
+    """
+    params = []
+    if date_debut:
+        sql += " AND CAST(DteFin AS DATE) >= ?"
+        params.append(date_debut)
+    if date_fin:
+        sql += " AND CAST(DteFin AS DATE) <= ?"
+        params.append(date_fin)
+    sql += """
+        GROUP BY
+            ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné'),
+            ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné'),
+            Nom_personel,
+            Prenom_personel
+        ORDER BY
+            ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné'),
+            ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné'),
+            Nom_personel,
+            Prenom_personel
+    """
+
+    with get_db_cursor() as cursor:
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+
+    # Construire listes et matrice
+    rows_keys = []  # (service, machine)
+    ops_set = []
+    cells = {}  # (service,machine) -> operateur -> stats
+
+    def _op_label(nom, prenom):
+        s = f"{nom or ''} {prenom or ''}".strip()
+        return s or "Non renseigné"
+
+    seen_sm = set()
+    seen_o = set()
+    for r in rows:
+        svc = (r.service or "Non renseigné").strip() or "Non renseigné"
+        m = (r.machine or "Non renseigné").strip() or "Non renseigné"
+        sm = (svc, m)
+        o = _op_label(r.nom, r.prenom)
+        if sm not in seen_sm:
+            seen_sm.add(sm)
+            rows_keys.append(sm)
+        if o not in seen_o:
+            seen_o.add(o)
+            ops_set.append(o)
+        tps = float(r.total_heures) if r.total_heures else 0.0
+        ops = int(r.total_operations or 0)
+        cadence = round(ops / tps, 2) if tps > 0 else 0.0
+        nb_dossiers = int(r.nb_dossiers or 0)
+        if sm not in cells:
+            cells[sm] = {}
+        cells[sm][o] = {
+            "cadence": cadence,
+            "nb_dossiers": nb_dossiers,
+            "nb_operations": ops,
+            "total_heures": round(tps, 2),
+        }
+
+    # Tri stable pour affichage
+    rows_sorted = sorted(rows_keys, key=lambda x: (x[0], x[1]))
+    operateurs = sorted(ops_set)
+
+    return {
+        "rows": [{"service": s, "machine": m} for (s, m) in rows_sorted],
+        "operateurs": operateurs,
+        "cells": cells,
+    }
 
 
 def get_tableau_comparatif_commandes(numero_filter=None):

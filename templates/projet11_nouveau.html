@@ -11,6 +11,18 @@
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <style>
+    /* Libellés quantités : éviter les retours à la ligne */
+    #row-quantites .form-label strong {
+        white-space: nowrap;
+        font-size: 0.92rem;
+        line-height: 1.1;
+    }
+    /* Réduire uniquement le texte entre parenthèses */
+    #row-quantites .form-label .p11-label-parentheses {
+        font-size: 0.84em;
+        font-weight: 600;
+    }
+
     /* Le chronomètre - hauteur minimale, espacements très réduits */
     #chronoBox {
         text-align: center;
@@ -112,7 +124,13 @@
         display: flex !important;
         flex-wrap: nowrap !important;
     }
-    #row-quantites > .col-md-4,
+    /* 4 champs (25%) */
+    #row-quantites > .col-md-3 {
+        flex: 0 0 25% !important;
+        max-width: 25% !important;
+        display: block !important;
+    }
+    /* 3 champs (33%) */
     #row-infos-traitement > .col-md-4 {
         flex: 0 0 33.333333% !important;
         max-width: 33.333333% !important;
@@ -449,52 +467,34 @@
                             </div>
 
                             <div class="row" id="row-quantites">
-                                <div class="col-md-4 mb-3">
-                                    <label for="pdt_c" class="form-label">
-                                        <strong>Quantité produite conforme *</strong>
-                                    </label>
-                                    <input type="number" class="form-control" id="pdt_c" name="pdt_c" min="0" value="0">
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="pdt_nnc" class="form-label">
-                        <strong>Non conformes (feuille de demarrage)</strong>
-                                    </label>
-                                    <input type="number" class="form-control" id="pdt_nnc" name="pdt_nnc" min="0" value="0">
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="pdt_anc" class="form-label">
-                        <strong>Non conformes (macules)</strong>
-                                    </label>
-                                    <input type="number" class="form-control" id="pdt_anc" name="pdt_anc" min="0" value="0">
-                                </div>
-                            </div>
-
-                            <div class="row" id="row-compteur-qte">
-                                <div class="col-md-4 mb-3">
-                                    <label for="compteur_mode" class="form-label">
-                                        <strong>Mode quantité</strong>
-                                    </label>
-                                    <select class="form-select" id="compteur_mode">
-                                        <option value="journalier" selected>Journalier (saisie directe)</option>
-                                        <option value="cumulatif">Cumulatif (calcul automatique)</option>
-                                    </select>
-                                    <small class="text-muted">Par défaut : journalier. Le cumulatif calcule la quantité avec la dernière lecture enregistrée pour ce dossier + service + machine réelle.</small>
-                                </div>
-                                <div class="col-md-4 mb-3" id="compteurLectureWrap" style="display:none;">
+                                <div class="col-md-3 mb-3">
                                     <label for="compteur_lecture" class="form-label">
                                         <strong>Lecture compteur machine</strong>
                                     </label>
                                     <input type="number" class="form-control" id="compteur_lecture" min="0" placeholder="ex: 35000">
                                     <small class="text-muted" id="compteurDerniereLectureInfo">Dernière lecture : -</small>
-                                </div>
-                                <div class="col-md-4 mb-3" id="compteurCalcWrap" style="display:none;">
-                                    <label class="form-label">
-                                        <strong>Quantité calculée</strong>
-                                    </label>
-                                    <input type="text" class="form-control" id="compteur_qte_calc" readonly value="-">
-                                    <div class="form-text">
-                                        Appliquée automatiquement à <strong>Quantité produite conforme</strong>.
+                                    <div class="form-text text-warning" id="compteurResetWarn" style="display:none;">
+                                        Compteur inférieur à la dernière lecture : le compteur semble avoir été remis à zéro. La quantité conforme est prise égale à la lecture.
                                     </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="pdt_c" class="form-label">
+                                        <strong>Quantité produite conforme *</strong>
+                                    </label>
+                                    <input type="number" class="form-control" id="pdt_c" name="pdt_c" min="0" value="0">
+                                    <small class="text-muted">Rempli automatiquement à partir du compteur.</small>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="pdt_nnc" class="form-label">
+                        <strong>Non conformes <span class="p11-label-parentheses">(feuille de demarrage)</span></strong>
+                                    </label>
+                                    <input type="number" class="form-control" id="pdt_nnc" name="pdt_nnc" min="0" value="0">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="pdt_anc" class="form-label">
+                        <strong>Non conformes (macules)</strong>
+                                    </label>
+                                    <input type="number" class="form-control" id="pdt_anc" name="pdt_anc" min="0" value="0">
                                 </div>
                             </div>
 
@@ -599,24 +599,13 @@ function getCompteurKey() {
 
 let compteurDerniereLecture = null;
 
-function setCompteurModeUi(mode) {
-    const cumul = (mode === 'cumulatif');
-    $('#compteurLectureWrap').css('display', cumul ? 'block' : 'none');
-    $('#compteurCalcWrap').css('display', cumul ? 'block' : 'none');
-    if (!cumul) {
-        $('#compteur_lecture').val('');
-        $('#compteur_qte_calc').val('-');
-        $('#compteurDerniereLectureInfo').text('Dernière lecture : -');
-        compteurDerniereLecture = null;
-    }
-}
-
 function refreshDerniereLectureCompteur() {
     const k = getCompteurKey();
     const excludeId = currentTraitementId || traitementIdFromUrl || null;
     if (!k.numero || !k.service || !k.machine) {
         compteurDerniereLecture = null;
         $('#compteurDerniereLectureInfo').text('Dernière lecture : -');
+        $('#compteurResetWarn').hide();
         return Promise.resolve(null);
     }
     const url = '/projet11/api/compteur/dernier'
@@ -631,39 +620,52 @@ function refreshDerniereLectureCompteur() {
             $('#compteurDerniereLectureInfo').text(
                 'Dernière lecture : ' + (compteurDerniereLecture != null ? compteurDerniereLecture.toLocaleString('fr-FR') : '-')
             );
+            $('#compteurResetWarn').hide();
             return compteurDerniereLecture;
         })
         .catch(() => {
             compteurDerniereLecture = null;
             $('#compteurDerniereLectureInfo').text('Dernière lecture : -');
+            $('#compteurResetWarn').hide();
             return null;
         });
 }
 
 function applyCompteurCumulatifIfPossible() {
-    const mode = ($('#compteur_mode').val() || 'journalier');
-    if (mode !== 'cumulatif') return;
     const lecture = Number($('#compteur_lecture').val());
     if (!isFinite(lecture) || lecture < 0) {
-        $('#compteur_qte_calc').val('-');
+        $('#compteurResetWarn').hide();
         return;
     }
     const prev = (compteurDerniereLecture != null) ? Number(compteurDerniereLecture) : null;
     if (prev == null) {
-        // première lecture : point de départ
-        $('#compteur_qte_calc').val('0');
-        $('#pdt_c').val(0);
+        // première lecture : selon décision -> Qté conforme = lecture
+        const q = Math.max(0, Math.floor(lecture));
+        $('#pdt_c').val(q);
+        $('#compteurResetWarn').hide();
         return;
     }
     let delta = lecture - prev;
     if (delta < 0) {
-        // compteur reset : on considère la lecture comme quantité du jour
+        // compteur reset : Qté conforme = lecture + warning
         delta = lecture;
+        $('#compteurResetWarn').show();
+    } else {
+        $('#compteurResetWarn').hide();
     }
     delta = Math.max(0, Math.floor(delta));
-    $('#compteur_qte_calc').val(delta.toLocaleString('fr-FR'));
     // Appliquer automatiquement au champ conforme
     $('#pdt_c').val(delta);
+}
+
+let _compteurRefreshTimer = null;
+function scheduleRefreshDerniereLectureCompteur() {
+    if (_compteurRefreshTimer) clearTimeout(_compteurRefreshTimer);
+    _compteurRefreshTimer = setTimeout(function() {
+        refreshDerniereLectureCompteur().then(function() {
+            applyCompteurCumulatifIfPossible();
+        });
+    }, 180);
 }
 let currentNumeroCommande = null;
 let currentService = null;
@@ -922,26 +924,17 @@ $(document).on('click', '#operateurEncoursModalBtnOk', function() {
     verifierOperateurEncoursFermerModal(true);
 });
 
-// Mode quantité (journalier/cumulatif)
-$(document).on('change', '#compteur_mode', function() {
-    const mode = ($('#compteur_mode').val() || 'journalier');
-    setCompteurModeUi(mode);
-    if (mode === 'cumulatif') {
-        refreshDerniereLectureCompteur().then(function() {
-            applyCompteurCumulatifIfPossible();
-        });
-    }
-});
 $(document).on('input', '#compteur_lecture', function() {
-    applyCompteurCumulatifIfPossible();
-});
-$(document).on('change', '#machine_reelle', function() {
-    const mode = ($('#compteur_mode').val() || 'journalier');
-    if (mode === 'cumulatif') {
-        refreshDerniereLectureCompteur().then(function() {
-            applyCompteurCumulatifIfPossible();
-        });
+    // Si la dernière lecture n'est pas encore connue, la récupérer avant de figer le calcul
+    if (compteurDerniereLecture == null) {
+        scheduleRefreshDerniereLectureCompteur();
+    } else {
+        applyCompteurCumulatifIfPossible();
     }
+});
+// Datalist machine : change n'est pas toujours déclenché -> input + blur + change
+$(document).on('input blur change', '#machine_reelle', function() {
+    scheduleRefreshDerniereLectureCompteur();
 });
 
 function restaurerChronoDepuisFormulaire() {
@@ -1344,21 +1337,14 @@ function remplirChampsTraitement(data) {
             champPdtANC.value = data.pdt_anc || 0;
         }
     }
-    // Mode quantité (journalier/cumulatif) + lecture compteur
+    // Lecture compteur (toujours cumulatif)
     try {
-        const mode = (data.compteur_mode === 1 || data.compteur_mode === true || data.compteur_mode === '1' || data.compteur_mode === 'cumulatif')
-            ? 'cumulatif'
-            : 'journalier';
-        $('#compteur_mode').val(mode);
-        setCompteurModeUi(mode);
-        if (mode === 'cumulatif') {
-            if (data.compteur_lecture != null && data.compteur_lecture !== '') {
-                $('#compteur_lecture').val(data.compteur_lecture);
-            }
-            refreshDerniereLectureCompteur().then(function() {
-                applyCompteurCumulatifIfPossible();
-            });
+        if (data.compteur_lecture != null && data.compteur_lecture !== '') {
+            $('#compteur_lecture').val(data.compteur_lecture);
         }
+        refreshDerniereLectureCompteur().then(function() {
+            applyCompteurCumulatifIfPossible();
+        });
     } catch (eMode) { /* ignore */ }
     if (data.nom_fd !== undefined && data.nom_fd !== null) {
         const champNomFd = document.getElementById('nom_fd');
@@ -1637,6 +1623,9 @@ $('#numero_commande').on('input change', function() {
     
     // Réinitialiser
     resetForm();
+
+    // Le dossier change : rafraîchir la dernière lecture compteur (si la machine/service sont déjà saisis)
+    scheduleRefreshDerniereLectureCompteur();
     
     if (!numeroCommande) {
         return;
@@ -1783,6 +1772,9 @@ $('#service_prevu').on('change', function() {
         toggleNomFdVisibility();
         return;
     }
+
+    // Le service change : rafraîchir la dernière lecture compteur (si la machine est déjà saisie)
+    scheduleRefreshDerniereLectureCompteur();
     
     // Vérifier si le service existe dans le datalist
     const serviceExists = $('#services_list option[value="' + service + '"]').length > 0;
@@ -2484,7 +2476,6 @@ function demarrerChrono() {
     const pdtC = parseInt($('#pdt_c').val(), 10);
     const pdtNNC = parseInt($('#pdt_nnc').val(), 10);
     const pdtANC = parseInt($('#pdt_anc').val(), 10);
-    const compteurMode = ($('#compteur_mode').val() || 'journalier');
     const compteurLecture = ($('#compteur_lecture').val() || '').trim();
     const payload = {
         id_fiche_travail: idFicheTravail,
@@ -2498,8 +2489,8 @@ function demarrerChrono() {
         pdt_c: Number.isFinite(pdtC) && pdtC >= 0 ? pdtC : 0,
         pdt_nnc: Number.isFinite(pdtNNC) && pdtNNC >= 0 ? pdtNNC : 0,
         pdt_anc: Number.isFinite(pdtANC) && pdtANC >= 0 ? pdtANC : 0,
-        compteur_mode: compteurMode,
-        compteur_lecture: compteurMode === 'cumulatif' ? compteurLecture : null
+        compteur_mode: 1,
+        compteur_lecture: compteurLecture || null
     };
 
     startTraitementEnCours = true;
@@ -2876,8 +2867,8 @@ $('#formNouveauTraitement').on('submit', function(e) {
         nom_service: currentService || null,
         nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
         description: ($('#traitement_description').val() || '').trim() || null,
-        compteur_mode: ($('#compteur_mode').val() || 'journalier'),
-        compteur_lecture: ($('#compteur_mode').val() === 'cumulatif') ? (($('#compteur_lecture').val() || '').trim() || null) : null
+        compteur_mode: 1,
+        compteur_lecture: (($('#compteur_lecture').val() || '').trim() || null)
     };
     if (window._enregistrerAvecCloture) {
         data.cloture = 1;
@@ -3078,8 +3069,8 @@ function saveEnCoursOnClose() {
         nom_service: currentService || null,
         nom_fd: estServiceTypo() ? (($('#nom_fd').val() || '').trim() || null) : null,
         description: ($('#traitement_description').val() || '').trim() || null,
-        compteur_mode: ($('#compteur_mode').val() || 'journalier'),
-        compteur_lecture: ($('#compteur_mode').val() === 'cumulatif') ? (($('#compteur_lecture').val() || '').trim() || null) : null
+        compteur_mode: 1,
+        compteur_lecture: (($('#compteur_lecture').val() || '').trim() || null)
     };
     fetch(`/projet11/api/traitements/${idToUse}`, {
         method: 'PUT',

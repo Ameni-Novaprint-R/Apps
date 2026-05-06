@@ -1071,7 +1071,15 @@ def api_controle_valider_traitement(traitement_id):
         traitement_id, True, session.get("matricule")
     )
     if ok:
-        return jsonify({"success": True})
+        t = projet11.get_traitement_by_id(traitement_id) or {}
+        return jsonify(
+            {
+                "success": True,
+                "controle_valide": t.get("controle_valide", 1),
+                "controle_valide_dte": t.get("controle_valide_dte"),
+                "controle_valide_matricule": t.get("controle_valide_matricule"),
+            }
+        )
     return jsonify({"success": False, "error": msg or "Validation impossible"}), 400
 
 
@@ -1084,7 +1092,15 @@ def api_controle_devalider_traitement(traitement_id):
         traitement_id, False, session.get("matricule")
     )
     if ok:
-        return jsonify({"success": True})
+        t = projet11.get_traitement_by_id(traitement_id) or {}
+        return jsonify(
+            {
+                "success": True,
+                "controle_valide": t.get("controle_valide", 0),
+                "controle_valide_dte": t.get("controle_valide_dte"),
+                "controle_valide_matricule": t.get("controle_valide_matricule"),
+            }
+        )
     return jsonify({"success": False, "error": msg or "Dévalidation impossible"}), 400
 
 
@@ -1259,6 +1275,9 @@ def tableau_bord():
             date_debut=date_debut, date_fin=date_fin, top_n=10
         )
         cadence_operateurs = projet11.get_cadence_par_operateur(date_debut=date_debut, date_fin=date_fin)
+        pivot_machine_operateur = projet11.get_cadence_pivot_machine_operateur(
+            date_debut=date_debut, date_fin=date_fin
+        )
 
         cadence_moy_machines = (
             sum(m['cadence'] for m in cadence_machines) / len(cadence_machines)
@@ -1274,6 +1293,7 @@ def tableau_bord():
             cadence_machines=cadence_machines,
             cadence_machines_par_service=cadence_machines_par_service,
             cadence_operateurs=cadence_operateurs,
+            pivot_machine_operateur=pivot_machine_operateur,
             cadence_moy_machines=cadence_moy_machines,
             cadence_moy_operateurs=cadence_moy_operateurs,
             date_debut=date_debut,
