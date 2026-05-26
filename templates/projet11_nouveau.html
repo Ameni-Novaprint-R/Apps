@@ -11,6 +11,38 @@
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <style>
+    /* Dropdown type datalist (machine réelle) */
+    .p11-machine-dd-wrap {
+        position: relative;
+    }
+    .p11-machine-dd {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + 4px);
+        background: #fff;
+        border: 1px solid rgba(0,0,0,0.18);
+        border-radius: 8px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+        z-index: 10000;
+        max-height: 260px;
+        overflow: auto;
+        padding: 6px;
+    }
+    .p11-machine-dd-item {
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .p11-machine-dd-item:hover,
+    .p11-machine-dd-item.active {
+        background: rgba(13, 110, 253, 0.10);
+    }
+
     /* Libellés quantités : éviter les retours à la ligne */
     #row-quantites .form-label strong {
         white-space: nowrap;
@@ -436,16 +468,15 @@
                                     <label for="machine_reelle" class="form-label">
                                         <strong>Machine Réelle Utilisée</strong>
                                     </label>
-                                    <input type="text" 
-                                           class="form-control" 
-                                           id="machine_reelle"
-                                           name="machine_reelle"
-                                           list="machines_list"
-                                           placeholder="-- Tapez pour rechercher une machine --"
-                                           autocomplete="off">
-                                    <datalist id="machines_list">
-                                        <!-- Les options seront ajoutées dynamiquement -->
-                                    </datalist>
+                                    <div class="p11-machine-dd-wrap">
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="machine_reelle"
+                                               name="machine_reelle"
+                                               placeholder="-- Tapez pour rechercher une machine --"
+                                               autocomplete="off">
+                                        <div id="machine_reelle_dropdown" class="p11-machine-dd" style="display:none;"></div>
+                                    </div>
                                     <small class="text-muted">Machines du service sélectionné uniquement</small>
                                     <div id="machineEncoursPopupWrap" style="position: relative;">
                                         <div id="machineEncoursPopup" class="machine-encours-popup" style="display: none;">
@@ -932,10 +963,160 @@ $(document).on('input', '#compteur_lecture', function() {
         applyCompteurCumulatifIfPossible();
     }
 });
-// Datalist machine : change n'est pas toujours déclenché -> input + blur + change
-$(document).on('input blur change', '#machine_reelle', function() {
-    scheduleRefreshDerniereLectureCompteur();
-});
+// Machine réelle : dropdown contrôlé (max 10 résultats), valeur finale toujours dans la liste.
+(function() {
+    const $inp = $('#machine_reelle');
+    const $dd = $('#machine_reelle_dropdown');
+    let activeIndex = -1;
+    let lastShown = [];
+
+    function listMachines() {
+        return (window._p11MachinesServiceList || []).slice();
+    }
+    function isExactInList(v) {
+        const val = String(v || '').trim();
+        if (!val) return false;
+        return listMachines().some(m => m === val);
+    }
+    function normalizeKey(s) {
+        return String(s || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '');
+    }
+    function findUniqueNormalizedMatch(raw) {
+        const key = normalizeKey(raw);
+        if (!key) return null;
+        const matches = listMachines().filter(function(m) {
+            return normalizeKey(m) === key;
+        });
+        if (matches.length === 1) return matches[0];
+        return null;
+    }
+    function setValidValue(v) {
+        const val = String(v || '').trim();
+        $inp.val(val);
+        window._p11MachineLastValid = val;
+        $dd.hide();
+        scheduleRefreshDerniereLectureCompteur();
+    }
+    function renderDropdown(items) {
+        $dd.empty();
+        if (!items.length) {
+            $dd.hide();
+            return;
+        }
+        items.slice(0, 10).forEach((name, idx) => {
+            const $it = $('<div class="p11-machine-dd-item"></div>');
+            $it.text(name);
+            $it.attr('data-value', name);
+            if (idx === activeIndex) $it.addClass('active');
+            $it.on('mousedown', function(e) {
+                e.preventDefault(); // éviter blur avant click
+                setValidValue(name);
+            });
+            $dd.append($it);
+        });
+        $dd.show();
+    }
+    function updateSuggestions() {
+        const all = listMachines();
+        const q = String($inp.val() || '').trim().toLowerCase();
+        let filtered = all;
+        if (q) {
+            filtered = all.filter(m => m.toLowerCase().includes(q));
+            // si aucune correspondance -> afficher toute la liste
+            if (!filtered.length) filtered = all;
+        }
+        lastShown = filtered.slice(0, 10);
+        activeIndex = -1;
+        renderDropdown(filtered);
+    }
+    function commitOrRevert() {
+        const val = String($inp.val() || '').trim();
+        if (isExactInList(val)) {
+            setValidValue(val);
+            return;
+        }
+        // Auto-correction silencieuse si correspondance UNIQUE après normalisation
+        // ex: "KBA 105-6" -> "KBA105-6"
+        const unique = findUniqueNormalizedMatch(val);
+        if (unique) {
+            setValidValue(unique);
+            return;
+        }
+        // Valeur non valide -> revenir à la machine prévue / dernière valide (sans message)
+        const back = String(window._p11MachineLastValid || '').trim();
+        $inp.val(back);
+        $dd.hide();
+        scheduleRefreshDerniereLectureCompteur();
+    }
+
+    $inp.on('focus', function() {
+        updateSuggestions();
+    });
+    $inp.on('input', function() {
+        updateSuggestions();
+    });
+    $inp.on('keydown', function(e) {
+        if (!$dd.is(':visible')) return;
+        const items = $dd.find('.p11-machine-dd-item');
+        if (!items.length) return;
+        function ensureActiveVisible() {
+            if (activeIndex < 0) return;
+            const el = items.get(activeIndex);
+            if (!el) return;
+            try {
+                el.scrollIntoView({ block: 'nearest' });
+            } catch (e) {
+                // Fallback minimal si scrollIntoView n'est pas supporté
+                const dd = $dd.get(0);
+                const top = el.offsetTop;
+                const bottom = top + el.offsetHeight;
+                const viewTop = dd.scrollTop;
+                const viewBottom = viewTop + dd.clientHeight;
+                if (top < viewTop) dd.scrollTop = top;
+                else if (bottom > viewBottom) dd.scrollTop = bottom - dd.clientHeight;
+            }
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = Math.min(items.length - 1, activeIndex + 1);
+            items.removeClass('active');
+            items.eq(activeIndex).addClass('active');
+            ensureActiveVisible();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = Math.max(0, activeIndex - 1);
+            items.removeClass('active');
+            items.eq(activeIndex).addClass('active');
+            ensureActiveVisible();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeIndex >= 0) {
+                const v = items.eq(activeIndex).attr('data-value');
+                setValidValue(v);
+            } else {
+                commitOrRevert();
+            }
+        } else if (e.key === 'Escape') {
+            $dd.hide();
+        } else if (e.key === 'Tab') {
+            // Laisser le tab sortir, mais remettre valeur valide au blur
+            $dd.hide();
+        }
+    });
+    $inp.on('blur', function() {
+        // petit délai pour laisser mousedown sélectionner
+        setTimeout(commitOrRevert, 120);
+    });
+    // Clic ailleurs -> fermer la liste
+    $(document).on('mousedown', function(ev) {
+        if (!$dd.is(':visible')) return;
+        const t = ev.target;
+        if (t === $inp[0] || $dd[0].contains(t)) return;
+        $dd.hide();
+    });
+})();
 
 function restaurerChronoDepuisFormulaire() {
     const dteDebInput = document.getElementById('dte_deb');
@@ -1239,20 +1420,53 @@ function chargerDonneesTraitement(data) {
                         const champService = document.getElementById('service_prevu');
                         if (champService) {
                             console.log('[DEBUG] Définition du service:', data.nom_gp_services);
-                            champService.value = data.nom_gp_services;
-                            currentService = data.nom_gp_services;
-                            
-                            // Déclencher le chargement du service
-                            setTimeout(() => {
-                                console.log('[DEBUG] Déclenchement du changement de service');
-                                champService.dispatchEvent(new Event('change', { bubbles: true }));
-                                
-                                // Attendre que le formulaire soit chargé, puis remplir les autres champs
+
+                            // Détecter si le service est dans la liste des services PRÉVUS du dossier
+                            const optionSelector = 'option[value="' + String(data.nom_gp_services).replace(/"/g, '\\"') + '"]';
+                            const estServicePrevu = $('#services_list ' + optionSelector).length > 0;
+
+                            if (estServicePrevu) {
+                                // Cas standard : le service est prévu pour ce dossier
+                                champService.value = data.nom_gp_services;
+                                currentService = data.nom_gp_services;
+
                                 setTimeout(() => {
-                                    console.log('[DEBUG] Appel de remplirChampsTraitement');
-                                    remplirChampsTraitement(data);
-                                }, 800);
-                            }, 400);
+                                    console.log('[DEBUG] Déclenchement du changement de service (prévu)');
+                                    champService.dispatchEvent(new Event('change', { bubbles: true }));
+
+                                    // Attendre que le formulaire soit chargé, puis remplir les autres champs
+                                    setTimeout(() => {
+                                        console.log('[DEBUG] Appel de remplirChampsTraitement (prévu)');
+                                        remplirChampsTraitement(data);
+                                    }, 800);
+                                }, 400);
+                            } else {
+                                // Cas "Autre service (non prévu)" : passer par le flux service manuel
+                                console.log('[DEBUG] Service non prévu pour ce dossier -> bascule en mode __AUTRE__:', data.nom_gp_services);
+                                if (!storedFormValues) storedFormValues = {};
+                                // Sera appliqué automatiquement dans afficherSelectionServiceNonPrevu()
+                                storedFormValues.service_manuel = data.nom_gp_services;
+
+                                champService.value = '__AUTRE__';
+                                currentService = data.nom_gp_services;
+                                currentFicheId = 0;
+                                $('#id_fiche_travail').val(0);
+
+                                setTimeout(() => {
+                                    console.log('[DEBUG] Déclenchement du changement de service (__AUTRE__)');
+                                    champService.dispatchEvent(new Event('change', { bubbles: true }));
+
+                                    // Attendre :
+                                    //  - chargement de /api/services-tous (datalist manuel)
+                                    //  - application auto de storedFormValues.service_manuel
+                                    //  - chargement des machines du service
+                                    //  - génération des champs opérateurs
+                                    setTimeout(() => {
+                                        console.log('[DEBUG] Appel de remplirChampsTraitement (non prévu)');
+                                        remplirChampsTraitement(data);
+                                    }, 1500);
+                                }, 400);
+                            }
                         } else {
                             console.error('[DEBUG] Champ service_prevu non trouvé');
                             // Essayer quand même de remplir les autres champs
@@ -1971,12 +2185,17 @@ function afficherSelectionServiceNonPrevu() {
 // Charger les machines/postes d'un service spécifique
 function chargerMachinesService(nomService, machinePreselectionne = null) {
     const inputMachine = $('#machine_reelle');
-    const datalistMachines = $('#machines_list');
+    const dropdown = $('#machine_reelle_dropdown');
+    const wrapCol = inputMachine.closest('.col-md-4');
     
-    // Vider le datalist et réinitialiser le champ
-    datalistMachines.empty();
+    // Source machines (pour validation)
+    window._p11MachinesServiceList = [];
+    window._p11MachineLastValid = '';
+
+    // Vider et réinitialiser le champ
     inputMachine.val('');
     inputMachine.prop('disabled', true);
+    dropdown.hide().empty();
     
     if (!nomService) {
         inputMachine.prop('disabled', false);
@@ -1987,30 +2206,27 @@ function chargerMachinesService(nomService, machinePreselectionne = null) {
     fetch(`/projet11/api/postes-tous-service/${encodeURIComponent(nomService)}`)
         .then(response => response.json())
         .then(postes => {
-            datalistMachines.empty();
+            dropdown.empty().hide();
             
             if (postes.length === 0) {
                 inputMachine.attr('placeholder', 'Aucune machine disponible');
             } else {
                 inputMachine.attr('placeholder', '-- Tapez pour rechercher une machine --');
                 
-                // Ajouter toutes les machines du service dans le datalist
-                postes.forEach(poste => {
-                    const option = $('<option>')
-                        .val(poste.nom)
-                        .text(poste.nom);
-                    datalistMachines.append(option);
-                });
+                // Liste machines
+                const machines = postes.map(p => (p.nom || '').trim()).filter(Boolean);
+                window._p11MachinesServiceList = machines;
             }
             
             // Pré-remplir avec la machine prévue si fournie (affichée par défaut, mais modifiable)
             if (machinePreselectionne) {
-                // Si la machine prévue n'existe pas dans la liste, l'ajouter quand même au datalist
-                const machineExists = datalistMachines.find(`option[value="${CSS.escape(machinePreselectionne)}"]`).length > 0;
-                if (!machineExists) {
-                    datalistMachines.append($('<option>').val(machinePreselectionne).text(machinePreselectionne));
+                // Si la machine prévue n'existe pas dans la liste, l'ajouter quand même
+                const mp = String(machinePreselectionne || '').trim();
+                if (mp && window._p11MachinesServiceList.indexOf(mp) === -1) {
+                    window._p11MachinesServiceList.unshift(mp);
                 }
                 inputMachine.val(machinePreselectionne);
+                window._p11MachineLastValid = String(machinePreselectionne || '').trim();
             }
             
             // Réactiver le champ
@@ -2018,7 +2234,7 @@ function chargerMachinesService(nomService, machinePreselectionne = null) {
         })
         .catch(error => {
             console.error('Erreur lors du chargement des machines:', error);
-            datalistMachines.empty();
+            dropdown.empty().hide();
             inputMachine.attr('placeholder', 'Erreur de chargement');
             inputMachine.prop('disabled', false);
         });

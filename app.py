@@ -40,6 +40,7 @@ NUM_TO_URL = {
     22: '/projet22/',
     23: '/projet23/',
     24: '/projet24/',
+    25: '/projet25/',
 }
 
 
@@ -50,19 +51,27 @@ def api_navigation_menu():
         from logic.project_routes import get_project_icon, get_project_url
         # Garantir que le Projet 24 est dans WEB_PROJETS avant de récupérer la liste
         try:
-            from routes.projet24_routes import ensure_projet24_in_web_projects
-            ensure_projet24_in_web_projects()
+            from routes.projet24_routes import ensure_projet24_in_web_projets
+            ensure_projet24_in_web_projets()
         except Exception as e:
             print(f"[navigation-menu] ensure_projet24: {e}")
+        try:
+            from routes.projet25_routes import ensure_projet25_in_web_projets
+            ensure_projet25_in_web_projets()
+        except Exception as e:
+            print(f"[navigation-menu] ensure_projet25: {e}")
         projects_raw = get_user_projects()
         if not projects_raw:
             return jsonify({'projects': []})
         projects = []
         has_24 = False
+        has_25 = False
         for p in projects_raw:
             num = p.get('num') or p.get('NumProj')
             if num == 24:
                 has_24 = True
+            if num == 25:
+                has_25 = True
             url = get_project_url(num) or NUM_TO_URL.get(num, f'/projet{num}/' if num else '#')
             sections_raw = get_user_sections(p.get('id') or num)
             sections = [{'nom': s.get('nom', s.get('Nom', '')), 'url': url} for s in sections_raw]
@@ -71,6 +80,8 @@ def api_navigation_menu():
                 nom = 'Projet 23 – TBD de la situation de la trésorerie'
             if num == 24:
                 nom = 'Formes de Découpe'
+            if num == 25:
+                nom = 'Gestion des congés et autorisations de sortie'
             projects.append({
                 'id': p.get('id'),
                 'url': url,
@@ -85,6 +96,14 @@ def api_navigation_menu():
                 'url': get_project_url(24) or '/projet24/',
                 'icon': get_project_icon(24),
                 'nom': 'Formes de Découpe',
+                'sections': None,
+            })
+        if not has_25 and is_authenticated():
+            projects.append({
+                'id': 25,
+                'url': get_project_url(25) or '/projet25/',
+                'icon': get_project_icon(25),
+                'nom': 'Gestion des congés et autorisations de sortie',
                 'sections': None,
             })
         return jsonify({'projects': projects})
@@ -161,6 +180,7 @@ from routes.projet21_routes import projet21_bp
 from routes.projet22_routes import projet22_bp
 from routes.projet23_routes import projet23_bp
 from routes.projet24_routes import projet24_bp
+from routes.projet25_routes import projet25_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
 from routes.renommer_table_route import renommer_bp
@@ -179,23 +199,29 @@ app.register_blueprint(projet21_bp)
 app.register_blueprint(projet22_bp)
 app.register_blueprint(projet23_bp)
 app.register_blueprint(projet24_bp)
+app.register_blueprint(projet25_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
 app.register_blueprint(renommer_bp)
 
 
 @app.before_request
-def _ensure_projet24_in_menu():
-    """Une fois par démarrage : insère le Projet 24 dans WEB_PROJETS si absent (menu + accueil)."""
-    if getattr(app, '_projet24_web_projets_ensured', False):
-        return
-    try:
-        from routes.projet24_routes import ensure_projet24_in_web_projets
-        ensure_projet24_in_web_projets()
+def _ensure_projets_web_menu():
+    """Une fois par démarrage : projets 24/25 dans WEB_PROJETS si absents (menu + accueil)."""
+    if not getattr(app, '_projet24_web_projets_ensured', False):
+        try:
+            from routes.projet24_routes import ensure_projet24_in_web_projets
+            ensure_projet24_in_web_projets()
+        except Exception as e:
+            print(f"[Projet 24] ensure_projet24_in_web_projets: {e}")
         app._projet24_web_projets_ensured = True
-    except Exception as e:
-        print(f"[Projet 24] ensure_projet24_in_web_projets: {e}")
-        app._projet24_web_projets_ensured = True  # ne pas réessayer à chaque requête
+    if not getattr(app, '_projet25_web_projets_ensured', False):
+        try:
+            from routes.projet25_routes import ensure_projet25_in_web_projets
+            ensure_projet25_in_web_projets()
+        except Exception as e:
+            print(f"[Projet 25] ensure_projet25_in_web_projets: {e}")
+        app._projet25_web_projets_ensured = True
 
 
 if __name__ == '__main__':

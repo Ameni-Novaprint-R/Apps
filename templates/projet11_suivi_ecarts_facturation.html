@@ -56,7 +56,8 @@
   </div>
 
   <div class="alert alert-info py-2">
-    Affichage limité aux dossiers ayant au moins une facture (<code>FACTURES_ELEM</code>) ou un <code>NumFact</code> renseigné sur <code>COMMANDES</code>.
+    Une ligne par <strong>facture</strong> liée au dossier (<code>FACTURES_ELEM</code>) : quantités facturées et Px de vente HT portent sur cette facture uniquement.
+    Les dossiers avec seulement <code>NumFact</code> sur <code>COMMANDES</code> (sans ligne d’élément) restent listés sur une ligne sans montant HT.
   </div>
 
   <div class="card">
@@ -73,7 +74,8 @@
               <th>Quantité facturée</th>
               <th>Prix de vente commande réel</th>
               <th>Total facturé</th>
-              <th>N° facture(s)</th>
+              <th>Px de Vente HT</th>
+              <th>N° facture</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -89,6 +91,13 @@ function fmtNum(n) {
   const v = Number(n);
   if (!isFinite(v)) return String(n);
   return v.toLocaleString('fr-FR', { maximumFractionDigits: 4 });
+}
+
+function fmtMoneyHt(n) {
+  if (n === null || n === undefined || n === '') return '';
+  const v = Number(n);
+  if (!isFinite(v)) return '';
+  return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
 function escHtml(s) {
@@ -107,6 +116,7 @@ function buildRows(rows) {
   (rows || []).forEach(function(r) {
     const ref = escHtml(r.reference || '');
     const facts = escHtml(r.numeros_factures || '') || '-';
+    const pxHt = fmtMoneyHt(r.px_vente_ht);
     $tb.append(`
       <tr>
         <td><strong>${escHtml(r.numero_dossier || '-')}</strong></td>
@@ -117,6 +127,7 @@ function buildRows(rows) {
         <td class="p11-num">${fmtNum(r.qte_facturee)}</td>
         <td class="p11-num">${fmtNum(r.prx_vte_reel_ext)}</td>
         <td class="p11-num">${fmtNum(r.total_fact)}</td>
+        <td class="p11-num">${pxHt || ''}</td>
         <td class="p11-fact-list small">${facts}</td>
       </tr>
     `);
@@ -132,7 +143,7 @@ function loadData() {
     dt.destroy();
     dt = null;
   }
-  $tb.html('<tr><td colspan="9" class="text-center text-muted py-4">Chargement…</td></tr>');
+  $tb.html('<tr><td colspan="10" class="text-center text-muted py-4">Chargement…</td></tr>');
   const url = '/projet11/api/suivi-ecarts-facturation?limit=4000' + (q ? ('&q=' + encodeURIComponent(q)) : '');
   fetch(url)
     .then(r => r.json())
@@ -149,7 +160,7 @@ function loadData() {
       });
     })
     .catch(() => {
-      $tb.html('<tr><td colspan="9" class="text-center text-danger py-4">Erreur de chargement.</td></tr>');
+      $tb.html('<tr><td colspan="10" class="text-center text-danger py-4">Erreur de chargement.</td></tr>');
     });
 }
 

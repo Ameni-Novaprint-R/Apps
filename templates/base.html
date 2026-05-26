@@ -55,6 +55,9 @@
         {% block content %}{% endblock %}
     </div>
 
+    {# Modales hors du .container pour z-index correct (Bootstrap backdrop) #}
+    {% block page_modals %}{% endblock %}
+
     <!-- FOOTER -->
     <footer class="footer">
         <p>© {{ now.year }} Novaprint Tunisie – Tous droits réservés.</p>

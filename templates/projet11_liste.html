@@ -276,6 +276,11 @@ th.col-ecart, td.col-ecart {
     max-width: 110px;
     text-align: center;
 }
+th.col-cadence, td.col-cadence {
+    width: 95px;
+    max-width: 115px;
+    text-align: center;
+}
 th.col-statut, td.col-statut {
     width: 100px;
     max-width: 120px;
@@ -442,6 +447,17 @@ th.col-actions, td.col-actions {
     background-color: #198754;
     color: #ffffff;
 }
+/* Alerte cadence : ligne en rouge clair si cadence <= -15% vs moyenne mois précédent (même machine) */
+#tableTraitements tbody tr.p11-cadence-alert > td {
+    background-color: #f8d7da !important;
+}
+#tableTraitements tbody tr.p11-cadence-alert:hover > td {
+    background-color: #f1aeb5 !important;
+}
+#tableTraitements tbody tr.p11-cadence-alert td.col-cadence {
+    color: #b02a37;
+    font-weight: 700;
+}
 </style>
 {% endblock %}
 
@@ -514,6 +530,7 @@ th.col-actions, td.col-actions {
                                     <th class="col-temps">Tps Prévu</th>
                                     <th class="col-temps">Tps Réel</th>
                                     <th class="col-ecart">Écart</th>
+                                    <th class="col-cadence">Cadence (op/h)</th>
                                     <th class="col-nomfd">Nom F.D.</th>
                                     <th class="col-description">Description</th>
                                     <th class="col-statut">Statut</th>
@@ -523,7 +540,7 @@ th.col-actions, td.col-actions {
                             </thead>
                             <tbody>
                                 {% for t in traitements %}
-                                <tr>
+                                <tr{% if t.cadence_alert %} class="p11-cadence-alert"{% endif %}>
                                     <td class="col-id">{{ t.id }}</td>
                                     <td class="col-date">
                                         {% if t.dte_deb %}
@@ -582,6 +599,26 @@ th.col-actions, td.col-actions {
                                     <td class="col-ecart">
                                         {% if t.ecart_temps is not none %}
                                             {{ format_hhmm(t.ecart_temps, show_sign=True) }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="col-cadence">
+                                        {% if t.tps_reel and t.tps_reel > 0 and t.nb_op %}
+                                            {% set _cadence_val = t.nb_op / t.tps_reel %}
+                                            {% if t.cadence_alert %}
+                                                <strong data-bs-toggle="tooltip" data-bs-placement="top"
+                                                        title="Baisse de cadence de {{ '%.1f'|format(t.cadence_ecart_pct) }}% par rapport à la moyenne de {{ t.cadence_reference_label }} ({{ '%.2f'|format(t.cadence_reference) }} op/h) sur la même machine">
+                                                    {{ "%.2f"|format(_cadence_val) }}
+                                                </strong>
+                                            {% elif t.cadence_reference %}
+                                                <strong class="text-primary" data-bs-toggle="tooltip" data-bs-placement="top"
+                                                        title="Écart {{ '%+.1f'|format(t.cadence_ecart_pct) }}% vs moyenne {{ t.cadence_reference_label }} ({{ '%.2f'|format(t.cadence_reference) }} op/h)">
+                                                    {{ "%.2f"|format(_cadence_val) }}
+                                                </strong>
+                                            {% else %}
+                                                <strong class="text-primary">{{ "%.2f"|format(_cadence_val) }}</strong>
+                                            {% endif %}
                                         {% else %}
                                             <span class="text-muted">-</span>
                                         {% endif %}
@@ -705,7 +742,7 @@ th.col-actions, td.col-actions {
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="20" class="text-center text-muted">
+                                    <td colspan="21" class="text-center text-muted">
                                         Aucun traitement enregistré
                                     </td>
                                 </tr>
@@ -789,6 +826,7 @@ $(document).ready(function() {
         { titre: 'Tps Prévu', filtre: true, toggle: true, className: 'col-temps col-temps-prev', width: '95px' },
         { titre: 'Tps Réel', filtre: true, toggle: true, className: 'col-temps col-temps-reel', width: '95px' },
         { titre: 'Écart', filtre: true, toggle: true, className: 'col-ecart', width: '95px' },
+        { titre: 'Cadence (op/h)', filtre: true, toggle: true, className: 'col-cadence', width: '95px' },
         { titre: 'Nom F.D.', filtre: true, toggle: true, className: 'col-nomfd', width: '130px' },
         { titre: 'Description', filtre: true, toggle: true, className: 'col-description', width: '180px' },
         { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '100px' },

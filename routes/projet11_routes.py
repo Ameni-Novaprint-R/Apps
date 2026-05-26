@@ -428,6 +428,8 @@ def liste_traitements():
             return redirect(url_for('projet11.index'))
         
         traitements = projet11.get_all_traitements()
+        # Enrichir avec comparaison de cadence vs mois précédent (même machine)
+        projet11.enrich_traitements_cadence_comparison(traitements)
         ids_verrouilles = set(projet11.get_ids_verrouilles_ouverture())
         # ID de l'action REPRISE (section Liste des Traitements) pour afficher le bouton
         reprise_action_id = None
@@ -1823,6 +1825,10 @@ def export_traitements_excel():
         # Créer un DataFrame avec toutes les colonnes du tableau
         data = []
         for t in traitements:
+            # Cadence (op/h) = nb_op / tps_reel quand tps_reel > 0
+            _tps_reel = t.get('tps_reel') or 0
+            _nb_op = t.get('nb_op') or 0
+            cadence_val = (_nb_op / _tps_reel) if (_tps_reel and _tps_reel > 0 and _nb_op) else None
             data.append({
                 'ID': t.get('id', ''),
                 'Date Début': t.get('dte_deb', ''),
@@ -1839,6 +1845,7 @@ def export_traitements_excel():
                 'Tps Prévu': f"{t.get('tps_prev_dev', 0):.2f}" if t.get('tps_prev_dev') else '',
                 'Tps Réel': f"{t.get('tps_reel', 0):.2f}" if t.get('tps_reel') else '',
                 'Écart': f"{t.get('ecart_temps', 0):.2f}" if t.get('ecart_temps') is not None else '',
+                'Cadence (op/h)': f"{cadence_val:.2f}" if cadence_val is not None else '',
                 'Description': t.get('description', '') or '',
                 'Pdt C': t.get('pdt_c', 0),
                 'Pdt NNC': t.get('pdt_nnc', 0),
@@ -1993,6 +2000,7 @@ def export_traitements_pdf():
             Paragraph('Nb Pers.', header_style),
             Paragraph('Tps Prévu', header_style),
             Paragraph('Tps Réel', header_style),
+            Paragraph('Cadence (op/h)', header_style),
             Paragraph('Description', header_style),
             Paragraph('Statut', header_style),
             Paragraph('Contrôle', header_style)
@@ -2002,7 +2010,10 @@ def export_traitements_pdf():
             dte_deb = t.get('dte_deb', '')[:16] if t.get('dte_deb') else ''
             dte_fin = t.get('dte_fin', '')[:16] if t.get('dte_fin') else ''
             tps_prev = f"{t.get('tps_prev_dev', 0):.2f}" if t.get('tps_prev_dev') else ''
-            tps_reel = f"{t.get('tps_reel', 0):.2f}" if t.get('tps_reel') else ''
+            tps_reel_val = t.get('tps_reel') or 0
+            tps_reel = f"{tps_reel_val:.2f}" if t.get('tps_reel') else ''
+            nb_op_val = t.get('nb_op') or 0
+            cadence_str = f"{(nb_op_val / tps_reel_val):.2f}" if (tps_reel_val and tps_reel_val > 0 and nb_op_val) else ''
             statut = 'Terminé' if t.get('dte_fin') else 'En cours'
             controle_txt = 'Validé' if t.get('controle_valide') else 'Non validé'
             description_text = (t.get('description', '') or '')[:80]  # Limiter pour le PDF
@@ -2010,7 +2021,6 @@ def export_traitements_pdf():
             # Pour la colonne Référence, utiliser la fonction qui force le retour à la ligne
             reference_text = t.get('reference', '') or ''
             reference_para = create_reference_paragraph(reference_text, reference_style, reference_col_width_pts)
-            # Modification pour forcer le rechargement Flask
             
             data.append([
                 Paragraph(str(t.get('id', '')), cell_style),
@@ -2026,6 +2036,7 @@ def export_traitements_pdf():
                 Paragraph(str(t.get('nb_pers', 0)), cell_style),
                 Paragraph(tps_prev, cell_style),
                 Paragraph(tps_reel, cell_style),
+                Paragraph(cadence_str, cell_style),
                 Paragraph(description_text, cell_style),
                 Paragraph(statut, cell_style),
                 Paragraph(controle_txt, cell_style)
@@ -2033,26 +2044,24 @@ def export_traitements_pdf():
         
         # Créer le tableau avec largeurs ajustées
         # Total doit être <= 11.69 inch (largeur page paysage A4)
-        # ID : 0.9 inch (suffisant pour afficher les IDs)
-        # Statut : 1.1 inch (suffisant pour "Terminé" ou "En cours")
-        # Référence : 1.5 inch (fonctionne bien avec retour à la ligne)
-        # Total largeurs <= 11.69 inch (A4 paysage) : ajout Description 1.0 inch
+        # Largeurs réduites pour accommoder la nouvelle colonne Cadence (op/h)
         table = Table(data, colWidths=[
-            0.85*inch,  # ID
-            0.85*inch,  # Date Début
-            0.85*inch,  # Date Fin
+            0.7*inch,   # ID
+            0.8*inch,   # Date Début
+            0.8*inch,   # Date Fin
             0.75*inch,  # N° Commande
-            1.3*inch,   # Référence
-            0.85*inch,  # Client
+            1.2*inch,   # Référence
+            0.8*inch,   # Client
             0.7*inch,   # Service
             0.65*inch,  # Poste
-            0.85*inch,  # Opérateur
-            0.45*inch,  # Nb Op.
-            0.45*inch,  # Nb Pers.
-            0.55*inch,  # Tps Prévu
-            0.55*inch,  # Tps Réel
-            0.85*inch,  # Description
-            0.85*inch,  # Statut
+            0.8*inch,   # Opérateur
+            0.4*inch,   # Nb Op.
+            0.4*inch,   # Nb Pers.
+            0.5*inch,   # Tps Prévu
+            0.5*inch,   # Tps Réel
+            0.6*inch,   # Cadence (op/h)
+            0.8*inch,   # Description
+            0.7*inch,   # Statut
             0.55*inch   # Contrôle
         ])
         
@@ -2061,6 +2070,7 @@ def export_traitements_pdf():
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('ALIGN', (9, 0), (10, -1), 'CENTER'),  # Nb Op., Nb Pers.
+            ('ALIGN', (13, 0), (13, -1), 'CENTER'),  # Cadence (op/h)
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 8),
             ('FONTSIZE', (0, 1), (-1, -1), 7),

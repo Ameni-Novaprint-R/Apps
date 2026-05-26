@@ -298,7 +298,12 @@ def parse_filtre_numero_dossier_ecarts(q):
 def get_suivi_ecarts_facturation_par_dossier(filtre_numero=None, limit=4000):
     """
     Suivi des écarts de facturation par dossier (COMMANDES + FACTURES_ELEM + FACTURES).
-    Affiche uniquement les dossiers ayant au moins une ligne FACTURES_ELEM ou un NumFact renseigné.
+
+    Une ligne par couple (dossier, facture) : quantités et Px de vente HT (somme HtApRemise)
+    sont limités à la facture affichée sur la ligne.
+
+    Affiche les dossiers ayant au moins une ligne FACTURES_ELEM ou (si NumFact existe)
+    un NumFact renseigné sans ligne d'élément (une ligne sans montant HT).
     """
     lim = int(limit) if limit else 4000
     if lim <= 0:
@@ -310,6 +315,7 @@ def get_suivi_ecarts_facturation_par_dossier(filtre_numero=None, limit=4000):
     rows_out = []
     with get_db_cursor() as cursor:
         has_numfact = column_exists(cursor, "COMMANDES", "NumFact")
+        has_ht_ap_remise = column_exists(cursor, "FACTURES_ELEM", "HtApRemise")
         if has_numfact:
             fact_where = (
                 "(EXISTS (SELECT 1 FROM FACTURES_ELEM fe0 WHERE fe0.ID_COMMANDE = C.ID) "
@@ -345,14 +351,20 @@ def get_suivi_ecarts_facturation_par_dossier(filtre_numero=None, limit=4000):
             where_sql.append(f"{num_expr} LIKE ?")
             params.append(f"{filt['prefix']}%")
 
-        coalesce_numfact = (
-            "NULLIF(LTRIM(RTRIM(C.NumFact)), '')"
-            if has_numfact
-            else "CAST(NULL AS NVARCHAR(4000))"
-        )
+        where_clause = " AND ".join(where_sql)
 
-        sql = f"""
-            SELECT TOP (?)
+        if has_ht_ap_remise:
+            px_select = """ISNULL((
+                    SELECT SUM(CAST(FEht.HtApRemise AS DECIMAL(18, 4)))
+                    FROM FACTURES_ELEM FEht
+                    WHERE FEht.ID_COMMANDE = C.ID AND FEht.ID_FACTURE = F.ID
+                ), NULL) AS px_vente_ht"""
+        else:
+            px_select = "CAST(NULL AS DECIMAL(18, 4)) AS px_vente_ht"
+
+        # Lignes : une par facture liée au dossier via FACTURES_ELEM
+        sql_par_facture = f"""
+            SELECT
                 C.ID,
                 C.Numero AS numero_dossier,
                 ISNULL(NULLIF(LTRIM(RTRIM(S.RaiSocTri)), ''), '-') AS client,
@@ -362,28 +374,88 @@ def get_suivi_ecarts_facturation_par_dossier(filtre_numero=None, limit=4000):
                 ISNULL((
                     SELECT SUM(CAST(FE.QteFact AS DECIMAL(18, 4)))
                     FROM FACTURES_ELEM FE
-                    WHERE FE.ID_COMMANDE = C.ID
+                    WHERE FE.ID_COMMANDE = C.ID AND FE.ID_FACTURE = F.ID
                 ), 0) AS qte_facturee,
                 C.PrxVteReelExt AS prx_vte_reel_ext,
                 C.TotalFact AS total_fact,
-                COALESCE((
-                    SELECT STRING_AGG(x.Numero, ', ')
-                    FROM (
-                        SELECT DISTINCT CAST(F.Numero AS NVARCHAR(4000)) AS Numero
-                        FROM FACTURES_ELEM FE2
-                        INNER JOIN FACTURES F ON F.ID = FE2.ID_FACTURE
-                        WHERE FE2.ID_COMMANDE = C.ID
-                    ) x
-                ), {coalesce_numfact}) AS numeros_factures
+                CAST(F.Numero AS NVARCHAR(4000)) AS numeros_factures,
+                {px_select}
             FROM COMMANDES C
             LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
-            WHERE {' AND '.join(where_sql)}
-            ORDER BY {num_expr} DESC
+            INNER JOIN (
+                SELECT DISTINCT fe.ID_COMMANDE, fe.ID_FACTURE
+                FROM FACTURES_ELEM fe
+                WHERE fe.ID_FACTURE IS NOT NULL
+            ) inv ON inv.ID_COMMANDE = C.ID
+            INNER JOIN FACTURES F ON F.ID = inv.ID_FACTURE
+            WHERE {where_clause}
         """
 
-        params_full = [lim] + list(params)
-        cursor.execute(sql, tuple(params_full))
+        if has_numfact:
+            sql_numfact_seul = f"""
+            SELECT
+                C.ID,
+                C.Numero AS numero_dossier,
+                ISNULL(NULLIF(LTRIM(RTRIM(S.RaiSocTri)), ''), '-') AS client,
+                C.Reference AS reference,
+                C.QteComm AS qte_comm,
+                C.QteLiv AS qte_liv,
+                CAST(0 AS DECIMAL(18, 4)) AS qte_facturee,
+                C.PrxVteReelExt AS prx_vte_reel_ext,
+                C.TotalFact AS total_fact,
+                NULLIF(LTRIM(RTRIM(C.NumFact)), '') AS numeros_factures,
+                CAST(NULL AS DECIMAL(18, 4)) AS px_vente_ht
+            FROM COMMANDES C
+            LEFT JOIN SOCIETES S ON S.ID = C.ID_SOCIETE
+            WHERE {where_clause}
+              AND NOT EXISTS (SELECT 1 FROM FACTURES_ELEM fe0 WHERE fe0.ID_COMMANDE = C.ID)
+              AND C.NumFact IS NOT NULL AND LTRIM(RTRIM(C.NumFact)) <> ''
+            """
+            sql_union = f"""
+            SELECT TOP (?)
+                t.ID,
+                t.numero_dossier,
+                t.client,
+                t.reference,
+                t.qte_comm,
+                t.qte_liv,
+                t.qte_facturee,
+                t.prx_vte_reel_ext,
+                t.total_fact,
+                t.numeros_factures,
+                t.px_vente_ht
+            FROM (
+                {sql_par_facture}
+                UNION ALL
+                {sql_numfact_seul}
+            ) t
+            ORDER BY LTRIM(RTRIM(CAST(t.numero_dossier AS NVARCHAR(4000)))) DESC
+            """
+            params_full = tuple([lim] + list(params) + list(params))
+        else:
+            sql_union = f"""
+            SELECT TOP (?)
+                x.ID,
+                x.numero_dossier,
+                x.client,
+                x.reference,
+                x.qte_comm,
+                x.qte_liv,
+                x.qte_facturee,
+                x.prx_vte_reel_ext,
+                x.total_fact,
+                x.numeros_factures,
+                x.px_vente_ht
+            FROM (
+                {sql_par_facture}
+            ) x
+            ORDER BY LTRIM(RTRIM(CAST(x.numero_dossier AS NVARCHAR(4000)))) DESC
+            """
+            params_full = tuple([lim] + list(params))
+
+        cursor.execute(sql_union, params_full)
         for r in cursor.fetchall():
+            px_raw = getattr(r, "px_vente_ht", None)
             rows_out.append(
                 {
                     "id": int(r.ID),
@@ -396,6 +468,7 @@ def get_suivi_ecarts_facturation_par_dossier(filtre_numero=None, limit=4000):
                     "prx_vte_reel_ext": float(r.prx_vte_reel_ext) if r.prx_vte_reel_ext is not None else None,
                     "total_fact": float(r.total_fact) if r.total_fact is not None else None,
                     "numeros_factures": (r.numeros_factures or "").strip() if r.numeros_factures else "",
+                    "px_vente_ht": float(px_raw) if px_raw is not None else None,
                 }
             )
     return rows_out
@@ -3414,6 +3487,182 @@ def get_cadence_pivot_machine_operateur(date_debut=None, date_fin=None):
         "operateurs": operateurs,
         "cells": cells,
     }
+
+
+def get_monthly_cadence_by_service_machine():
+    """
+    Retourne un dictionnaire des cadences mensuelles agrégées par (Service + Machine).
+    Même grouping que get_cadence_par_machine() utilisé dans le Tableau de bord,
+    pour que les valeurs de référence soient strictement identiques.
+
+    Pour chaque (service, machine) et chaque mois calendaire (basé sur DteFin) :
+        cadence = SUM(NbOp) / SUM(TpsReel)
+
+    Format retourné :
+        {
+            ("OFFSET FEUILLES", "KBA105-6"): {
+                (2026, 4): {"cadence": 2391.70, "ops": 690310, "heures": 288.63, "nb": 48},
+                (2026, 3): {...},
+                ...
+            },
+            ...
+        }
+    """
+    sql = """
+        SELECT 
+            ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné') AS service,
+            ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné') AS machine,
+            YEAR(DteFin) AS annee,
+            MONTH(DteFin) AS mois,
+            SUM(ISNULL(NbOp, 0)) AS total_operations,
+            SUM(ISNULL(TpsReel, 0)) AS total_heures,
+            COUNT(*) AS nb_traitements
+        FROM WEB_TRAITEMENTS
+        WHERE DteFin IS NOT NULL
+          AND TpsReel IS NOT NULL
+          AND TpsReel > 0
+          AND PostesReel IS NOT NULL
+          AND LTRIM(RTRIM(PostesReel)) <> ''
+        GROUP BY ISNULL(NULLIF(LTRIM(RTRIM(Nom_GP_SERVICES)), ''), 'Non renseigné'),
+                 ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné'),
+                 YEAR(DteFin), MONTH(DteFin)
+    """
+    result = {}
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+        for row in rows:
+            service = (row.service or 'Non renseigné').strip() or 'Non renseigné'
+            machine = (row.machine or 'Non renseigné').strip() or 'Non renseigné'
+            ops = float(row.total_operations or 0)
+            heures = float(row.total_heures or 0)
+            if heures <= 0 or ops <= 0:
+                continue
+            cadence = ops / heures
+            if cadence <= 0:
+                continue
+            key_sm = (service, machine)
+            if key_sm not in result:
+                result[key_sm] = {}
+            result[key_sm][(int(row.annee), int(row.mois))] = {
+                "cadence": round(cadence, 2),
+                "ops": ops,
+                "heures": heures,
+                "nb": int(row.nb_traitements or 0),
+            }
+    except Exception as e:
+        print(f"[WARN] get_monthly_cadence_by_service_machine: {e}")
+    return result
+
+
+def _normalize_service_machine_key(service, machine):
+    s = (str(service).strip() if service else '') or 'Non renseigné'
+    m = (str(machine).strip() if machine else '') or 'Non renseigné'
+    return (s, m)
+
+
+def find_cadence_reference_for_row(monthly_cadences, service, machine, dte_deb_value, max_months_back=24):
+    """
+    Cherche la cadence moyenne de référence pour une fiche donnée.
+    - service : valeur de Nom_GP_SERVICES de la fiche
+    - machine : valeur de PostesReel de la fiche
+    - dte_deb_value : DteDeb (chaîne 'YYYY-MM-DD HH:MM:SS' ou datetime)
+    - On commence par le mois calendaire précédent (par rapport à DteDeb)
+    - Si pas de données pour ce mois, on remonte d'un mois (jusqu'à max_months_back = 24)
+    Retourne (cadence_ref, label_mois) ou (None, None) si rien trouvé.
+    """
+    from datetime import datetime as _dt
+    if not machine or not dte_deb_value:
+        return None, None
+
+    key_sm = _normalize_service_machine_key(service, machine)
+    if key_sm not in monthly_cadences:
+        return None, None
+
+    try:
+        if isinstance(dte_deb_value, _dt):
+            dt_obj = dte_deb_value
+        else:
+            s = str(dte_deb_value).replace('T', ' ').strip()
+            dt_obj = _dt.strptime(s[:19], '%Y-%m-%d %H:%M:%S')
+    except (ValueError, TypeError):
+        try:
+            dt_obj = _dt.strptime(str(dte_deb_value)[:10], '%Y-%m-%d')
+        except (ValueError, TypeError):
+            return None, None
+
+    year = dt_obj.year
+    month = dt_obj.month - 1
+    if month < 1:
+        month = 12
+        year -= 1
+
+    month_names_fr = [
+        '', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ]
+
+    sm_data = monthly_cadences[key_sm]
+    for _ in range(max_months_back):
+        k = (year, month)
+        if k in sm_data:
+            data = sm_data[k]
+            if data.get("cadence", 0) > 0:
+                return data["cadence"], f"{month_names_fr[month]} {year}"
+        month -= 1
+        if month < 1:
+            month = 12
+            year -= 1
+
+    return None, None
+
+
+def enrich_traitements_cadence_comparison(traitements):
+    """
+    Enrichit chaque fiche de la liste avec :
+    - cadence_actuelle (op/h, précision décimale)
+    - cadence_reference (cadence moyenne de la même Service+Machine sur le mois calendaire
+      précédent par rapport à DteDeb ; si pas de données, on remonte jusqu'à 24 mois).
+      Le grouping (Service + Machine) est identique à celui du Tableau de bord
+      → les valeurs sont strictement cohérentes.
+    - cadence_reference_label (ex: "Avril 2026")
+    - cadence_ecart_pct (écart relatif en %)
+    - cadence_alert (True si écart <= -15%)
+    Les fiches en cours (sans TpsReel) ou sans machine ne reçoivent pas de comparaison.
+    """
+    if not traitements:
+        return traitements
+    monthly_cadences = get_monthly_cadence_by_service_machine()
+    for t in traitements:
+        nb_op = t.get('nb_op') or 0
+        tps_reel = t.get('tps_reel') or 0
+        cadence_actuelle = None
+        if tps_reel and tps_reel > 0 and nb_op:
+            try:
+                cadence_actuelle = float(nb_op) / float(tps_reel)
+            except (TypeError, ValueError, ZeroDivisionError):
+                cadence_actuelle = None
+
+        cadence_ref = None
+        label_ref = None
+        ecart_pct = None
+        if cadence_actuelle is not None and t.get('postes_reel') and t.get('dte_deb'):
+            cadence_ref, label_ref = find_cadence_reference_for_row(
+                monthly_cadences, t.get('service'), t['postes_reel'], t['dte_deb']
+            )
+            if cadence_ref and cadence_ref > 0:
+                try:
+                    ecart_pct = ((cadence_actuelle - cadence_ref) / cadence_ref) * 100.0
+                except (TypeError, ValueError, ZeroDivisionError):
+                    ecart_pct = None
+
+        t['cadence_actuelle'] = round(cadence_actuelle, 2) if cadence_actuelle is not None else None
+        t['cadence_reference'] = cadence_ref
+        t['cadence_reference_label'] = label_ref
+        t['cadence_ecart_pct'] = round(ecart_pct, 2) if ecart_pct is not None else None
+        t['cadence_alert'] = bool(ecart_pct is not None and ecart_pct <= -15.0)
+    return traitements
 
 
 def get_tableau_comparatif_commandes(numero_filter=None):
