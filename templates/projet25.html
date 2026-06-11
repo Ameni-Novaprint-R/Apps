@@ -165,6 +165,9 @@ body.modal-open .modal-backdrop { z-index: 1065 !important; }
             {% if 'feries' in allowed_sections or is_rh or is_super %}
             <button type="button" class="p25-section-btn" data-p25-section="feries"><i class="fas fa-star"></i> Jours fériés</button>
             {% endif %}
+            {% if 'soldes' in allowed_sections or is_rh or is_super %}
+            <button type="button" class="p25-section-btn" data-p25-section="soldes"><i class="fas fa-calendar-check"></i> Solde de congés</button>
+            {% endif %}
         </div>
     </div>
 
@@ -216,6 +219,53 @@ body.modal-open .modal-backdrop { z-index: 1065 !important; }
                 <thead class="table-dark"><tr><th>Matricule</th><th>Nom</th><th>Solde</th><th>Consommé</th><th>Restant</th><th></th></tr></thead>
                 <tbody id="p25-soldes-body"></tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Solde de congés (fiche RH) -->
+    <div id="p25-panel-soldes" class="p25-panel">
+        <div class="p25-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h3 class="mb-0">Solde de congés – fiches collaborateurs</h3>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <input type="number" id="p25-sf-annee" class="form-control form-control-sm" style="width:90px" value="">
+                    <input type="search" id="p25-sf-search" class="form-control form-control-sm" placeholder="Rechercher…" style="width:160px">
+                    <button type="button" class="btn btn-sm btn-p25-primary" onclick="p25LoadSoldeFiches()">Actualiser</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="p25ImportSoldeFiches()">Import Excel initial</button>
+                </div>
+            </div>
+            <p class="text-muted small">Fiche type « Congés restants » : reliquat, droit fixe, acquis mensuels et congés accordés. Les demandes congé annuel validées dans P25 alimentent automatiquement les prises.</p>
+            <table id="table-solde-fiches" class="table table-sm table-bordered table-hover w-100">
+                <thead class="table-dark"><tr>
+                    <th>Mat.</th><th>Collaborateur</th><th>Dépt.</th><th>Régime</th><th>Fixe</th>
+                    <th>Reliquat</th><th>Solde</th><th>Proch. +2j</th><th></th>
+                </tr></thead>
+                <tbody id="p25-sf-list-body"></tbody>
+            </table>
+        </div>
+        <div class="p25-card" id="p25-sf-detail-wrap" style="display:none">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h4 id="p25-sf-detail-title">Fiche congé</h4>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="p25CloseSoldeFiche()">Fermer</button>
+            </div>
+            <div id="p25-sf-detail-summary" class="row g-2 mb-3 small"></div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered text-center" id="p25-sf-grille">
+                    <thead class="table-secondary"><tr id="p25-sf-grille-head"></tr></thead>
+                    <tbody id="p25-sf-grille-body"></tbody>
+                </table>
+            </div>
+            <div class="row g-2 mt-2" id="p25-sf-rh-edit">
+                <div class="col-md-3"><label class="form-label small">Droit fixe (RH)</label>
+                    <select id="p25-sf-edit-fixe" class="form-select form-select-sm"><option value="0">0</option><option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option></select></div>
+                <div class="col-md-3"><label class="form-label small">Prochaine addition fixe</label>
+                    <input type="date" id="p25-sf-edit-date-add" class="form-control form-control-sm"></div>
+                <div class="col-md-3"><label class="form-label small">Reliquat année préc.</label>
+                    <input type="number" step="0.5" id="p25-sf-edit-reliquat" class="form-control form-control-sm"></div>
+                <div class="col-md-3 d-flex align-items-end"><button type="button" class="btn btn-sm btn-p25-primary" onclick="p25SaveSoldeFicheRh()">Enregistrer rectification RH</button></div>
+            </div>
+            <h5 class="mt-3">Droits supplémentaires (informatif)</h5>
+            <ul id="p25-sf-droits-suppl" class="small text-muted"></ul>
         </div>
     </div>
 
@@ -604,6 +654,7 @@ function p25ToggleSection(s) {
     if (s === 'stats') p25LoadStats();
     if (s === 'validateurs') p25LoadValidateurs();
     if (s === 'feries') p25LoadFeries();
+    if (s === 'soldes') p25LoadSoldeFiches();
 }
 
 function p25TodayISO() {
@@ -957,10 +1008,12 @@ function p25ResetDateSortieField() {
 
 function p25OpenModal(kind) {
     if (kind === 'conge') {
-        p25SetupCollaborateurSelect('p25-conge-collaborateur', 'p25-conge-collaborateur-help');
-        p25ResetCollaborateur('p25-conge-collaborateur');
+        p25BindCongeCollaborateurSolde();
+        p25SetupCollaborateurSelect('p25-conge-collaborateur', 'p25-conge-collaborateur-help').then(function() {
+            p25ResetCollaborateur('p25-conge-collaborateur');
+            p25RefreshSessionRights(function() { p25RefreshSolde(); });
+        });
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConge')).show();
-        p25RefreshSessionRights(function() { p25RefreshSolde(); });
     } else if (kind === 'sortie') {
         p25SetupCollaborateurSelect('p25-sortie-collaborateur', 'p25-sortie-collaborateur-help');
         p25ResetDateSortieField();
@@ -1007,11 +1060,29 @@ function p25BindHeureSortie() {
     dep.addEventListener('change', () => { if (ret.value) calcFromFin(); else if (tps.value) calcFromTps(); });
 }
 
+function p25BindCongeCollaborateurSolde() {
+    var sel = document.getElementById('p25-conge-collaborateur');
+    if (!sel || sel.dataset.p25SoldeBound === '1') return;
+    sel.dataset.p25SoldeBound = '1';
+    sel.addEventListener('change', function() {
+        p25RefreshSolde();
+    });
+}
+
 function p25RefreshSolde() {
     const mat = document.getElementById('p25-conge-collaborateur')?.value || P25.matricule;
+    const el = document.getElementById('p25-solde-display');
+    if (!el || !mat) return;
+    el.textContent = 'Solde : chargement…';
     fetch('/projet25/api/solde?matricule=' + mat).then(r=>r.json()).then(s => {
-        document.getElementById('p25-solde-display').textContent =
-            `Solde ${s.annee} : ${s.restant.toFixed(1)} j restants (${s.consomme.toFixed(1)} / ${s.solde.toFixed(1)})`;
+        if (s.source === 'none') {
+            el.textContent = 'Solde ' + s.annee + ' : fiche non disponible — contactez les RH';
+            return;
+        }
+        el.textContent = 'Solde ' + s.annee + ' : ' + Number(s.restant).toFixed(1) +
+            ' j restants (' + Number(s.consomme).toFixed(1) + ' pris / ' + Number(s.solde).toFixed(1) + ' acquis)';
+    }).catch(function() {
+        el.textContent = 'Solde : erreur de chargement';
     });
 }
 
@@ -1452,6 +1523,119 @@ function p25DelFerie(id) {
     fetch('/projet25/api/feries/' + id, { method:'DELETE' }).then(function() { p25LoadFeries(); });
 }
 
+var P25_SF_CURRENT = null;
+
+function p25SfAnnee() {
+    var el = document.getElementById('p25-sf-annee');
+    return (el && el.value) ? parseInt(el.value, 10) : new Date().getFullYear();
+}
+
+function p25LoadSoldeFiches() {
+    var q = (document.getElementById('p25-sf-search') || {}).value || '';
+    fetch('/projet25/api/solde-fiches?annee=' + p25SfAnnee() + '&q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(rows) {
+            var tb = document.getElementById('p25-sf-list-body');
+            if (!tb) return;
+            if (rows.error) { alert(rows.error); return; }
+            tb.innerHTML = (rows || []).map(function(s) {
+                var plaf = s.plafond_atteint ? ' <span class="badge bg-warning text-dark">26j</span>' : '';
+                var dadd = s.date_prochaine_addition_fixe ? s.date_prochaine_addition_fixe.split('T')[0] : '—';
+                return '<tr><td>' + s.matricule + '</td><td>' + (s.label || '') + '</td><td>' + (s.departement || '—') + '</td>' +
+                    '<td>' + s.regime + '</td><td>' + (s.droit_fixe != null ? s.droit_fixe : '—') + '</td>' +
+                    '<td>' + s.reliquat + '</td><td><strong>' + s.solde_restant + '</strong>' + plaf + '</td><td>' + dadd + '</td>' +
+                    '<td><button type="button" class="btn btn-sm btn-outline-primary" onclick="p25OpenSoldeFiche(' + s.matricule + ')">Fiche</button></td></tr>';
+            }).join('') || '<tr><td colspan="9" class="text-muted">Aucune fiche — lancez l\'import Excel initial.</td></tr>';
+        });
+}
+
+function p25ImportSoldeFiches() {
+    if (!confirm('Importer le fichier Excel dans imports_projet25/solde_conge/ ? Les fiches existantes pour l\'année seront mises à jour.')) return;
+    fetch('/projet25/api/solde-fiches/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ annee: p25SfAnnee() })
+    }).then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(res) {
+          if (!res.ok) { alert(res.j.error || 'Erreur import'); return; }
+          p25ShowToast('Import : ' + res.j.imported + ' fiche(s), ' + res.j.ecarts + ' écart(s)');
+          p25LoadSoldeFiches();
+      });
+}
+
+function p25OpenSoldeFiche(mat) {
+    P25_SF_CURRENT = mat;
+    fetch('/projet25/api/solde-fiches/' + mat + '?annee=' + p25SfAnnee())
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+        .then(function(res) {
+            if (!res.ok) { alert(res.j.error || 'Fiche introuvable'); return; }
+            var f = res.j;
+            document.getElementById('p25-sf-detail-wrap').style.display = 'block';
+            document.getElementById('p25-sf-detail-title').textContent = f.matricule + ' – ' + (f.label || '') + ' (' + f.annee + ')';
+            var sum = document.getElementById('p25-sf-detail-summary');
+            sum.innerHTML =
+                '<div class="col-md-3"><strong>Régime</strong> ' + f.regime + ' j/mois</div>' +
+                '<div class="col-md-3"><strong>Reliquat</strong> ' + f.reliquat_annee_precedente + ' j</div>' +
+                (f.droit_fixe != null ? '<div class="col-md-3"><strong>Droit fixe</strong> ' + f.droit_fixe + ' j</div>' : '') +
+                '<div class="col-md-3"><strong>Acquis (' + f.mois_ecoules + ' mois)</strong> ' + f.acquis_periode + ' j</div>' +
+                '<div class="col-md-3"><strong>Pris</strong> ' + f.conges_accordes_total + ' j</div>' +
+                '<div class="col-md-3"><strong>Solde</strong> <span class="text-primary fs-5">' + f.solde_restant + ' j</span></div>' +
+                (f.plafond_atteint ? '<div class="col-md-3"><span class="badge bg-warning text-dark">Plafond annuel 26 j atteint</span></div>' : '') +
+                (f.date_prochaine_addition_fixe ? '<div class="col-md-3"><strong>Proch. +2j fixe</strong> ' + f.date_prochaine_addition_fixe.split('T')[0] + '</div>' : '');
+            var head = document.getElementById('p25-sf-grille-head');
+            head.innerHTML = '<th></th>' + (f.mois || []).map(function(m) { return '<th>' + m.label + '</th>'; }).join('') + '<th>TOTAL</th>';
+            var body = document.getElementById('p25-sf-grille-body');
+            var totPris = 0, totAcq = 0;
+            (f.mois || []).forEach(function(m) { totPris += m.conge_accorde; totAcq += m.acquis; });
+            body.innerHTML =
+                '<tr><th class="text-start">Congés accordés</th>' + (f.mois || []).map(function(m) {
+                    return '<td>' + (m.conge_accorde || '—') + '</td>';
+                }).join('') + '<td><strong>' + f.conges_accordes_total + '</strong></td></tr>' +
+                '<tr><th class="text-start">Acquis mensuels</th>' + (f.mois || []).map(function(m) {
+                    return '<td>' + (m.acquis ? m.acquis : '—') + '</td>';
+                }).join('') + '<td><strong>' + f.acquis_periode + '</strong></td></tr>';
+            var sup = document.getElementById('p25-sf-droits-suppl');
+            sup.innerHTML = (f.droits_supplementaires || []).map(function(d) {
+                return '<li>' + d[1] + (d[2] != null ? ' : ' + d[2] + ' j' : '') + '</li>';
+            }).join('');
+            var rhEdit = document.getElementById('p25-sf-rh-edit');
+            if (rhEdit) rhEdit.style.display = (f.regime === '1.5') ? '' : 'none';
+            var fixeEl = document.getElementById('p25-sf-edit-fixe');
+            if (fixeEl && f.droit_fixe != null) fixeEl.value = String(f.droit_fixe);
+            var rel = document.getElementById('p25-sf-edit-reliquat');
+            if (rel) rel.value = f.reliquat_annee_precedente;
+            var da = document.getElementById('p25-sf-edit-date-add');
+            if (da && f.date_prochaine_addition_fixe) da.value = f.date_prochaine_addition_fixe.split('T')[0];
+            document.getElementById('p25-sf-detail-wrap').scrollIntoView({ behavior: 'smooth' });
+        });
+}
+
+function p25CloseSoldeFiche() {
+    P25_SF_CURRENT = null;
+    var w = document.getElementById('p25-sf-detail-wrap');
+    if (w) w.style.display = 'none';
+}
+
+function p25SaveSoldeFicheRh() {
+    if (!P25_SF_CURRENT) return;
+    var body = {
+        annee: p25SfAnnee(),
+        reliquat_annee_precedente: parseFloat(document.getElementById('p25-sf-edit-reliquat').value),
+        date_prochaine_addition_fixe: document.getElementById('p25-sf-edit-date-add').value || null
+    };
+    var fixeEl = document.getElementById('p25-sf-edit-fixe');
+    if (fixeEl && fixeEl.offsetParent !== null) body.droit_fixe = parseFloat(fixeEl.value);
+    fetch('/projet25/api/solde-fiches/' + P25_SF_CURRENT, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    }).then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(res) {
+          if (!res.ok) alert(res.j.error || 'Erreur');
+          else { p25ShowToast('Fiche mise à jour'); p25OpenSoldeFiche(P25_SF_CURRENT); p25LoadSoldeFiches(); }
+      });
+}
+
 function p25LoadSoldes() {
     const an = document.getElementById('p25-solde-annee').value || new Date().getFullYear();
     fetch('/projet25/api/soldes?annee=' + an).then(r=>r.json()).then(rows => {
@@ -1482,6 +1666,7 @@ function p25InitPage() {
     p25InitConfig();
     p25MountModalsToBody();
     p25BindFormConge();
+    p25BindCongeCollaborateurSolde();
     p25BindFormSortie();
     p25InitDateSortieField();
     p25InitNotifDesktop();
@@ -1517,6 +1702,13 @@ function p25InitPage() {
 
     var soldeAnnee = document.getElementById('p25-solde-annee');
     if (soldeAnnee) soldeAnnee.value = new Date().getFullYear();
+    var sfAnnee = document.getElementById('p25-sf-annee');
+    if (sfAnnee) sfAnnee.value = new Date().getFullYear();
+    var sfSearch = document.getElementById('p25-sf-search');
+    if (sfSearch) sfSearch.addEventListener('input', function() {
+        clearTimeout(sfSearch._t);
+        sfSearch._t = setTimeout(p25LoadSoldeFiches, 300);
+    });
     var ferieAnnee = document.getElementById('p25-ferie-annee');
     if (ferieAnnee) ferieAnnee.value = new Date().getFullYear();
     var ferieVarCode = document.getElementById('p25-ferie-var-code');

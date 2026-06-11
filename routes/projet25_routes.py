@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 
 from logic.auth import login_required, get_current_user, get_user_sections, has_project_access, is_super_user
 from logic import projet25 as p25
+from logic import projet25_solde as p25_solde
 
 projet25_bp = Blueprint('projet25', __name__, url_prefix='/projet25')
 
@@ -21,6 +22,7 @@ PROJET25_SECTION_KEYS = {
     'Statistiques': 'stats',
     'Organigramme validateurs': 'validateurs',
     'Jours fériés': 'feries',
+    'Solde de congés': 'soldes',
 }
 
 
@@ -57,6 +59,8 @@ def get_projet25_allowed_sections():
                 key = 'validateurs'
             elif 'féri' in nl or 'ferie' in nl:
                 key = 'feries'
+            elif 'solde' in nl and 'cong' in nl:
+                key = 'soldes'
         if key and key not in allowed:
             allowed.append(key)
     if is_super_user() and not allowed:
@@ -129,7 +133,7 @@ def api_session_info():
 def api_solde():
     mat = request.args.get('matricule') or session.get('matricule')
     annee = request.args.get('annee', type=int)
-    return jsonify(p25.get_solde(mat, annee))
+    return jsonify(p25_solde.get_solde_demande_conge(mat, annee))
 
 
 @projet25_bp.route('/api/calcul-jours-ouvres')
@@ -369,6 +373,61 @@ def api_ferie_delete(fid):
         return jsonify({'error': 'Accès refusé'}), 403
     p25.delete_jour_ferie(fid)
     return jsonify({'ok': True})
+
+
+@projet25_bp.route('/api/solde-fiches', methods=['GET'])
+@login_required
+def api_solde_fiches():
+    if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
+        return jsonify({'error': 'Accès refusé'}), 403
+    annee = request.args.get('annee', type=int)
+    q = request.args.get('q', '')
+    return jsonify(p25_solde.list_fiches_solde(annee, q))
+
+
+@projet25_bp.route('/api/solde-fiches/<int:matricule>', methods=['GET', 'PATCH'])
+@login_required
+def api_solde_fiche_detail(matricule):
+    if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
+        return jsonify({'error': 'Accès refusé'}), 403
+    annee = request.args.get('annee', type=int)
+    if request.method == 'GET':
+        fiche = p25_solde.get_fiche_solde(matricule, annee)
+        if not fiche:
+            return jsonify({'error': 'Fiche introuvable. Lancez l\'import initial.'}), 404
+        return jsonify(fiche)
+    data = request.get_json() or {}
+    ok, err = p25_solde.update_fiche_rh(matricule, data.get('annee') or __import__('datetime').date.today().year, data)
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'ok': ok, 'fiche': p25_solde.get_fiche_solde(matricule, data.get('annee'))})
+
+
+@projet25_bp.route('/api/solde-fiches/import', methods=['POST'])
+@login_required
+def api_solde_fiches_import():
+    if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
+        return jsonify({'error': 'Accès refusé'}), 403
+    data = request.get_json() or {}
+    annee = data.get('annee') or __import__('datetime').date.today().year
+    path = data.get('fichier')
+    if path:
+        path = os.path.join(p25_solde.IMPORT_DIR, os.path.basename(path))
+    try:
+        result = p25_solde.import_excel_fiches(path, annee)
+    except FileNotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    return jsonify(result)
+
+
+@projet25_bp.route('/api/solde-fiches/ecarts')
+@login_required
+def api_solde_fiches_ecarts():
+    if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
+        return jsonify({'error': 'Accès refusé'}), 403
+    return jsonify(p25_solde.list_import_ecarts())
 
 
 @projet25_bp.route('/api/soldes', methods=['GET', 'POST'])

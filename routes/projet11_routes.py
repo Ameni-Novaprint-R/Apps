@@ -335,7 +335,20 @@ def suivi_ecarts_facturation_par_dossier():
             flash("Vous n'avez pas accès à cette section.", "error")
             return redirect(url_for('projet11.index'))
 
-        return render_template('projet11_suivi_ecarts_facturation.html')
+        from flask import session
+        matricule = session.get('matricule')
+        atelier_nom = session.get('atelier_nom')
+        if matricule is not None:
+            filtre_storage_key = f'projet11_ecarts_factu_filtre_Matricule_{matricule}'
+        elif atelier_nom:
+            filtre_storage_key = f'projet11_ecarts_factu_filtre_Atelier_{atelier_nom}'
+        else:
+            filtre_storage_key = 'projet11_ecarts_factu_filtre_default'
+
+        return render_template(
+            'projet11_suivi_ecarts_facturation.html',
+            filtre_storage_key=filtre_storage_key,
+        )
     except Exception as e:
         print(f"Erreur dans suivi_ecarts_facturation_par_dossier: {e}")
         from flask import flash, redirect, url_for
@@ -350,7 +363,10 @@ def api_suivi_ecarts_facturation():
         q = request.args.get('q', '')
         limit = request.args.get('limit', 4000)
         rows = projet11.get_suivi_ecarts_facturation_par_dossier(filtre_numero=q, limit=limit)
-        return jsonify({"rows": rows})
+        px_ht_use_3 = any(
+            projet11._ht_ap_remise_has_three_decimals(r.get("px_vente_ht")) for r in rows
+        )
+        return jsonify({"rows": rows, "px_vente_ht_use_3_decimals": px_ht_use_3})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

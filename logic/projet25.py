@@ -10,6 +10,8 @@ from logic.projet25_email import send_email
 
 # Matricule RH (CHAARI ISLEM)
 MATRICULE_RH = 366
+# E-mail fixe du service RH (notifications nouvelles demandes de congé)
+EMAIL_RH_GRH = os.environ.get('PROJET25_EMAIL_RH', 'grh@novaprint.tn').strip()
 NUM_PROJ = 25
 DELAI_MIN_HEURES = 24
 UPLOAD_SUBDIR = 'uploads_projet25'
@@ -91,6 +93,11 @@ def init_web_conge_tables():
     sync_official_conge_types()
     migrate_feries_columns()
     ensure_default_rh()
+    try:
+        from logic.projet25_solde import init_solde_fiche_tables
+        init_solde_fiche_tables()
+    except Exception as e:
+        print(f'[Projet25] init solde fiche: {e}')
 
 
 # Types de congés officiels (entreprise)
@@ -562,35 +569,71 @@ def creer_notification(matricule_dest, type_notif, message, id_demande=None):
         cursor.connection.commit()
 
 
+def _ajouter_email_dest(emails, addr):
+    a = (addr or '').strip()
+    if a and a.lower() not in {e.lower() for e in emails}:
+        emails.append(a)
+
+
+def _corps_email_nouvelle_demande(d):
+    label = d.get('demandeur_label', str(d.get('matricule_demandeur')))
+    if d['type_demande'] == 'CONGE':
+        typ = d.get('type_conge_libelle') or 'Congé'
+        periode = f"{d.get('date_debut') or '—'} → {d.get('date_fin') or '—'}"
+        jours = d.get('nb_jours_ouvres')
+        jours_txt = f"{jours} j. ouvrés" if jours is not None else '—'
+        detail = (
+            f"<p><strong>Collaborateur :</strong> {label}</p>"
+            f"<p><strong>Type :</strong> {typ}</p>"
+            f"<p><strong>Période :</strong> {periode}</p>"
+            f"<p><strong>Durée :</strong> {jours_txt}</p>"
+        )
+        if d.get('commentaire'):
+            detail += f"<p><strong>Commentaire :</strong> {d['commentaire']}</p>"
+        msg = f"Nouvelle demande de congé – {label} (en attente)"
+    else:
+        typ = 'autorisation de sortie'
+        detail = (
+            f"<p><strong>Collaborateur :</strong> {label}</p>"
+            f"<p><strong>Date :</strong> {d.get('date_sortie') or '—'}</p>"
+            f"<p><strong>Horaires :</strong> {d.get('heure_depart') or '—'} – {d.get('heure_retour') or '—'}</p>"
+        )
+        if d.get('motif_sortie'):
+            detail += f"<p><strong>Motif :</strong> {d['motif_sortie']}</p>"
+        msg = f"Nouvelle demande de {typ} – {label} (en attente)"
+    html = detail + "<p>Connectez-vous au <strong>Projet 25</strong> pour traiter la demande.</p>"
+    return msg, html
+
+
 def notifier_demande_nouvelle(demande_id):
     d = get_demande(demande_id)
     if not d:
         return
     dem = d['matricule_demandeur']
     val, email_val = get_validateur_for_employe(dem)
+    msg, html = _corps_email_nouvelle_demande(d)
     label = d.get('demandeur_label', str(dem))
-    typ = 'congé' if d['type_demande'] == 'CONGE' else 'autorisation de sortie'
-    msg = f"Nouvelle demande de {typ} – {label} (en attente)"
     destinataires = []
     if val:
         destinataires.append(val)
         creer_notification(val, 'NOUVELLE_DEMANDE', msg, demande_id)
     emails = []
-    if email_val:
-        emails.append(email_val)
+    _ajouter_email_dest(emails, email_val)
     p_val = get_person(val) if val else None
-    if p_val and p_val.get('email') and p_val['email'] not in emails:
-        emails.append(p_val['email'])
+    if p_val:
+        _ajouter_email_dest(emails, p_val.get('email'))
     for m_rh in get_rh_matricules_actifs():
         if m_rh and m_rh != val:
             creer_notification(m_rh, 'NOUVELLE_DEMANDE', msg, demande_id)
         p_rh = get_person(m_rh)
-        if p_rh and p_rh.get('email') and p_rh['email'] not in emails:
-            emails.append(p_rh['email'])
+        if p_rh:
+            _ajouter_email_dest(emails, p_rh.get('email'))
+    if d['type_demande'] == 'CONGE' and EMAIL_RH_GRH:
+        _ajouter_email_dest(emails, EMAIL_RH_GRH)
     send_email(
         emails,
         f"[Congés] Nouvelle demande – {label}",
-        f"<p>{msg}</p><p>Connectez-vous au Projet 25 pour traiter la demande.</p>",
+        html,
         msg,
     )
     # Intérim : notifier si congé validé sur la période
@@ -659,8 +702,8 @@ def creer_demande_conge(data, matricule_connecte, is_rh_user=False, is_super=Fal
         return None, "Chevauchement avec une autre demande de congé."
 
     nb = compter_jours_ouvres(d1o, d2o, demi)
-    solde_info = get_solde(dem)
     if id_type and _type_est_annual(id_type):
+        solde_info = _solde_conge_annuel(dem, d1o.year)
         if nb > solde_info['restant']:
             return None, f"Solde insuffisant ({solde_info['restant']:.1f} j restants)."
 
@@ -697,6 +740,22 @@ def _type_est_annual(id_type):
         cursor.execute("SELECT Code FROM WEB_CONGE_TYPE WHERE ID = ?", (id_type,))
         row = cursor.fetchone()
         return row and row.Code in ('ANNUEL', 'RECUPERATION')
+
+
+def _solde_conge_annuel(matricule, annee=None):
+    """Solde congé annuel via fiche importée (Projet 25 soldes détaillés)."""
+    from logic.projet25_solde import get_solde_demande_conge
+    return get_solde_demande_conge(matricule, annee)
+
+
+def _sync_solde_fiche_apres_demande(demande):
+    if demande.get('type_demande') != 'CONGE' or not _type_est_annual(demande.get('id_type_conge')):
+        return
+    from logic.projet25_solde import sync_p25_conges_to_mensuel
+    annee = date.today().year
+    if demande.get('date_debut'):
+        annee = int(str(demande['date_debut'])[:4])
+    sync_p25_conges_to_mensuel(demande['matricule_demandeur'], annee)
 
 
 def creer_demande_sortie(data, matricule_connecte, is_rh_user=False, is_super=False):
@@ -836,9 +895,9 @@ def devalider_demande(demande_id, matricule_connecte, is_super=False):
                 DateValidation = NULL, MatriculeValidateur = NULL, DateModification = GETDATE()
             WHERE ID = ?
         """, (demande_id,))
-        if d['type_demande'] == 'CONGE':
-            _decrementer_solde_if_needed(cursor, d)
         cursor.connection.commit()
+    if d['type_demande'] == 'CONGE':
+        _sync_solde_fiche_apres_demande(d)
     notifier_statut_demande(demande_id, 'EN_ATTENTE')
     return get_demande(demande_id), None
 
@@ -872,6 +931,8 @@ def _changer_statut(demande_id, matricule_connecte, statut, commentaire_refus, i
             WHERE ID = ?
         """, (statut, m, commentaire_refus if statut == 'REFUSE' else None, demande_id))
         cursor.connection.commit()
+    if statut == 'VALIDE' and d['type_demande'] == 'CONGE':
+        _sync_solde_fiche_apres_demande(d)
     notifier_statut_demande(demande_id, statut)
     return get_demande(demande_id), None
 
@@ -879,44 +940,14 @@ def _changer_statut(demande_id, matricule_connecte, statut, commentaire_refus, i
 def _incrementer_solde_check(cursor, demande):
     if not _type_est_annual(demande.get('id_type_conge')):
         return None
-    dem = demande['matricule_demandeur']
     nb = float(demande.get('nb_jours_ouvres') or 0)
     annee = date.today().year
     if demande.get('date_debut'):
-        annee = int(demande['date_debut'][:4])
-    cursor.execute(
-        "SELECT SoldeJours, ConsommeJours FROM WEB_CONGE_SOLDE WHERE Matricule = ? AND Annee = ?",
-        (dem, annee),
-    )
-    row = cursor.fetchone()
-    solde = float(row.SoldeJours) if row else 0
-    cons = float(row.ConsommeJours) if row else 0
-    if row and cons + nb > solde:
-        return "Solde insuffisant pour valider."
-    if row:
-        cursor.execute(
-            "UPDATE WEB_CONGE_SOLDE SET ConsommeJours = ConsommeJours + ? WHERE Matricule = ? AND Annee = ?",
-            (nb, dem, annee),
-        )
-    else:
-        cursor.execute(
-            "INSERT INTO WEB_CONGE_SOLDE (Matricule, Annee, SoldeJours, ConsommeJours) VALUES (?, ?, 0, ?)",
-            (dem, annee, nb),
-        )
+        annee = int(str(demande['date_debut'])[:4])
+    solde_info = _solde_conge_annuel(demande['matricule_demandeur'], annee)
+    if nb > solde_info['restant']:
+        return f"Solde insuffisant ({solde_info['restant']:.1f} j restants)."
     return None
-
-
-def _decrementer_solde_if_needed(cursor, demande):
-    if demande['type_demande'] != 'CONGE' or not _type_est_annual(demande.get('id_type_conge')):
-        return
-    dem = demande['matricule_demandeur']
-    nb = float(demande.get('nb_jours_ouvres') or 0)
-    annee = int((demande.get('date_debut') or '2020')[:4])
-    cursor.execute(
-        "UPDATE WEB_CONGE_SOLDE SET ConsommeJours = CASE WHEN ConsommeJours >= ? THEN ConsommeJours - ? ELSE 0 END "
-        "WHERE Matricule = ? AND Annee = ?",
-        (nb, nb, dem, annee),
-    )
 
 
 def get_notifications(matricule, non_lues_seulement=False):

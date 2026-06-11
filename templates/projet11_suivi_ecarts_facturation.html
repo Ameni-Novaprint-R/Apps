@@ -15,6 +15,75 @@
   .p11-ref-truncate { max-width: 420px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
   .p11-num { text-align: right; font-variant-numeric: tabular-nums; }
   .p11-fact-list { white-space: normal !important; max-width: 360px; }
+  .table-filters input {
+    width: 100%;
+    font-size: 0.70rem;
+    padding: 3px 6px;
+    box-sizing: border-box;
+    min-height: 22px;
+  }
+  .table-filters th {
+    padding: 3px 6px !important;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    position: relative;
+  }
+  .table-responsive.no-horizontal-scroll {
+    overflow-x: hidden;
+  }
+  .table-scroll-top {
+    height: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid #dee2e6;
+  }
+  .table-responsive.no-horizontal-scroll .table-scroll-top {
+    display: none;
+  }
+  .table-scroll-inner {
+    height: 1px;
+  }
+  .table-scroll-top::-webkit-scrollbar {
+    height: 12px;
+  }
+  .table-scroll-top::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+  }
+  .table-scroll-top::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  .column-toggle-panel {
+    margin-bottom: 1rem;
+    font-size: 0.82rem;
+  }
+  .column-toggle-panel .fw-bold {
+    font-size: 0.9rem;
+  }
+  .column-toggle-panel .form-check,
+  .column-toggle-panel .form-check-label {
+    font-size: 0.82rem;
+  }
+  .column-toggle-panel .form-check {
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+  }
+  .column-toggle-panel .form-check-input {
+    margin-top: 0.3rem;
+    margin-right: 0.35rem;
+  }
+  #colExportButtonsWrapperEcarts {
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-left: auto;
+  }
 </style>
 {% endblock %}
 
@@ -62,7 +131,25 @@
 
   <div class="card">
     <div class="card-body">
-      <div class="table-responsive">
+      <div class="column-toggle-panel">
+        <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
+        <div class="d-flex flex-wrap gap-2 align-items-center" id="columnToggleContainerEcarts">
+          <div class="form-check form-check-inline me-2" id="colToggleAllWrapperEcarts">
+            <input class="form-check-input" type="checkbox" id="colToggleAllEcarts" checked title="Tout cocher / tout décocher">
+            <label class="form-check-label" for="colToggleAllEcarts">Tout cocher</label>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0" id="colExportButtonsWrapperEcarts">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnEnregistrerFiltreEcarts"
+                    title="Enregistrer les filtres et colonnes affichées pour les prochaines connexions">
+              <i class="fas fa-save"></i> Enregistrer une vue
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="table-responsive position-relative">
+        <div class="table-scroll-top">
+          <div class="table-scroll-inner"></div>
+        </div>
         <table class="table table-striped table-hover mb-0" id="tableEcartsFactu">
           <thead class="table-dark">
             <tr>
@@ -74,7 +161,7 @@
               <th>Quantité facturée</th>
               <th>Prix de vente commande réel</th>
               <th>Total facturé</th>
-              <th>Px de Vente HT</th>
+              <th>Px de Vente HT (TND)</th>
               <th>N° facture</th>
             </tr>
           </thead>
@@ -86,6 +173,27 @@
 </div>
 
 <script>
+const FILTRE_STORAGE_KEY_ECARTS = {{ filtre_storage_key|tojson }};
+
+const colonneDefsEcarts = [
+  { titre: 'N° dossier', filtre: true, toggle: true },
+  { titre: 'Client', filtre: true, toggle: true },
+  { titre: 'Référence', filtre: true, toggle: true },
+  { titre: 'Quantité commandée', filtre: true, toggle: true },
+  { titre: 'Quantité livrée', filtre: true, toggle: true },
+  { titre: 'Quantité facturée', filtre: true, toggle: true },
+  { titre: 'Prix de vente commande réel', filtre: true, toggle: true },
+  { titre: 'Total facturé', filtre: true, toggle: true },
+  { titre: 'Px de Vente HT (TND)', filtre: true, toggle: true },
+  { titre: 'N° facture', filtre: true, toggle: true }
+];
+
+let dt = null;
+/** 2 ou 3 décimales pour Px de Vente HT (selon les données chargées). */
+let pxHtDecimalPlaces = 2;
+let updateTopScrollWidthEcarts = function() {};
+let evaluerScrollHorizontalEcarts = function() {};
+
 function fmtNum(n) {
   if (n === null || n === undefined || n === '') return '-';
   const v = Number(n);
@@ -97,7 +205,11 @@ function fmtMoneyHt(n) {
   if (n === null || n === undefined || n === '') return '';
   const v = Number(n);
   if (!isFinite(v)) return '';
-  return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  const dec = pxHtDecimalPlaces === 3 ? 3 : 2;
+  return v.toLocaleString('fr-FR', {
+    minimumFractionDigits: dec,
+    maximumFractionDigits: dec
+  });
 }
 
 function escHtml(s) {
@@ -108,7 +220,104 @@ function escHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-let dt = null;
+function initialiserFiltresColonnes(api) {
+  api.columns().every(function() {
+    const column = this;
+    const colIndex = column.index();
+    const def = colonneDefsEcarts[colIndex];
+    if (!def || !def.filtre) return;
+    const input = $('#tableEcartsFactu .table-filters input[data-col="' + colIndex + '"]');
+    input.off('keyup change clear.p11Ecarts').on('keyup change clear.p11Ecarts', function() {
+      const value = this.value || '';
+      const escaped = $.fn.dataTable.util.escapeRegex(value);
+      if (column.search() !== escaped) {
+        column.search(escaped, true, false, true).draw();
+      }
+    });
+  });
+}
+
+function appliquerEtatEcarts(api, etat) {
+  if (!etat || !api) return;
+  colonneDefsEcarts.forEach(function(def, i) {
+    if (def && def.toggle && etat.colVisible && etat.colVisible[i] !== undefined) {
+      api.column(i).visible(etat.colVisible[i], false);
+    }
+  });
+  colonneDefsEcarts.forEach(function(def, i) {
+    if (etat.filterValues && etat.filterValues[i] !== undefined) {
+      const input = $('#tableEcartsFactu .table-filters input[data-col="' + i + '"]');
+      if (input.length) {
+        const raw = etat.filterValues[i] || '';
+        const escaped = $.fn.dataTable.util.escapeRegex(raw);
+        input.val(raw);
+        api.column(i).search(escaped, true, false, true);
+      }
+    }
+  });
+  if (etat.toutCocher !== undefined) {
+    $('#colToggleAllEcarts').prop('checked', etat.toutCocher);
+  }
+  if (etat.pageLength) {
+    api.page.len(etat.pageLength);
+  }
+  api.draw(false);
+}
+
+function initialiserTogglesEcarts(api) {
+  const $container = $('#columnToggleContainerEcarts');
+  const $toggleAll = $('#colToggleAllEcarts');
+  $container.children().not('#colToggleAllWrapperEcarts, #colExportButtonsWrapperEcarts').remove();
+
+  function updateToggleAllState() {
+    let allVisible = true;
+    colonneDefsEcarts.forEach(function(def, index) {
+      if (def && def.toggle && !api.column(index).visible()) {
+        allVisible = false;
+      }
+    });
+    $toggleAll.prop('checked', allVisible);
+  }
+
+  $toggleAll.off('change.p11Ecarts').on('change.p11Ecarts', function() {
+    const check = this.checked;
+    colonneDefsEcarts.forEach(function(def, index) {
+      if (def && def.toggle) {
+        api.column(index).visible(check, false);
+      }
+    });
+    $container.find('.form-check-input').not('#colToggleAllEcarts').prop('checked', check);
+    api.columns.adjust().draw(false);
+    setTimeout(function() {
+      updateTopScrollWidthEcarts();
+      evaluerScrollHorizontalEcarts();
+    }, 100);
+  });
+
+  colonneDefsEcarts.forEach(function(def, index) {
+    if (!def || !def.toggle) return;
+    const column = api.column(index);
+    const toggleId = 'colToggleEcarts_' + index;
+    const isVisible = column.visible();
+    const $checkbox = $(`
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="${toggleId}" ${isVisible ? 'checked' : ''}>
+        <label class="form-check-label" for="${toggleId}">${def.titre}</label>
+      </div>
+    `);
+    $checkbox.find('input').on('change', function() {
+      column.visible(this.checked, false);
+      api.columns.adjust().draw(false);
+      updateToggleAllState();
+      setTimeout(function() {
+        updateTopScrollWidthEcarts();
+        evaluerScrollHorizontalEcarts();
+      }, 100);
+    });
+    $('#colExportButtonsWrapperEcarts').before($checkbox);
+  });
+  updateToggleAllState();
+}
 
 function buildRows(rows) {
   const $tb = $('#tableEcartsFactu tbody');
@@ -134,15 +343,95 @@ function buildRows(rows) {
   });
 }
 
+function setupHorizontalScrollSyncEcarts() {
+  const $table = $('#tableEcartsFactu');
+  const $wrapper = $table.closest('.table-responsive');
+  const $topScroll = $wrapper.find('.table-scroll-top');
+  const $topInner = $topScroll.find('.table-scroll-inner');
+  if ($topScroll.length === 0) return;
+
+  function _evaluerScrollHorizontal() {
+    const tableWidth = $table.outerWidth();
+    const wrapperWidth = $wrapper.innerWidth();
+    if (tableWidth <= wrapperWidth + 1) {
+      $wrapper.addClass('no-horizontal-scroll');
+    } else {
+      $wrapper.removeClass('no-horizontal-scroll');
+    }
+  }
+
+  function _updateTopScrollWidth() {
+    $topInner.width($table.outerWidth());
+    _evaluerScrollHorizontal();
+  }
+
+  let isSyncingTop = false;
+  let isSyncingBottom = false;
+
+  $topScroll.off('scroll.p11EcartsSync').on('scroll.p11EcartsSync', function() {
+    if (isSyncingTop) return;
+    isSyncingBottom = true;
+    $wrapper.scrollLeft($topScroll.scrollLeft());
+    isSyncingBottom = false;
+  });
+
+  $wrapper.off('scroll.p11EcartsSync').on('scroll.p11EcartsSync', function() {
+    if (isSyncingBottom) return;
+    isSyncingTop = true;
+    $topScroll.scrollLeft($wrapper.scrollLeft());
+    isSyncingTop = false;
+  });
+
+  updateTopScrollWidthEcarts = _updateTopScrollWidth;
+  evaluerScrollHorizontalEcarts = _evaluerScrollHorizontal;
+  _updateTopScrollWidth();
+}
+
+function initDataTable() {
+  dt = $('#tableEcartsFactu').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json' },
+    order: [[0, 'desc']],
+    dom: 'lrtip',
+    pageLength: 25,
+    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'Tous']],
+    autoWidth: false,
+    initComplete: function() {
+      const api = this.api();
+      try {
+        const savedStr = localStorage.getItem(FILTRE_STORAGE_KEY_ECARTS);
+        const saved = savedStr ? JSON.parse(savedStr) : null;
+        if (saved && (saved.colVisible || saved.filterValues)) {
+          appliquerEtatEcarts(api, saved);
+        }
+      } catch (e) { /* ignore */ }
+      initialiserFiltresColonnes(api);
+      initialiserTogglesEcarts(api);
+      api.columns.adjust();
+      setTimeout(function() {
+        updateTopScrollWidthEcarts();
+        evaluerScrollHorizontalEcarts();
+      }, 0);
+    }
+  });
+  dt.on('draw', function() {
+    if (dt) {
+      dt.columns.adjust();
+      setTimeout(function() {
+        updateTopScrollWidthEcarts();
+        evaluerScrollHorizontalEcarts();
+      }, 0);
+    }
+  });
+}
+
 function loadData() {
   const q = ($('#filtreNumero').val() || '').trim();
   const $tb = $('#tableEcartsFactu tbody');
-  // Détruire DataTables AVANT de toucher au tbody : sinon destroy() restaure
-  // le DOM du premier chargement et annule visuellement le filtre.
   if (dt) {
     dt.destroy();
     dt = null;
   }
+  $('#tableEcartsFactu .table-filters input').val('');
   $tb.html('<tr><td colspan="10" class="text-center text-muted py-4">Chargement…</td></tr>');
   const url = '/projet11/api/suivi-ecarts-facturation?limit=4000' + (q ? ('&q=' + encodeURIComponent(q)) : '');
   fetch(url)
@@ -150,14 +439,9 @@ function loadData() {
     .then(data => {
       if (data && data.error) throw new Error(data.error);
       const rows = (data && data.rows) ? data.rows : [];
+      pxHtDecimalPlaces = (data && data.px_vente_ht_use_3_decimals) ? 3 : 2;
       buildRows(rows);
-      dt = $('#tableEcartsFactu').DataTable({
-        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json' },
-        order: [[0, 'desc']],
-        pageLength: 25,
-        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'Tous']],
-        autoWidth: false
-      });
+      initDataTable();
     })
     .catch(() => {
       $tb.html('<tr><td colspan="10" class="text-center text-danger py-4">Erreur de chargement.</td></tr>');
@@ -165,8 +449,57 @@ function loadData() {
 }
 
 $(document).ready(function() {
+  const $thead = $('#tableEcartsFactu thead');
+  const $filterRow = $('<tr class="table-filters"></tr>');
+  colonneDefsEcarts.forEach(function(def, index) {
+    const $cell = $('<th></th>');
+    if (def && def.filtre) {
+      $cell.append(
+        '<input type="text" placeholder="Filtrer ' + def.titre + '" data-col="' + index + '" />'
+      );
+    }
+    $filterRow.append($cell);
+  });
+  $thead.append($filterRow);
+
+  setupHorizontalScrollSyncEcarts();
+  $(window).on('resize.p11EcartsSync', function() {
+    updateTopScrollWidthEcarts();
+    evaluerScrollHorizontalEcarts();
+  });
+
+  $('#btnEnregistrerFiltreEcarts').on('click', function() {
+    const api = $('#tableEcartsFactu').DataTable();
+    if (!api) return;
+    const colVisible = [];
+    const filterValues = [];
+    api.columns().every(function() {
+      colVisible.push(this.visible());
+      const input = $('#tableEcartsFactu .table-filters input[data-col="' + this.index() + '"]');
+      filterValues.push(input.length ? input.val() || '' : '');
+    });
+    const payload = {
+      colVisible: colVisible,
+      filterValues: filterValues,
+      toutCocher: $('#colToggleAllEcarts').prop('checked'),
+      pageLength: api.page.len()
+    };
+    try {
+      localStorage.setItem(FILTRE_STORAGE_KEY_ECARTS, JSON.stringify(payload));
+      alert('Vue enregistrée. Elle sera appliquée par défaut à chaque chargement de la page.');
+    } catch (e) {
+      alert('Erreur lors de l\'enregistrement : ' + (e.message || 'stockage non disponible'));
+    }
+  });
+
   $('#btnReload').on('click', loadData);
   $('#btnAppliquerFiltre').on('click', loadData);
+  $('#filtreNumero').on('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      loadData();
+    }
+  });
   loadData();
 });
 </script>

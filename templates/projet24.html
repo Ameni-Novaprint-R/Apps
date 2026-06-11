@@ -231,6 +231,7 @@
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Dimension</label>
                     <input type="text" class="form-control" name="dimension" id="nf_dimension" placeholder="L*L*H (cm)">
+                    <div id="nf_dimension_info" class="alert alert-info py-2 px-2 mt-1 mb-0" style="display:none; font-size:0.85rem;" role="status" aria-live="polite"></div>
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Format fini</label>
@@ -978,6 +979,70 @@
 <script>
 (function() {
     const API_BASE = '{{ url_for("projet24.index") }}'.replace(/\/$/, '') + '/api';
+    let formesCacheDimension = [];
+
+    /** Normalise une dimension pour comparaison (casse, espaces, séparateurs, unités). */
+    function normalizeDimension(val) {
+        if (val == null) return '';
+        let t = String(val).trim().toLowerCase();
+        t = t.replace(/[×x]/g, '*');
+        t = t.replace(/\s+/g, '');
+        t = t.replace(/\*+/g, '*');
+        t = t.replace(/\(cm\)|\(mm\)|cm$|mm$/g, '');
+        t = t.replace(/[,]/g, '.');
+        return t;
+    }
+
+    function loadFormesForDimensionCheck() {
+        return fetch(API_BASE + '/formes')
+            .then(r => r.ok ? r.json() : [])
+            .then(data => {
+                formesCacheDimension = Array.isArray(data) ? data : [];
+            })
+            .catch(() => { formesCacheDimension = []; });
+    }
+
+    function showDimensionDuplicateInfo(dimensionRaw) {
+        const infoEl = document.getElementById('nf_dimension_info');
+        if (!infoEl) return;
+        const key = normalizeDimension(dimensionRaw);
+        if (!key) {
+            infoEl.style.display = 'none';
+            infoEl.textContent = '';
+            return;
+        }
+        const matches = formesCacheDimension.filter(f => {
+            const d = f && f.dimension;
+            return d && normalizeDimension(d) === key;
+        });
+        if (!matches.length) {
+            infoEl.style.display = 'none';
+            infoEl.textContent = '';
+            return;
+        }
+        const noms = matches.map(f => f.nom || '—').filter(Boolean);
+        const liste = noms.join(', ');
+        const libFormes = noms.length > 1 ? 'les formes' : 'la forme';
+        infoEl.className = 'alert alert-info py-2 px-2 mt-1 mb-0';
+        infoEl.textContent = 'Information : cette dimension existe déjà pour ' + libFormes + ' : ' + liste + '. Vous pouvez tout de même enregistrer une nouvelle forme.';
+        infoEl.style.display = 'block';
+    }
+
+    const dimInput = document.getElementById('nf_dimension');
+    if (dimInput) {
+        dimInput.addEventListener('blur', function() {
+            showDimensionDuplicateInfo(this.value);
+        });
+        dimInput.addEventListener('input', function() {
+            const infoEl = document.getElementById('nf_dimension_info');
+            if (infoEl && infoEl.style.display === 'block') {
+                infoEl.style.display = 'none';
+                infoEl.textContent = '';
+            }
+        });
+    }
+    loadFormesForDimensionCheck();
+
     document.getElementById('formNouvelleForme').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = this;
@@ -1012,6 +1077,9 @@
                 form.reset();
                 document.getElementById('nf_nombre_pose').value = 1;
                 document.getElementById('nf_cout_initial').value = 0;
+                const dimInfo = document.getElementById('nf_dimension_info');
+                if (dimInfo) { dimInfo.style.display = 'none'; dimInfo.textContent = ''; }
+                loadFormesForDimensionCheck();
                 // Laisser le nom affiché après reset
                 if (createdNom) {
                     const nomField = document.getElementById('nf_forme_nom');

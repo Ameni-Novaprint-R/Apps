@@ -278,6 +278,17 @@ def upsert_commande_qte_unitaire(id_commande, numero, reference, qte_comm, nombr
         return False, str(e)
 
 
+def _ht_ap_remise_has_three_decimals(val):
+    """True si la valeur HT conserve une 3e décimale significative (ex. base 1,234 TND)."""
+    if val is None:
+        return False
+    try:
+        d = Decimal(str(val))
+    except Exception:
+        return False
+    return d != d.quantize(Decimal("0.01"))
+
+
 def parse_filtre_numero_dossier_ecarts(q):
     """
     Filtre N° dossier :
