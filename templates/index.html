@@ -7,35 +7,23 @@
 
 {% if is_authenticated() %}
     {% if is_super_user() %}
-        {# Super-utilisateur : afficher tous les projets avec icônes #}
+        {# Super-utilisateur : projets depuis WEB_PROJETS (liste dynamique) #}
         <p class="fade-in welcome-subtitle">Vous êtes connecté en tant que super-utilisateur. Accès complet à tous les projets.</p>
+        {% if user_projects and user_projects|length > 0 %}
         <ul class="project-list fade-in">
-            <li><a href="{{ url_for('projet1.index') }}">📋 Projet 1 – Planning & Suivi des Délais de Livraison</a></li>
-            <li><a href="{{ url_for('projet2.commandes') }}">📦 Projet 2 – Gestion de commandes</a></li>
-            <li><a href="{{ url_for('projet3.page_projet3') }}">🖨️ Projet 3 – Suivi BAT / Prépresse</a></li>
-            <li><a href="{{ url_for('projet4.rapport_visite') }}">📝 Projet 4 – Rapport de visite client</a></li>
-            <li><a href="{{ url_for('projet5.index') }}">📝 Projet 5 – Planning production</a></li>
-            <li><a href="{{ url_for('projet6.programme_voyage') }}">🚚 Projet 6 – Programme de voyage</a></li>
-            <li><a href="{{ url_for('projet7_bp.import_facture') }}">💡 Projet 7 – Importation Factures STEG</a></li>
-            <li><a href="{{ url_for('projet8.stats_devis_commandes') }}">📊 Projet 8 – Stats Devis/Commandes</a></li>
-            <li><a href="{{ url_for('projet9.index') }}">📈 Projet 9 – Suivi Performance Livraison</a></li>
-            <li><a href="{{ url_for('projet10.index') }}">🔍 Projet 10 – Contrôle Qualité</a></li>
-            <li><a href="{{ url_for('projet11.index') }}">🔧 Projet 11 – Gestion des Traitements</a></li>
-            <li><a href="{{ url_for('projet12.projet12') }}">📋 Projet 12 – Registre NC & Réclamations Clients</a></li>
-            <li><a href="{{ url_for('projet13.index') }}">🏭 Projet 13 – Suivi Production</a></li>
-            <li><a href="{{ url_for('projet14.index') }}">♻️ Projet 14 – Registre de suivi des déchets</a></li>
-            <li><a href="{{ url_for('projet15.index') }}">📊 Projet 15 – Corrélation Déchets/CA</a></li>
-            <li><a href="{{ url_for('projet16.index') }}">🔧 Projet 16 – GMAO (Gestion de la Maintenance)</a></li>
-            <li><a href="{{ url_for('projet17.index') }}">📚 Projet 17 – Fusion de fichiers HTML</a></li>
-            <li><a href="{{ url_for('projet18.index') }}">📅 Projet 18 – Agenda Semainier 2026</a></li>
-            <li><a href="{{ url_for('projet19.index') }}">📁 Projet 19 – Gestion des Dossiers en Cours</a></li>
-            <li><a href="/projet20/">🔍 Projet 20 – Analyse des Dossiers</a></li>
-            <li><a href="/projet21/">🔄 Projet 21 – Mise à jour Base de Données</a></li>
-            <li><a href="{{ url_for('projet22.index') }}">👥 Projet 22 – Gestion des Employés et des Ateliers</a></li>
-            <li><a href="{{ url_for('projet23.index') }}">💰 Projet 23 – Tableau de bord de la situation de la trésorerie</a></li>
-            <li><a href="{{ url_for('projet24.index') }}">📐 Projet 24 – Formes de Découpe</a></li>
-            <li><a href="{{ url_for('projet25.index') }}">📅 Projet 25 – Gestion des congés et autorisations de sortie</a></li>
+            {% for project in user_projects %}
+                {% set project_url = get_project_url(project.num) %}
+                {% set project_icon = get_project_icon(project.num) %}
+                {% if project_url %}
+                    <li><a href="{{ project_url }}">{{ project_icon }} {{ project.code or 'Projet ' ~ project.num }} – {{ project.nom }}</a></li>
+                {% else %}
+                    <li><a href="/projet{{ project.num }}/">{{ project_icon }} {{ project.code or 'Projet ' ~ project.num }} – {{ project.nom }}</a></li>
+                {% endif %}
+            {% endfor %}
         </ul>
+        {% else %}
+        <p class="fade-in welcome-subtitle">Aucun projet actif dans WEB_PROJETS.</p>
+        {% endif %}
     {% elif user_projects and user_projects|length > 0 %}
         {# Utilisateur avec droits : afficher uniquement ses projets avec icônes #}
         <p class="fade-in welcome-subtitle">Vous avez accès aux projets suivants :</p>

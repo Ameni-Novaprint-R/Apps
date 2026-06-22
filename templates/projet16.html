@@ -2,6 +2,10 @@
 
 {% block title %}Projet 16 - GMAO{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+{% endblock %}
+
 {% block content %}
 {% if popup_only %}
 <script>document.documentElement.classList.add('popup-only-mode'); document.body.classList.add('popup-only-mode');</script>
@@ -353,24 +357,140 @@
         margin-top: 15px;
     }
 
-    .demandes-table th,
-    .demandes-table td {
+    .demandes-table td,
+    .demandes-table tbody th {
         padding: 12px;
         text-align: left;
         border-bottom: 1px solid #e0e0e0;
         font-size: 0.9em;
     }
 
-    .demandes-table th {
+    .demandes-table thead th {
+        border-bottom: none;
+    }
+
+    .demandes-table tbody th {
         background: #f8f9fa;
         color: #333;
         font-weight: 600;
-        position: sticky;
-        top: 0;
     }
 
     .demandes-table tr:hover {
         background: #f8f9fa;
+    }
+
+    #demandes-table {
+        width: auto;
+        table-layout: auto;
+        font-size: 0.72rem;
+    }
+    #demandes-table th,
+    #demandes-table td {
+        white-space: nowrap;
+        padding: 5px 7px !important;
+        line-height: 1.25;
+    }
+    #demandes-table thead th {
+        border-color: #32383e !important;
+        box-shadow: none !important;
+    }
+    #demandes-table thead tr:first-child th {
+        vertical-align: middle;
+        font-size: 0.78rem;
+        font-weight: 700;
+        line-height: 1.15;
+        white-space: nowrap;
+        padding-top: 7px !important;
+        padding-bottom: 4px !important;
+        background: #212529;
+        color: #fff;
+        border-bottom: none !important;
+    }
+    #demandes-table thead tr.table-filters th.sorting,
+    #demandes-table thead tr.table-filters th.sorting_asc,
+    #demandes-table thead tr.table-filters th.sorting_desc {
+        position: relative;
+        padding-right: 30px !important;
+        cursor: pointer;
+        overflow: visible;
+        vertical-align: middle;
+    }
+    #demandes-table thead tr.table-filters th.sorting:before,
+    #demandes-table thead tr.table-filters th.sorting:after,
+    #demandes-table thead tr.table-filters th.sorting_asc:before,
+    #demandes-table thead tr.table-filters th.sorting_asc:after,
+    #demandes-table thead tr.table-filters th.sorting_desc:before,
+    #demandes-table thead tr.table-filters th.sorting_desc:after {
+        position: absolute;
+        right: 5px;
+        font-size: 0.65em;
+        line-height: 1;
+        color: inherit;
+        background-image: none !important;
+    }
+    #demandes-table thead tr.table-filters th.sorting:before,
+    #demandes-table thead tr.table-filters th.sorting:after {
+        content: "";
+        opacity: 0.35;
+    }
+    #demandes-table thead tr.table-filters th.sorting:before { content: "▲"; top: 5px; }
+    #demandes-table thead tr.table-filters th.sorting:after { content: "▼"; bottom: 5px; }
+    #demandes-table thead tr.table-filters th.sorting_asc:before { content: "▲"; top: 5px; opacity: 1; }
+    #demandes-table thead tr.table-filters th.sorting_asc:after { content: "▼"; bottom: 5px; opacity: 0.35; }
+    #demandes-table thead tr.table-filters th.sorting_desc:before { content: "▲"; top: 5px; opacity: 0.35; }
+    #demandes-table thead tr.table-filters th.sorting_desc:after { content: "▼"; bottom: 5px; opacity: 1; }
+    #demandes-table thead tr.table-filters th {
+        padding: 2px 6px 5px !important;
+        background: #212529 !important;
+        color: #fff;
+        border-top: none !important;
+        border-bottom: 1px solid #32383e !important;
+        vertical-align: middle;
+    }
+    #demandes-table thead tr.table-filters input {
+        width: 100%;
+        font-size: 0.70rem;
+        padding: 3px 6px;
+        box-sizing: border-box;
+        min-height: 22px;
+        background: #fff;
+        color: #212529;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+    #demandes-table thead tr.table-filters input::placeholder {
+        color: #6c757d;
+    }
+    .gmao-column-toggle-panel {
+        margin-bottom: 1rem;
+        font-size: 0.72rem;
+    }
+    .gmao-column-toggle-panel .fw-bold {
+        font-size: 0.83rem;
+    }
+    .gmao-column-toggle-panel .form-check,
+    .gmao-column-toggle-panel .form-check-label {
+        font-size: 0.72rem;
+    }
+    .gmao-column-toggle-panel .form-check {
+        margin-right: 1rem;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+    }
+    #gmaoColExportButtonsWrapper {
+        flex-shrink: 0;
+        white-space: nowrap;
+        margin-left: auto;
+    }
+    #demandes-table_wrapper .dataTables_length,
+    #demandes-table_wrapper .dataTables_info,
+    #demandes-table_wrapper .dataTables_paginate {
+        font-size: 0.72rem;
+    }
+    #demandes-table_wrapper .dataTables_length select {
+        font-size: 0.72rem;
+        padding: 2px 24px 2px 10px;
+        min-width: 4em;
     }
 
     .badge {
@@ -1302,23 +1422,26 @@
         <div id="demandes-loading" style="text-align: center; padding: 20px; color: #666;">
             Chargement des demandes...
         </div>
-        <div style="overflow-x: auto;">
-            <table class="demandes-table" id="demandes-table" style="display: none;">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Date Demande</th>
-                        <th>Opérateur Demandeur</th>
-                        <th>Machine</th>
-                        <th>État de la Machine</th>
-                        <th>Description du Problème</th>
-                        <th>Statut Demande</th>
-                        <th>Statut Réparation</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="demandes-tbody">
-                </tbody>
+        <div id="gmao-column-toggle-panel" class="gmao-column-toggle-panel" style="display: none;">
+            <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center" id="gmaoColumnToggleContainer">
+                <div class="form-check form-check-inline me-2" id="gmaoColToggleAllWrapper">
+                    <input class="form-check-input" type="checkbox" id="gmaoColToggleAll" checked title="Tout cocher / tout décocher">
+                    <label class="form-check-label" for="gmaoColToggleAll">Tout cocher</label>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0" id="gmaoColExportButtonsWrapper">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnEnregistrerFiltreGmao"
+                            title="Enregistrer les filtres et colonnes affichées pour les prochaines connexions">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                        Enregistrer une vue
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive" id="demandes-table-wrapper" style="overflow-x: auto;">
+            <table class="table table-striped table-hover demandes-table mb-0" id="demandes-table" style="display: none;">
+                <thead></thead>
+                <tbody id="demandes-tbody"></tbody>
             </table>
         </div>
     </div>
@@ -1789,6 +1912,8 @@
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="{{ url_for('static', filename='js/html2pdf.bundle.min.js') }}"></script>
 <script>
@@ -1838,6 +1963,49 @@
                 dd.style.display = 'none';
                 dd.hidden = true;
             });
+            document.querySelectorAll('input[data-gmao-combo-inited="1"]').forEach(function (inp) {
+                const st = comboState.get(inp);
+                if (st) st.highlightIndex = -1;
+            });
+        }
+
+        function isInsideGmaoComboDropdown(el) {
+            return !!(el && el.closest && el.closest('.gmao-combo-dropdown'));
+        }
+
+        function setGmaoComboHighlight(st, index) {
+            const options = st.dd.querySelectorAll('.gmao-combo-option:not(.gmao-combo-empty)');
+            if (!options.length) {
+                st.highlightIndex = -1;
+                return;
+            }
+            let idx = index;
+            if (idx < 0) idx = 0;
+            if (idx >= options.length) idx = options.length - 1;
+            st.highlightIndex = idx;
+            options.forEach(function (opt, i) {
+                opt.classList.toggle('gmao-combo-highlight', i === idx);
+            });
+            options[idx].scrollIntoView({ block: 'nearest' });
+        }
+
+        function initGmaoComboHighlight(input, st) {
+            const options = st.dd.querySelectorAll('.gmao-combo-option:not(.gmao-combo-empty)');
+            if (!options.length) {
+                st.highlightIndex = -1;
+                return;
+            }
+            const qExact = (input.value || '').trim();
+            let idx = 0;
+            if (qExact) {
+                for (let i = 0; i < options.length; i++) {
+                    if (options[i].textContent === qExact) {
+                        idx = i;
+                        break;
+                    }
+                }
+            }
+            setGmaoComboHighlight(st, idx);
         }
 
         function positionDropdown(dd, wrapper) {
@@ -1865,8 +2033,13 @@
             }).filter(function (x) { return x.value.length > 0; });
         }
 
+        function gmaoComboForceShowAll(input) {
+            return !(input.value || '').trim();
+        }
+
         function renderOptions(dd, input, items, forceShowAll) {
             const q = (input.value || '').toLowerCase().trim();
+            const qExact = (input.value || '').trim();
             let rows = items;
             if (!forceShowAll && q.length > 0) {
                 rows = items.filter(function (it) {
@@ -1887,6 +2060,13 @@
                 row.addEventListener('mousedown', function (e) {
                     e.preventDefault();
                 });
+                row.addEventListener('mouseenter', function () {
+                    const st = comboState.get(input);
+                    if (!st) return;
+                    const options = st.dd.querySelectorAll('.gmao-combo-option:not(.gmao-combo-empty)');
+                    const idx = Array.prototype.indexOf.call(options, row);
+                    if (idx >= 0) setGmaoComboHighlight(st, idx);
+                });
                 row.addEventListener('click', function () {
                     input.value = it.value;
                     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1903,6 +2083,11 @@
             }
         }
 
+        function isGmaoComboOpen(input) {
+            const st = comboState.get(input);
+            return !!(st && st.dd.dataset.gmaoOpen === '1');
+        }
+
         function showGmaoCombo(input, forceShowAll) {
             const st = comboState.get(input);
             if (!st) return;
@@ -1914,6 +2099,16 @@
             st.dd.dataset.gmaoOpen = '1';
             st.dd.style.display = 'block';
             st.dd.hidden = false;
+            initGmaoComboHighlight(input, st);
+        }
+
+        function toggleGmaoCombo(input, forceShowAll) {
+            if (isGmaoComboOpen(input)) {
+                hideAllGmaoCombos();
+            } else {
+                hideAllGmaoCombos();
+                showGmaoCombo(input, !!forceShowAll);
+            }
         }
 
         window.gmaoHideAllCombos = hideAllGmaoCombos;
@@ -1935,9 +2130,12 @@
             dd.setAttribute('role', 'listbox');
             dd.hidden = true;
             dd.style.display = 'none';
+            dd.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+            });
             document.body.appendChild(dd);
 
-            comboState.set(input, { listId: listId, dd: dd, wrapper: wrapper });
+            comboState.set(input, { listId: listId, dd: dd, wrapper: wrapper, highlightIndex: -1 });
 
             input.addEventListener('input', function () {
                 if (comboState.get(input)) {
@@ -1946,9 +2144,48 @@
                 }
             });
 
+            input.addEventListener('mousedown', function () {
+                window._gmaoSuppressFocusinClose = true;
+                hideAllGmaoCombos();
+                showGmaoCombo(input, gmaoComboForceShowAll(input));
+                setTimeout(function () {
+                    window._gmaoSuppressFocusinClose = false;
+                }, 0);
+            });
+
             input.addEventListener('keydown', function (e) {
+                const st = comboState.get(input);
+                if (!st) return;
+                const open = isGmaoComboOpen(input);
+
                 if (e.key === 'Escape') {
                     hideAllGmaoCombos();
+                    return;
+                }
+
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!open) {
+                        showGmaoCombo(input, gmaoComboForceShowAll(input));
+                    }
+                    const options = st.dd.querySelectorAll('.gmao-combo-option:not(.gmao-combo-empty)');
+                    if (!options.length) return;
+                    let idx = st.highlightIndex;
+                    if (e.key === 'ArrowDown') {
+                        idx = idx < options.length - 1 ? idx + 1 : 0;
+                    } else {
+                        idx = idx > 0 ? idx - 1 : options.length - 1;
+                    }
+                    setGmaoComboHighlight(st, idx);
+                    return;
+                }
+
+                if (e.key === 'Enter' && open) {
+                    const options = st.dd.querySelectorAll('.gmao-combo-option:not(.gmao-combo-empty)');
+                    if (options.length && st.highlightIndex >= 0) {
+                        e.preventDefault();
+                        options[st.highlightIndex].click();
+                    }
                 }
             });
 
@@ -1957,9 +2194,11 @@
                 ind.addEventListener('mousedown', function (e) {
                     e.preventDefault();
                     window._gmaoSuppressFocusinClose = true;
-                    hideAllGmaoCombos();
-                    input.focus({ preventScroll: true });
-                    showGmaoCombo(input, true);
+                    const wasOpen = isGmaoComboOpen(input);
+                    toggleGmaoCombo(input, gmaoComboForceShowAll(input));
+                    if (!wasOpen) {
+                        input.focus({ preventScroll: true });
+                    }
                     setTimeout(function () {
                         window._gmaoSuppressFocusinClose = false;
                     }, 0);
@@ -1977,13 +2216,12 @@
                         return;
                     }
                     if (t && t.tagName === 'INPUT' && comboState.has(t)) {
-                        hideAllGmaoCombos();
                         return;
                     }
                     hideAllGmaoCombos();
                 });
                 document.addEventListener('mousedown', function (e) {
-                    if (e.target.closest && e.target.closest('.gmao-combo-dropdown')) {
+                    if (isInsideGmaoComboDropdown(e.target)) {
                         return;
                     }
                     if (e.target.closest && e.target.closest('label.input-wrapper')) {
@@ -1991,7 +2229,10 @@
                     }
                     hideAllGmaoCombos();
                 }, true);
-                window.addEventListener('scroll', function () {
+                window.addEventListener('scroll', function (e) {
+                    if (isInsideGmaoComboDropdown(e.target)) {
+                        return;
+                    }
                     hideAllGmaoCombos();
                 }, true);
                 window.addEventListener('resize', function () {
@@ -2148,6 +2389,7 @@
         // Réinitialiser le formulaire
         document.getElementById('reparationForm').reset();
         reparationEnCoursId = null;
+        reparationEnCoursIsDirect = false;
         currentInterventionMode = 'corrective';
         $('#type_in_reparation').val('R');
         $('#reparationModal').removeClass('preventive-mode');
@@ -2215,11 +2457,6 @@
                     $('#dte_fin').val(demande.dte_fin);
                 }
                 
-                // Si machine et intervenant sont remplis, créer la fiche en cours
-                if (demande.postes_reel && demande.mat_inter) {
-                    checkAndCreateFicheEnCours();
-                }
-                
                 // Charger les jours d'intervention
                 $('#intervention-jours-container').empty();
                 interventionJourCounter = 0;
@@ -2249,6 +2486,7 @@
         // Réinitialiser le formulaire
         document.getElementById('reparationForm').reset();
         reparationEnCoursId = null;
+        reparationEnCoursIsDirect = false;
         currentInterventionMode = 'corrective';
         $('#type_in_reparation').val('R');
         $('#reparationModal').removeClass('preventive-mode');
@@ -2322,6 +2560,7 @@
         // Réinitialiser le formulaire
         document.getElementById('reparationForm').reset();
         reparationEnCoursId = null;
+        reparationEnCoursIsDirect = false;
         currentInterventionMode = 'preventive';
         $('#type_in_reparation').val('P');
         $('#intervention-jours-container').empty();
@@ -2564,7 +2803,8 @@
         $('#articles-container').empty();
         $('#no-articles-message').show();
         articleCounter = 0;
-        reparationEnCoursId = null; // Réinitialiser l'ID de la fiche en cours
+        reparationEnCoursId = null;
+        reparationEnCoursIsDirect = false;
     }
 
     // Variable globale pour stocker l'ID de la demande en cours de visualisation
@@ -2955,101 +3195,328 @@
         return 'statut-nouveau';
     }
 
+    // ========== TABLEAUX SUIVI (DataTables — calqué sur projet 11 liste traitements) ==========
+    const GMAO_FILTRE_STORAGE_KEYS = {
+        demandes: {{ filtre_storage_key_demandes|tojson }},
+        reparations: {{ filtre_storage_key_reparations|tojson }}
+    };
+
+    const GMAO_COLONNE_DEFS_DEMANDES = [
+        { titre: 'ID', filtre: true, toggle: true, className: 'col-id', width: '55px' },
+        { titre: 'Date Demande', filtre: true, toggle: true, className: 'col-date', width: '130px' },
+        { titre: 'Opérateur Demandeur', filtre: true, toggle: true, className: 'col-operateur', width: '155px' },
+        { titre: 'Machine', filtre: true, toggle: true, className: 'col-machine', width: '120px' },
+        { titre: 'État de la Machine', filtre: true, toggle: true, className: 'col-etat', width: '120px' },
+        { titre: 'Description du Problème', filtre: true, toggle: true, className: 'col-description', width: '180px' },
+        { titre: 'Statut Demande', filtre: true, toggle: true, className: 'col-statut', width: '110px' },
+        { titre: 'Statut Réparation', filtre: true, toggle: true, className: 'col-statut', width: '110px' },
+        { titre: 'Actions', filtre: false, toggle: false, className: 'col-actions', width: '165px', orderable: false }
+    ];
+
+    const GMAO_COLONNE_DEFS_REPARATIONS = [
+        { titre: 'ID', filtre: true, toggle: true, className: 'col-id', width: '55px' },
+        { titre: 'ID demande', filtre: true, toggle: true, className: 'col-id', width: '75px' },
+        { titre: 'Date Demande', filtre: true, toggle: true, className: 'col-date', width: '130px' },
+        { titre: 'Date de Réparation', filtre: true, toggle: true, className: 'col-date', width: '130px' },
+        { titre: 'Temps', filtre: true, toggle: true, className: 'col-temps', width: '75px' },
+        { titre: 'Machine', filtre: true, toggle: true, className: 'col-machine', width: '120px' },
+        { titre: 'Intervenant', filtre: true, toggle: true, className: 'col-operateur', width: '155px' },
+        { titre: 'Nature', filtre: true, toggle: true, className: 'col-nature', width: '80px' },
+        { titre: 'Description', filtre: true, toggle: true, className: 'col-description', width: '180px' },
+        { titre: 'Statut Réparation', filtre: true, toggle: true, className: 'col-statut', width: '110px' },
+        { titre: 'Actions', filtre: false, toggle: false, className: 'col-actions', width: '130px', orderable: false }
+    ];
+
+    let gmaoTableState = { api: null, type: null, colonneDefs: [] };
+
+    function formatGmaoDateTime(val) {
+        if (!val) return '-';
+        return new Date(val).toLocaleString('fr-FR', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    function formatGmaoTempsReel(demande) {
+        if (!demande.tps_reel) return '-';
+        try {
+            if (typeof demande.tps_reel === 'string' && demande.tps_reel.includes(':')) {
+                return demande.tps_reel;
+            }
+            const tpsReelHours = parseFloat(demande.tps_reel);
+            const hours = Math.floor(tpsReelHours);
+            const minutes = Math.round((tpsReelHours - hours) * 60);
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        } catch (e) {
+            return '-';
+        }
+    }
+
+    function destroyGmaoDataTable() {
+        const $table = $('#demandes-table');
+        if ($.fn.DataTable && $.fn.DataTable.isDataTable($table)) {
+            $table.DataTable().clear().destroy();
+        }
+        $table.find('thead').empty();
+        gmaoTableState.api = null;
+        gmaoTableState.type = null;
+        gmaoTableState.colonneDefs = [];
+    }
+
+    function setupGmaoTableHeader(colonneDefs) {
+        const $thead = $('#demandes-table thead');
+        $thead.empty();
+        const $titleRow = $('<tr></tr>');
+        colonneDefs.forEach(function (def) {
+            $titleRow.append($('<th></th>').text(def.titre).addClass(def.className || ''));
+        });
+        $thead.append($titleRow);
+        const $filterRow = $('<tr class="table-filters"></tr>');
+        colonneDefs.forEach(function (def, index) {
+            const $cell = $('<th></th>');
+            if (def.filtre) {
+                $cell.append($('<input type="text">').attr('placeholder', 'Filtrer ' + def.titre).attr('data-col', index));
+            }
+            $filterRow.append($cell);
+        });
+        $thead.append($filterRow);
+    }
+
+    function gmaoInitialiserFiltres(api, colonneDefs) {
+        api.columns().every(function () {
+            const column = this;
+            const colIndex = column.index();
+            const def = colonneDefs[colIndex];
+            if (!def || !def.filtre) return;
+            const input = $('#demandes-table thead .table-filters input[data-col="' + colIndex + '"]');
+            input.off('keyup change clear').on('keyup change clear', function () {
+                const value = this.value || '';
+                const escaped = $.fn.dataTable.util.escapeRegex(value);
+                if (column.search() !== escaped) {
+                    column.search(escaped, true, false, true).draw();
+                }
+            });
+        });
+    }
+
+    function gmaoInitialiserToggles(api, colonneDefs) {
+        const $container = $('#gmaoColumnToggleContainer');
+        const $toggleAll = $('#gmaoColToggleAll');
+        $container.children().not('#gmaoColToggleAllWrapper, #gmaoColExportButtonsWrapper').remove();
+
+        function updateToggleAllState() {
+            let allVisible = true;
+            colonneDefs.forEach(function (def, index) {
+                if (def && def.toggle && !api.column(index).visible()) {
+                    allVisible = false;
+                }
+            });
+            $toggleAll.prop('checked', allVisible);
+        }
+
+        $toggleAll.off('change').on('change', function () {
+            const check = this.checked;
+            colonneDefs.forEach(function (def, index) {
+                if (def && def.toggle) {
+                    api.column(index).visible(check, false);
+                }
+            });
+            $container.find('.form-check-input').not('#gmaoColToggleAll').prop('checked', check);
+            api.columns.adjust().draw(false);
+        });
+
+        colonneDefs.forEach(function (def, index) {
+            if (!def || !def.toggle) return;
+            const column = api.column(index);
+            const toggleId = 'gmaoColToggle_' + index;
+            const $checkbox = $(`
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="${toggleId}" ${column.visible() ? 'checked' : ''}>
+                    <label class="form-check-label" for="${toggleId}">${def.titre}</label>
+                </div>
+            `);
+            $checkbox.find('input').on('change', function () {
+                column.visible(this.checked, false);
+                api.columns.adjust().draw(false);
+                updateToggleAllState();
+            });
+            $('#gmaoColExportButtonsWrapper').before($checkbox);
+        });
+        updateToggleAllState();
+    }
+
+    function gmaoAppliquerEtat(api, colonneDefs, etat) {
+        if (!etat) return;
+        colonneDefs.forEach(function (def, i) {
+            if (def && def.toggle && etat.colVisible && etat.colVisible[i] !== undefined) {
+                api.column(i).visible(etat.colVisible[i], false);
+            }
+        });
+        colonneDefs.forEach(function (def, i) {
+            if (etat.filterValues && etat.filterValues[i] !== undefined) {
+                const input = $('#demandes-table thead .table-filters input[data-col="' + i + '"]');
+                if (input.length) {
+                    const raw = etat.filterValues[i] || '';
+                    const escaped = $.fn.dataTable.util.escapeRegex(raw);
+                    input.val(raw);
+                    api.column(i).search(escaped, true, false, true);
+                }
+            }
+        });
+        if (etat.toutCocher !== undefined) {
+            $('#gmaoColToggleAll').prop('checked', etat.toutCocher);
+        }
+        if (etat.pageLength) {
+            api.page.len(etat.pageLength);
+        }
+        api.draw(false);
+    }
+
+    function initGmaoDataTable(type, colonneDefs) {
+        setupGmaoTableHeader(colonneDefs);
+        gmaoTableState.type = type;
+        gmaoTableState.colonneDefs = colonneDefs;
+
+        const columnDefsConfig = colonneDefs.map(function (def, index) {
+            return {
+                targets: index,
+                orderable: def.orderable !== false,
+                className: def.className || '',
+                width: def.width || null
+            };
+        });
+
+        const storageKey = GMAO_FILTRE_STORAGE_KEYS[type];
+
+        const api = $('#demandes-table').DataTable({
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json' },
+            order: [[0, 'desc']],
+            dom: 'lrtip',
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tous']],
+            autoWidth: false,
+            columnDefs: columnDefsConfig,
+            initComplete: function () {
+                const dtApi = this.api();
+                function finInit() {
+                    gmaoInitialiserFiltres(dtApi, colonneDefs);
+                    gmaoInitialiserToggles(dtApi, colonneDefs);
+                    dtApi.columns.adjust();
+                }
+                try {
+                    const savedStr = localStorage.getItem(storageKey);
+                    const saved = savedStr ? JSON.parse(savedStr) : null;
+                    if (saved && (saved.colVisible || saved.filterValues)) {
+                        gmaoAppliquerEtat(dtApi, colonneDefs, saved);
+                    }
+                } catch (e) { }
+                finInit();
+            }
+        });
+
+        gmaoTableState.api = api;
+    }
+
+    function buildDemandeRowHtml(demande) {
+        let statutDemClass = 'statut-nouveau';
+        if (demande.statut_demande_id === 1) statutDemClass = 'statut-encours';
+        if (demande.statut_demande_id === 2) statutDemClass = 'statut-termine';
+        const statutDemBadge = '<span class="badge ' + statutDemClass + '">' + (demande.statut_demande || '') + '</span>';
+        const statutRepClass = statutRepClassFromDesignation(demande.statut_reparation, demande.statut_reparation_id);
+        const statutRepBadge = '<span class="badge ' + statutRepClass + '">' + (demande.statut_reparation || '') + '</span>';
+        const idDisplay = demande.suffixe && demande.suffixe > 0 ? `${demande.id}-${demande.suffixe}` : demande.id;
+        return `
+            <tr>
+                <td>${idDisplay}</td>
+                <td>${formatGmaoDateTime(demande.dte_dem_in)}</td>
+                <td>${demande.oper_dem || '-'}</td>
+                <td>${demande.postes_reel || '-'}</td>
+                <td>${demande.etat_machine || '-'}</td>
+                <td>${demande.dem_in || '-'}</td>
+                <td>${statutDemBadge}</td>
+                <td>${statutRepBadge}</td>
+                <td>
+                    <div class="button-group">
+                        <button class="btn-view" onclick="openDetailsModal(${demande.id})" title="Voir détails">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                        <button class="btn-repair" onclick="openReparationModal(${demande.id})" title="Ajouter/Modifier réparation">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </button>
+                        <button class="btn-edit" onclick="modifierDemande(${demande.id})" title="Modifier la demande">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+                        <button class="btn-delete" onclick="supprimerDemande(${demande.id})" title="Supprimer">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }
+
+    function buildReparationRowHtml(demande) {
+        const statutRepClass = statutRepClassFromDesignation(demande.statut_reparation, demande.statut_reparation_id);
+        const statutRepBadge = '<span class="badge ' + statutRepClass + '">' + (demande.statut_reparation || '') + '</span>';
+        const natDisplay = (demande.nat === 'E.M.') ? 'Mec et Elec' : (demande.nat || '-');
+        const descProb = (demande.desc_prob != null && demande.desc_prob !== '') ? String(demande.desc_prob) : '';
+        const descShort = descProb.length > 40 ? descProb.substring(0, 40) + '...' : descProb;
+        const idDemandeDisplay = (demande.id_demande != null && demande.id_demande !== '') ? demande.id_demande : '-';
+        const repId = demande.id_demande || demande.id;
+        return `
+            <tr>
+                <td>${demande.id}</td>
+                <td>${idDemandeDisplay}</td>
+                <td>${formatGmaoDateTime(demande.dte_dem_in)}</td>
+                <td>${formatGmaoDateTime(demande.dte_deb)}</td>
+                <td>${formatGmaoTempsReel(demande)}</td>
+                <td>${demande.postes_reel || '-'}</td>
+                <td>${demande.intervenant || '-'}</td>
+                <td>${natDisplay}</td>
+                <td class="cell-description" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${descProb.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}">${(descShort || '-').replace(/</g, '&lt;').replace(/&/g, '&amp;')}</td>
+                <td>${statutRepBadge}</td>
+                <td>
+                    <div class="button-group">
+                        <button class="btn-view" onclick="openReparationDetailsModal(${demande.id})" title="Voir détails">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                        <button class="btn-repair" onclick="openReparationModal(${repId})" title="Modifier réparation">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </button>
+                        <button class="btn-delete" onclick="supprimerReparation(${demande.id})" title="Supprimer la fiche de réparation">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }
+
+    function renderGmaoFichesTable(type, rowsHtml, colonneDefs, emptyMessage) {
+        destroyGmaoDataTable();
+        const tbody = $('#demandes-tbody');
+        tbody.empty();
+        $('#demandes-loading').hide();
+        $('#demandes-table').show();
+        if (!rowsHtml.length) {
+            setupGmaoTableHeader(colonneDefs);
+            tbody.append('<tr><td colspan="' + colonneDefs.length + '" style="text-align: center; color: #666;">' + emptyMessage + '</td></tr>');
+            $('#gmao-column-toggle-panel').hide();
+            return;
+        }
+        rowsHtml.forEach(function (html) { tbody.append(html); });
+        $('#gmao-column-toggle-panel').show();
+        initGmaoDataTable(type, colonneDefs);
+    }
+
     // Charger les demandes (fiches de demande d'intervention uniquement)
     function loadDemandes() {
+        $('#demandes-loading').show().html('Chargement des demandes...');
         $.ajax({
             url: '/projet16/api/demandes',
             data: { type: 'demandes' },
             method: 'GET',
             success: function(demandes) {
-                $('#demandes-loading').hide();
-                $('#demandes-table').show();
-                
-                // Restaurer l'en-tête du tableau pour les demandes d'intervention
-                const thead = $('#demandes-table thead tr');
-                thead.html(`
-                    <th>ID</th>
-                    <th>Date Demande</th>
-                    <th>Opérateur Demandeur</th>
-                    <th>Machine</th>
-                    <th>État de la Machine</th>
-                    <th>Description du Problème</th>
-                    <th>Statut Demande</th>
-                    <th>Statut Réparation</th>
-                    <th>Actions</th>
-                `);
-                
-                const tbody = $('#demandes-tbody');
-                tbody.empty();
-                
-                // Le backend ne retourne que les fiches de demande d'intervention (OperDem, MatrOpDem, DteDemIn renseignés)
-                if (demandes.length === 0) {
-                    tbody.append('<tr><td colspan="9" style="text-align: center; color: #666;">Aucune demande d\'intervention enregistrée</td></tr>');
-                    return;
-                }
-                
-                demandes.forEach(function(demande) {
-                    let statutDemClass = 'statut-nouveau';
-                    if (demande.statut_demande_id === 1) statutDemClass = 'statut-encours';
-                    if (demande.statut_demande_id === 2) statutDemClass = 'statut-termine';
-                    const statutDemBadge = '<span class="badge ' + statutDemClass + '">' + demande.statut_demande + '</span>';
-                    
-                    let statutRepClass = statutRepClassFromDesignation(demande.statut_reparation, demande.statut_reparation_id);
-                    const statutRepBadge = '<span class="badge ' + statutRepClass + '">' + demande.statut_reparation + '</span>';
-                    
-                    const dateStr = demande.dte_dem_in ? new Date(demande.dte_dem_in).toLocaleString('fr-FR', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : '-';
-                    
-                    // Afficher ID-Suffixe si Suffixe > 0, sinon juste ID
-                    const idDisplay = demande.suffixe && demande.suffixe > 0 ? `${demande.id}-${demande.suffixe}` : demande.id;
-                    
-                    tbody.append(`
-                        <tr>
-                            <td>${idDisplay}</td>
-                            <td>${dateStr}</td>
-                            <td>${demande.oper_dem || '-'}</td>
-                            <td>${demande.postes_reel || '-'}</td>
-                            <td>${demande.etat_machine || '-'}</td>
-                            <td>${demande.dem_in || '-'}</td>
-                            <td>${statutDemBadge}</td>
-                            <td>${statutRepBadge}</td>
-                            <td>
-                                <div class="button-group">
-                                    <button class="btn-view" onclick="openDetailsModal(${demande.id})" title="Voir détails">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                            <circle cx="12" cy="12" r="3"></circle>
-                                        </svg>
-                                    </button>
-                                    <button class="btn-repair" onclick="openReparationModal(${demande.id})" title="Ajouter/Modifier réparation">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-                                        </svg>
-                                    </button>
-                                    <button class="btn-edit" onclick="modifierDemande(${demande.id})" title="Modifier la demande">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                        </svg>
-                                    </button>
-                                    <button class="btn-delete" onclick="supprimerDemande(${demande.id})" title="Supprimer">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `);
-                });
+                const rows = (demandes || []).map(buildDemandeRowHtml);
+                renderGmaoFichesTable('demandes', rows, GMAO_COLONNE_DEFS_DEMANDES, 'Aucune demande d\'intervention enregistrée');
             },
             error: function() {
                 $('#demandes-loading').html('<span style="color: #c62828;">Erreur lors du chargement des demandes</span>');
@@ -3059,123 +3526,13 @@
 
     // Charger les réparations (fiches de la table WEB_GMAO_REPARATION)
     function loadReparations() {
+        $('#demandes-loading').show().html('Chargement des réparations...');
         $.ajax({
             url: '/projet16/api/reparations',
             method: 'GET',
             success: function(reparations) {
-                $('#demandes-loading').hide();
-                $('#demandes-table').show();
-                
-                // En-tête du tableau : ID = fiche réparation, ID demande = fiche demande d'intervention
-                const thead = $('#demandes-table thead tr');
-                thead.html(`
-                    <th>ID</th>
-                    <th>ID demande</th>
-                    <th>Date Demande</th>
-                    <th>Date de Réparation</th>
-                    <th>Temps</th>
-                    <th>Machine</th>
-                    <th>Intervenant</th>
-                    <th>Nature</th>
-                    <th>Description</th>
-                    <th>Statut Réparation</th>
-                    <th>Actions</th>
-                `);
-                
-                const tbody = $('#demandes-tbody');
-                tbody.empty();
-                
-                if (reparations.length === 0) {
-                    tbody.append('<tr><td colspan="11" style="text-align: center; color: #666;">Aucune fiche de réparation enregistrée</td></tr>');
-                    return;
-                }
-                
-                reparations.forEach(function(demande) {
-                    let statutRepClass = statutRepClassFromDesignation(demande.statut_reparation, demande.statut_reparation_id);
-                    const statutRepBadge = '<span class="badge ' + statutRepClass + '">' + demande.statut_reparation + '</span>';
-                    
-                    const dateStr = demande.dte_dem_in ? new Date(demande.dte_dem_in).toLocaleString('fr-FR', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : '-';
-                    
-                    // Formater la date de réparation (dte_deb)
-                    const dateRepStr = demande.dte_deb ? new Date(demande.dte_deb).toLocaleString('fr-FR', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : '-';
-                    
-                    // Formater le temps réel (tps_reel)
-                    let tempsStr = '-';
-                    if (demande.tps_reel) {
-                        try {
-                            if (typeof demande.tps_reel === 'string' && demande.tps_reel.includes(':')) {
-                                // Déjà en format HH:MM
-                                tempsStr = demande.tps_reel;
-                            } else {
-                                // Convertir de heures décimales en HH:MM
-                                const tpsReelHours = parseFloat(demande.tps_reel);
-                                const hours = Math.floor(tpsReelHours);
-                                const minutes = Math.round((tpsReelHours - hours) * 60);
-                                tempsStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-                            }
-                        } catch (e) {
-                            tempsStr = '-';
-                        }
-                    }
-                    
-                    // Nature : afficher "Mec et Elec" si E.M.
-                    const natDisplay = (demande.nat === 'E.M.') ? 'Mec et Elec' : (demande.nat || '-');
-                    const descProb = (demande.desc_prob != null && demande.desc_prob !== '') ? String(demande.desc_prob) : '';
-                    const descShort = descProb.length > 40 ? descProb.substring(0, 40) + '...' : descProb;
-                    
-                    // id = ID réparation, id_demande = ID fiche demande (peut être vide pour réparation directe)
-                    const idDemandeDisplay = (demande.id_demande != null && demande.id_demande !== '') ? demande.id_demande : '-';
-                    
-                    tbody.append(`
-                        <tr>
-                            <td>${demande.id}</td>
-                            <td>${idDemandeDisplay}</td>
-                            <td>${dateStr}</td>
-                            <td>${dateRepStr}</td>
-                            <td>${tempsStr}</td>
-                            <td>${demande.postes_reel || '-'}</td>
-                            <td>${demande.intervenant || '-'}</td>
-                            <td>${natDisplay}</td>
-                            <td class="cell-description" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(descProb || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}">${(descShort || '-').replace(/</g, '&lt;').replace(/&/g, '&amp;')}</td>
-                            <td>${statutRepBadge}</td>
-                            <td>
-                                <div class="button-group">
-                                    <button class="btn-view" onclick="openReparationDetailsModal(${demande.id})" title="Voir détails">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                            <circle cx="12" cy="12" r="3"></circle>
-                                        </svg>
-                                    </button>
-                                    <button class="btn-repair" onclick="openReparationModal(${demande.id})" title="Modifier réparation">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-                                        </svg>
-                                    </button>
-                                    <button class="btn-delete" onclick="supprimerReparation(${demande.id})" title="Supprimer la fiche de réparation">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `);
-                });
+                const rows = (reparations || []).map(buildReparationRowHtml);
+                renderGmaoFichesTable('reparations', rows, GMAO_COLONNE_DEFS_REPARATIONS, 'Aucune fiche de réparation enregistrée');
             },
             error: function() {
                 $('#demandes-loading').html('<span style="color: #c62828;">Erreur lors du chargement des réparations</span>');
@@ -3184,12 +3541,38 @@
     }
 
     // ========== VARIABLES GLOBALES ==========
-    let reparationEnCoursId = null; // ID de la fiche "En cours" créée automatiquement
+    let reparationEnCoursId = null; // ID WEB_GMAO (demande liée) ou ID WEB_GMAO_REPARATION (réparation directe)
+    let reparationEnCoursIsDirect = false; // true si reparationEnCoursId = réparation directe (sans demande)
+    let creerFicheEnCoursRequestId = 0;
     let articleCounter = 0; // Compteur pour générer des IDs uniques pour les articles
     let interventionJourCounter = 0; // Compteur pour les lignes Jours d'intervention
     let selectedPreventiveTask = null; // Tâche préventive sélectionnée pour pré-remplissage
     let currentInterventionMode = 'corrective'; // corrective ou preventive
     let pendingMettreAJourTimeout = null;
+
+    /** Ne valide le matricule que si la valeur correspond exactement à une option (évite FK en cours de saisie). */
+    function syncIntervenantMatriculeFromInput() {
+        const input = $('#intervenant_input');
+        const valeur = (input.val() || '').trim();
+        if (!valeur) {
+            input.attr('data-matricule', '');
+            $('#mat_inter').val('');
+            return false;
+        }
+        const option = $('#intervenants_list option').filter(function () {
+            return this.value === valeur;
+        });
+        if (option.length === 0) {
+            input.attr('data-matricule', '');
+            $('#mat_inter').val('');
+            return false;
+        }
+        const match = valeur.match(/\(Matricule:\s*(\d+)\)/);
+        const mat = match ? match[1] : '';
+        input.attr('data-matricule', mat);
+        $('#mat_inter').val(mat);
+        return !!mat;
+    }
 
     function scheduleMettreAJourFicheEnCours() {
         if (pendingMettreAJourTimeout) clearTimeout(pendingMettreAJourTimeout);
@@ -3736,81 +4119,167 @@
         input.value = valeur;
     }
 
-    function checkAndCreateFicheEnCours() {
-        const hasMachine = $('#machine_reparation').val() !== '';
-        const hasIntervenant = $('#mat_inter').val() !== '';
-        
-        if (hasMachine && hasIntervenant && !reparationEnCoursId) {
-            // Créer automatiquement une fiche "En cours" (ID_StatRep = 0)
-            creerFicheEnCours();
-        }
+    function getDemandeWebId() {
+        return ($('#demande_id_rep').val() || $('#select_demande_hidden').val() || '').trim();
     }
 
-    function creerFicheEnCours() {
-        // Si une fiche en cours existe déjà, la mettre à jour au lieu d'en créer une nouvelle
-        if (reparationEnCoursId) {
-            mettreAJourFicheEnCours();
-            return;
-        }
+    function resolveReparationRecordIdForSave() {
+        const webId = getDemandeWebId();
+        if (webId) return webId;
+        return reparationEnCoursId || null;
+    }
 
-        // Vérifier si une demande est sélectionnée
-        let demandeId = $('#demande_id_rep').val();
-        if (!demandeId) {
-            demandeId = $('#select_demande_hidden').val();
-        }
-
+    function buildReparationFormDataBrouillon() {
         updateFromInterventionJours();
         const tpsReelHHMM = $('#tps_reel').val();
         const tpsReelDecimal = tpsReelHHMM ? HHMMVersHeuresDecimales(tpsReelHHMM) : null;
-        
-        const formData = {
+        return {
             dte_deb: $('#dte_deb').val() || new Date().toISOString().slice(0, 16),
             dte_fin: $('#dte_fin').val() || '',
             mat_inter: $('#mat_inter').val(),
             postes_reel: $('#machine_reparation').val(),
             nat: $('#nat_rep_value').val() || 'Mec',
-            id_stat_rep: 0, // En cours
+            id_stat_rep: 0,
             tps_reel: tpsReelDecimal,
             type_in: $('#type_in_reparation').val() || 'R',
             id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
             desc_prob: $('#desc_prob_rep').val() || '',
             intervention_jours: getInterventionJoursData()
         };
+    }
 
-        // Si une demande est sélectionnée, mettre à jour cette demande
-        if (demandeId) {
+    /** Supprime le brouillon « réparation directe » si l'utilisateur a ensuite choisi une demande d'intervention */
+    function cleanupOrphanDirectDraft(callback) {
+        const webId = getDemandeWebId();
+        if (!webId || !reparationEnCoursId || !reparationEnCoursIsDirect) {
+            if (callback) callback();
+            return;
+        }
+        const orphanId = reparationEnCoursId;
+        reparationEnCoursId = null;
+        reparationEnCoursIsDirect = false;
+        $.ajax({
+            url: '/projet16/api/delete_reparation/' + orphanId,
+            method: 'DELETE',
+            complete: function() {
+                if (callback) callback();
+            }
+        });
+    }
+
+    function ensureReparationRecord(callback) {
+        cleanupOrphanDirectDraft(function() {
+            const webId = getDemandeWebId();
+            const resolved = resolveReparationRecordIdForSave();
+            if (resolved) {
+                if (webId) {
+                    reparationEnCoursId = webId;
+                    reparationEnCoursIsDirect = false;
+                    $('#demande_id_rep').val(webId);
+                }
+                callback(resolved);
+                return;
+            }
+            const hasMachine = $('#machine_reparation').val() !== '';
+            const hasIntervenant = $('#mat_inter').val() !== '';
+            if (!hasMachine || !hasIntervenant) {
+                callback(null);
+                return;
+            }
+            creerFicheEnCours(function(id) {
+                callback(id || resolveReparationRecordIdForSave());
+            });
+        });
+    }
+
+    function checkAndCreateFicheEnCours() {
+        const hasMachine = $('#machine_reparation').val() !== '';
+        const hasIntervenant = $('#mat_inter').val() !== '';
+        if (!hasMachine || !hasIntervenant) return;
+
+        if (getDemandeWebId()) {
+            if (!reparationEnCoursId || reparationEnCoursIsDirect) {
+                cleanupOrphanDirectDraft(function() {
+                    creerFicheEnCours();
+                });
+            }
+            return;
+        }
+
+        // Tant que le sélecteur de demande est affiché, ne pas créer de brouillon direct
+        // (évite une fiche « En cours » orpheline si l'utilisateur choisit ensuite une demande)
+        if ($('#selection-demande').is(':visible')) {
+            return;
+        }
+
+        if (!reparationEnCoursId) {
+            creerFicheEnCours();
+        }
+    }
+
+    function creerFicheEnCours(done) {
+        if (reparationEnCoursId) {
+            if (!reparationEnCoursIsDirect || !getDemandeWebId()) {
+                mettreAJourFicheEnCours();
+                if (done) done(reparationEnCoursId);
+                return;
+            }
+        }
+
+        const demandeWebId = getDemandeWebId();
+        const requestId = ++creerFicheEnCoursRequestId;
+        const formData = buildReparationFormDataBrouillon();
+
+        function onComplete(id) {
+            if (done) done(id);
+        }
+
+        if (demandeWebId) {
             $.ajax({
-                url: '/projet16/api/update_reparation/' + demandeId,
+                url: '/projet16/api/update_reparation/' + demandeWebId,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(formData),
                 success: function() {
-                    reparationEnCoursId = demandeId;
-                    $('#demande_id_rep').val(reparationEnCoursId);
-                    // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
-                    const idPreventive = formData.id_web_gmao_preventive;
-                    refreshPreventiveTableIfNeeded(idPreventive);
+                    if (requestId !== creerFicheEnCoursRequestId) return;
+                    reparationEnCoursId = demandeWebId;
+                    reparationEnCoursIsDirect = false;
+                    $('#demande_id_rep').val(demandeWebId);
+                    refreshPreventiveTableIfNeeded(formData.id_web_gmao_preventive);
+                    onComplete(demandeWebId);
                 },
                 error: function(xhr) {
                     console.error('Erreur lors de la création de la fiche en cours:', xhr);
+                    if (done) done(null);
                 }
             });
         } else {
-            // Sinon, créer une nouvelle fiche directe
             $.ajax({
                 url: '/projet16/api/create_reparation_direct',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(formData),
                 success: function(response) {
+                    if (requestId !== creerFicheEnCoursRequestId) return;
+                    if (getDemandeWebId()) {
+                        $.ajax({
+                            url: '/projet16/api/delete_reparation/' + response.id,
+                            method: 'DELETE',
+                            complete: function() {
+                                creerFicheEnCours(done);
+                            }
+                        });
+                        return;
+                    }
                     reparationEnCoursId = response.id;
-                    $('#demande_id_rep').val(reparationEnCoursId);
-                    // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
-                    const idPreventive = formData.id_web_gmao_preventive;
-                    refreshPreventiveTableIfNeeded(idPreventive);
+                    reparationEnCoursIsDirect = true;
+                    $('#demande_id_rep').val(response.id);
+                    refreshPreventiveTableIfNeeded(formData.id_web_gmao_preventive);
+                    onComplete(response.id);
                 },
                 error: function(xhr) {
                     console.error('Erreur lors de la création de la fiche en cours:', xhr);
+                    if (done) done(null);
                 }
             });
         }
@@ -3819,6 +4288,11 @@
     function mettreAJourFicheEnCours() {
         // Mettre à jour la fiche en cours avec les données actuelles
         if (!reparationEnCoursId) return;
+
+        const intervenantTexte = ($('#intervenant_input').val() || '').trim();
+        if (intervenantTexte && !$('#mat_inter').val()) {
+            return;
+        }
 
         updateFromInterventionJours();
         const tpsReelHHMM = $('#tps_reel').val();
@@ -3866,16 +4340,27 @@
                     }
                 }
                 console.error(errorMsg, xhr);
-                alert(errorMsg);
             }
         });
     }
 
+    function rechargerListesApresReparation() {
+        const activeFilter = $('.filter-btn.active');
+        if (activeFilter.length > 0) {
+            const filterType = activeFilter.attr('onclick').includes('demandes') ? 'demandes' : 'reparations';
+            if (filterType === 'demandes') {
+                loadDemandes();
+            } else {
+                loadReparations();
+            }
+        } else {
+            loadDemandes();
+        }
+    }
+
     function enregistrerReparation(statut) {
         if (statut === 'annule') {
-            // Annuler : fermer le popup sans enregistrer
-            if (reparationEnCoursId && confirm('Voulez-vous vraiment annuler cette fiche de réparation ?')) {
-                // Supprimer la fiche en cours si elle existe
+            if (reparationEnCoursIsDirect && reparationEnCoursId && confirm('Voulez-vous vraiment annuler cette fiche de réparation ?')) {
                 $.ajax({
                     url: '/projet16/api/delete_reparation/' + reparationEnCoursId,
                     method: 'DELETE',
@@ -3889,17 +4374,10 @@
             return;
         }
 
-        // Récupérer l'ID de la demande (soit existant, soit la fiche en cours)
-        let demandeId = $('#demande_id_rep').val() || reparationEnCoursId;
-        if (!demandeId) {
-            demandeId = $('#select_demande_hidden').val();
-        }
-
         updateFromInterventionJours();
         const tpsReelHHMM = $('#tps_reel').val();
         const tpsReelDecimal = tpsReelHHMM ? HHMMVersHeuresDecimales(tpsReelHHMM) : null;
-        
-        // Validation des champs obligatoires
+
         if (!$('#dte_deb').val()) {
             showAlert('alert-reparation', 'Veuillez remplir la date/heure de début', 'error');
             return;
@@ -3917,73 +4395,27 @@
             return;
         }
 
-        // Si c'est "Enregistrer" (ID_StatRep = 0), utiliser update_reparation
-        if (statut === 'enregistrer') {
-            const formData = {
-                dte_deb: $('#dte_deb').val(),
-                dte_fin: $('#dte_fin').val() || '',
-                mat_inter: $('#mat_inter').val(),
-                postes_reel: $('#machine_reparation').val(),
-                nat: $('#nat_rep_value').val(),
-                id_stat_rep: 0, // En cours
-                tps_reel: tpsReelDecimal,
-                type_in: $('#type_in_reparation').val() || 'R',
-                id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
-                desc_prob: $('#desc_prob_rep').val() || '',
-                intervention_jours: getInterventionJoursData()
-            };
-
-            // Si pas de demandeId, créer une nouvelle fiche
+        ensureReparationRecord(function(demandeId) {
             if (!demandeId) {
-                $.ajax({
-                    url: '/projet16/api/create_reparation_direct',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(formData),
-                    success: function(response) {
-                        demandeId = response.id;
-                        reparationEnCoursId = demandeId;
-                        $('#demande_id_rep').val(demandeId);
-                        
-                        // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
-                        const idPreventive = formData.id_web_gmao_preventive;
-                        refreshPreventiveTableIfNeeded(idPreventive);
-                        
-                        // Sauvegarder les articles
-                        $.ajax({
-                            url: `/projet16/api/save_articles/${demandeId}`,
-                            method: 'POST',
-                            contentType: 'application/json',
-                            data: JSON.stringify({ articles: recupererArticlesDuFormulaire() }),
-                            success: function() {
-                                showAlert('alert-reparation', 'Fiche de réparation enregistrée avec succès (En cours) !', 'success');
-                                setTimeout(function() {
-                                    closeReparationModal();
-                                    const activeFilter = $('.filter-btn.active');
-                                    if (activeFilter.length > 0) {
-                                        const filterType = activeFilter.attr('onclick').includes('demandes') ? 'demandes' : 'reparations';
-                                        if (filterType === 'demandes') {
-                                            loadDemandes();
-                                        } else {
-                                            loadReparations();
-                                        }
-                                    } else {
-                                        loadDemandes();
-                                    }
-                                }, 2000);
-                            },
-                            error: function(xhr) {
-                                showAlert('alert-reparation', 'Fiche enregistrée mais erreur lors de la sauvegarde des articles', 'error');
-                            }
-                        });
-                    },
-                    error: function(xhr) {
-                        const error = xhr.responseJSON ? xhr.responseJSON.error : 'Erreur lors de l\'enregistrement';
-                        showAlert('alert-reparation', error, 'error');
-                    }
-                });
-            } else {
-                // Mettre à jour la fiche existante
+                showAlert('alert-reparation', 'Erreur: Impossible de déterminer l\'ID de la réparation', 'error');
+                return;
+            }
+
+            if (statut === 'enregistrer') {
+                const formData = {
+                    dte_deb: $('#dte_deb').val(),
+                    dte_fin: $('#dte_fin').val() || '',
+                    mat_inter: $('#mat_inter').val(),
+                    postes_reel: $('#machine_reparation').val(),
+                    nat: $('#nat_rep_value').val(),
+                    id_stat_rep: 0,
+                    tps_reel: tpsReelDecimal,
+                    type_in: $('#type_in_reparation').val() || 'R',
+                    id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
+                    desc_prob: $('#desc_prob_rep').val() || '',
+                    intervention_jours: getInterventionJoursData()
+                };
+
                 $.ajax({
                     url: '/projet16/api/update_reparation/' + demandeId,
                     method: 'POST',
@@ -3991,15 +4423,11 @@
                     data: JSON.stringify(formData),
                     success: function() {
                         reparationEnCoursId = demandeId;
+                        reparationEnCoursIsDirect = !getDemandeWebId();
                         $('#demande_id_rep').val(demandeId);
-                        
-                        // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
-                        const idPreventive = formData.id_web_gmao_preventive;
-                        refreshPreventiveTableIfNeeded(idPreventive);
-                        
-                        // Sauvegarder les articles
+                        refreshPreventiveTableIfNeeded(formData.id_web_gmao_preventive);
                         $.ajax({
-                            url: `/projet16/api/save_articles/${demandeId}`,
+                            url: '/projet16/api/save_articles/' + demandeId,
                             method: 'POST',
                             contentType: 'application/json',
                             data: JSON.stringify({ articles: recupererArticlesDuFormulaire() }),
@@ -4007,20 +4435,10 @@
                                 showAlert('alert-reparation', 'Fiche de réparation enregistrée avec succès (En cours) !', 'success');
                                 setTimeout(function() {
                                     closeReparationModal();
-                                    const activeFilter = $('.filter-btn.active');
-                                    if (activeFilter.length > 0) {
-                                        const filterType = activeFilter.attr('onclick').includes('demandes') ? 'demandes' : 'reparations';
-                                        if (filterType === 'demandes') {
-                                            loadDemandes();
-                                        } else {
-                                            loadReparations();
-                                        }
-                                    } else {
-                                        loadDemandes();
-                                    }
+                                    rechargerListesApresReparation();
                                 }, 2000);
                             },
-                            error: function(xhr) {
+                            error: function() {
                                 showAlert('alert-reparation', 'Fiche enregistrée mais erreur lors de la sauvegarde des articles', 'error');
                             }
                         });
@@ -4030,85 +4448,90 @@
                         showAlert('alert-reparation', error, 'error');
                     }
                 });
+                return;
             }
-            return;
-        }
 
-        // Pour les autres statuts (cloturer, en_attente, temporaire) : annuler toute mise à jour en attente
-        cancelMettreAJourFicheEnCours();
-        if (!demandeId) {
-            showAlert('alert-reparation', 'Erreur: Impossible de déterminer l\'ID de la réparation', 'error');
-            return;
-        }
+            cancelMettreAJourFicheEnCours();
 
-        const formData = {
-            dte_deb: $('#dte_deb').val(),
-            dte_fin: $('#dte_fin').val(),
-            mat_inter: $('#mat_inter').val(),
-            postes_reel: $('#machine_reparation').val(),
-            nat: $('#nat_rep_value').val(),
-            statut: statut, // 'cloturer', 'en_attente', 'temporaire'
-            tps_reel: tpsReelDecimal,
-            type_in: $('#type_in_reparation').val() || 'R',
-            id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
-            desc_prob: $('#desc_prob_rep').val() || '',
-            intervention_jours: getInterventionJoursData()
-        };
+            const formData = {
+                dte_deb: $('#dte_deb').val(),
+                dte_fin: $('#dte_fin').val(),
+                mat_inter: $('#mat_inter').val(),
+                postes_reel: $('#machine_reparation').val(),
+                nat: $('#nat_rep_value').val(),
+                statut: statut,
+                tps_reel: tpsReelDecimal,
+                type_in: $('#type_in_reparation').val() || 'R',
+                id_web_gmao_preventive: $('#id_web_gmao_preventive').val() || null,
+                desc_prob: $('#desc_prob_rep').val() || '',
+                intervention_jours: getInterventionJoursData()
+            };
 
-        // Sauvegarder les articles avant de finaliser
-        $.ajax({
-            url: `/projet16/api/save_articles/${demandeId}`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ articles: recupererArticlesDuFormulaire() }),
-            success: function() {
-                // Articles sauvegardés, maintenant mettre à jour le statut
-                $.ajax({
-                    url: '/projet16/api/update_reparation_status/' + demandeId,
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(formData),
-                    success: function(response) {
-                const messages = {
-                    'cloturer': 'Fiche de réparation clôturée avec succès !',
-                    'en_attente': 'Fiche de réparation mise en attente avec succès !',
-                    'temporaire': 'Fiche de réparation enregistrée temporairement avec succès !'
-                };
-                        // Rafraîchir le tableau de suivi des préventifs si c'est une réparation préventive
-                        const idPreventive = formData.id_web_gmao_preventive;
-                        refreshPreventiveTableIfNeeded(idPreventive);
-                        
-                        showAlert('alert-reparation', messages[statut] || 'Fiche de réparation enregistrée avec succès !', 'success');
-                        setTimeout(function() {
-                            closeReparationModal();
-                            // Recharger la liste actuellement affichée
-                            const activeFilter = $('.filter-btn.active');
-                            if (activeFilter.length > 0) {
-                                const filterType = activeFilter.attr('onclick').includes('demandes') ? 'demandes' : 'reparations';
-                                if (filterType === 'demandes') {
-                                    loadDemandes();
-                                } else {
-                                    loadReparations();
-                                }
-                            } else {
-                                loadDemandes();
-                            }
-                        }, 2000);
-                    },
-                    error: function(xhr) {
-                        const error = xhr.responseJSON ? xhr.responseJSON.error : 'Erreur lors de l\'enregistrement';
-                        showAlert('alert-reparation', error, 'error');
-                    }
-                });
-            },
-            error: function(xhr) {
-                showAlert('alert-reparation', 'Erreur lors de la sauvegarde des articles', 'error');
-            }
+            $.ajax({
+                url: '/projet16/api/save_articles/' + demandeId,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ articles: recupererArticlesDuFormulaire() }),
+                success: function() {
+                    $.ajax({
+                        url: '/projet16/api/update_reparation_status/' + demandeId,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(formData),
+                        success: function() {
+                            const messages = {
+                                'cloturer': 'Fiche de réparation clôturée avec succès !',
+                                'en_attente': 'Fiche de réparation mise en attente avec succès !',
+                                'temporaire': 'Fiche de réparation enregistrée temporairement avec succès !'
+                            };
+                            refreshPreventiveTableIfNeeded(formData.id_web_gmao_preventive);
+                            showAlert('alert-reparation', messages[statut] || 'Fiche de réparation enregistrée avec succès !', 'success');
+                            setTimeout(function() {
+                                closeReparationModal();
+                                rechargerListesApresReparation();
+                            }, 2000);
+                        },
+                        error: function(xhr) {
+                            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Erreur lors de l\'enregistrement';
+                            showAlert('alert-reparation', error, 'error');
+                        }
+                    });
+                },
+                error: function() {
+                    showAlert('alert-reparation', 'Erreur lors de la sauvegarde des articles', 'error');
+                }
+            });
         });
     }
 
     // Initialisation
     $(document).ready(function() {
+        $('#btnEnregistrerFiltreGmao').on('click', function() {
+            const api = gmaoTableState.api;
+            const colonneDefs = gmaoTableState.colonneDefs;
+            const type = gmaoTableState.type;
+            if (!api || !type || !colonneDefs.length) return;
+            const colVisible = [];
+            const filterValues = [];
+            api.columns().every(function() {
+                colVisible.push(this.visible());
+                const input = $('#demandes-table thead .table-filters input[data-col="' + this.index() + '"]');
+                filterValues.push(input.length ? input.val() || '' : '');
+            });
+            const payload = {
+                colVisible: colVisible,
+                filterValues: filterValues,
+                toutCocher: $('#gmaoColToggleAll').prop('checked'),
+                pageLength: api.page.len()
+            };
+            try {
+                localStorage.setItem(GMAO_FILTRE_STORAGE_KEYS[type], JSON.stringify(payload));
+                alert('Vue enregistrée. Elle sera appliquée par défaut à chaque ouverture de cette liste.');
+            } catch (e) {
+                alert('Erreur lors de l\'enregistrement : ' + (e.message || 'stockage non disponible'));
+            }
+        });
+
         if (typeof gmaoBindCombosIn === 'function') {
             gmaoBindCombosIn(document.body);
         }
@@ -4284,11 +4707,16 @@
                     }
                     $('#nat_rep_value').val(nature);
                 }
+
+                cleanupOrphanDirectDraft(function() {
+                    checkAndCreateFicheEnCours();
+                });
             } else {
                 // Si pas de correspondance, vider les champs
                 $(this).attr('data-demande-id', '');
                 $('#select_demande_hidden').val('');
                 $('#demande_id_rep').val('');
+                checkAndCreateFicheEnCours();
             }
         });
         
@@ -4297,45 +4725,22 @@
             $(this).select();
         });
 
-        // Gestion du champ Intervenant (identique à Opérateur Demandeur)
+        // Gestion du champ Intervenant : matricule validé uniquement sur sélection exacte (datalist)
         $('#intervenant_input').on('input change', function() {
-            const valeur = $(this).val();
-            // Extraire le matricule entre parenthèses : "Nom Prenom (Matricule: 123)"
-            const match = valeur.match(/Matricule:\s*(\d+)/);
-            if (match) {
-                $(this).attr('data-matricule', match[1]);
-                $('#mat_inter').val(match[1]);
+            const valid = syncIntervenantMatriculeFromInput();
+            if (valid) {
+                checkAndCreateFicheEnCours();
+                if (reparationEnCoursId) {
+                    scheduleMettreAJourFicheEnCours();
+                }
             } else {
-                $(this).attr('data-matricule', '');
-                $('#mat_inter').val('');
+                cancelMettreAJourFicheEnCours();
             }
-        });
-        
-        // Focus sur le champ Intervenant : sélectionner le texte
-        $('#intervenant_input').on('focus', function() {
-            $(this).select();
         });
 
         // Créer fiche en cours quand machine ET intervenant sont remplis
         $('#machine_reparation').on('input change', function() {
             checkAndCreateFicheEnCours();
-            // Mettre à jour la fiche en cours si elle existe
-            if (reparationEnCoursId) {
-                scheduleMettreAJourFicheEnCours();
-            }
-        });
-
-        $('#intervenant_input').on('input change', function() {
-            const valeur = $(this).val();
-            const match = valeur.match(/Matricule:\s*(\d+)/);
-            if (match) {
-                $(this).attr('data-matricule', match[1]);
-                $('#mat_inter').val(match[1]);
-                checkAndCreateFicheEnCours();
-            } else {
-                $(this).attr('data-matricule', '');
-                $('#mat_inter').val('');
-            }
             // Mettre à jour la fiche en cours si elle existe
             if (reparationEnCoursId) {
                 scheduleMettreAJourFicheEnCours();

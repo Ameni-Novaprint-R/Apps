@@ -1,7 +1,7 @@
 """
 Routes pour le Projet 16 - GMAO
 """
-from flask import Blueprint, render_template, request, jsonify, Response
+from flask import Blueprint, render_template, request, jsonify, Response, session
 try:
     import pdfkit
     PDFKIT_AVAILABLE = True
@@ -49,7 +49,23 @@ def index():
     machines = get_machines_disponibles()
     articles = get_articles_disponibles()
     popup_only = request.args.get('popupOnly') == '1'
-    return render_template('projet16.html', operateurs=operateurs, machines=machines, articles=articles, popup_only=popup_only)
+    matricule = session.get('matricule')
+    atelier_nom = session.get('atelier_nom')
+    if matricule is not None:
+        filtre_suffix = f'Matricule_{matricule}'
+    elif atelier_nom:
+        filtre_suffix = f'Atelier_{atelier_nom}'
+    else:
+        filtre_suffix = 'default'
+    return render_template(
+        'projet16.html',
+        operateurs=operateurs,
+        machines=machines,
+        articles=articles,
+        popup_only=popup_only,
+        filtre_storage_key_demandes=f'projet16_demandes_filtre_{filtre_suffix}',
+        filtre_storage_key_reparations=f'projet16_reparations_filtre_{filtre_suffix}',
+    )
 
 @projet16_bp.route('/api/search_operateurs')
 def api_search_operateurs():

@@ -41,6 +41,7 @@ NUM_TO_URL = {
     23: '/projet23/',
     24: '/projet24/',
     25: '/projet25/',
+    26: '/projet26/',
 }
 
 
@@ -60,18 +61,26 @@ def api_navigation_menu():
             ensure_projet25_in_web_projets()
         except Exception as e:
             print(f"[navigation-menu] ensure_projet25: {e}")
+        try:
+            from routes.projet26_routes import ensure_projet26_in_web_projets
+            ensure_projet26_in_web_projets()
+        except Exception as e:
+            print(f"[navigation-menu] ensure_projet26: {e}")
         projects_raw = get_user_projects()
         if not projects_raw:
             return jsonify({'projects': []})
         projects = []
         has_24 = False
         has_25 = False
+        has_26 = False
         for p in projects_raw:
             num = p.get('num') or p.get('NumProj')
             if num == 24:
                 has_24 = True
             if num == 25:
                 has_25 = True
+            if num == 26:
+                has_26 = True
             url = get_project_url(num) or NUM_TO_URL.get(num, f'/projet{num}/' if num else '#')
             sections_raw = get_user_sections(p.get('id') or num)
             sections = [{'nom': s.get('nom', s.get('Nom', '')), 'url': url} for s in sections_raw]
@@ -82,6 +91,8 @@ def api_navigation_menu():
                 nom = 'Formes de Découpe'
             if num == 25:
                 nom = 'Gestion des congés et autorisations de sortie'
+            if num == 26:
+                nom = 'Gestion des formations'
             projects.append({
                 'id': p.get('id'),
                 'url': url,
@@ -104,6 +115,14 @@ def api_navigation_menu():
                 'url': get_project_url(25) or '/projet25/',
                 'icon': get_project_icon(25),
                 'nom': 'Gestion des congés et autorisations de sortie',
+                'sections': None,
+            })
+        if not has_26 and is_authenticated():
+            projects.append({
+                'id': 26,
+                'url': get_project_url(26) or '/projet26/',
+                'icon': get_project_icon(26),
+                'nom': 'Gestion des formations',
                 'sections': None,
             })
         return jsonify({'projects': projects})
@@ -133,8 +152,11 @@ def index():
     """Page d'accueil du portail"""
     user_projects = get_user_projects() if is_authenticated() else []
     for p in user_projects:
-        if (p.get('num') or p.get('NumProj')) == 23:
+        num = p.get('num') or p.get('NumProj')
+        if num == 23:
             p['nom'] = 'Tableau de bord de la situation de la trésorerie'
+        if num == 26:
+            p['nom'] = 'Gestion des formations'
     return render_template('index.html', user_projects=user_projects)
 
 
@@ -181,6 +203,7 @@ from routes.projet22_routes import projet22_bp
 from routes.projet23_routes import projet23_bp
 from routes.projet24_routes import projet24_bp
 from routes.projet25_routes import projet25_bp
+from routes.projet26_routes import projet26_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
 from routes.renommer_table_route import renommer_bp
@@ -200,6 +223,7 @@ app.register_blueprint(projet22_bp)
 app.register_blueprint(projet23_bp)
 app.register_blueprint(projet24_bp)
 app.register_blueprint(projet25_bp)
+app.register_blueprint(projet26_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
 app.register_blueprint(renommer_bp)
@@ -222,6 +246,13 @@ def _ensure_projets_web_menu():
         except Exception as e:
             print(f"[Projet 25] ensure_projet25_in_web_projets: {e}")
         app._projet25_web_projets_ensured = True
+    if not getattr(app, '_projet26_web_projets_ensured', False):
+        try:
+            from routes.projet26_routes import ensure_projet26_in_web_projets
+            ensure_projet26_in_web_projets()
+        except Exception as e:
+            print(f"[Projet 26] ensure_projet26_in_web_projets: {e}")
+        app._projet26_web_projets_ensured = True
 
 
 if __name__ == '__main__':
