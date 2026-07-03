@@ -7,44 +7,36 @@
 
 {% if is_authenticated() %}
     {% if is_super_user() %}
-        {# Super-utilisateur : projets depuis WEB_PROJETS (liste dynamique) #}
         <p class="fade-in welcome-subtitle">Vous êtes connecté en tant que super-utilisateur. Accès complet à tous les projets.</p>
-        {% if user_projects and user_projects|length > 0 %}
-        <ul class="project-list fade-in">
-            {% for project in user_projects %}
-                {% set project_url = get_project_url(project.num) %}
-                {% set project_icon = get_project_icon(project.num) %}
-                {% if project_url %}
-                    <li><a href="{{ project_url }}">{{ project_icon }} {{ project.code or 'Projet ' ~ project.num }} – {{ project.nom }}</a></li>
-                {% else %}
-                    <li><a href="/projet{{ project.num }}/">{{ project_icon }} {{ project.code or 'Projet ' ~ project.num }} – {{ project.nom }}</a></li>
-                {% endif %}
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p class="fade-in welcome-subtitle">Aucun projet actif dans WEB_PROJETS.</p>
-        {% endif %}
-    {% elif user_projects and user_projects|length > 0 %}
-        {# Utilisateur avec droits : afficher uniquement ses projets avec icônes #}
-        <p class="fade-in welcome-subtitle">Vous avez accès aux projets suivants :</p>
-        <ul class="project-list fade-in">
-            {% for project in user_projects %}
-                {% set project_url = get_project_url(project.num) %}
-                {% set project_icon = get_project_icon(project.num) %}
-                {% if project_url %}
-                    <li><a href="{{ project_url }}">{{ project_icon }} {{ project.code or 'Projet ' ~ project.num }} – {{ project.nom }}</a></li>
-                {% else %}
-                    <li><a href="/projet{{ project.num }}/">{{ project_icon }} {{ project.code or 'Projet ' ~ project.num }} – {{ project.nom }}</a></li>
-                {% endif %}
-            {% endfor %}
-        </ul>
+    {% elif categories and categories|length > 0 %}
+        <p class="fade-in welcome-subtitle">Bonjour {{ get_current_user() }}, choisissez une catégorie métier pour accéder à vos projets.</p>
     {% else %}
-        {# Utilisateur sans droits #}
         <p class="fade-in welcome-subtitle">Bienvenue, {{ get_current_user() }}.</p>
+    {% endif %}
+
+    {% if categories and categories|length > 0 %}
+        <div class="row g-4 fade-in mt-2">
+            {% for category in categories %}
+            <div class="col-12 col-sm-6 col-lg-4">
+                <a href="{{ url_for('accueil_categorie', slug=category.slug) }}" class="text-decoration-none">
+                    <div class="card h-100 category-home-card shadow-sm">
+                        <div class="card-body text-center py-4">
+                            <div class="category-home-icon mb-3" aria-hidden="true">{{ category.icon }}</div>
+                            <h2 class="h5 card-title mb-2">{{ category.name }}</h2>
+                            <p class="card-text text-muted small mb-3">{{ category.description }}</p>
+                            <span class="badge rounded-pill category-count-badge">
+                                {{ category.count }} projet{{ 's' if category.count != 1 else '' }}
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
         <p class="fade-in welcome-subtitle">Vous n'avez actuellement accès à aucun projet. Veuillez contacter l'administrateur pour obtenir les droits d'accès nécessaires.</p>
     {% endif %}
 {% else %}
-    {# Non authentifié #}
     <p class="fade-in">Veuillez vous connecter pour accéder au portail.</p>
     <p><a href="{{ url_for('auth.login') }}">Se connecter</a></p>
 {% endif %}

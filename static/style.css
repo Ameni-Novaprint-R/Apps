@@ -337,6 +337,50 @@ h1 {
     color: #315470; /* Fallback Pantone 2377c pour navigateurs non compatibles */
 }
 
+/* Page d'accueil – cartes catégories métier */
+.category-home-card {
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+}
+
+.category-home-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(49, 84, 112, 0.15) !important;
+    border-color: #00965E;
+}
+
+.category-home-icon {
+    font-size: 2.75rem;
+    line-height: 1;
+}
+
+.category-count-badge {
+    background-color: #00965E;
+    color: #fff;
+    font-size: 0.85rem;
+    padding: 0.4em 0.9em;
+}
+
+.category-project-card {
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 10px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.category-project-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(49, 84, 112, 0.12) !important;
+    border-color: #315470;
+}
+
+.category-project-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 .logo {
     max-width: 180px;
     display: block;

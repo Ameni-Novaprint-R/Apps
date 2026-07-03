@@ -8,7 +8,7 @@ from local_env import load_project_env
 load_project_env()
 
 from datetime import datetime
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, abort
 from logic.auth import is_authenticated, get_current_user, get_user_projects, get_user_sections, has_action_access, is_super_user
 
 app = Flask(__name__)
@@ -42,7 +42,18 @@ NUM_TO_URL = {
     24: '/projet24/',
     25: '/projet25/',
     26: '/projet26/',
+    27: '/projet27/',
 }
+
+
+def _normalize_user_projects(user_projects):
+    """Libellés affichés cohérents entre accueil et menu."""
+    from logic.project_categories import normalize_project_display_name
+    for p in user_projects or []:
+        num = p.get('num') or p.get('NumProj')
+        if num:
+            p['nom'] = normalize_project_display_name(num, p.get('nom') or p.get('Nom', ''))
+    return user_projects
 
 
 @app.route('/api/navigation-menu')
@@ -149,15 +160,26 @@ def inject_template_context():
 
 @app.route('/')
 def index():
-    """Page d'accueil du portail"""
-    user_projects = get_user_projects() if is_authenticated() else []
-    for p in user_projects:
-        num = p.get('num') or p.get('NumProj')
-        if num == 23:
-            p['nom'] = 'Tableau de bord de la situation de la trésorerie'
-        if num == 26:
-            p['nom'] = 'Gestion des formations'
-    return render_template('index.html', user_projects=user_projects)
+    """Page d'accueil du portail – navigation par catégories métier"""
+    from logic.project_categories import group_projects_by_category
+    user_projects = _normalize_user_projects(get_user_projects() if is_authenticated() else [])
+    categories, _ = group_projects_by_category(user_projects, hide_empty=True)
+    return render_template('index.html', categories=categories, user_projects=user_projects)
+
+
+@app.route('/accueil/<slug>')
+def accueil_categorie(slug):
+    """Page listant les projets d'une catégorie métier"""
+    from logic.project_categories import get_category_page, CATEGORY_BY_SLUG
+    if slug not in CATEGORY_BY_SLUG:
+        abort(404)
+    if not is_authenticated():
+        abort(403)
+    user_projects = _normalize_user_projects(get_user_projects())
+    category = get_category_page(slug, user_projects)
+    if not category:
+        abort(404)
+    return render_template('accueil_categorie.html', category=category)
 
 
 # Blueprints - Auth
@@ -204,6 +226,7 @@ from routes.projet23_routes import projet23_bp
 from routes.projet24_routes import projet24_bp
 from routes.projet25_routes import projet25_bp
 from routes.projet26_routes import projet26_bp
+from routes.projet27_routes import projet27_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
 from routes.renommer_table_route import renommer_bp
@@ -224,6 +247,7 @@ app.register_blueprint(projet23_bp)
 app.register_blueprint(projet24_bp)
 app.register_blueprint(projet25_bp)
 app.register_blueprint(projet26_bp)
+app.register_blueprint(projet27_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
 app.register_blueprint(renommer_bp)
@@ -253,6 +277,13 @@ def _ensure_projets_web_menu():
         except Exception as e:
             print(f"[Projet 26] ensure_projet26_in_web_projets: {e}")
         app._projet26_web_projets_ensured = True
+    if not getattr(app, '_projet27_web_projets_ensured', False):
+        try:
+            from routes.projet27_routes import ensure_projet27_in_web_projets
+            ensure_projet27_in_web_projets()
+        except Exception as e:
+            print(f"[Projet 27] ensure_projet27_in_web_projets: {e}")
+        app._projet27_web_projets_ensured = True
 
 
 if __name__ == '__main__':

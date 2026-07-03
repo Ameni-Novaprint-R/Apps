@@ -31,6 +31,7 @@ PROJECT_ROUTES = {
     24: ('projet24.index', 'Formes de Découpe'),
     25: ('projet25.index', 'Congés et autorisations'),
     26: ('projet26.index', 'Gestion des formations'),
+    27: ('projet27.index', 'Crédit Leasing'),
 }
 
 # Mapping des numéros de projets vers leurs icônes
@@ -61,6 +62,7 @@ PROJECT_ICONS = {
     24: '📐',
     25: '📅',
     26: '🎓',
+    27: '💳',
 }
 
 def get_project_url(project_num):

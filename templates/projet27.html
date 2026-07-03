@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 27 – Crédit Leasing{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* En-tête et sections – même palette que Projet 3 (vert d'eau #0097a7) */
+    .p27-page-header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 14px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%) !important;
+        color: #006064;
+        border: 2px solid #0097a7;
+    }
+    .p27-page-header h1 {
+        font-size: 1.6rem;
+        margin-bottom: 4px;
+        font-weight: 700;
+        color: #00838f;
+    }
+    .p27-page-header .p27-header-subtitle {
+        color: #006064;
+        opacity: 0.9;
+        margin-top: 6px;
+        font-size: 0.85rem;
+    }
+    .p27-section-selection {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        text-align: center;
+    }
+    .p27-section-options {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .p27-section-btn {
+        padding: 15px 20px;
+        background: white;
+        color: #2c3e50;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+        border: 2px solid #ddd;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        user-select: none;
+    }
+    .p27-section-btn:hover {
+        background: #0097a7;
+        color: white;
+        border-color: #0097a7;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 151, 167, 0.35);
+    }
+    .p27-section-btn.active {
+        background: #0097a7;
+        color: white;
+        border-color: #00838f;
+        box-shadow: 0 2px 6px rgba(0, 131, 143, 0.3);
+    }
+    @media (max-width: 768px) {
+        .p27-section-options { flex-direction: column; }
+        .p27-section-btn { width: 100%; max-width: 100%; }
+    }
+    .p27-card {
+        background: white; border-radius: 8px; padding: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06); margin-bottom: 20px;
+    }
+    .p27-section-title {
+        color: #00838f;
+        font-size: 1.35rem;
+        margin: 0 0 16px;
+        border-bottom: 3px solid #0097a7;
+        padding-bottom: 8px;
+        font-weight: 700;
+    }
+    .p27-toolbar {
+        display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .p27-toolbar label { font-weight: 600; margin: 0; }
+    .p27-toolbar select, .p27-toolbar input {
+        padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px;
+    }
+    .p27-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 12px; }
+    .p27-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .p27-swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid #999; }
+    .p27-swatch.mois-courant { background: #b2ebf2; border-color: #0097a7; }
+    .p27-swatch.vert { background: #a5d6a7; }
+    .p27-swatch.rouge { background: #ef9a9a; }
+    .p27-table-wrap {
+        overflow: auto; max-height: 75vh; border: 1px solid #dee2e6; border-radius: 6px;
+    }
+    .p27-table {
+        border-collapse: collapse; font-size: 0.78rem; min-width: 100%;
+        white-space: nowrap;
+    }
+    .p27-table th, .p27-table td {
+        border: 1px solid #ccc; padding: 4px 8px; text-align: right;
+    }
+    .p27-table th { position: sticky; top: 0; z-index: 2; background: #f5f5f5; text-align: center; }
+    .p27-table th.sticky-left, .p27-table td.sticky-left {
+        position: sticky; left: 0; z-index: 3; background: #fafafa; text-align: left; font-weight: 600;
+    }
+    .p27-table th.hdr-jour-5 { background: #fff9c4; }
+    .p27-table th.hdr-jour-15 { background: #e0e0e0; }
+    .p27-table th.hdr-jour-25 { background: #bbdefb; }
+    .p27-table th.hdr-bancaire { background: #90caf9; }
+    .p27-table th.hdr-total { background: #cfd8dc; font-weight: 700; }
+    .p27-table tr.ligne-mois-courant td {
+        background: #e0f7fa !important;
+        color: #006064;
+    }
+    .p27-table tr.ligne-mois-courant td.sticky-left {
+        background: #b2ebf2 !important;
+        color: #00838f;
+        font-weight: 700;
+        box-shadow: inset 3px 0 0 #0097a7;
+    }
+    .p27-table tr.ligne-total td { background: #eceff1; font-weight: 700; }
+    .p27-table td.montant-vert { background: #c8e6c9 !important; }
+    .p27-table td.montant-rouge { background: #ffcdd2 !important; }
+    .p27-table td.montant-vide { color: #bbb; }
+    .p27-form-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+    }
+    .p27-form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.9rem; }
+    .p27-form-group input, .p27-form-group select, .p27-form-group textarea {
+        width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;
+    }
+    .p27-btn {
+        padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 8px;
+    }
+    .p27-btn-primary { background: #0097a7; color: white; }
+    .p27-btn-primary:hover { background: #00838f; }
+    .p27-btn-secondary { background: #607d8b; color: white; }
+    .p27-btn-danger { background: #c62828; color: white; }
+    .p27-btn-danger:hover { background: #b71c1c; }
+    .p27-btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+    .p27-alert { padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; display: none; }
+    .p27-alert.show { display: block; }
+    .p27-alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .p27-alert-error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+    .p27-credits-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .p27-credits-table th, .p27-credits-table td { border: 1px solid #dee2e6; padding: 8px 10px; }
+    .p27-credits-table th { background: #f5f5f5; }
+    .p27-credits-table td.p27-actions-cell {
+        white-space: nowrap;
+        width: 1%;
+        padding: 6px 8px;
+        text-align: center;
+    }
+    .p27-actions-group {
+        display: inline-flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        flex-wrap: nowrap;
+    }
+    .p27-btn-action {
+        padding: 4px 7px;
+        font-size: 0.7rem;
+        line-height: 1;
+        min-width: 26px;
+        justify-content: center;
+    }
+    .p27-btn-action i {
+        font-size: 0.75rem;
+        margin: 0;
+    }
+    .p27-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    /* Statut : même style pour tous les crédits actifs */
+    .p27-badge-actif {
+        background: #e0f7fa;
+        color: #006064;
+        border: 1px solid #80deea;
+    }
+    .p27-badge-inactif {
+        background: #eeeeee;
+        color: #757575;
+        border: 1px solid #bdbdbd;
+    }
+    /* Type : leasing (vert d'eau) */
+    .p27-badge-leasing {
+        background: #e0f7fa;
+        color: #006064;
+        border: 1px solid #b2ebf2;
+    }
+    /* Type : bancaire (bleu distinct) */
+    .p27-badge-bancaire {
+        background: #e8eaf6;
+        color: #283593;
+        border: 1px solid #9fa8da;
+    }
+    .p27-modal-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+        z-index: 9999; align-items: center; justify-content: center;
+    }
+    .p27-modal-overlay.show { display: flex; }
+    .p27-modal {
+        background: white; border-radius: 10px; padding: 24px; max-width: 720px;
+        width: 95%; max-height: 90vh; overflow-y: auto;
+    }
+    .p27-modal h3 { margin-top: 0; color: #00838f; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="p27-page-header">
+        <h1><i class="fas fa-landmark"></i> Projet 27 – Crédit Leasing</h1>
+        <div class="p27-header-subtitle">Suivi prévisionnel des échéances leasing et crédits bancaires</div>
+    </div>
+
+    <div class="p27-section-selection">
+        <div class="p27-section-options">
+        {% if 'tableau' in allowed_sections %}
+        <a href="{{ url_for('projet27.tableau') }}" class="p27-section-btn {% if section == 'tableau' %}active{% endif %}">
+            <i class="fas fa-table"></i> Tableau de bord
+        </a>
+        {% endif %}
+        {% if 'credits' in allowed_sections %}
+        <a href="{{ url_for('projet27.credits') }}" class="p27-section-btn {% if section == 'credits' %}active{% endif %}">
+            <i class="fas fa-list"></i> Gestion des crédits
+        </a>
+        {% endif %}
+        {% if 'nouveau' in allowed_sections %}
+        <a href="{{ url_for('projet27.nouveau_credit') }}" class="p27-section-btn {% if section == 'nouveau' %}active{% endif %}">
+            <i class="fas fa-plus-circle"></i> Nouveau crédit
+        </a>
+        {% endif %}
+        </div>
+    </div>
+
+    {% if section is none %}
+    <div class="p27-card text-center">
+        <p class="text-muted mb-0">Sélectionnez une section ci-dessus pour commencer.</p>
+    </div>
+    {% endif %}
+
+    {% if section == 'tableau' %}
+    <div class="p27-card" id="p27-section-tableau">
+        <div class="p27-toolbar">
+            <label for="p27-filtre-annee">Année :</label>
+            <select id="p27-filtre-annee"></select>
+            <div class="p27-legend ms-auto">
+                <span><span class="p27-swatch mois-courant"></span> Mois en cours</span>
+                <span><span class="p27-swatch vert"></span> Total &lt; seuil</span>
+                <span><span class="p27-swatch rouge"></span> Total ≥ seuil</span>
+            </div>
+        </div>
+        <div class="p27-table-wrap">
+            <table class="p27-table" id="p27-tableau-grid">
+                <thead id="p27-tableau-head"></thead>
+                <tbody id="p27-tableau-body"></tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if section == 'credits' %}
+    <div class="p27-card" id="p27-section-credits">
+        <div class="p27-toolbar">
+            <label><input type="checkbox" id="p27-filtre-actif"> Actifs uniquement</label>
+            <select id="p27-filtre-type-credit"><option value="">Tous types</option></select>
+            <select id="p27-filtre-banque-credit"><option value="">Toutes banques</option></select>
+            <button class="p27-btn p27-btn-primary p27-btn-sm" id="p27-btn-refresh-credits"><i class="fas fa-sync"></i> Actualiser</button>
+        </div>
+        <div id="p27-credits-alert" class="p27-alert"></div>
+        <table class="p27-credits-table">
+            <thead>
+                <tr>
+                    <th>Libellé</th><th>Référence</th><th>Type</th><th>Banque</th>
+                    <th>Jour</th><th>Montant/mois</th><th>Date début</th><th>Date fin</th>
+                    <th>Montant restant</th><th>Prochaine échéance</th><th>Statut</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="p27-credits-tbody"></tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if section == 'nouveau' %}
+    <div class="p27-card" id="p27-section-nouveau">
+        <h3 class="p27-section-title"><i class="fas fa-plus"></i> Créer un nouveau crédit</h3>
+        <div id="p27-form-alert" class="p27-alert"></div>
+        <form id="p27-form-credit">
+            <div class="p27-form-grid">
+                <div class="p27-form-group">
+                    <label for="p27-libelle">Nom du crédit *</label>
+                    <input type="text" id="p27-libelle" name="libelle" required maxlength="200">
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-reference">Référence contrat</label>
+                    <input type="text" id="p27-reference" name="reference" maxlength="50">
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-type">Type *</label>
+                    <select id="p27-type" name="id_type" required></select>
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-banque">Banque *</label>
+                    <select id="p27-banque" name="id_banque" required></select>
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-jour">Jour de prélèvement *</label>
+                    <select id="p27-jour" name="jour_prelevement" required>
+                        <option value="5">5 de chaque mois</option>
+                        <option value="15">15 de chaque mois</option>
+                        <option value="25">25 de chaque mois</option>
+                    </select>
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-montant">Montant mensuel (TND) *</label>
+                    <input type="number" id="p27-montant" name="montant_mensuel" step="0.001" min="0" required>
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-debut">Date début *</label>
+                    <input type="date" id="p27-debut" name="date_debut" required>
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-fin">Date fin *</label>
+                    <input type="date" id="p27-fin" name="date_fin" required>
+                </div>
+                <div class="p27-form-group">
+                    <label for="p27-ordre">Ordre d'affichage</label>
+                    <input type="number" id="p27-ordre" name="ordre" min="0">
+                </div>
+                <div class="p27-form-group" style="grid-column:1/-1;">
+                    <label for="p27-commentaire">Commentaire</label>
+                    <textarea id="p27-commentaire" name="commentaire" rows="2" maxlength="500"></textarea>
+                </div>
+                <div class="p27-form-group">
+                    <label><input type="checkbox" id="p27-generer" name="generer_echeances" checked> Générer l'échéancier automatiquement</label>
+                </div>
+            </div>
+            <div style="margin-top:16px;">
+                <button type="submit" class="p27-btn p27-btn-primary"><i class="fas fa-save"></i> Enregistrer</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal édition crédit -->
+<div class="p27-modal-overlay" id="p27-modal-edit">
+    <div class="p27-modal">
+        <h3><i class="fas fa-edit"></i> Modifier le crédit</h3>
+        <div id="p27-edit-alert" class="p27-alert"></div>
+        <form id="p27-form-edit">
+            <input type="hidden" id="p27-edit-id">
+            <div class="p27-form-grid">
+                <div class="p27-form-group">
+                    <label>Libellé *</label>
+                    <input type="text" id="p27-edit-libelle" required>
+                </div>
+                <div class="p27-form-group">
+                    <label>Référence</label>
+                    <input type="text" id="p27-edit-reference">
+                </div>
+                <div class="p27-form-group">
+                    <label>Type *</label>
+                    <select id="p27-edit-type" required></select>
+                </div>
+                <div class="p27-form-group">
+                    <label>Banque *</label>
+                    <select id="p27-edit-banque" required></select>
+                </div>
+                <div class="p27-form-group">
+                    <label>Jour prélèvement *</label>
+                    <select id="p27-edit-jour">
+                        <option value="5">5</option><option value="15">15</option><option value="25">25</option>
+                    </select>
+                </div>
+                <div class="p27-form-group">
+                    <label>Montant mensuel</label>
+                    <input type="number" id="p27-edit-montant" step="0.001" min="0">
+                </div>
+                <div class="p27-form-group">
+                    <label>Date début</label>
+                    <input type="date" id="p27-edit-debut">
+                </div>
+                <div class="p27-form-group">
+                    <label>Date fin</label>
+                    <input type="date" id="p27-edit-fin">
+                </div>
+                <div class="p27-form-group">
+                    <label><input type="checkbox" id="p27-edit-actif" checked> Actif</label>
+                </div>
+                <div class="p27-form-group">
+                    <label><input type="checkbox" id="p27-edit-regen"> Régénérer l'échéancier</label>
+                </div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px;">
+                <button type="submit" class="p27-btn p27-btn-primary">Enregistrer</button>
+                <button type="button" class="p27-btn p27-btn-secondary" id="p27-modal-close">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const API = {
+        refs: '{{ url_for("projet27.api_referentiels") }}',
+        tableau: '{{ url_for("projet27.api_tableau") }}',
+        credits: '{{ url_for("projet27.api_credits") }}',
+        credit: (id) => `{{ url_for("projet27.api_credit_detail", credit_id=0) }}`.replace('/0', '/' + id),
+        creditUpdate: (id) => `{{ url_for("projet27.api_credit_update", credit_id=0) }}`.replace('/0', '/' + id),
+        creditDelete: (id) => `{{ url_for("projet27.api_credit_delete", credit_id=0) }}`.replace('/0', '/' + id),
+        creditCreate: '{{ url_for("projet27.api_credit_create") }}',
+        generer: (id) => `{{ url_for("projet27.api_generer_echeances", credit_id=0) }}`.replace('/0', '/' + id),
+    };
+    const SECTION = {{ section|tojson if section else 'null' }};
+    let refs = { banques: [], types: [], annees: [], seuil_total: 200000 };
+
+    function fmtMontant(n) {
+        if (n === null || n === undefined || n === 0) return '';
+        const v = Number(n);
+        if (isNaN(v)) return '';
+        const parts = v.toFixed(3).split('.');
+        const intP = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return intP + ',' + parts[1];
+    }
+
+    function fmtDate(iso) {
+        if (!iso) return '';
+        const p = String(iso).slice(0, 10).split('-');
+        if (p.length !== 3) return iso;
+        return `${p[2]}/${p[1]}/${p[0]}`;
+    }
+
+    function showAlert(el, msg, ok) {
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'p27-alert show ' + (ok ? 'p27-alert-success' : 'p27-alert-error');
+        setTimeout(() => el.classList.remove('show'), 5000);
+    }
+
+    async function loadRefs() {
+        const r = await fetch(API.refs);
+        refs = await r.json();
+        return refs;
+    }
+
+    function fillSelect(sel, items, valKey, labelKey, emptyLabel) {
+        if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = emptyLabel ? `<option value="">${emptyLabel}</option>` : '';
+        items.forEach(it => {
+            const o = document.createElement('option');
+            o.value = it[valKey];
+            o.textContent = it[labelKey];
+            sel.appendChild(o);
+        });
+        if (cur) sel.value = cur;
+    }
+
+    function hdrClass(col) {
+        if (col.type_code === 'BANCAIRE') return 'hdr-bancaire';
+        return 'hdr-jour-' + col.jour_prelevement;
+    }
+
+    async function loadTableau() {
+        const selAnnee = document.getElementById('p27-filtre-annee');
+        const annee = selAnnee ? selAnnee.value : '';
+        const url = annee ? (API.tableau + '?annee=' + encodeURIComponent(annee)) : API.tableau;
+        const r = await fetch(url);
+        const data = await r.json();
+        const head = document.getElementById('p27-tableau-head');
+        const body = document.getElementById('p27-tableau-body');
+        if (!head || !body) return;
+
+        const cols = data.colonnes || [];
+        const jourLabels = {5: '5 de chaque mois', 15: '15 de chaque mois', 25: '25 de chaque mois'};
+
+        let htmlHead = '<tr><th class="sticky-left" rowspan="4">Échéance</th>';
+        let jourSpan = {};
+        cols.forEach(c => {
+            const k = c.type_code + '-' + c.jour_prelevement;
+            jourSpan[k] = (jourSpan[k] || 0) + 1;
+        });
+        const doneSpan = {};
+        cols.forEach(c => {
+            const k = c.type_code + '-' + c.jour_prelevement;
+            if (!doneSpan[k]) {
+                htmlHead += `<th colspan="${jourSpan[k]}" class="${hdrClass(c)}">${jourLabels[c.jour_prelevement] || c.jour_prelevement}</th>`;
+                doneSpan[k] = true;
+            }
+        });
+        htmlHead += '<th class="hdr-total" rowspan="4">TOTAL<br>CRÉDIT<br>LEASING</th>';
+        htmlHead += '<th class="hdr-total" rowspan="4">TOTAL<br>CRÉDIT<br>BANCAIRE</th>';
+        htmlHead += '<th class="hdr-total" rowspan="4">TOTAL<br>CRÉDIT</th></tr>';
+
+        htmlHead += '<tr>';
+        cols.forEach(c => {
+            htmlHead += `<th class="${hdrClass(c)}">${c.libelle}</th>`;
+        });
+        htmlHead += '</tr><tr>';
+        cols.forEach(c => {
+            htmlHead += `<th class="${hdrClass(c)}">${c.reference || ''}</th>`;
+        });
+        htmlHead += '</tr><tr>';
+        cols.forEach(c => {
+            htmlHead += `<th class="${hdrClass(c)}">${c.banque || ''}</th>`;
+        });
+        htmlHead += '</tr>';
+        head.innerHTML = htmlHead;
+
+        let htmlBody = '';
+        (data.lignes || []).forEach(ligne => {
+            const isTotal = ligne.type_ligne === 'total_annuel';
+            const trClass = isTotal ? 'ligne-total' : (ligne.est_mois_courant ? 'ligne-mois-courant' : '');
+            htmlBody += `<tr class="${trClass}"><td class="sticky-left">${ligne.libelle}</td>`;
+            cols.forEach(c => {
+                const v = ligne.cellules ? ligne.cellules[String(c.id)] : null;
+                htmlBody += `<td class="${v ? '' : 'montant-vide'}">${fmtMontant(v)}</td>`;
+            });
+            htmlBody += `<td>${fmtMontant(ligne.total_leasing)}</td>`;
+            htmlBody += `<td>${fmtMontant(ligne.total_bancaire)}</td>`;
+            let totalCls = '';
+            if (!isTotal && ligne.couleur_total === 'vert') totalCls = 'montant-vert';
+            if (!isTotal && ligne.couleur_total === 'rouge') totalCls = 'montant-rouge';
+            htmlBody += `<td class="${totalCls}">${fmtMontant(ligne.total_global)}</td></tr>`;
+        });
+        body.innerHTML = htmlBody;
+    }
+
+    async function loadCreditsList() {
+        const actif = document.getElementById('p27-filtre-actif');
+        const typeSel = document.getElementById('p27-filtre-type-credit');
+        const banqueSel = document.getElementById('p27-filtre-banque-credit');
+        let url = API.credits + '?';
+        if (actif && actif.checked) url += 'actif=1&';
+        if (typeSel && typeSel.value) url += 'type=' + encodeURIComponent(typeSel.value) + '&';
+        if (banqueSel && banqueSel.value) url += 'banque=' + banqueSel.value;
+        const r = await fetch(url);
+        const items = await r.json();
+        const tbody = document.getElementById('p27-credits-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = items.map(c => {
+            const typeBadge = c.type_code === 'LEASING' ? 'p27-badge-leasing' : 'p27-badge-bancaire';
+            const statut = c.actif
+                ? '<span class="p27-badge p27-badge-actif">Actif</span>'
+                : '<span class="p27-badge p27-badge-inactif">Inactif</span>';
+            return `<tr>
+                <td>${c.libelle}</td>
+                <td>${c.reference || ''}</td>
+                <td><span class="p27-badge ${typeBadge}">${c.type_libelle}</span></td>
+                <td>${c.banque}</td>
+                <td>${c.jour_prelevement}</td>
+                <td style="text-align:right">${fmtMontant(c.montant_mensuel)}</td>
+                <td>${fmtDate(c.date_debut)}</td>
+                <td>${fmtDate(c.date_fin)}</td>
+                <td style="text-align:right;font-weight:600">${c.montant_restant === 0 ? '0,000' : fmtMontant(c.montant_restant)}</td>
+                <td>${fmtDate(c.prochaine_echeance)}</td>
+                <td>${statut}</td>
+                <td class="p27-actions-cell">
+                    <span class="p27-actions-group">
+                    <button type="button" class="p27-btn p27-btn-action p27-btn-secondary btn-edit" data-id="${c.id}" title="Modifier"><i class="fas fa-edit"></i></button>
+                    <button type="button" class="p27-btn p27-btn-action p27-btn-primary btn-gen" data-id="${c.id}" title="Régénérer échéancier"><i class="fas fa-calendar-alt"></i></button>
+                    <button type="button" class="p27-btn p27-btn-action p27-btn-danger btn-delete" data-id="${c.id}" data-libelle="${(c.libelle || '').replace(/"/g, '&quot;')}" title="Supprimer"><i class="fas fa-trash"></i></button>
+                    </span>
+                </td>
+            </tr>`;
+        }).join('');
+
+        tbody.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+        });
+        tbody.querySelectorAll('.btn-gen').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const r = await fetch(API.generer(btn.dataset.id), { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({remplacer:true}) });
+                const j = await r.json();
+                showAlert(document.getElementById('p27-credits-alert'), j.success ? `${j.nb_echeances} échéance(s) générée(s)` : (j.error || 'Erreur'), j.success);
+            });
+        });
+        tbody.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const lib = btn.dataset.libelle || 'ce crédit';
+                if (!confirm(`Supprimer définitivement « ${lib} » et toutes ses échéances ?`)) return;
+                const r = await fetch(API.creditDelete(btn.dataset.id), { method: 'DELETE' });
+                const j = await r.json();
+                showAlert(document.getElementById('p27-credits-alert'), j.success ? 'Crédit supprimé' : (j.error || 'Erreur'), j.success);
+                if (j.success) loadCreditsList();
+            });
+        });
+    }
+
+    async function openEditModal(id) {
+        const r = await fetch(API.credit(id));
+        const c = await r.json();
+        document.getElementById('p27-edit-id').value = c.id;
+        document.getElementById('p27-edit-libelle').value = c.libelle;
+        document.getElementById('p27-edit-reference').value = c.reference || '';
+        document.getElementById('p27-edit-type').value = c.id_type;
+        document.getElementById('p27-edit-banque').value = c.id_banque;
+        document.getElementById('p27-edit-jour').value = c.jour_prelevement;
+        document.getElementById('p27-edit-montant').value = c.montant_mensuel;
+        document.getElementById('p27-edit-debut').value = c.date_debut || '';
+        document.getElementById('p27-edit-fin').value = c.date_fin || '';
+        document.getElementById('p27-edit-actif').checked = c.actif;
+        document.getElementById('p27-edit-regen').checked = false;
+        document.getElementById('p27-modal-edit').classList.add('show');
+    }
+
+    async function init() {
+        await loadRefs();
+
+        if (SECTION === 'tableau') {
+            const selAnnee = document.getElementById('p27-filtre-annee');
+            const annees = [...new Set(refs.annees.map(Number))].sort((a, b) => b - a);
+            fillSelect(selAnnee, annees.map(a => ({id: a, lbl: a})), 'id', 'lbl', '');
+            selAnnee.value = '';
+            selAnnee.addEventListener('change', loadTableau);
+            loadTableau();
+        }
+
+        if (SECTION === 'credits') {
+            fillSelect(document.getElementById('p27-filtre-type-credit'),
+                refs.types.map(t => ({code: t.code, lbl: t.libelle})), 'code', 'lbl', 'Tous types');
+            fillSelect(document.getElementById('p27-filtre-banque-credit'),
+                refs.banques.map(b => ({id: b.id, lbl: b.libelle})), 'id', 'lbl', 'Toutes banques');
+            fillSelect(document.getElementById('p27-edit-type'), refs.types, 'id', 'libelle');
+            fillSelect(document.getElementById('p27-edit-banque'), refs.banques.filter(b => b.actif), 'id', 'libelle');
+            ['p27-filtre-actif','p27-filtre-type-credit','p27-filtre-banque-credit'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('change', loadCreditsList);
+            });
+            document.getElementById('p27-btn-refresh-credits')?.addEventListener('click', loadCreditsList);
+            document.getElementById('p27-modal-close')?.addEventListener('click', () => {
+                document.getElementById('p27-modal-edit').classList.remove('show');
+            });
+            document.getElementById('p27-form-edit')?.addEventListener('submit', async e => {
+                e.preventDefault();
+                const id = document.getElementById('p27-edit-id').value;
+                const payload = {
+                    libelle: document.getElementById('p27-edit-libelle').value,
+                    reference: document.getElementById('p27-edit-reference').value,
+                    id_type: parseInt(document.getElementById('p27-edit-type').value),
+                    id_banque: parseInt(document.getElementById('p27-edit-banque').value),
+                    jour_prelevement: parseInt(document.getElementById('p27-edit-jour').value),
+                    montant_mensuel: parseFloat(document.getElementById('p27-edit-montant').value),
+                    date_debut: document.getElementById('p27-edit-debut').value,
+                    date_fin: document.getElementById('p27-edit-fin').value,
+                    actif: document.getElementById('p27-edit-actif').checked,
+                    regenerer_echeances: document.getElementById('p27-edit-regen').checked,
+                };
+                const r = await fetch(API.creditUpdate(id), {
+                    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+                });
+                const j = await r.json();
+                showAlert(document.getElementById('p27-edit-alert'), j.success ? 'Crédit mis à jour' : (j.error || 'Erreur'), j.success);
+                if (j.success) { document.getElementById('p27-modal-edit').classList.remove('show'); loadCreditsList(); }
+            });
+            loadCreditsList();
+        }
+
+        if (SECTION === 'nouveau') {
+            fillSelect(document.getElementById('p27-type'), refs.types, 'id', 'libelle');
+            fillSelect(document.getElementById('p27-banque'), refs.banques.filter(b => b.actif), 'id', 'libelle');
+            document.getElementById('p27-form-credit')?.addEventListener('submit', async e => {
+                e.preventDefault();
+                const payload = {
+                    libelle: document.getElementById('p27-libelle').value,
+                    reference: document.getElementById('p27-reference').value,
+                    id_type: parseInt(document.getElementById('p27-type').value),
+                    id_banque: parseInt(document.getElementById('p27-banque').value),
+                    jour_prelevement: parseInt(document.getElementById('p27-jour').value),
+                    montant_mensuel: parseFloat(document.getElementById('p27-montant').value),
+                    date_debut: document.getElementById('p27-debut').value,
+                    date_fin: document.getElementById('p27-fin').value,
+                    ordre: document.getElementById('p27-ordre').value || null,
+                    commentaire: document.getElementById('p27-commentaire').value,
+                    generer_echeances: document.getElementById('p27-generer').checked,
+                };
+                const r = await fetch(API.creditCreate, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+                });
+                const j = await r.json();
+                showAlert(document.getElementById('p27-form-alert'), j.success ? 'Crédit créé avec succès' : (j.error || 'Erreur'), j.success);
+                if (j.success) e.target.reset();
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}
