@@ -34,6 +34,7 @@ PROJECT_TO_CATEGORY = {
     25: 'rh-organisation',
     26: 'rh-organisation',
     27: 'finance-pilotage',
+    28: 'commercial',
 }
 
 CATEGORY_DEFINITIONS = [

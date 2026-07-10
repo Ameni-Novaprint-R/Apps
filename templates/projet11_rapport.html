@@ -1,0 +1,213 @@
+{% extends parent_template|default('base.html') %}
+
+{% block title %}Rapport mensuel - Projet 11{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+    --kba-navy: {{ kba_colors.navy }};
+    --kba-navy-mid: {{ kba_colors.navy_mid }};
+    --kba-blue-steel: {{ kba_colors.blue_steel }};
+    --kba-blue-mid: {{ kba_colors.blue_mid }};
+    --kba-red: {{ kba_colors.red }};
+    --kba-grey: {{ kba_colors.grey_standby }};
+    --kba-text: {{ kba_colors.text }};
+    --kba-text-muted: {{ kba_colors.text_muted }};
+    --kba-white: {{ kba_colors.white }};
+    --kba-border-red: {{ kba_colors.border_red }};
+}
+
+body { background: #f5f5f5; }
+
+.rapport-page { max-width: 1100px; margin: 0 auto; }
+
+.rapport-header {
+    background: var(--kba-white);
+    border-bottom: 2px solid var(--kba-border-red);
+    border-radius: 0;
+    padding: 18px 22px 14px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+.rapport-header h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--kba-navy);
+    margin: 0 0 4px;
+}
+.rapport-header .sub {
+    color: var(--kba-text-muted);
+    font-size: 0.88rem;
+    margin: 0;
+}
+
+.rapport-filters {
+    background: var(--kba-white);
+    border: 1px solid #ddd;
+    border-top: 3px solid var(--kba-red);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+}
+.rapport-filters .form-label {
+    color: var(--kba-navy);
+    font-size: 0.82rem;
+}
+.rapport-filters .form-select,
+.rapport-filters .form-control {
+    border-color: #bbb;
+    font-size: 0.9rem;
+}
+.rapport-filters .form-select:focus,
+.rapport-filters .form-control:focus {
+    border-color: var(--kba-navy);
+    box-shadow: 0 0 0 0.15rem rgba(0, 32, 80, 0.2);
+}
+
+.rapport-actions .btn-primary {
+    background: var(--kba-navy);
+    border-color: var(--kba-navy);
+}
+.rapport-actions .btn-primary:hover {
+    background: var(--kba-navy-mid);
+    border-color: var(--kba-navy-mid);
+}
+.rapport-actions .btn-outline-secondary {
+    color: var(--kba-navy);
+    border-color: var(--kba-navy);
+}
+.rapport-actions .btn-outline-secondary:hover {
+    background: var(--kba-navy);
+    color: #fff;
+}
+.rapport-actions .btn-success {
+    background: var(--kba-blue-steel);
+    border-color: var(--kba-blue-steel);
+}
+
+.rapport-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 0.78rem;
+    color: var(--kba-text-muted);
+}
+.rapport-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.rapport-legend i {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.rapport-preview {
+    border: 1px solid #ccc;
+    border-top: 3px solid var(--kba-red);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #e0e0e0;
+    min-height: 720px;
+    box-shadow: 0 2px 8px rgba(0, 32, 80, 0.12);
+}
+.rapport-preview iframe {
+    width: 100%;
+    height: 82vh;
+    min-height: 720px;
+    border: 0;
+    background: #fff;
+}
+
+.btn-back {
+    color: var(--kba-navy) !important;
+    border-color: var(--kba-navy) !important;
+    font-weight: 600;
+}
+.btn-back:hover {
+    background: var(--kba-navy) !important;
+    color: #fff !important;
+}
+
+.alert-info {
+    border-left: 4px solid var(--kba-blue-steel);
+    color: var(--kba-text);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3 rapport-page">
+    <div class="rapport-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <a href="{{ url_for('projet11.analyse_dossiers') }}" class="btn btn-sm btn-outline-secondary btn-back">
+                <i class="fas fa-arrow-left"></i> Analyse des dossiers
+            </a>
+        </div>
+        <h1>Performance Report — Rapport mensuel machine</h1>
+        <p class="sub">Format portrait · palette KBA · source Projet 11 (DteDeb)</p>
+    </div>
+
+    <div class="rapport-legend px-1">
+        <span><i style="background:{{ kba_colors.navy }}"></i> Net / production</span>
+        <span><i style="background:{{ kba_colors.salmon_brut }}"></i> Brut</span>
+        <span><i style="background:{{ kba_colors.red }}"></i> Arrêt</span>
+        <span><i style="background:{{ kba_colors.grey_standby }}"></i> Veille</span>
+        <span><i style="background:{{ kba_colors.blue_steel }}"></i> Perf. max</span>
+    </div>
+
+    <div class="rapport-filters">
+        <form method="get" action="{{ url_for('projet11.rapport_mensuel') }}" class="row g-3 align-items-end" id="rapport-form">
+            <div class="col-md-4">
+                <label for="machine" class="form-label fw-semibold">Machine (PostesReel)</label>
+                <select name="machine" id="machine" class="form-select" required>
+                    <option value="">— Choisir —</option>
+                    {% for m in machines %}
+                    <option value="{{ m }}" {% if m == machine %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="mois" class="form-label fw-semibold">Mois</label>
+                <select name="mois" id="mois" class="form-select">
+                    {% for num, label in mois_options %}
+                    <option value="{{ num }}" {% if num == mois %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="annee" class="form-label fw-semibold">Année</label>
+                <input type="number" name="annee" id="annee" class="form-control" min="2000" max="2100" value="{{ annee }}" required>
+            </div>
+            <div class="col-md-4 d-flex flex-wrap gap-2 rapport-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sync-alt"></i> Actualiser
+                </button>
+                {% if machine %}
+                <a href="{{ pdf_preview_url }}" class="btn btn-outline-secondary" target="_blank" rel="noopener">
+                    <i class="fas fa-external-link-alt"></i> Ouvrir le PDF
+                </a>
+                <a href="{{ pdf_download_url }}" class="btn btn-success">
+                    <i class="fas fa-download"></i> Télécharger
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if machine %}
+    <div class="rapport-preview">
+        <iframe src="{{ pdf_preview_url }}" title="Aperçu rapport {{ machine }}"></iframe>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        Sélectionnez une machine et une période pour afficher le rapport.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

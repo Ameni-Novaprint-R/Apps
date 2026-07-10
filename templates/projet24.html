@@ -83,37 +83,120 @@
     /* Contenu section */
     .projet24-content { padding: 20px; background: #fff; min-height: 40vh; }
     /* Conteneur suivi : largeur = tableau, pas de zone vide à droite */
-    body .container.projet24-suivi-container { box-sizing: border-box !important; }
-    .projet24-suivi-page { box-sizing: border-box; }
-    .projet24-content-suivi { box-sizing: border-box; }
+    body .container.projet24-suivi-container { box-sizing: border-box !important; width: 100% !important; max-width: 100% !important; }
+    .projet24-suivi-page { box-sizing: border-box; width: 100%; max-width: 100%; }
+    .projet24-content-suivi { box-sizing: border-box; width: 100%; max-width: 100%; }
     .projet24-actions { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
     .projet24-actions .btn { border-radius: 8px; font-weight: 500; }
-    .projet24-table-wrapper { width: 100%; overflow-x: auto; border-radius: 0; border: none; position: relative; box-sizing: border-box; }
-    .projet24-table-inner { display: block; min-width: min-content; box-sizing: border-box; }
-    .projet24-table-inner .dataTables_wrapper { max-width: none; width: max-content; box-sizing: border-box; }
-    .projet24-table-wrapper table { margin-bottom: 0; font-size: 0.75rem; }
-    .projet24-table-wrapper .projet24-table-formes { table-layout: auto; }
-    .projet24-table-wrapper thead.table-dark th { background: #212529; color: #fff; font-weight: 600; padding: 3px 4px; text-align: center; vertical-align: middle; font-size: 0.75rem; }
-    .projet24-table-wrapper tbody td { vertical-align: middle; background-color: #ffffff; padding: 3px 4px; line-height: 1.2; font-size: 0.75rem; }
+    .projet24-table-wrapper { width: 100%; max-width: 100%; overflow-x: hidden; border-radius: 0; border: none; position: relative; box-sizing: border-box; }
+    .projet24-table-inner { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
+    .projet24-table-inner .dataTables_wrapper { max-width: 100%; width: 100% !important; box-sizing: border-box; }
+    .projet24-table-wrapper table { margin-bottom: 0; font-size: 0.72rem; }
+    .projet24-table-wrapper thead.table-dark th { background: #212529; color: #fff; font-weight: 600; padding: 2px 3px; text-align: center; vertical-align: middle; font-size: 0.68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #tableFormes th.projet24-col-actions { overflow: visible; text-overflow: clip; }
+    .projet24-table-wrapper tbody td { vertical-align: middle; background-color: #ffffff; padding: 2px 3px; line-height: 1.15; font-size: 0.72rem; min-width: 0; }
     .projet24-table-wrapper tbody tr:nth-child(even) td { background-color: #f8f9fa; }
-    .projet24-table-wrapper .table-filters th { background: #212529; padding: 2px 4px !important; text-align: center; font-size: 0.75rem; }
-    /* Colonne Actions : 5 boutons, largeur suffisante pour que le dernier (Suppr.) soit entièrement visible */
-    #tableFormes.projet24-table-formes col.projet24-col-actions-width { width: 198px !important; min-width: 198px !important; }
+    .projet24-table-wrapper .table-filters th { background: #212529; padding: 2px 3px !important; text-align: center; font-size: 0.68rem; }
+    .projet24-table-wrapper .projet24-table-formes { table-layout: fixed; width: 100% !important; }
+    /* Colonnes en % – tableau 100 % de la page ; Actions compacte (5 icônes) */
+    #tableFormes col.col-p24-type-forme { width: 3%; }
+    #tableFormes col.col-p24-type-produit { width: 10%; }
+    #tableFormes col.col-p24-nom { width: 7%; }
+    #tableFormes col.col-p24-dimension { width: 10%; }
+    #tableFormes col.col-p24-format { width: 8%; }
+    #tableFormes col.col-p24-sens { width: 4%; }
+    #tableFormes col.col-p24-fichier { width: 3%; }
+    #tableFormes col.col-p24-poses { width: 3%; }
+    #tableFormes col.col-p24-tirages { width: 4%; }
+    #tableFormes col.col-p24-couts { width: 4%; }
+    #tableFormes col.col-p24-etat { width: 8%; }
+    #tableFormes col.col-p24-date { width: 5%; }
+    #tableFormes col.col-p24-createur { width: 4%; }
+    #tableFormes col.col-p24-dernier-user { width: 11%; }
+    #tableFormes col.col-p24-derniere-machine { width: 10%; }
+    #tableFormes col.projet24-col-actions-width { width: 128px; }
+    #tableFormes th.col-p24-type-forme, #tableFormes td.col-p24-type-forme { text-align: center; }
+    #tableFormes th.col-p24-sens, #tableFormes td.col-p24-sens { text-align: center; }
+    #tableFormes th.col-p24-fichier, #tableFormes td.col-p24-fichier { text-align: center; }
+    #tableFormes th.col-p24-poses, #tableFormes td.col-p24-poses { text-align: right; }
+    #tableFormes th.col-p24-tirages, #tableFormes td.col-p24-tirages { text-align: right; }
+    #tableFormes th.col-p24-couts, #tableFormes td.col-p24-couts { text-align: right; }
+    #tableFormes th.col-p24-etat, #tableFormes td.col-p24-etat { text-align: center; }
+    #tableFormes th.col-p24-date, #tableFormes td.col-p24-date { text-align: center; white-space: nowrap; }
+    #tableFormes th:not(.projet24-col-actions),
+    #tableFormes td:not(.projet24-col-actions) { min-width: 0; overflow: hidden; }
+    #tableFormes td.col-p24-type-produit,
+    #tableFormes td.col-p24-nom,
+    #tableFormes td.col-p24-dimension,
+    #tableFormes td.col-p24-format,
+    #tableFormes td.col-p24-createur,
+    #tableFormes td.col-p24-sens,
+    #tableFormes td.col-p24-fichier,
+    #tableFormes td.col-p24-dernier-user,
+    #tableFormes td.col-p24-derniere-machine {
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #tableFormes a.p24-p11-link { color: #0d6efd; text-decoration: none; font-size: 0.68rem; cursor: pointer; }
+    #tableFormes a.p24-p11-link:hover { text-decoration: underline; }
+    /* Popup consultation traitement Projet 11 (lecture seule) */
+    .p24-consult-modal { display: none; position: fixed; z-index: 1060; inset: 0; background: rgba(0,0,0,0.5); padding: 15px; overflow-y: auto; }
+    .p24-consult-modal.active { display: flex; align-items: center; justify-content: center; }
+    .p24-consult-modal-content { background: #fff; border-radius: 8px; width: min(900px, 95vw); max-height: 90vh; overflow: hidden; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); }
+    .p24-consult-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 2px solid #00897b; }
+    .p24-consult-modal-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: #00695c; display: inline-flex; align-items: center; gap: 8px; }
+    .p24-consult-close { font-size: 1.75rem; color: #7f8c8d; cursor: pointer; border: none; background: none; line-height: 1; padding: 0; }
+    .p24-consult-close:hover { color: #e74c3c; }
+    .p24-consult-modal-body { max-height: calc(90vh - 56px); overflow-y: auto; padding: 15px; font-size: 0.85rem; }
+    .p24-consult-modal-body table th { width: 38%; font-weight: 600; white-space: nowrap; }
+    body.p24-modal-open { overflow: hidden; }
+    /* Colonne Actions : 5 icônes visibles en entier */
     #tableFormes th.projet24-col-actions,
     #tableFormes td.projet24-col-actions,
     #tableFormes th:last-child,
-    #tableFormes td:last-child { width: 198px !important; min-width: 198px !important; max-width: 198px !important; white-space: nowrap !important; vertical-align: middle !important; box-sizing: border-box; padding: 2px 4px !important; }
-    #tableFormes td.projet24-col-actions > *,
-    #tableFormes td:last-child > * { display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 3px; }
+    #tableFormes td:last-child {
+        width: 128px !important;
+        max-width: 128px !important;
+        min-width: 128px !important;
+        overflow: visible !important;
+        white-space: nowrap !important;
+        vertical-align: middle !important;
+        box-sizing: border-box;
+        padding: 2px 3px !important;
+        text-align: center;
+    }
+    #tableFormes thead tr.table-filters th:last-child { padding: 2px !important; }
     #tableFormes td.projet24-col-actions .projet24-cell-actions,
-    #tableFormes td:last-child .projet24-cell-actions { display: inline-flex !important; flex-wrap: nowrap !important; align-items: center; gap: 3px; }
-    #tableFormes td.projet24-col-actions .btn,
-    #tableFormes td.projet24-col-actions a.btn,
-    #tableFormes td:last-child .btn,
-    #tableFormes td:last-child a.btn { flex-shrink: 0; white-space: nowrap; padding: 2px 4px; font-size: 0.65rem; line-height: 1.15; }
+    #tableFormes td:last-child .projet24-cell-actions {
+        display: inline-flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        width: 100%;
+        max-width: 122px;
+        margin: 0 auto;
+    }
+    #tableFormes td.projet24-col-actions .p24-act-btn,
+    #tableFormes td:last-child .p24-act-btn {
+        flex: 0 0 auto;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 1.45rem;
+        height: 1.45rem;
+        padding: 0 !important;
+        margin: 0;
+        font-size: 0.68rem;
+        line-height: 1;
+        border-width: 1px;
+        box-sizing: border-box;
+    }
+    #tableFormes td.projet24-col-actions .p24-act-btn i,
+    #tableFormes td:last-child .p24-act-btn i { pointer-events: none; }
     .projet24-table-wrapper .table-filters input { width: 100%; font-size: 0.65rem; padding: 2px 4px; box-sizing: border-box; min-height: 18px; border-radius: 3px; border: 1px solid #dee2e6; background: #fff; color: #333; }
     .projet24-table-wrapper .table-filters input::placeholder { color: #6c757d; }
-    .projet24-table-zone { max-width: 100%; box-sizing: border-box; }
+    .projet24-table-zone { width: 100%; max-width: 100%; box-sizing: border-box; }
     .projet24-dt-controls-top,
     .projet24-dt-controls-bottom { width: 100%; box-sizing: border-box; }
     .projet24-dt-controls-top .dataTables_length,
@@ -144,7 +227,7 @@
     .projet24-column-toggle { margin-bottom: 0.5rem; font-size: 0.8rem; }
     .projet24-column-toggle .form-check { margin-right: 0.75rem; margin-bottom: 0.25rem; white-space: nowrap; }
     #projet24ColExportWrapper { flex-shrink: 0; margin-left: auto; }
-    .badge-etat { font-size: 0.8em; }
+    .badge-etat { font-size: 0.65em; padding: 0.2em 0.35em; }
     .modal-content { border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
     .modal-header { border-bottom: 2px solid #0d6efd; }
     .modal-title { color: #0d6efd; font-weight: 600; }
@@ -374,26 +457,28 @@
         <div class="projet24-dt-controls-top mb-2" id="projet24DtControlsTop"></div>
         <div class="projet24-table-wrapper position-relative" id="projet24TableWrapper">
             <div class="projet24-table-inner" id="projet24TableInner">
-                <table id="tableFormes" class="table table-striped table-hover mb-0 projet24-table-formes" style="width:max-content">
+                <table id="tableFormes" class="table table-striped table-hover mb-0 projet24-table-formes" style="width:100%">
                 <colgroup>
-                    <col><col><col><col><col><col><col><col><col><col><col><col><col><col><col class="projet24-col-actions-width">
+                    <col class="col-p24-type-forme"><col class="col-p24-type-produit"><col class="col-p24-nom"><col class="col-p24-dimension"><col class="col-p24-format"><col class="col-p24-sens"><col class="col-p24-fichier"><col class="col-p24-poses"><col class="col-p24-tirages"><col class="col-p24-couts"><col class="col-p24-etat"><col class="col-p24-date"><col class="col-p24-createur"><col class="col-p24-dernier-user"><col class="col-p24-derniere-machine"><col class="projet24-col-actions-width">
                 </colgroup>
                 <thead class="table-dark">
                     <tr>
-                        <th>Type forme</th>
-                        <th>Type produit</th>
-                        <th>Nom</th>
-                        <th>Dimension</th>
-                        <th>Format fini</th>
-                        <th>Sens fibre</th>
-                        <th>Fichier</th>
-                        <th>Poses</th>
-                        <th>Tirages</th>
-                        <th>Coûts</th>
-                        <th>État</th>
-                        <th>Créé le</th>
-                        <th>Créateur</th>
-                        <th>Actions</th>
+                        <th class="col-p24-type-forme" title="Type forme">Type</th>
+                        <th class="col-p24-type-produit">Type produit</th>
+                        <th class="col-p24-nom">Nom</th>
+                        <th class="col-p24-dimension">Dimension</th>
+                        <th class="col-p24-format">Format fini</th>
+                        <th class="col-p24-sens" title="Sens fibre">Sens</th>
+                        <th class="col-p24-fichier">Fichier</th>
+                        <th class="col-p24-poses">Poses</th>
+                        <th class="col-p24-tirages">Tirages</th>
+                        <th class="col-p24-couts">Coûts</th>
+                        <th class="col-p24-etat">État</th>
+                        <th class="col-p24-date">Créé le</th>
+                        <th class="col-p24-createur">Créateur</th>
+                        <th class="col-p24-dernier-user" title="Dernier opérateur (Projet 11)">Dernier util.</th>
+                        <th class="col-p24-derniere-machine" title="Dernière machine (Projet 11)">Dernière m.</th>
+                        <th class="projet24-col-actions" title="Actions">Act.</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -484,6 +569,23 @@
         </div>
     </div>
 </div>
+
+<!-- Modal consultation traitement Projet 11 (lecture seule) -->
+<div class="p24-consult-modal" id="projet24ModalConsultP11" aria-hidden="true">
+    <div class="p24-consult-modal-content" role="dialog" aria-modal="true" aria-labelledby="projet24ModalConsultP11Label">
+        <div class="p24-consult-modal-header">
+            <h2 class="p24-consult-modal-title" id="projet24ModalConsultP11Label">
+                <i class="fas fa-eye"></i> Consultation du traitement (Projet 11)
+            </h2>
+            <button type="button" class="p24-consult-close" aria-label="Fermer" id="projet24ConsultP11Close">&times;</button>
+        </div>
+        <div class="p24-consult-modal-body">
+            <div id="projet24ConsultP11Content">
+                <p class="text-muted mb-0">Chargement…</p>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}
 {% endblock %}
 
@@ -497,24 +599,125 @@
 (function() {
     const API_BASE = '{{ url_for("projet24.index") }}'.replace(/\/$/, '') + '/api';
     const UPLOADS_BASE = '{{ url_for("projet24.serve_upload", filename="") }}'.replace(/\/$/, '');
+    const P11_API_TRAITEMENT = '{{ url_for("projet11.index") }}'.replace(/\/$/, '') + '/api/traitements/';
     const VUE_STORAGE_KEY = 'projet24_formes_vue';
 
     const colonneDefs = [
-        { titre: 'Type forme', filtre: true, toggle: true },
-        { titre: 'Type produit', filtre: true, toggle: true },
-        { titre: 'Nom', filtre: true, toggle: true },
-        { titre: 'Dimension', filtre: true, toggle: true },
-        { titre: 'Format fini', filtre: true, toggle: true },
-        { titre: 'Sens fibre', filtre: true, toggle: true },
-        { titre: 'Fichier', filtre: true, toggle: true },
-        { titre: 'Poses', filtre: true, toggle: true },
-        { titre: 'Tirages', filtre: true, toggle: true },
-        { titre: 'Coûts', filtre: true, toggle: true },
-        { titre: 'État', filtre: true, toggle: true },
-        { titre: 'Créé le', filtre: true, toggle: true },
-        { titre: 'Créateur', filtre: true, toggle: true },
-        { titre: 'Actions', filtre: false, toggle: true, orderable: false }
+        { titre: 'Type', filtre: true, toggle: true, className: 'col-p24-type-forme', width: '3%', filtrePh: '…' },
+        { titre: 'Type produit', filtre: true, toggle: true, className: 'col-p24-type-produit', width: '10%', filtrePh: '…' },
+        { titre: 'Nom', filtre: true, toggle: true, className: 'col-p24-nom', width: '7%', filtrePh: '…' },
+        { titre: 'Dimension', filtre: true, toggle: true, className: 'col-p24-dimension', width: '10%', filtrePh: '…' },
+        { titre: 'Format fini', filtre: true, toggle: true, className: 'col-p24-format', width: '8%', filtrePh: '…' },
+        { titre: 'Sens', filtre: true, toggle: true, className: 'col-p24-sens', width: '4%', filtrePh: '…' },
+        { titre: 'Fichier', filtre: true, toggle: true, className: 'col-p24-fichier', width: '3%', filtrePh: '…' },
+        { titre: 'Poses', filtre: true, toggle: true, className: 'col-p24-poses', width: '3%', filtrePh: '…' },
+        { titre: 'Tirages', filtre: true, toggle: true, className: 'col-p24-tirages', width: '4%', filtrePh: '…' },
+        { titre: 'Coûts', filtre: true, toggle: true, className: 'col-p24-couts', width: '4%', filtrePh: '…' },
+        { titre: 'État', filtre: true, toggle: true, className: 'col-p24-etat', width: '8%', filtrePh: '…' },
+        { titre: 'Créé le', filtre: true, toggle: true, className: 'col-p24-date', width: '5%', filtrePh: '…' },
+        { titre: 'Créateur', filtre: true, toggle: true, className: 'col-p24-createur', width: '4%', filtrePh: '…' },
+        { titre: 'Dernier util.', filtre: true, toggle: true, className: 'col-p24-dernier-user', width: '11%', filtrePh: '…' },
+        { titre: 'Dernière m.', filtre: true, toggle: true, className: 'col-p24-derniere-machine', width: '10%', filtrePh: '…' },
+        { titre: 'Actions', filtre: false, toggle: true, orderable: false, className: 'projet24-col-actions', width: '128px' }
     ];
+
+    function escapeHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function textCell(val) {
+        const v = (val != null && val !== '') ? String(val) : '—';
+        if (v === '—') return v;
+        return '<span title="' + escapeHtml(v) + '">' + escapeHtml(v) + '</span>';
+    }
+
+    function usageConsultCell(text, traitementId, dossier) {
+        const v = (text != null && String(text).trim() !== '') ? String(text).trim() : '';
+        if (!v) return '—';
+        if (!traitementId) return textCell(v);
+        let tip = 'Consulter le traitement (lecture seule)';
+        if (dossier) tip = 'Dossier ' + dossier + ' — ' + tip;
+        return '<a href="#" class="p24-p11-link p24-consult-traitement" data-traitement-id="' + escapeHtml(String(traitementId)) + '" title="' + escapeHtml(tip) + '">' +
+            escapeHtml(v) + ' <i class="fas fa-search" style="font-size:0.55rem"></i></a>';
+    }
+
+    function formaterDateConsult(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function ouvrirConsultationTraitementP11() {
+        const modal = document.getElementById('projet24ModalConsultP11');
+        if (!modal) return;
+        document.body.classList.add('p24-modal-open');
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function fermerConsultationTraitementP11() {
+        const modal = document.getElementById('projet24ModalConsultP11');
+        if (!modal) return;
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('p24-modal-open');
+    }
+
+    function consulterTraitementP11(traitementId) {
+        const content = document.getElementById('projet24ConsultP11Content');
+        if (content) content.innerHTML = '<p class="text-muted mb-0">Chargement…</p>';
+        ouvrirConsultationTraitementP11();
+        fetch(P11_API_TRAITEMENT + encodeURIComponent(traitementId))
+            .then(function(r) {
+                if (!r.ok) throw new Error('Traitement introuvable');
+                return r.json();
+            })
+            .then(function(data) {
+                if (!content) return;
+                const operateur = ((data.nom_personel || '') + ' ' + (data.prenom_personel || '')).trim() || '—';
+                const ecart = data.ecart_temps;
+                let ecartCls = '';
+                if (ecart > 0) ecartCls = 'table-danger';
+                else if (ecart < 0) ecartCls = 'table-success';
+                const ecartTxt = (ecart != null && ecart !== '') ? ((ecart > 0 ? '+' : '') + Number(ecart).toFixed(3) + 'h') : '—';
+                const tpsPrev = data.tps_prev_dev != null ? Number(data.tps_prev_dev).toFixed(3) + 'h' : '—';
+                const tpsReel = data.tps_reel != null ? Number(data.tps_reel).toFixed(3) + 'h' : (data.dte_fin ? '—' : 'En cours');
+                const statut = data.dte_fin ? 'Terminé' : 'En cours';
+                content.innerHTML =
+                    '<table class="table table-sm table-bordered mb-0">' +
+                    '<tr><th>ID traitement</th><td>' + escapeHtml(data.id) + '</td></tr>' +
+                    '<tr><th>Statut</th><td>' + escapeHtml(statut) + '</td></tr>' +
+                    '<tr><th>Date début</th><td>' + escapeHtml(data.dte_deb || '—') + '</td></tr>' +
+                    '<tr><th>Date fin</th><td>' + escapeHtml(data.dte_fin || '—') + '</td></tr>' +
+                    '<tr><th>N° dossier</th><td>' + escapeHtml(data.numero_commandes || '—') + '</td></tr>' +
+                    '<tr><th>Référence</th><td>' + escapeHtml(data.reference_commandes || '—') + '</td></tr>' +
+                    '<tr><th>Client</th><td>' + escapeHtml(data.raisoctri_societes || '—') + '</td></tr>' +
+                    '<tr><th>Service</th><td>' + escapeHtml(data.nom_gp_services || '—') + '</td></tr>' +
+                    '<tr><th>Poste prévu</th><td>' + escapeHtml(data.nom_gp_postes || '—') + '</td></tr>' +
+                    '<tr><th>Machine réelle</th><td>' + escapeHtml(data.postes_reel || '—') + '</td></tr>' +
+                    '<tr><th>Opérateur</th><td>' + escapeHtml(operateur) + '</td></tr>' +
+                    '<tr><th>Forme découpe (NOM_FD)</th><td>' + escapeHtml(data.nom_fd || '—') + '</td></tr>' +
+                    '<tr><th>Nb opérations</th><td>' + escapeHtml(data.nb_op != null ? data.nb_op : 0) + '</td></tr>' +
+                    '<tr><th>Qté conforme</th><td>' + escapeHtml(data.pdt_c != null ? data.pdt_c : 0) + '</td></tr>' +
+                    '<tr><th>NC démarrage</th><td>' + escapeHtml(data.pdt_nnc != null ? data.pdt_nnc : 0) + '</td></tr>' +
+                    '<tr><th>NC macules</th><td>' + escapeHtml(data.pdt_anc != null ? data.pdt_anc : 0) + '</td></tr>' +
+                    '<tr class="table-info"><th>Temps prévu</th><td>' + escapeHtml(tpsPrev) + '</td></tr>' +
+                    '<tr class="table-primary"><th>Temps réel</th><td>' + escapeHtml(tpsReel) + '</td></tr>' +
+                    '<tr class="' + ecartCls + '"><th>Écart</th><td>' + escapeHtml(ecartTxt) + '</td></tr>' +
+                    '<tr><th>Créé le</th><td>' + escapeHtml(formaterDateConsult(data.date_creation)) + '</td></tr>' +
+                    '<tr><th>Modifié le</th><td>' + escapeHtml(formaterDateConsult(data.date_modification)) + '</td></tr>' +
+                    '</table>' +
+                    '<p class="text-muted small mt-2 mb-0"><i class="fas fa-info-circle"></i> Affichage en lecture seule — aucune modification possible depuis cette fenêtre.</p>';
+            })
+            .catch(function(err) {
+                if (content) content.innerHTML = '<div class="alert alert-danger mb-0">Impossible de charger le traitement : ' + escapeHtml(err.message || 'erreur') + '</div>';
+            });
+    }
 
     let tableFormes = null;
     let modalFormeEl, modalTiragesEl, modalCoutsEl, modalEtatEl;
@@ -580,30 +783,35 @@
         const dateCell = dateSortKey + '|' + (dateCre || '—');
         const coutTotal = (parseFloat(f.cout_initial) || 0) + (parseFloat(f.cout_amelioration) || 0);
         const pdfLink = f.fichier_source
-            ? '<a href="' + UPLOADS_BASE + '/' + encodeURIComponent(f.fichier_source) + '" target="_blank">Voir PDF</a>'
+            ? '<a href="' + UPLOADS_BASE + '/' + encodeURIComponent(f.fichier_source) + '" target="_blank" title="Voir PDF">PDF</a>'
             : '—';
         const modifierUrl = (API_BASE.replace(/\/api$/, '') + '/modifier-forme?nom=' + encodeURIComponent(f.nom || ''));
         const actions = '<span class="projet24-cell-actions">' + [
-            '<a href="' + modifierUrl + '" class="btn btn-sm btn-outline-primary">Éditer</a>',
-            '<button type="button" class="btn btn-sm btn-outline-success btn-tirages" data-nom="' + (f.nom || '') + '" title="Tirages">+</button>',
-            '<button type="button" class="btn btn-sm btn-outline-warning btn-couts" data-nom="' + (f.nom || '') + '" title="Coûts">Coûts</button>',
-            '<button type="button" class="btn btn-sm btn-outline-info btn-etat" data-nom="' + (f.nom || '') + '" data-etat="' + (f.etat || '') + '">État</button>',
-            '<button type="button" class="btn btn-sm btn-outline-danger btn-delete" data-nom="' + (f.nom || '') + '">Suppr.</button>'
+            '<a href="' + modifierUrl + '" class="btn btn-outline-primary p24-act-btn" title="Éditer"><i class="fas fa-edit"></i></a>',
+            '<button type="button" class="btn btn-outline-success p24-act-btn btn-tirages" data-nom="' + (f.nom || '') + '" title="Ajouter tirages"><i class="fas fa-plus"></i></button>',
+            '<button type="button" class="btn btn-outline-warning p24-act-btn btn-couts" data-nom="' + (f.nom || '') + '" title="Coûts"><i class="fas fa-coins"></i></button>',
+            '<button type="button" class="btn btn-outline-info p24-act-btn btn-etat" data-nom="' + (f.nom || '') + '" data-etat="' + (f.etat || '') + '" title="État"><i class="fas fa-flag"></i></button>',
+            '<button type="button" class="btn btn-outline-danger p24-act-btn btn-delete" data-nom="' + (f.nom || '') + '" title="Supprimer"><i class="fas fa-trash"></i></button>'
         ].join('') + '</span>';
+        const etatShort = { 'EN_COMMANDE': 'CMD', 'PRETE': 'PRÊTE', 'EN_MODIFICATION': 'MOD' };
+        const etatLabel = etatShort[f.etat] || (f.etat || '—');
+        const etatTitle = f.etat || '';
         return [
-            f.type_forme || '—',
-            f.type_produit || '—',
-            f.nom || '—',
-            f.dimension || '—',
-            f.format_fini || '—',
-            f.sens_fibre || '—',
+            textCell(f.type_forme),
+            textCell(f.type_produit),
+            textCell(f.nom),
+            textCell(f.dimension),
+            textCell(f.format_fini),
+            textCell(f.sens_fibre),
             pdfLink,
             f.nombre_pose != null ? f.nombre_pose : '—',
             f.total_tirages != null ? f.total_tirages : '—',
             coutTotal.toFixed(3),
-            '<span class="badge bg-secondary badge-etat">' + (f.etat || '—') + '</span>',
+            '<span class="badge bg-secondary badge-etat" title="' + escapeHtml(etatTitle) + '">' + escapeHtml(etatLabel) + '</span>',
             dateCell,
-            (f.createur != null && f.createur !== '') ? f.createur : '—',
+            textCell(f.createur),
+            usageConsultCell(f.dernier_utilisateur, f.id_dernier_traitement, f.dernier_dossier),
+            usageConsultCell(f.derniere_machine, f.id_dernier_traitement, f.dernier_dossier),
             actions
         ];
     }
@@ -733,6 +941,13 @@
         colonneDefs.forEach(function(def, i) {
             if (def.orderable === false) columnDefsBuild.push({ targets: i, orderable: false });
             if (colVisible[i] === false) columnDefsBuild.push({ targets: i, visible: false });
+            if (def.className) {
+                columnDefsBuild.push({
+                    targets: i,
+                    className: def.className,
+                    width: def.width || undefined
+                });
+            }
             if (i === 11) {
                 columnDefsBuild.push({
                     targets: 11,
@@ -745,13 +960,14 @@
                     }
                 });
             }
-            if (i === 13) columnDefsBuild.push({ targets: 13, className: 'projet24-col-actions', width: '198px' });
         });
 
         tableFormes = $('#tableFormes').DataTable({
             language: { url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/fr-FR.json' },
             order: [[2, 'asc']],
             pageLength: pageLen,
+            autoWidth: false,
+            scrollX: false,
             columnDefs: columnDefsBuild,
             columns: colonneDefs.map(function(d) { return { title: d.titre }; }),
             initComplete: function() {
@@ -761,7 +977,7 @@
                 colonneDefs.forEach(function(def, i) {
                     const th = $('<th></th>');
                     if (def.filtre) {
-                        th.append($('<input type="text" placeholder="Filtrer ' + def.titre + '" data-col="' + i + '">'));
+                        th.append($('<input type="text" placeholder="' + (def.filtrePh || ('Filtrer ' + def.titre)) + '" data-col="' + i + '">'));
                     }
                     trFilters.append(th);
                 });
@@ -862,93 +1078,12 @@
                     $(controlsBottom).append(inf).append(pag);
                 }
 
-                const wrapper = document.getElementById('projet24TableWrapper');
-                const inner = document.getElementById('projet24TableInner');
-
-                /* Forcer toute la chaîne à la largeur du tableau pour supprimer la zone vide à droite */
-                function updateScrollInnerWidth() {
-                    var table = document.getElementById('tableFormes');
-                    if (!table || !inner) return;
-                    var zone = document.getElementById('projet24TableZone');
-                    var contentSuivi = document.querySelector('.projet24-content-suivi');
-                    var pageContainer = document.querySelector('.projet24-suivi-page');
-                    var mainContainer = document.querySelector('.container.projet24-suivi-container');
-                    if (zone) zone.style.width = '';
-                    if (contentSuivi) contentSuivi.style.width = '';
-                    if (pageContainer) pageContainer.style.width = '';
-                    if (mainContainer) mainContainer.style.width = '';
-                    inner.style.width = '';
-                    inner.style.minWidth = '';
-                    inner.style.maxWidth = '';
-                    table.style.maxWidth = 'none';
-                    table.style.width = 'max-content';
-                    table.style.minWidth = 'max-content';
-                    if (wrapper) wrapper.style.width = '99999px';
-                    if (zone) zone.style.width = '99999px';
-                    void table.offsetHeight;
-                    var w = Math.max(table.offsetWidth, table.scrollWidth, 1);
-                    if (wrapper) wrapper.style.width = '';
-                    if (zone) zone.style.width = '';
-                    inner.style.width = w + 'px';
-                    inner.style.minWidth = w + 'px';
-                    inner.style.maxWidth = w + 'px';
-                    if (zone) {
-                        zone.style.width = w + 'px';
-                        zone.style.maxWidth = '100%';
-                    }
-                    if (contentSuivi) {
-                        contentSuivi.style.width = w + 'px';
-                        contentSuivi.style.maxWidth = '100%';
-                    }
-                    if (pageContainer) {
-                        pageContainer.style.width = w + 'px';
-                        pageContainer.style.maxWidth = '100%';
-                    }
-                    if (mainContainer) {
-                        mainContainer.style.width = w + 'px';
-                        mainContainer.style.maxWidth = '100%';
-                    }
+                function adjustTableLayout() {
+                    if (tableFormes) tableFormes.columns.adjust();
                 }
-                function updateScrollInnerWidthAfterLayout() {
-                    requestAnimationFrame(function() {
-                        requestAnimationFrame(updateScrollInnerWidth);
-                    });
-                }
-                api.on('draw', updateScrollInnerWidthAfterLayout);
-                setTimeout(updateScrollInnerWidth, 50);
-                setTimeout(updateScrollInnerWidth, 250);
-                setTimeout(updateScrollInnerWidth, 600);
-                setTimeout(updateScrollInnerWidth, 1200);
-                window.addEventListener('resize', updateScrollInnerWidth);
-
-                function forceActionsColumnWidth() {
-                    var table = document.getElementById('tableFormes');
-                    if (!table) return;
-                    var colgroup = table.querySelector('colgroup');
-                    if (!colgroup) {
-                        colgroup = document.createElement('colgroup');
-                        for (var i = 0; i < 14; i++) colgroup.appendChild(document.createElement('col'));
-                        var col15 = document.createElement('col');
-                        col15.className = 'projet24-col-actions-width';
-                        col15.style.width = '198px';
-                        col15.style.minWidth = '198px';
-                        colgroup.appendChild(col15);
-                        table.insertBefore(colgroup, table.firstChild);
-                    } else {
-                        var lastCol = colgroup.querySelector('col:last-child');
-                        if (lastCol) {
-                            lastCol.className = 'projet24-col-actions-width';
-                            lastCol.style.width = '198px';
-                            lastCol.style.minWidth = '198px';
-                        }
-                    }
-                    $(table).find('th.projet24-col-actions, td.projet24-col-actions, th:last-child, td:last-child').css({ width: '198px', minWidth: '198px' });
-                    updateScrollInnerWidthAfterLayout();
-                }
-                api.on('draw', forceActionsColumnWidth);
-                forceActionsColumnWidth();
-
-                /* Plus de redimensionnement du conteneur en largeur : le tableau occupe 100 % de la page */
+                api.on('draw', adjustTableLayout);
+                window.addEventListener('resize', adjustTableLayout);
+                setTimeout(adjustTableLayout, 100);
             }
         });
 
@@ -969,6 +1104,27 @@
         });
         $('#tableFormes').on('click', '.btn-delete', function() {
             deleteForme($(this).data('nom'));
+        });
+
+        $('#tableFormes').on('click', '.p24-consult-traitement', function(e) {
+            e.preventDefault();
+            const id = $(this).data('traitement-id');
+            if (id) consulterTraitementP11(id);
+        });
+
+        const consultClose = document.getElementById('projet24ConsultP11Close');
+        if (consultClose) consultClose.addEventListener('click', fermerConsultationTraitementP11);
+        const consultModal = document.getElementById('projet24ModalConsultP11');
+        if (consultModal) {
+            consultModal.addEventListener('click', function(e) {
+                if (e.target === consultModal) fermerConsultationTraitementP11();
+            });
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const m = document.getElementById('projet24ModalConsultP11');
+                if (m && m.classList.contains('active')) fermerConsultationTraitementP11();
+            }
         });
     });
 })();

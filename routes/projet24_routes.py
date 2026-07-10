@@ -408,6 +408,12 @@ def register_formes_tables():
         init_web_formes_tables()
     except Exception as e:
         print(f"[Projet 24] init_web_formes_tables: {e}")
+    try:
+        from logic.projet24 import ensure_derniere_utilisation_columns, backfill_derniere_utilisation
+        ensure_derniere_utilisation_columns()
+        backfill_derniere_utilisation()
+    except Exception as e:
+        print(f"[Projet 24] derniere_utilisation init: {e}")
 
 
 def ensure_projet24_in_web_projets():

@@ -181,6 +181,11 @@
                 <span>📈</span> Tableau de bord
             </a>
             {% endif %}
+            {% if show_rapport %}
+            <a href="{{ url_for('projet11.rapport_mensuel') }}" class="subsection-link">
+                <span>📄</span> Rapport
+            </a>
+            {% endif %}
         </div>
     </div>
     {% endif %}

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Historique des Visites{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2>Historique des Visites</h2>
+    <div>
+        <a href="{{ url_for('projet28.dashboard') }}" class="btn btn-outline-primary" style="padding: 10px 20px; margin-right: 10px;">
+            <i class="fas fa-tasks"></i> Tableau de bord
+        </a>
+        <a href="{{ url_for('projet28.rapport_visite') }}" class="btn btn-primary" style="padding: 10px 20px;">
+            <i class="fas fa-plus"></i> Nouvelle visite
+        </a>
+    </div>
+</div>
+
+<div style="margin-bottom: 20px;">
+    <input type="text" id="searchInput" placeholder="Rechercher par nom de client..." style="padding: 8px; width: 300px;">
+    <button id="searchButton" style="padding: 8px 16px; margin-left: 10px;">Rechercher</button>
+</div>
+
+<div id="visitsList">
+    <!-- Les visites seront chargées ici -->
+</div>
+
+<style>
+    .visit-item {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+    }
+    .visit-header {
+    display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+    .visit-client {
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+    .visit-date {
+        color: #666;
+    }
+    .visit-details {
+        margin-top: 10px;
+    }
+    .visit-actions {
+        margin-top: 10px;
+        font-style: italic;
+    }
+    .visit-footer {
+        margin-top: 15px;
+        display: flex;
+        justify-content: flex-end;
+    }
+    .btn-view {
+        padding: 8px 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+        text-decoration: none;
+}
+    .btn-view:hover {
+    background-color: #0056b3;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const searchInput = document.getElementById("searchInput");
+    const searchButton = document.getElementById("searchButton");
+    const visitsList = document.getElementById("visitsList");
+
+    function loadVisits(query = "") {
+        fetch(`/projet28/api/historique?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(visits => {
+                visitsList.innerHTML = "";
+                visits.forEach(visit => {
+                    const visitElement = document.createElement("div");
+                    visitElement.className = "visit-item";
+                    visitElement.innerHTML = `
+                        <div class="visit-header">
+                            <span class="visit-client">${visit.raison_sociale}</span>
+                            <span class="visit-date">${visit.date_visite}</span>
+                        </div>
+                        <div class="visit-details">
+                            <p><strong>Nature de la visite:</strong> ${visit.nature_visite}</p>
+                            <p><strong>Sujets abordés:</strong> ${visit.sujets || 'Non spécifié'}</p>
+                            <p><strong>Bilan:</strong> ${visit.bilan || 'Non spécifié'}</p>
+                            <p><strong>Visiteur:</strong> ${visit.visiteur}</p>
+                        </div>
+                        <div class="visit-actions">
+                            Actions: ${visit.nb_actions_terminees}/${visit.nb_actions} terminées
+                        </div>
+                        <div class="visit-footer">
+                            <a href="/projet28/visite/${visit.id}" class="btn-view">Voir les détails</a>
+                        </div>
+                    `;
+                    visitsList.appendChild(visitElement);
+                });
+            })
+            .catch(error => {
+                console.error("Erreur lors du chargement des visites:", error);
+                visitsList.innerHTML = "<p>Erreur lors du chargement des visites</p>";
+            });
+    }
+
+    // Charger toutes les visites au démarrage
+    loadVisits();
+
+    // Gérer la recherche
+    searchButton.addEventListener("click", () => {
+        loadVisits(searchInput.value);
+    });
+
+    searchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            loadVisits(searchInput.value);
+        }
+    });
+});
+</script>
+{% endblock %} 

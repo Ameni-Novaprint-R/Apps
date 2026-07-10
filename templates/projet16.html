@@ -88,6 +88,57 @@
         display: none;
     }
 
+    .preventive-import-panel {
+        background: #e3f2fd;
+        border: 1px solid #90caf9;
+        border-radius: 8px;
+        padding: 16px 18px;
+        margin-bottom: 20px;
+    }
+
+    .preventive-import-panel h4 {
+        margin: 0 0 10px 0;
+        color: #0d47a1;
+        font-size: 1.05em;
+    }
+
+    .preventive-import-panel code {
+        background: #fff;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.88em;
+        word-break: break-all;
+    }
+
+    .preventive-import-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+    }
+
+    .btn-import-preventive {
+        padding: 8px 18px;
+        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.92em;
+    }
+
+    .btn-import-preventive:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+
+    #preventive-import-status {
+        font-size: 0.9em;
+        color: #333;
+    }
+
     .preventive-task-row.selected {
         background: #e8f5e9 !important;
         border-left: 4px solid #2e7d32;
@@ -1470,6 +1521,28 @@
     </div>
         
     <div id="preventive-tracking" style="display: none;">
+        <div class="preventive-import-panel" id="preventive-import-panel">
+            <h4>📥 Import du planning Excel (une feuille = une machine)</h4>
+            <p style="margin: 0 0 8px 0;">
+                Déposez votre fichier dans :
+                <code id="preventive-import-dir">{{ preventive_import_dir }}</code>
+            </p>
+            <p style="margin: 0; color: #555; font-size: 0.92em;">
+                Nom conseillé : <strong>{{ preventive_import_filename }}</strong>
+                — chaque onglet doit porter le <strong>nom exact de la machine</strong> (GP_POSTES).
+            </p>
+            <div class="preventive-import-actions">
+                <button type="button" class="btn-import-preventive" id="btn-import-preventive" onclick="importPreventiveExcelFromFolder()">
+                    Importer le planning Excel
+                </button>
+                <button type="button" onclick="loadPreventiveImportStatus()"
+                        style="padding: 8px 14px; border: 1px solid #90caf9; background: #fff; border-radius: 6px; cursor: pointer;">
+                    🔄 Actualiser
+                </button>
+                <span id="preventive-import-status">Vérification du dossier…</span>
+            </div>
+        </div>
+
         <!-- Barre de filtres et recherche -->
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
@@ -4858,6 +4931,82 @@
         }
     }
     
+    function loadPreventiveImportStatus() {
+        $.ajax({
+            url: '/projet16/api/preventive/import/status',
+            method: 'GET',
+            success: function(status) {
+                const $btn = $('#btn-import-preventive');
+                const $label = $('#preventive-import-status');
+                if (status.file_found) {
+                    const sheets = (status.sheet_names || []).join(', ');
+                    $label.html(
+                        '✅ Fichier détecté : <strong>' + (status.file_name || '') + '</strong>' +
+                        (status.sheet_count ? ' — ' + status.sheet_count + ' feuille(s)' : '') +
+                        (sheets ? '<br><span style="color:#555;">Onglets : ' + sheets + '</span>' : '')
+                    );
+                    $btn.prop('disabled', false);
+                } else {
+                    $label.html('⚠️ Aucun fichier .xlsx dans le dossier. Déposez <strong>{{ preventive_import_filename }}</strong> puis actualisez.');
+                    $btn.prop('disabled', true);
+                }
+            },
+            error: function() {
+                $('#preventive-import-status').text('Erreur lors de la lecture du dossier d\'import.');
+            }
+        });
+    }
+
+    function importPreventiveExcelFromFolder() {
+        if (!confirm('Importer le planning Excel ?\n\nLes machines déjà renseignées ne seront PAS modifiées.\nL’import complète uniquement les machines manquantes.')) {
+            return;
+        }
+        const $btn = $('#btn-import-preventive');
+        $btn.prop('disabled', true);
+        $('#preventive-import-status').text('Import en cours…');
+        $.ajax({
+            url: '/projet16/api/preventive/import',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ replace_existing: false }),
+            success: function(result) {
+                if (!result.success) {
+                    alert(result.error || 'Erreur lors de l\'import');
+                    loadPreventiveImportStatus();
+                    return;
+                }
+                let msg = result.imported_total + ' tâche(s) importée(s) dans le tableau.';
+                if (result.machines && result.machines.length) {
+                    msg += '\n\n';
+                    result.machines.forEach(function(m) {
+                        if (m.skipped_existing) {
+                            msg += '• ' + (m.machine || m.sheet) + ' : ignorée (déjà renseignée : ' + (m.existing_count || '?') + ' tâche(s))\n';
+                        } else if (m.format_unrecognized) {
+                            msg += '• ' + (m.machine || m.sheet) + ' : 0 tâche(s) — format non reconnu\n';
+                        } else {
+                            msg += '• ' + (m.machine || m.sheet) + ' : ' + m.imported + ' tâche(s)\n';
+                        }
+                    });
+                }
+                if (result.warnings && result.warnings.length) {
+                    msg += '\nAvertissements :\n' + result.warnings.join('\n');
+                }
+                alert(msg);
+                loadPreventiveImportStatus();
+                loadPreventiveTasks();
+                loadPreventiveTasksForSelection();
+            },
+            error: function(xhr) {
+                const err = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Erreur lors de l\'import';
+                alert(err);
+                loadPreventiveImportStatus();
+            },
+            complete: function() {
+                $('#btn-import-preventive').prop('disabled', false);
+            }
+        });
+    }
+
     function loadPreventiveTasks() {
         const machineFilter = $('#machine-filter').val();
         const url = machineFilter 
@@ -5240,7 +5389,10 @@
         if ($section.is(':visible')) {
             $section.slideUp(200);
         } else {
-            $section.slideDown(200);
+            $section.slideDown(200, function() {
+                loadPreventiveImportStatus();
+                loadPreventiveTasks();
+            });
         }
     }
     

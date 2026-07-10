@@ -9,6 +9,7 @@ from flask import Blueprint, render_template, request, jsonify, Response, flash,
 from logic import projet11
 from logic.auth import get_user_sections, has_section_access, has_action_access, is_super_user
 from datetime import datetime
+import re
 
 # Créer le blueprint
 projet11_bp = Blueprint('projet11', __name__)
@@ -199,6 +200,7 @@ def index():
         
         show_tableau_comparatif = show_statistiques
         show_tableau_bord = show_statistiques
+        show_rapport = show_statistiques
         return render_template('projet11.html',
                              authorized_sections=sections_dict,
                              show_nouvelle_fiche=show_nouvelle_fiche,
@@ -208,7 +210,8 @@ def index():
                              show_qte_pieces=show_qte_pieces,
                              show_suivi_ecarts_facturation=show_suivi_ecarts_facturation,
                              show_tableau_comparatif=show_tableau_comparatif,
-                             show_tableau_bord=show_tableau_bord)
+                             show_tableau_bord=show_tableau_bord,
+                             show_rapport=show_rapport)
     except Exception as e:
         print(f"Erreur dans projet11.index: {e}")
         import traceback
@@ -223,7 +226,8 @@ def index():
                              show_qte_pieces=True,
                              show_suivi_ecarts_facturation=True,
                              show_tableau_comparatif=True,
-                             show_tableau_bord=True)
+                             show_tableau_bord=True,
+                             show_rapport=True)
 
 
 @projet11_bp.route('/projet11/quantite-pieces')
@@ -1245,7 +1249,7 @@ def analyse_dossiers():
             return redirect(url_for('projet11.index'))
 
         return render_template('projet11_analyse_dossiers.html',
-            show_statistiques=True, show_tableau_comparatif=True, show_tableau_bord=True)
+            show_statistiques=True, show_tableau_comparatif=True, show_tableau_bord=True, show_rapport=True)
     except Exception as e:
         print(f"Erreur dans analyse_dossiers: {e}")
         import traceback
@@ -1328,6 +1332,122 @@ def tableau_bord():
         return redirect(url_for('projet11.index'))
 
 
+def _build_rapport_kba_pdf(data):
+    """Délègue au module template KBA."""
+    from logic.projet11_rapport_kba_pdf import build_rapport_kba_pdf
+    return build_rapport_kba_pdf(data)
+
+
+@projet11_bp.route('/projet11/rapport')
+def rapport_mensuel():
+    """Page Rapport mensuel machine (aperçu PDF + téléchargement)."""
+    try:
+        from flask import redirect, url_for
+
+        section_id = _get_section_analyse_dossiers_id()
+        if section_id and not is_super_user() and not has_section_access(section_id):
+            flash("Vous n'avez pas accès à cette section.", "error")
+            return redirect(url_for('projet11.index'))
+
+        machines = projet11.get_machines_pour_rapport_kba()
+        now = datetime.now()
+        machine = request.args.get('machine', '').strip()
+        try:
+            mois = int(request.args.get('mois', now.month))
+        except (TypeError, ValueError):
+            mois = now.month
+        try:
+            annee = int(request.args.get('annee', now.year))
+        except (TypeError, ValueError):
+            annee = now.year
+
+        if not machine and machines:
+            for pref in ('KBA105', 'RA105', 'KBA 105'):
+                match = next((m for m in machines if pref.lower() in m.lower()), None)
+                if match:
+                    machine = match
+                    break
+
+        mois_options = list(enumerate(projet11.MOIS_FR_RAPPORT, start=1))
+
+        pdf_preview_url = ''
+        pdf_download_url = ''
+        if machine:
+            pdf_preview_url = url_for(
+                'projet11.rapport_mensuel_pdf',
+                machine=machine, mois=mois, annee=annee, preview=1,
+            )
+            pdf_download_url = url_for(
+                'projet11.rapport_mensuel_pdf',
+                machine=machine, mois=mois, annee=annee, download=1,
+            )
+
+        from logic.kba_report_theme import KBA_COLORS
+
+        return render_template(
+            'projet11_rapport.html',
+            machines=machines,
+            machine=machine,
+            mois=mois,
+            annee=annee,
+            mois_options=mois_options,
+            pdf_preview_url=pdf_preview_url,
+            pdf_download_url=pdf_download_url,
+            kba_colors=KBA_COLORS,
+            parent_template='base_embed.html',
+            embed=True,
+        )
+    except Exception as e:
+        print(f"Erreur dans rapport_mensuel: {e}")
+        import traceback
+        traceback.print_exc()
+        from flask import redirect, url_for
+        flash(f"Erreur lors du chargement du rapport: {str(e)}", "error")
+        return redirect(url_for('projet11.index'))
+
+
+@projet11_bp.route('/projet11/rapport/pdf')
+def rapport_mensuel_pdf():
+    """Génération PDF du rapport mensuel machine."""
+    from flask import send_file, redirect, url_for
+    from io import BytesIO
+
+    section_id = _get_section_analyse_dossiers_id()
+    if section_id and not is_super_user() and not has_section_access(section_id):
+        flash("Vous n'avez pas accès à cette section.", "error")
+        return redirect(url_for('projet11.index'))
+
+    machine = request.args.get('machine', '').strip()
+    if not machine:
+        return jsonify({"error": "Paramètre machine requis"}), 400
+    try:
+        mois = int(request.args.get('mois', datetime.now().month))
+        annee = int(request.args.get('annee', datetime.now().year))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Mois ou année invalide"}), 400
+
+    try:
+        data = projet11.get_rapport_kba_data(machine, annee, mois)
+        pdf_bytes = _build_rapport_kba_pdf(data)
+    except ImportError:
+        return jsonify({"error": "reportlab est requis pour la génération PDF"}), 500
+    except Exception as e:
+        print(f"Erreur rapport_mensuel_pdf: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+    safe_machine = re.sub(r'[^\w\-]+', '_', machine).strip('_') or 'machine'
+    filename = f"Rapport_{safe_machine}_{annee}-{mois:02d}.pdf"
+    inline = request.args.get('preview') == '1' and request.args.get('download') != '1'
+    return send_file(
+        BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=not inline,
+        download_name=filename,
+    )
+
+
 @projet11_bp.route('/projet11/tableau-comparatif')
 def tableau_comparatif():
     """Page Tableau comparatif (prévu / réel par dossier) - vérifie l'accès à la section"""
@@ -1397,11 +1517,14 @@ def statistiques():
             from flask import flash, redirect, url_for
             flash("Vous n'avez pas accès à cette section.", "error")
             return redirect(url_for('projet11.index'))
+
+        date_debut = request.args.get('date_debut', '').strip() or None
+        date_fin = request.args.get('date_fin', '').strip() or None
         
-        stats = projet11.get_statistiques_traitements()
-        stats_services = projet11.get_traitements_par_service()
-        stats_operateurs = projet11.get_traitements_par_operateur()
-        stats_machines = projet11.get_traitements_par_machine()
+        stats = projet11.get_statistiques_traitements(date_debut=date_debut, date_fin=date_fin)
+        stats_services = projet11.get_traitements_par_service(date_debut=date_debut, date_fin=date_fin)
+        stats_operateurs = projet11.get_traitements_par_operateur(date_debut=date_debut, date_fin=date_fin)
+        stats_machines = projet11.get_traitements_par_machine(date_debut=date_debut, date_fin=date_fin)
         
         return render_template(
             'projet11_stats.html',
@@ -1409,6 +1532,8 @@ def statistiques():
             stats_services=stats_services,
             stats_operateurs=stats_operateurs,
             stats_machines=stats_machines,
+            date_debut=date_debut,
+            date_fin=date_fin,
             parent_template='base_embed.html',
             embed=True
         )
@@ -1424,14 +1549,20 @@ def statistiques():
 @projet11_bp.route('/projet11/api/statistiques', methods=['GET'])
 def api_statistiques():
     """API pour récupérer les statistiques"""
-    stats = projet11.get_statistiques_traitements()
-    stats_services = projet11.get_traitements_par_service()
-    stats_operateurs = projet11.get_traitements_par_operateur()
+    date_debut = request.args.get('date_debut', '').strip() or None
+    date_fin = request.args.get('date_fin', '').strip() or None
+    stats = projet11.get_statistiques_traitements(date_debut=date_debut, date_fin=date_fin)
+    stats_services = projet11.get_traitements_par_service(date_debut=date_debut, date_fin=date_fin)
+    stats_operateurs = projet11.get_traitements_par_operateur(date_debut=date_debut, date_fin=date_fin)
+    stats_machines = projet11.get_traitements_par_machine(date_debut=date_debut, date_fin=date_fin)
     
     return jsonify({
         "global": stats,
         "par_service": stats_services,
-        "par_operateur": stats_operateurs
+        "par_operateur": stats_operateurs,
+        "par_machine": stats_machines,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
     })
 
 
@@ -1446,10 +1577,13 @@ def export_statistiques_excel():
     try:
         import pandas as pd
         from io import BytesIO
+
+        date_debut = request.args.get('date_debut', '').strip() or None
+        date_fin = request.args.get('date_fin', '').strip() or None
         
-        stats = projet11.get_statistiques_traitements()
-        stats_services = projet11.get_traitements_par_service()
-        stats_operateurs = projet11.get_traitements_par_operateur()
+        stats = projet11.get_statistiques_traitements(date_debut=date_debut, date_fin=date_fin)
+        stats_services = projet11.get_traitements_par_service(date_debut=date_debut, date_fin=date_fin)
+        stats_operateurs = projet11.get_traitements_par_operateur(date_debut=date_debut, date_fin=date_fin)
         
         # Créer un fichier Excel avec plusieurs feuilles
         output = BytesIO()
@@ -1625,10 +1759,13 @@ def export_statistiques_pdf():
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from io import BytesIO
+
+        date_debut = request.args.get('date_debut', '').strip() or None
+        date_fin = request.args.get('date_fin', '').strip() or None
         
-        stats = projet11.get_statistiques_traitements()
-        stats_services = projet11.get_traitements_par_service()
-        stats_operateurs = projet11.get_traitements_par_operateur()
+        stats = projet11.get_statistiques_traitements(date_debut=date_debut, date_fin=date_fin)
+        stats_services = projet11.get_traitements_par_service(date_debut=date_debut, date_fin=date_fin)
+        stats_operateurs = projet11.get_traitements_par_operateur(date_debut=date_debut, date_fin=date_fin)
         
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)

@@ -41,6 +41,12 @@
                 <span>Tableau de bord</span>
             </a>
             {% endif %}
+            {% if show_rapport %}
+            <a href="{{ url_for('projet11.rapport_mensuel') }}" class="section-btn" style="text-decoration: none;">
+                <span>📄</span>
+                <span>Rapport</span>
+            </a>
+            {% endif %}
         </div>
     </div>
 </div>

@@ -24,6 +24,38 @@
         </div>
     </div>
 
+    <!-- Filtre période -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" action="{{ url_for('projet11.statistiques') }}" class="row g-3 align-items-end">
+                <div class="col-auto">
+                    <label for="date_debut" class="form-label">Date début</label>
+                    <input type="date" id="date_debut" name="date_debut" class="form-control" value="{{ date_debut or '' }}">
+                </div>
+                <div class="col-auto">
+                    <label for="date_fin" class="form-label">Date fin</label>
+                    <input type="date" id="date_fin" name="date_fin" class="form-control" value="{{ date_fin or '' }}">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-filter"></i> Appliquer
+                    </button>
+                </div>
+                <div class="col-auto">
+                    <a href="{{ url_for('projet11.statistiques') }}" class="btn btn-outline-secondary">Réinitialiser</a>
+                </div>
+                <div class="col-12 col-md-auto text-muted small">
+                    <i class="fas fa-info-circle"></i>
+                    {% if date_debut or date_fin %}
+                    Période appliquée sur la <strong>date de début</strong> des traitements (fiches terminées et en cours).
+                    {% else %}
+                    Sans filtre : toutes les fiches enregistrées. La période s’applique sur la <strong>date de début</strong> des traitements.
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-3">
         <div class="col-12 col-xl-8">
             <div class="row g-3">

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Modifier la visite{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-edit section-icon"></i>Modifier la visite
+        </h1>
+        <a href="{{ url_for('projet28.details_visite', id_visite=visite.ID) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Retour aux détails
+        </a>
+    </div>
+
+    <form method="POST" action="{{ url_for('projet28.update_visite', id_visite=visite.ID) }}">
+        <input type="hidden" name="id_societe" value="{{ visite.ID_SOCIETE }}">
+        <input type="hidden" name="id_visite" value="{{ visite.ID }}">
+
+        <!-- Section Détails de la visite -->
+        <fieldset>
+            <legend><i class="fas fa-calendar-alt section-icon"></i>Détails de la visite</legend>
+            <div class="form-group">
+                <label for="date_visite" class="required-field">Date de la visite</label>
+                <input type="date" class="form-control" id="date_visite" name="date_visite" value="{{ visite.DateVisite.strftime('%Y-%m-%d') }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="nature_visite" class="required-field">Nature de la visite</label>
+                <select class="form-control" name="nature_visite" id="nature_visite" required>
+                    <option value="">Sélectionnez une nature</option>
+                    <option value="Premier contact" {% if visite.NatureVisite == 'Premier contact' %}selected{% endif %}>Premier contact</option>
+                    <option value="Visite commerciale" {% if visite.NatureVisite == 'Visite commerciale' %}selected{% endif %}>Visite commerciale</option>
+                    <option value="Suivi client" {% if visite.NatureVisite == 'Suivi client' %}selected{% endif %}>Suivi client</option>
+                    <option value="Résolution problème" {% if visite.NatureVisite == 'Résolution problème' %}selected{% endif %}>Résolution problème</option>
+                    <option value="Présentation produit" {% if visite.NatureVisite == 'Présentation produit' %}selected{% endif %}>Présentation produit</option>
+                    <option value="Autre" {% if visite.NatureVisite == 'Autre' %}selected{% endif %}>Autre</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="sujets" class="required-field">Sujets abordés</label>
+                <textarea class="form-control" name="sujets" id="sujets" rows="5" required>{{ visite.Sujets }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="bilan" class="required-field">Bilan de la visite</label>
+                <textarea class="form-control" name="bilan" id="bilan" rows="5" required>{{ visite.Bilan }}</textarea>
+            </div>
+        </fieldset>
+
+        <!-- Section Actions -->
+        <fieldset>
+            <legend><i class="fas fa-tasks section-icon"></i>Actions</legend>
+            <div id="actions-container">
+                {% for action in actions %}
+                <div class="action-item priority-{{ action.PRIORITE.lower() }}">
+                    <div class="form-group">
+                        <label>Description de l'Action</label>
+                        <input type="text" class="form-control" name="action_description[]" value="{{ action.DESCRIPTION }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Date d'échéance</label>
+                        <input type="date" class="form-control" name="date_echeance[]" value="{{ action.DATE_ECHEANCE.strftime('%Y-%m-%d') if action.DATE_ECHEANCE else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Priorité</label>
+                        <select class="form-control" name="action_priority[]">
+                            <option value="high" {% if action.PRIORITE == 'high' %}selected{% endif %}>Haute</option>
+                            <option value="medium" {% if action.PRIORITE == 'medium' %}selected{% endif %}>Moyenne</option>
+                            <option value="low" {% if action.PRIORITE == 'low' %}selected{% endif %}>Basse</option>
+                        </select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-primary" id="addAction">
+                <i class="fas fa-plus"></i> Ajouter une Action
+            </button>
+        </fieldset>
+
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-save"></i> Enregistrer les modifications
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %} 

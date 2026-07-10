@@ -39,6 +39,13 @@ from logic.projet16 import (
     update_preventive_task,
     delete_preventive_task
 )
+from logic.projet16_preventive_import import (
+    PREVENTIVE_IMPORT_DIR,
+    DEFAULT_EXCEL_FILENAME,
+    ensure_import_directory,
+    get_preventive_import_status,
+    import_preventive_from_excel,
+)
 
 projet16_bp = Blueprint('projet16', __name__, url_prefix='/projet16')
 
@@ -49,6 +56,7 @@ def index():
     machines = get_machines_disponibles()
     articles = get_articles_disponibles()
     popup_only = request.args.get('popupOnly') == '1'
+    ensure_import_directory()
     matricule = session.get('matricule')
     atelier_nom = session.get('atelier_nom')
     if matricule is not None:
@@ -65,6 +73,8 @@ def index():
         popup_only=popup_only,
         filtre_storage_key_demandes=f'projet16_demandes_filtre_{filtre_suffix}',
         filtre_storage_key_reparations=f'projet16_reparations_filtre_{filtre_suffix}',
+        preventive_import_dir=PREVENTIVE_IMPORT_DIR,
+        preventive_import_filename=DEFAULT_EXCEL_FILENAME,
     )
 
 @projet16_bp.route('/api/search_operateurs')
@@ -1095,6 +1105,33 @@ def api_preventive_tasks():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+@projet16_bp.route('/api/preventive/import/status')
+def api_preventive_import_status():
+    """État du fichier Excel déposé dans le dossier d'import préventif."""
+    try:
+        return jsonify(get_preventive_import_status())
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_preventive_import_status: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@projet16_bp.route('/api/preventive/import', methods=['POST'])
+def api_preventive_import():
+    """Importe le planning Excel déposé (toutes les feuilles → une machine par feuille)."""
+    try:
+        data = request.get_json(silent=True) or {}
+        replace_existing = data.get('replace_existing', False)
+        result = import_preventive_from_excel(replace_existing=bool(replace_existing))
+        return jsonify({"success": True, **result})
+    except FileNotFoundError as e:
+        return jsonify({"success": False, "error": str(e)}), 404
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_preventive_import: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @projet16_bp.route('/api/preventive/task/<int:task_id>')
 def api_preventive_task_detail(task_id):

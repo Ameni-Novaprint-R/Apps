@@ -2515,6 +2515,10 @@ def create_traitement(data):
                     sync_codindav_for_fiche(id_fiche_insert, cursor)
                 if dte_fin and nom_fd and _is_typo_service(cursor, fiche_data[14]):
                     _apply_nom_fd_tirages_delta(cursor, nom_fd, nb_op)
+                if nom_fd and data.get('dte_deb'):
+                    from logic.projet24 import ensure_derniere_utilisation_columns, sync_forme_derniere_utilisation
+                    ensure_derniere_utilisation_columns()
+                    sync_forme_derniere_utilisation(cursor, nom_fd)
                 cursor.connection.commit()
                 print("[DEBUG] COMMIT réussi")
                 
@@ -2825,6 +2829,16 @@ def update_traitement(traitement_id, data):
                     _apply_nom_fd_tirages_delta(cursor, old_nom_fd, -old_total)
                 if nom_fd_new:
                     _apply_nom_fd_tirages_delta(cursor, nom_fd_new, nb_op)
+            
+            from logic.projet24 import ensure_derniere_utilisation_columns, sync_formes_derniere_utilisation_for_noms
+            ensure_derniere_utilisation_columns()
+            cursor.execute(
+                "SELECT LTRIM(RTRIM(ISNULL(NOM_FD, ''))) AS NOM_FD FROM WEB_TRAITEMENTS WHERE ID = ?",
+                (traitement_id,),
+            )
+            row_nd = cursor.fetchone()
+            current_nom_fd = (getattr(row_nd, 'NOM_FD', None) or '').strip() if row_nd else ''
+            sync_formes_derniere_utilisation_for_noms(cursor, old_nom_fd, current_nom_fd)
             
             if rows_affected == 0:
                 # Vérifier si le traitement existe
@@ -3155,6 +3169,14 @@ def delete_traitement(traitement_id):
         return False
     try:
         with get_db_cursor() as cursor:
+            nom_fd_del = ''
+            if column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD'):
+                cursor.execute(
+                    "SELECT LTRIM(RTRIM(ISNULL(NOM_FD, ''))) AS NOM_FD FROM WEB_TRAITEMENTS WHERE ID = ?",
+                    (traitement_id,),
+                )
+                row_nom = cursor.fetchone()
+                nom_fd_del = (getattr(row_nom, 'NOM_FD', None) or '').strip() if row_nom else ''
             cursor.execute("DELETE FROM WEB_TRAITEMENTS_OUVERTURE WHERE TraitementId = ?", (traitement_id,))
             cursor.execute("SELECT ID_FICHE_TRAVAIL FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
             row_fiche = cursor.fetchone()
@@ -3162,6 +3184,10 @@ def delete_traitement(traitement_id):
             cursor.execute("DELETE FROM WEB_TRAITEMENTS WHERE ID = ?", (traitement_id,))
             if id_fiche:
                 sync_codindav_for_fiche(id_fiche, cursor)
+            if nom_fd_del:
+                from logic.projet24 import ensure_derniere_utilisation_columns, sync_forme_derniere_utilisation
+                ensure_derniere_utilisation_columns()
+                sync_forme_derniere_utilisation(cursor, nom_fd_del)
             cursor.connection.commit()
             print(f"[OK] Traitement {traitement_id} supprimé avec succès")
             return True
@@ -3175,12 +3201,30 @@ def delete_traitement(traitement_id):
 # FONCTIONS DE STATISTIQUES
 # ============================================================================
 
-def get_statistiques_traitements():
+def _stats_periode_sql(date_debut=None, date_fin=None, column="DteDeb"):
     """
-    Récupère les statistiques globales des traitements
+    Clause SQL + paramètres pour filtrer WEB_TRAITEMENTS sur une période.
+    Par défaut : date de début du traitement (DteDeb).
     """
+    parts = []
+    params = []
+    if date_debut:
+        parts.append(f" AND CAST({column} AS DATE) >= ?")
+        params.append(date_debut)
+    if date_fin:
+        parts.append(f" AND CAST({column} AS DATE) <= ?")
+        params.append(date_fin)
+    return "".join(parts), params
+
+
+def get_statistiques_traitements(date_debut=None, date_fin=None):
+    """
+    Récupère les statistiques globales des traitements (période optionnelle sur DteDeb).
+    """
+    periode_sql, periode_params = _stats_periode_sql(date_debut, date_fin)
     with get_db_cursor() as cursor:
-        cursor.execute("""
+        cursor.execute(
+            f"""
             SELECT 
                 COUNT(*) as total_traitements,
                 SUM(NbOp) as total_operations,
@@ -3190,7 +3234,11 @@ def get_statistiques_traitements():
                 COUNT(CASE WHEN DteFin IS NOT NULL THEN 1 END) as traitements_termines,
                 COUNT(CASE WHEN DteFin IS NULL THEN 1 END) as traitements_en_cours
             FROM WEB_TRAITEMENTS
-        """)
+            WHERE 1=1
+            {periode_sql}
+            """,
+            tuple(periode_params),
+        )
         
         row = cursor.fetchone()
         if row:
@@ -3207,12 +3255,14 @@ def get_statistiques_traitements():
         return {}
 
 
-def get_traitements_par_service():
+def get_traitements_par_service(date_debut=None, date_fin=None):
     """
-    Récupère les statistiques par service
+    Récupère les statistiques par service (période optionnelle sur DteDeb).
     """
+    periode_sql, periode_params = _stats_periode_sql(date_debut, date_fin)
     with get_db_cursor() as cursor:
-        cursor.execute("""
+        cursor.execute(
+            f"""
             SELECT 
                 Nom_GP_SERVICES,
                 COUNT(*) as nb_traitements,
@@ -3220,9 +3270,12 @@ def get_traitements_par_service():
                 AVG(CAST(NbOp AS FLOAT)) as moyenne_operations
             FROM WEB_TRAITEMENTS
             WHERE Nom_GP_SERVICES IS NOT NULL
+            {periode_sql}
             GROUP BY Nom_GP_SERVICES
             ORDER BY nb_traitements DESC
-        """)
+            """,
+            tuple(periode_params),
+        )
         
         services = []
         for row in cursor.fetchall():
@@ -3236,20 +3289,26 @@ def get_traitements_par_service():
         return services
 
 
-def get_traitements_par_machine():
+def get_traitements_par_machine(date_debut=None, date_fin=None):
     """
-    Récupère les statistiques par machine (PostesReel)
+    Récupère les statistiques par machine (PostesReel), période optionnelle sur DteDeb.
     """
+    periode_sql, periode_params = _stats_periode_sql(date_debut, date_fin)
     with get_db_cursor() as cursor:
-        cursor.execute("""
+        cursor.execute(
+            f"""
             SELECT 
                 ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné') AS machine,
                 COUNT(*) as nb_traitements,
                 SUM(NbOp) as total_operations
             FROM WEB_TRAITEMENTS
+            WHERE 1=1
+            {periode_sql}
             GROUP BY ISNULL(NULLIF(LTRIM(RTRIM(PostesReel)), ''), 'Non renseigné')
             ORDER BY nb_traitements DESC
-        """)
+            """,
+            tuple(periode_params),
+        )
         machines = []
         for row in cursor.fetchall():
             machines.append({
@@ -3260,12 +3319,14 @@ def get_traitements_par_machine():
         return machines
 
 
-def get_traitements_par_operateur():
+def get_traitements_par_operateur(date_debut=None, date_fin=None):
     """
-    Récupère les statistiques par opérateur
+    Récupère les statistiques par opérateur (période optionnelle sur DteDeb).
     """
+    periode_sql, periode_params = _stats_periode_sql(date_debut, date_fin)
     with get_db_cursor() as cursor:
-        cursor.execute("""
+        cursor.execute(
+            f"""
             SELECT 
                 Nom_personel,
                 Prenom_personel,
@@ -3273,9 +3334,12 @@ def get_traitements_par_operateur():
                 SUM(NbOp) as total_operations
             FROM WEB_TRAITEMENTS
             WHERE Nom_personel IS NOT NULL
+            {periode_sql}
             GROUP BY Nom_personel, Prenom_personel
             ORDER BY nb_traitements DESC
-        """)
+            """,
+            tuple(periode_params),
+        )
         
         operateurs = []
         for row in cursor.fetchall():
@@ -3753,4 +3817,264 @@ def get_tableau_comparatif_commandes(numero_filter=None):
 
     result.sort(key=lambda x: x["numero"])
     return result
+
+
+# ============================================================================
+# RAPPORT MENSUEL KBA (données Projet 11)
+# ============================================================================
+
+MOIS_FR_RAPPORT = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]
+
+
+def _shift_month(year, month, delta):
+    """Retourne (année, mois) après décalage de delta mois."""
+    m = month + delta
+    y = year
+    while m < 1:
+        m += 12
+        y -= 1
+    while m > 12:
+        m -= 12
+        y += 1
+    return y, m
+
+
+def _month_bounds(year, month):
+    from calendar import monthrange
+    from datetime import date
+    last = monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last)
+
+
+def get_machines_pour_rapport_kba():
+    """
+    Liste des machines pour le rapport : PostesReel distincts (traitements)
+    + postes GP_POSTES, triés alphabétiquement.
+    """
+    names = set()
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT DISTINCT LTRIM(RTRIM(PostesReel)) AS nom
+            FROM WEB_TRAITEMENTS
+            WHERE PostesReel IS NOT NULL AND LTRIM(RTRIM(PostesReel)) <> ''
+        """)
+        for row in cursor.fetchall():
+            n = (row.nom or "").strip()
+            if n:
+                names.add(n)
+        try:
+            cursor.execute("""
+                SELECT DISTINCT LTRIM(RTRIM(Nom)) AS nom
+                FROM GP_POSTES
+                WHERE Nom IS NOT NULL AND LTRIM(RTRIM(Nom)) <> ''
+            """)
+            for row in cursor.fetchall():
+                n = (row.nom or "").strip()
+                if n:
+                    names.add(n)
+        except Exception:
+            pass
+    return sorted(names, key=lambda x: x.lower())
+
+
+def _fetch_rapport_kba_monthly_rows(machine, date_debut, date_fin):
+    """Agrégats mensuels pour une machine sur une plage (filtre DteDeb)."""
+    machine = (machine or "").strip()
+    with get_db_cursor() as cursor:
+        has_pdt_c = column_exists(cursor, "WEB_TRAITEMENTS", "PdtC")
+        net_expr = "SUM(ISNULL(PdtC, 0))" if has_pdt_c else "SUM(ISNULL(NbOp, 0))"
+        sql = f"""
+        SELECT
+            YEAR(DteDeb) AS annee,
+            MONTH(DteDeb) AS mois,
+            SUM(ISNULL(NbOp, 0)) AS total_operations,
+            {net_expr} AS feuilles_net_sum,
+            COUNT(*) AS nb_traitements,
+            COUNT(DISTINCT CAST(DteDeb AS DATE)) AS jours_production,
+            SUM(CASE WHEN DteFin IS NOT NULL AND TpsReel IS NOT NULL AND TpsReel > 0
+                THEN ISNULL(NbOp, 0) ELSE 0 END) AS ops_cadence,
+            SUM(CASE WHEN DteFin IS NOT NULL AND TpsReel IS NOT NULL AND TpsReel > 0
+                THEN TpsReel ELSE 0 END) AS tps_cadence,
+            SUM(ISNULL(TpsReel, 0)) AS total_heures,
+            AVG(CAST(NbOp AS FLOAT)) AS tirage_moyen,
+            MAX(CASE WHEN DteFin IS NOT NULL AND TpsReel IS NOT NULL AND TpsReel > 0
+                THEN CAST(NbOp AS FLOAT) / TpsReel ELSE NULL END) AS cadence_max_traitement
+        FROM WEB_TRAITEMENTS
+        WHERE LTRIM(RTRIM(PostesReel)) = ?
+          AND DteDeb IS NOT NULL
+          AND CAST(DteDeb AS DATE) >= ?
+          AND CAST(DteDeb AS DATE) <= ?
+        GROUP BY YEAR(DteDeb), MONTH(DteDeb)
+        """
+        cursor.execute(sql, (machine, date_debut, date_fin))
+        rows = cursor.fetchall()
+    by_key = {}
+    for row in rows:
+        key = (int(row.annee), int(row.mois))
+        tps = float(row.tps_cadence or 0)
+        ops_c = float(row.ops_cadence or 0)
+        cadence_moy = round(ops_c / tps, 0) if tps > 0 else 0
+        cadence_max = round(float(row.cadence_max_traitement or 0), 0)
+        total_h = float(row.total_heures or 0)
+        nb_trait = int(row.nb_traitements or 0)
+        jours_prod = int(getattr(row, "jours_production", 0) or 0)
+        # Changement de travail : le 1er dossier d'une journée n'est pas un changement
+        # => changements = dossiers - jours de production (>= 0)
+        changements_total = max(nb_trait - jours_prod, 0)
+        changements_moyen_jour = round(changements_total / jours_prod, 1) if jours_prod else 0
+        by_key[key] = {
+            "annee": key[0],
+            "mois": key[1],
+            "mois_label": MOIS_FR_RAPPORT[key[1] - 1],
+            "total_operations": int(row.total_operations or 0),
+            "nb_traitements": nb_trait,
+            "jours_production": jours_prod,
+            "changements_total": changements_total,
+            "changements_moyen_jour": changements_moyen_jour,
+            "total_heures": round(total_h, 1),
+            "cadence_moyenne": int(cadence_moy),
+            "cadence_max": int(cadence_max),
+            "tirage_moyen": int(round(float(row.tirage_moyen or 0))),
+            "feuilles_brut": int(row.total_operations or 0),
+            "feuilles_net": int(getattr(row, "feuilles_net_sum", None) or row.total_operations or 0),
+        }
+    return by_key
+
+
+def _fetch_compteur_rapport_kba(machine, year, month):
+    """Compteur machine : delta du mois et cumul max (CompteurLecture)."""
+    ensure_compteur_lecture_column()
+    machine = (machine or "").strip()
+    debut, fin = _month_bounds(year, month)
+    result = {
+        "delta_mois": None,
+        "max_mois": None,
+        "max_cumul": None,
+        "disponible": False,
+    }
+    try:
+        with get_db_cursor() as cursor:
+            if not column_exists(cursor, "WEB_TRAITEMENTS", "CompteurLecture"):
+                return result
+            cursor.execute(
+                """
+                SELECT
+                    MIN(CompteurLecture) AS min_lecture,
+                    MAX(CompteurLecture) AS max_lecture
+                FROM WEB_TRAITEMENTS
+                WHERE LTRIM(RTRIM(PostesReel)) = ?
+                  AND CompteurLecture IS NOT NULL
+                  AND CAST(DteDeb AS DATE) >= ?
+                  AND CAST(DteDeb AS DATE) <= ?
+                """,
+                (machine, debut, fin),
+            )
+            row = cursor.fetchone()
+            if row and row.max_lecture is not None:
+                result["disponible"] = True
+                result["max_mois"] = int(row.max_lecture)
+                if row.min_lecture is not None and int(row.max_lecture) >= int(row.min_lecture):
+                    result["delta_mois"] = int(row.max_lecture) - int(row.min_lecture)
+            cursor.execute(
+                """
+                SELECT MAX(CompteurLecture) AS max_cumul
+                FROM WEB_TRAITEMENTS
+                WHERE LTRIM(RTRIM(PostesReel)) = ?
+                  AND CompteurLecture IS NOT NULL
+                  AND CAST(DteDeb AS DATE) <= ?
+                """,
+                (machine, fin),
+            )
+            row2 = cursor.fetchone()
+            if row2 and row2.max_cumul is not None:
+                result["max_cumul"] = int(row2.max_cumul)
+                result["disponible"] = True
+    except Exception as e:
+        print(f"[projet11] _fetch_compteur_rapport_kba: {e}")
+    return result
+
+
+def get_rapport_kba_data(machine, year, month, nb_mois_historique=6):
+    """
+    Données pour le rapport mensuel type KBA à partir de WEB_TRAITEMENTS.
+    Filtre sur DteDeb. Historique : nb_mois_historique mois se terminant au mois choisi.
+    """
+    machine = (machine or "").strip()
+    if not machine:
+        raise ValueError("Machine requise")
+    year = int(year)
+    month = int(month)
+    if month < 1 or month > 12:
+        raise ValueError("Mois invalide")
+
+    start_y, start_m = _shift_month(year, month, -(nb_mois_historique - 1))
+    range_debut, _ = _month_bounds(start_y, start_m)
+    _, range_fin = _month_bounds(year, month)
+
+    by_key = _fetch_rapport_kba_monthly_rows(machine, range_debut, range_fin)
+
+    historique = []
+    y, m = start_y, start_m
+    for _ in range(nb_mois_historique):
+        key = (y, m)
+        entry = by_key.get(key, {
+            "annee": y,
+            "mois": m,
+            "mois_label": MOIS_FR_RAPPORT[m - 1],
+            "total_operations": 0,
+            "nb_traitements": 0,
+            "jours_production": 0,
+            "changements_total": 0,
+            "changements_moyen_jour": 0,
+            "total_heures": 0,
+            "cadence_moyenne": 0,
+            "cadence_max": 0,
+            "tirage_moyen": 0,
+            "feuilles_brut": 0,
+            "feuilles_net": 0,
+        })
+        # Compat : changements/jour basé sur la règle (dossiers - 1 par jour de production)
+        entry["changements_par_jour"] = entry.get("changements_moyen_jour", 0)
+        historique.append(entry)
+        y, m = _shift_month(y, m, 1)
+
+    # mois courant = dernier de l'historique
+    mois_courant = historique[-1] if historique else {}
+    compteur = _fetch_compteur_rapport_kba(machine, year, month)
+    historique_graph = list(reversed(historique))
+
+    return {
+        "machine": machine,
+        "machine_type": "Moyen format",
+        "machine_segment": "tous",
+        "num_construction": None,
+        "annee_machine": year,
+        "annee": year,
+        "mois": month,
+        "mois_label": MOIS_FR_RAPPORT[month - 1],
+        "titre_periode": f"{MOIS_FR_RAPPORT[month - 1]} {year}",
+        "client": "Imprimerie Novaprint",
+        "site": "TN",
+        "mois_courant": mois_courant,
+        "historique": historique,
+        "historique_graph": historique_graph,
+        "compteur": compteur,
+        "compteur_brut": compteur.get("max_cumul"),
+        "compteur_net": compteur.get("max_cumul"),
+        "source": "Projet 11 — WEB_TRAITEMENTS (DteDeb)",
+        "sections_telemetry": {
+            "disponibilite_pct": None,
+            "temps_veille_h": None,
+            "temps_arret_h": None,
+            "temps_impression_h": mois_courant.get("total_heures"),
+            "temps_plaques_h": None,
+            "temps_lavage_h": None,
+            "vitesses": None,
+            "performance_score": None,
+            "maintenance": None,
+        },
+    }
 

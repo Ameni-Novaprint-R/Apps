@@ -8,6 +8,146 @@ from db import get_db_cursor
 TABLE_FORMES = "dbo.WEB_FORMES_DECOUPE"
 TABLE_COUTS = "dbo.WEB_FORMES_COUTS"
 
+FORME_SELECT_COLS = """
+    ID, TYPE_FORME, TYPE_PRODUIT, NOM, DIMENSION, FORMAT_FINI, SENS_FIBRE,
+    FICHIER_SOURCE, NOMBRE_POSE, TOTAL_TIRAGES, COUT_INITIAL, COUT_AMELIORATION,
+    ETAT, DESCRIPTION, DATE_CREATION, CREATEUR,
+    DERNIER_UTILISATEUR, DERNIERE_MACHINE, DATE_DERNIERE_UTILISATION,
+    ID_DERNIER_TRAITEMENT, DERNIER_DOSSIER
+"""
+
+
+def ensure_derniere_utilisation_columns():
+    """Ajoute les colonnes de dernière utilisation (Projet 11) dans WEB_FORMES_DECOUPE si absentes."""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'WEB_FORMES_DECOUPE'
+        """)
+        if not cursor.fetchone().n:
+            return
+        cursor.execute("""
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'WEB_FORMES_DECOUPE'
+        """)
+        existing = {(row.COLUMN_NAME or '').strip().upper() for row in cursor.fetchall()}
+        colonnes = [
+            ('DERNIER_UTILISATEUR', 'ALTER TABLE dbo.WEB_FORMES_DECOUPE ADD DERNIER_UTILISATEUR NVARCHAR(200) NULL'),
+            ('DERNIERE_MACHINE', 'ALTER TABLE dbo.WEB_FORMES_DECOUPE ADD DERNIERE_MACHINE NVARCHAR(100) NULL'),
+            ('DATE_DERNIERE_UTILISATION', 'ALTER TABLE dbo.WEB_FORMES_DECOUPE ADD DATE_DERNIERE_UTILISATION DATETIME NULL'),
+            ('ID_DERNIER_TRAITEMENT', 'ALTER TABLE dbo.WEB_FORMES_DECOUPE ADD ID_DERNIER_TRAITEMENT INT NULL'),
+            ('DERNIER_DOSSIER', 'ALTER TABLE dbo.WEB_FORMES_DECOUPE ADD DERNIER_DOSSIER NVARCHAR(50) NULL'),
+        ]
+        for col_name, alter_sql in colonnes:
+            if col_name not in existing:
+                try:
+                    cursor.execute(alter_sql)
+                except Exception as e:
+                    print(f"[projet24] Ajout colonne WEB_FORMES_DECOUPE.{col_name}: {e}")
+        cursor.connection.commit()
+
+
+def sync_forme_derniere_utilisation(cursor, nom_fd):
+    """
+    Recalcule la dernière utilisation d'une forme depuis WEB_TRAITEMENTS (NOM_FD = NOM).
+    Critère : DteDeb la plus récente (traitements en cours inclus).
+    """
+    nom_fd = (nom_fd or '').strip()
+    if not nom_fd:
+        return
+    cursor.execute("SELECT NOM FROM dbo.WEB_FORMES_DECOUPE WHERE NOM = ?", (nom_fd,))
+    if not cursor.fetchone():
+        return
+    cursor.execute("""
+        SELECT TOP 1
+            wt.ID,
+            wt.DteDeb,
+            LTRIM(RTRIM(ISNULL(wt.Nom_personel, ''))) AS nom_p,
+            LTRIM(RTRIM(ISNULL(wt.Prenom_personel, ''))) AS prenom_p,
+            LTRIM(RTRIM(ISNULL(wt.PostesReel, ''))) AS machine,
+            LTRIM(RTRIM(ISNULL(wt.Numero_COMMANDES, ''))) AS dossier
+        FROM dbo.WEB_TRAITEMENTS wt
+        WHERE LTRIM(RTRIM(ISNULL(wt.NOM_FD, ''))) = ?
+          AND wt.DteDeb IS NOT NULL
+        ORDER BY wt.DteDeb DESC, wt.ID DESC
+    """, (nom_fd,))
+    row = cursor.fetchone()
+    if row:
+        operateur = f"{row.nom_p} {row.prenom_p}".strip() or None
+        machine = (row.machine or '').strip() or None
+        dossier = (row.dossier or '').strip() or None
+        cursor.execute("""
+            UPDATE dbo.WEB_FORMES_DECOUPE
+            SET DERNIER_UTILISATEUR = ?,
+                DERNIERE_MACHINE = ?,
+                DATE_DERNIERE_UTILISATION = ?,
+                ID_DERNIER_TRAITEMENT = ?,
+                DERNIER_DOSSIER = ?
+            WHERE NOM = ?
+        """, (operateur, machine, row.DteDeb, row.ID, dossier, nom_fd))
+    else:
+        cursor.execute("""
+            UPDATE dbo.WEB_FORMES_DECOUPE
+            SET DERNIER_UTILISATEUR = NULL,
+                DERNIERE_MACHINE = NULL,
+                DATE_DERNIERE_UTILISATION = NULL,
+                ID_DERNIER_TRAITEMENT = NULL,
+                DERNIER_DOSSIER = NULL
+            WHERE NOM = ?
+        """, (nom_fd,))
+
+
+def sync_formes_derniere_utilisation_for_noms(cursor, *noms):
+    """Synchronise plusieurs formes (ex. ancien et nouveau NOM_FD après modification)."""
+    seen = set()
+    for nom in noms:
+        n = (nom or '').strip()
+        if n and n not in seen:
+            seen.add(n)
+            sync_forme_derniere_utilisation(cursor, n)
+
+
+def backfill_derniere_utilisation():
+    """Initialise les colonnes de dernière utilisation depuis l'historique WEB_TRAITEMENTS."""
+    ensure_derniere_utilisation_columns()
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'WEB_FORMES_DECOUPE'
+        """)
+        if not cursor.fetchone().n:
+            return
+        cursor.execute("""
+            WITH LastUse AS (
+                SELECT
+                    LTRIM(RTRIM(wt.NOM_FD)) AS nom_fd,
+                    wt.ID AS traitement_id,
+                    wt.DteDeb,
+                    LTRIM(RTRIM(ISNULL(wt.Nom_personel, '')))
+                        + CASE WHEN LTRIM(RTRIM(ISNULL(wt.Prenom_personel, ''))) <> ''
+                               THEN ' ' + LTRIM(RTRIM(wt.Prenom_personel)) ELSE '' END AS operateur,
+                    LTRIM(RTRIM(ISNULL(wt.PostesReel, ''))) AS machine,
+                    LTRIM(RTRIM(ISNULL(wt.Numero_COMMANDES, ''))) AS dossier,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY LTRIM(RTRIM(wt.NOM_FD))
+                        ORDER BY wt.DteDeb DESC, wt.ID DESC
+                    ) AS rn
+                FROM dbo.WEB_TRAITEMENTS wt
+                WHERE wt.NOM_FD IS NOT NULL AND LTRIM(RTRIM(wt.NOM_FD)) <> ''
+                  AND wt.DteDeb IS NOT NULL
+            )
+            UPDATE fd
+            SET
+                fd.DERNIER_UTILISATEUR = NULLIF(LTRIM(RTRIM(lu.operateur)), ''),
+                fd.DERNIERE_MACHINE = NULLIF(lu.machine, ''),
+                fd.DATE_DERNIERE_UTILISATION = lu.DteDeb,
+                fd.ID_DERNIER_TRAITEMENT = lu.traitement_id,
+                fd.DERNIER_DOSSIER = NULLIF(lu.dossier, '')
+            FROM dbo.WEB_FORMES_DECOUPE fd
+            INNER JOIN LastUse lu ON lu.nom_fd = fd.NOM AND lu.rn = 1
+        """)
+        cursor.connection.commit()
+
 
 def _row_to_forme(row):
     """Convertit une ligne SQL en dict pour une forme."""
@@ -30,23 +170,25 @@ def _row_to_forme(row):
         'description': getattr(row, 'DESCRIPTION', None),
         'date_creation': getattr(row, 'DATE_CREATION', None),
         'createur': getattr(row, 'CREATEUR', None),
+        'dernier_utilisateur': getattr(row, 'DERNIER_UTILISATEUR', None),
+        'derniere_machine': getattr(row, 'DERNIERE_MACHINE', None),
+        'date_derniere_utilisation': getattr(row, 'DATE_DERNIERE_UTILISATION', None),
+        'id_dernier_traitement': getattr(row, 'ID_DERNIER_TRAITEMENT', None),
+        'dernier_dossier': getattr(row, 'DERNIER_DOSSIER', None),
     }
 
 
 def get_all_formes():
     """Liste toutes les formes. Affiche toutes les lignes (pas de filtre STATUT) pour inclure les données existantes."""
+    ensure_derniere_utilisation_columns()
     with get_db_cursor() as cursor:
         try:
-            # Requête complète si la colonne STATUT existe
-            cursor.execute("""
-                SELECT ID, TYPE_FORME, TYPE_PRODUIT, NOM, DIMENSION, FORMAT_FINI, SENS_FIBRE,
-                       FICHIER_SOURCE, NOMBRE_POSE, TOTAL_TIRAGES, COUT_INITIAL, COUT_AMELIORATION,
-                       ETAT, DESCRIPTION, DATE_CREATION, CREATEUR
+            cursor.execute(f"""
+                SELECT {FORME_SELECT_COLS}
                 FROM WEB_FORMES_DECOUPE
                 ORDER BY COALESCE(DATE_CREATION, CAST(ID AS DATETIME)) DESC, ID DESC
             """)
         except Exception:
-            # Fallback si colonnes DESCRIPTION ou DATE_CREATION absentes
             cursor.execute("""
                 SELECT ID, TYPE_FORME, TYPE_PRODUIT, NOM, DIMENSION, FORMAT_FINI, SENS_FIBRE,
                        FICHIER_SOURCE, NOMBRE_POSE, TOTAL_TIRAGES, COUT_INITIAL, COUT_AMELIORATION,
@@ -60,10 +202,8 @@ def get_all_formes():
 def get_forme_by_id(forme_id):
     """Retourne une forme par ID."""
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            SELECT ID, TYPE_FORME, TYPE_PRODUIT, NOM, DIMENSION, FORMAT_FINI, SENS_FIBRE,
-                   FICHIER_SOURCE, NOMBRE_POSE, TOTAL_TIRAGES, COUT_INITIAL, COUT_AMELIORATION,
-                   ETAT, DESCRIPTION, DATE_CREATION, CREATEUR
+        cursor.execute(f"""
+            SELECT {FORME_SELECT_COLS}
             FROM WEB_FORMES_DECOUPE WHERE ID = ?
         """, (forme_id,))
         return _row_to_forme(cursor.fetchone())
@@ -72,10 +212,8 @@ def get_forme_by_id(forme_id):
 def get_forme_by_nom(nom):
     """Retourne une forme par NOM."""
     with get_db_cursor() as cursor:
-        cursor.execute("""
-            SELECT ID, TYPE_FORME, TYPE_PRODUIT, NOM, DIMENSION, FORMAT_FINI, SENS_FIBRE,
-                   FICHIER_SOURCE, NOMBRE_POSE, TOTAL_TIRAGES, COUT_INITIAL, COUT_AMELIORATION,
-                   ETAT, DESCRIPTION, DATE_CREATION, CREATEUR
+        cursor.execute(f"""
+            SELECT {FORME_SELECT_COLS}
             FROM WEB_FORMES_DECOUPE WHERE NOM = ?
         """, (nom,))
         return _row_to_forme(cursor.fetchone())

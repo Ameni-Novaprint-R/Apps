@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-4">
+        <a href="{{ url_for('projet28.historique_visites') }}" class="text-sm text-gray-500 hover:text-gray-700">← Retour à l'historique</a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <!-- En-tête de la visite -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">{{ visite.RaisonSociale }}</h1>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm text-gray-600">
+                    <p>Date: {{ visite.DateVisite.strftime('%d/%m/%Y') }}</p>
+                    <p>Visiteur: {{ visite.Visiteur }}</p>
+                </div>
+                <a href="{{ url_for('projet28.edit_visite', id_visite=visite.ID) }}" class="btn btn-primary">
+                    <i class="fas fa-edit"></i> Modifier
+                </a>
+            </div>
+        </div>
+
+        <!-- Informations de la société -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3">Informations de la société</h2>
+                <div class="space-y-2">
+                    <p><span class="font-medium">Ville:</span> {{ visite.Ville }}</p>
+                    <p><span class="font-medium">Pays:</span> {{ visite.NomPays }}</p>
+                    <p><span class="font-medium">Téléphone:</span> {{ visite.Telephone }}</p>
+                    <p><span class="font-medium">Email:</span> {{ visite.Mail }}</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3">Détails de la visite</h2>
+                <div class="space-y-2">
+                    <p><span class="font-medium">Nature:</span> {{ visite.NatureVisite }}</p>
+                    <p><span class="font-medium">Objet:</span> {{ visite.Objet }}</p>
+                    <p><span class="font-medium">Origine:</span> {{ visite.Origine }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sujets et bilan -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-3">Sujets abordés</h2>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="whitespace-pre-wrap">{{ visite.Sujets }}</p>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-3">Bilan de la visite</h2>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="whitespace-pre-wrap">{{ visite.Bilan }}</p>
+            </div>
+        </div>
+
+        <!-- Contacts présents -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-3">Contacts présents</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for contact in contacts %}
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="font-medium">{{ contact.Prenom }} {{ contact.Nom }}</p>
+                    <p class="text-sm text-gray-600">{{ contact.Fonction }}</p>
+                    <div class="mt-2 space-y-1">
+                        {% if contact.Telephone %}
+                        <p class="text-sm">Tél: {{ contact.Telephone }}</p>
+                        {% endif %}
+                        {% if contact.Mobile %}
+                        <p class="text-sm">Mobile: {{ contact.Mobile }}</p>
+                        {% endif %}
+                        {% if contact.Mail %}
+                        <p class="text-sm">Email: {{ contact.Mail }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div>
+            <h2 class="text-lg font-semibold mb-3">Actions</h2>
+            <div class="space-y-4">
+                {% for action in actions %}
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-medium">{{ action.DESCRIPTION }}</p>
+                            <p class="text-sm text-gray-600">Échéance: {{ action.DATE_ECHEANCE.strftime('%d/%m/%Y') }}</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <span class="px-2 py-1 rounded text-sm" style="background-color: {{ action.COULEUR_PRIORITE }}; color: white;">
+                                {{ action.PRIORITE }}
+                            </span>
+                            <span class="px-2 py-1 rounded text-sm" style="background-color: {{ action.COULEUR_STATUT }}; color: white;">
+                                {{ action.STATUT }}
+                            </span>
+                        </div>
+                    </div>
+                    {% if action.NOTES %}
+                    <div class="mt-2 text-sm text-gray-600">
+                        <p>{{ action.NOTES }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1917,6 +1917,46 @@ def envoyer_bat(id_commande):
         print(f"[Erreur envoi BAT] {e}")
         return False
 
+def get_contact_by_id(id_contact):
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT
+                P.ID AS ID_PERSONNE,
+                P.Nom,
+                P.Prenom,
+                P.Telephone,
+                P.Mobile,
+                M.Mail,
+                FCT.Fonction,
+                FCT.ID_FONCTION
+            FROM PERSONNES P
+            LEFT JOIN (
+                SELECT ID_PERSONNE, Mail
+                FROM PERSONNES_MAIL
+                WHERE ParDefaut = 1
+            ) M ON M.ID_PERSONNE = P.ID
+            LEFT JOIN (
+                SELECT PF.ID_PERSONNE, FO.Nom AS Fonction, FO.ID AS ID_FONCTION,
+                       ROW_NUMBER() OVER (PARTITION BY PF.ID_PERSONNE ORDER BY PF.Ordre ASC) AS rn
+                FROM PERSONNES_FONCTIONS PF
+                INNER JOIN FONCTIONS FO ON FO.ID = PF.ID_FONCTION
+            ) FCT ON FCT.ID_PERSONNE = P.ID AND FCT.rn = 1
+            WHERE P.ID = ?
+        """, id_contact)
+
+        row = cursor.fetchone()
+        if row:
+            return {
+                "id": row.ID_PERSONNE,
+                "nom": row.Nom,
+                "prenom": row.Prenom,
+                "telephone": row.Telephone or row.Mobile,
+                "email": row.Mail,
+                "fonction": row.Fonction,
+                "id_fonction": row.ID_FONCTION,
+            }
+    return None
+
 def get_contact_principal(id_societe):
     with get_db_cursor() as cursor:
         cursor.execute("""
