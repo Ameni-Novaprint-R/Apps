@@ -1,14 +1,14 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Historique des Visites{% endblock %}
 
 {% block content %}
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h2>Historique des Visites</h2>
     <div>
-        <a href="{{ url_for('projet28.dashboard') }}" class="btn btn-outline-primary" style="padding: 10px 20px; margin-right: 10px;">
+        <a href="{{ url_for('projet4.dashboard') }}" class="btn btn-outline-primary" style="padding: 10px 20px; margin-right: 10px;">
             <i class="fas fa-tasks"></i> Tableau de bord
         </a>
-        <a href="{{ url_for('projet28.rapport_visite') }}" class="btn btn-primary" style="padding: 10px 20px;">
+        <a href="{{ url_for('projet4.rapport_visite') }}" class="btn btn-primary" style="padding: 10px 20px;">
             <i class="fas fa-plus"></i> Nouvelle visite
         </a>
     </div>
@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const visitsList = document.getElementById("visitsList");
 
     function loadVisits(query = "") {
-        fetch(`/projet28/api/historique?query=${encodeURIComponent(query)}`)
+        fetch(`/projet4/api/historique?query=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(visits => {
                 visitsList.innerHTML = "";
@@ -98,7 +98,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             Actions: ${visit.nb_actions_terminees}/${visit.nb_actions} terminées
                         </div>
                         <div class="visit-footer">
-                            <a href="/projet28/visite/${visit.id}" class="btn-view">Voir les détails</a>
+                            <a href="/projet4/visite/${visit.id}" class="btn-view">Voir les détails</a>
                         </div>
                     `;
                     visitsList.appendChild(visitElement);

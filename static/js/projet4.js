@@ -1,6 +1,6 @@
-// Configuration
+﻿// Configuration
 const CONFIG = {
-    API_BASE_URL: '/projet28',
+    API_BASE_URL: '/projet4',
     DEBUG_MODE: true
 };
 
@@ -188,7 +188,7 @@ const SocieteManager = {
     },
 
     searchCompanies: function(query) {
-        const url = new URL('/projet28/api/societes', window.location.origin);
+        const url = new URL('/projet4/api/societes', window.location.origin);
         url.searchParams.append('filter', query);
         
         return fetch(url)
@@ -639,7 +639,7 @@ async function updateContactInfo(idPersonne) {
 
 async function loadPredefinedActions() {
     try {
-        const response = await fetch('/projet28/api/actions');
+        const response = await fetch('/projet4/api/actions');
         if (!response.ok) {
             throw new Error('Erreur lors du chargement des actions');
         }

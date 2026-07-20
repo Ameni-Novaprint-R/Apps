@@ -447,7 +447,9 @@ def liste_traitements():
             flash("Vous n'avez pas accès à cette section.", "error")
             return redirect(url_for('projet11.index'))
         
-        traitements = projet11.get_all_traitements()
+        # Période : jour (défaut, rapide) | semaine | mois | tous
+        periode_info = projet11.resolve_periode_filtre(request.args.get('periode', 'jour'))
+        traitements = projet11.get_all_traitements(periode=periode_info['periode'])
         # Enrichir avec comparaison de cadence vs mois précédent (même machine)
         projet11.enrich_traitements_cadence_comparison(traitements)
         ids_verrouilles = set(projet11.get_ids_verrouilles_ouverture())
@@ -498,6 +500,9 @@ def liste_traitements():
             debloquer_action_id=debloquer_action_id,
             filtre_storage_key=filtre_storage_key,
             can_validate_controle=can_validate_controle,
+            periode=periode_info['periode'],
+            periode_label=periode_info['label'],
+            nb_traitements=len(traitements),
         ))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
@@ -650,8 +655,9 @@ def details_fiche():
 
 @projet11_bp.route('/projet11/api/traitements', methods=['GET'])
 def api_get_traitements():
-    """API pour récupérer tous les traitements"""
-    traitements = projet11.get_all_traitements()
+    """API pour récupérer les traitements (période optionnelle : jour|semaine|mois|tous)"""
+    periode = request.args.get('periode')  # None = tous (compat)
+    traitements = projet11.get_all_traitements(periode=periode) if periode else projet11.get_all_traitements()
     return jsonify(traitements)
 
 
@@ -1338,6 +1344,79 @@ def _build_rapport_kba_pdf(data):
     return build_rapport_kba_pdf(data)
 
 
+RAPPORT_MAX_COMBINAISONS = 50
+
+
+def _dedupe_preserve_order(items):
+    seen = set()
+    out = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def _parse_rapport_selection(request, default_year=None, default_month=None):
+    """Retourne (machines, periodes) où periodes = liste de (annee, mois)."""
+    machines = _dedupe_preserve_order(
+        m.strip() for m in request.args.getlist('machine') if m and m.strip()
+    )
+
+    try:
+        annee = int(request.args.get('annee', default_year or datetime.now().year))
+    except (TypeError, ValueError):
+        annee = default_year or datetime.now().year
+
+    periodes = []
+    mois_args = request.args.getlist('mois')
+    if mois_args:
+        for m_str in mois_args:
+            try:
+                mois = int(m_str)
+                if 1 <= mois <= 12:
+                    periodes.append((annee, mois))
+            except (TypeError, ValueError):
+                continue
+    elif request.args.get('mois') is not None:
+        try:
+            mois = int(request.args.get('mois'))
+            if 1 <= mois <= 12:
+                periodes.append((annee, mois))
+        except (TypeError, ValueError):
+            pass
+
+    if not periodes and default_month:
+        periodes = [(annee, default_month)]
+
+    periodes = _dedupe_preserve_order(periodes)
+    periodes.sort(key=lambda p: (p[0], p[1]))
+    return machines, periodes
+
+
+def _rapport_combinations(machines, periodes):
+    """Liste (machine, annee, mois) — machine puis mois."""
+    combos = []
+    for machine in machines:
+        for annee, mois in periodes:
+            combos.append((machine, annee, mois))
+    return combos
+
+
+def _rapport_pdf_query_string(machines, periodes, extra=None):
+    from urllib.parse import urlencode
+    params = []
+    for machine in machines:
+        params.append(('machine', machine))
+    for annee, mois in periodes:
+        params.append(('mois', mois))
+    if periodes:
+        params.append(('annee', periodes[0][0]))
+    if extra:
+        params.extend(extra.items())
+    return urlencode(params)
+
+
 @projet11_bp.route('/projet11/rapport')
 def rapport_mensuel():
     """Page Rapport mensuel machine (aperçu PDF + téléchargement)."""
@@ -1351,46 +1430,52 @@ def rapport_mensuel():
 
         machines = projet11.get_machines_pour_rapport_kba()
         now = datetime.now()
-        machine = request.args.get('machine', '').strip()
-        try:
-            mois = int(request.args.get('mois', now.month))
-        except (TypeError, ValueError):
-            mois = now.month
+
+        machines_selected, periodes = _parse_rapport_selection(
+            request, default_year=now.year, default_month=now.month,
+        )
+
+        if not machines_selected and machines:
+            for pref in ('KBA105', 'RA105', 'KBA 105'):
+                match = next((m for m in machines if pref.lower() in m.lower()), None)
+                if match:
+                    machines_selected = [match]
+                    break
+
         try:
             annee = int(request.args.get('annee', now.year))
         except (TypeError, ValueError):
             annee = now.year
 
-        if not machine and machines:
-            for pref in ('KBA105', 'RA105', 'KBA 105'):
-                match = next((m for m in machines if pref.lower() in m.lower()), None)
-                if match:
-                    machine = match
-                    break
+        selected_mois = [m for _, m in periodes] if periodes else [now.month]
+        combinations = _rapport_combinations(machines_selected, periodes)
+        nb_rapports = len(combinations)
 
         mois_options = list(enumerate(projet11.MOIS_FR_RAPPORT, start=1))
 
         pdf_preview_url = ''
         pdf_download_url = ''
-        if machine:
-            pdf_preview_url = url_for(
-                'projet11.rapport_mensuel_pdf',
-                machine=machine, mois=mois, annee=annee, preview=1,
+        if combinations:
+            qs_preview = _rapport_pdf_query_string(
+                machines_selected, periodes, extra={'preview': '1'},
             )
-            pdf_download_url = url_for(
-                'projet11.rapport_mensuel_pdf',
-                machine=machine, mois=mois, annee=annee, download=1,
+            qs_download = _rapport_pdf_query_string(
+                machines_selected, periodes, extra={'download': '1'},
             )
+            pdf_preview_url = url_for('projet11.rapport_mensuel_pdf') + '?' + qs_preview
+            pdf_download_url = url_for('projet11.rapport_mensuel_pdf') + '?' + qs_download
 
         from logic.kba_report_theme import KBA_COLORS
 
         return render_template(
             'projet11_rapport.html',
             machines=machines,
-            machine=machine,
-            mois=mois,
+            machines_selected=machines_selected,
+            selected_mois=selected_mois,
             annee=annee,
             mois_options=mois_options,
+            nb_rapports=nb_rapports,
+            combinations=combinations,
             pdf_preview_url=pdf_preview_url,
             pdf_download_url=pdf_download_url,
             kba_colors=KBA_COLORS,
@@ -1417,18 +1502,25 @@ def rapport_mensuel_pdf():
         flash("Vous n'avez pas accès à cette section.", "error")
         return redirect(url_for('projet11.index'))
 
-    machine = request.args.get('machine', '').strip()
-    if not machine:
-        return jsonify({"error": "Paramètre machine requis"}), 400
-    try:
-        mois = int(request.args.get('mois', datetime.now().month))
-        annee = int(request.args.get('annee', datetime.now().year))
-    except (TypeError, ValueError):
-        return jsonify({"error": "Mois ou année invalide"}), 400
+    machines_selected, periodes = _parse_rapport_selection(request)
+    if not machines_selected:
+        return jsonify({"error": "Au moins une machine est requise"}), 400
+    if not periodes:
+        return jsonify({"error": "Au moins un mois est requis"}), 400
+
+    combinations = _rapport_combinations(machines_selected, periodes)
+    if len(combinations) > RAPPORT_MAX_COMBINAISONS:
+        return jsonify({
+            "error": f"Maximum {RAPPORT_MAX_COMBINAISONS} rapports par téléchargement "
+                     f"({len(combinations)} demandés). Réduisez la sélection.",
+        }), 400
 
     try:
-        data = projet11.get_rapport_kba_data(machine, annee, mois)
-        pdf_bytes = _build_rapport_kba_pdf(data)
+        data_list = [
+            projet11.get_rapport_kba_data(machine, annee, mois)
+            for machine, annee, mois in combinations
+        ]
+        pdf_bytes = _build_rapport_kba_pdf(data_list)
     except ImportError:
         return jsonify({"error": "reportlab est requis pour la génération PDF"}), 500
     except Exception as e:
@@ -1437,8 +1529,12 @@ def rapport_mensuel_pdf():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-    safe_machine = re.sub(r'[^\w\-]+', '_', machine).strip('_') or 'machine'
-    filename = f"Rapport_{safe_machine}_{annee}-{mois:02d}.pdf"
+    if len(combinations) == 1:
+        machine, annee, mois = combinations[0]
+        safe_machine = re.sub(r'[^\w\-]+', '_', machine).strip('_') or 'machine'
+        filename = f"Rapport_{safe_machine}_{annee}-{mois:02d}.pdf"
+    else:
+        filename = f"Rapport_{len(machines_selected)}machines_{len(periodes)}mois_{len(combinations)}pages.pdf"
     inline = request.args.get('preview') == '1' and request.args.get('download') != '1'
     return send_file(
         BytesIO(pdf_bytes),
@@ -1476,9 +1572,9 @@ def tableau_comparatif():
             flash("Vous n'avez pas accès à cette section.", "error")
             return redirect(url_for('projet11.index'))
 
-        numero = request.args.get('numero', '').strip()
-        lignes = projet11.get_tableau_comparatif_commandes(numero_filter=numero or None)
-        return render_template('projet11_tableau_comparatif.html', lignes=lignes, numero=numero, parent_template='base_embed.html', embed=True)
+        # Tous les dossiers COMMANDES ; filtres / tris côté DataTables (comme liste traitements)
+        lignes = projet11.get_tableau_comparatif_commandes()
+        return render_template('projet11_tableau_comparatif.html', lignes=lignes, parent_template='base_embed.html', embed=True)
     except Exception as e:
         print(f"Erreur dans tableau_comparatif: {e}")
         import traceback
@@ -1969,8 +2065,9 @@ def export_traitements_excel():
         import pandas as pd
         from io import BytesIO
         
-        # Récupérer tous les traitements
-        traitements = projet11.get_all_traitements()
+        # Même filtre période que la liste (défaut jour)
+        periode_info = projet11.resolve_periode_filtre(request.args.get('periode', 'jour'))
+        traitements = projet11.get_all_traitements(periode=periode_info['periode'])
         
         if not traitements:
             return jsonify({"error": "Aucun traitement à exporter"}), 404
@@ -2056,8 +2153,9 @@ def export_traitements_pdf():
         from io import BytesIO
         import textwrap
         
-        # Récupérer tous les traitements
-        traitements = projet11.get_all_traitements()
+        # Même filtre période que la liste (défaut jour)
+        periode_info = projet11.resolve_periode_filtre(request.args.get('periode', 'jour'))
+        traitements = projet11.get_all_traitements(periode=periode_info['periode'])
         
         if not traitements:
             return jsonify({"error": "Aucun traitement à exporter"}), 404

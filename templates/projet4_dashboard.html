@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Tableau de bord des actions – Rapport de Visite{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/projet28_dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/projet4_dashboard.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -17,7 +17,7 @@
             <button type="button" class="btn btn-outline-primary" id="btn_refresh">
                 <i class="fas fa-sync-alt"></i> Actualiser
             </button>
-            <a href="{{ url_for('projet28.rapport_visite') }}" class="btn btn-primary">
+            <a href="{{ url_for('projet4.rapport_visite') }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Nouvelle visite
             </a>
         </div>
@@ -56,5 +56,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/projet28_dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/projet4_dashboard.js') }}"></script>
 {% endblock %} 

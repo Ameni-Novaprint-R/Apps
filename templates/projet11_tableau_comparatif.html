@@ -3,79 +3,530 @@
 {% block title %}Tableau comparatif - Projet 11{% endblock %}
 
 {% block head %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+.table-responsive {
+    overflow-x: auto;
+    position: relative;
+}
+.table-responsive.no-horizontal-scroll {
+    overflow-x: hidden;
+}
+.table-scroll-top {
+    height: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid #dee2e6;
+}
+.table-responsive.no-horizontal-scroll .table-scroll-top {
+    display: none;
+}
+.table-scroll-inner {
+    height: 1px;
+}
+.table-scroll-top::-webkit-scrollbar {
+    height: 12px;
+}
+.table-scroll-top::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+}
+.table-scroll-top::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+#tableComparatif {
+    width: auto;
+    table-layout: auto;
+    font-size: 0.72rem;
+}
+#tableComparatif th,
+#tableComparatif td {
+    white-space: nowrap;
+    padding: 5px 7px !important;
+    line-height: 1.25;
+}
+#tableComparatif thead tr:first-child th {
+    vertical-align: middle;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.15;
+    white-space: nowrap;
+    padding-top: 7px !important;
+    padding-bottom: 7px !important;
+}
+/* Tri : triangles ▲▼ — DataTables met sorting* sur la ligne des filtres (.table-filters). */
+#tableComparatif thead tr.table-filters th.sorting,
+#tableComparatif thead tr.table-filters th.sorting_asc,
+#tableComparatif thead tr.table-filters th.sorting_desc {
+    position: relative;
+    padding-right: 30px !important;
+    cursor: pointer;
+    overflow: visible;
+    vertical-align: middle;
+}
+#tableComparatif thead tr.table-filters th.sorting:before,
+#tableComparatif thead tr.table-filters th.sorting:after,
+#tableComparatif thead tr.table-filters th.sorting_asc:before,
+#tableComparatif thead tr.table-filters th.sorting_asc:after,
+#tableComparatif thead tr.table-filters th.sorting_desc:before,
+#tableComparatif thead tr.table-filters th.sorting_desc:after {
+    position: absolute;
+    right: 5px;
+    font-size: 0.65em;
+    line-height: 1;
+    color: inherit;
+    background-image: none !important;
+}
+#tableComparatif thead tr.table-filters th.sorting:before,
+#tableComparatif thead tr.table-filters th.sorting:after {
+    content: "";
+    opacity: 0.35;
+}
+#tableComparatif thead tr.table-filters th.sorting:before {
+    content: "▲";
+    top: 5px;
+}
+#tableComparatif thead tr.table-filters th.sorting:after {
+    content: "▼";
+    bottom: 5px;
+}
+#tableComparatif thead tr.table-filters th.sorting_asc:before {
+    content: "▲";
+    top: 5px;
+    opacity: 1;
+}
+#tableComparatif thead tr.table-filters th.sorting_asc:after {
+    content: "▼";
+    bottom: 5px;
+    opacity: 0.35;
+}
+#tableComparatif thead tr.table-filters th.sorting_desc:before {
+    content: "▲";
+    top: 5px;
+    opacity: 0.35;
+}
+#tableComparatif thead tr.table-filters th.sorting_desc:after {
+    content: "▼";
+    bottom: 5px;
+    opacity: 1;
+}
+th.col-numero, td.col-numero {
+    width: 120px;
+}
+th.col-client, td.col-client {
+    width: 175px;
+    max-width: 220px;
+}
+th.col-temps, td.col-temps,
+th.col-cout, td.col-cout,
+th.col-nb, td.col-nb,
+th.col-ecart, td.col-ecart {
+    width: 110px;
+    max-width: 130px;
+    text-align: right;
+}
+.dataTables_wrapper .dataTables_scroll {
+    overflow: visible;
+}
+.table-filters input {
+    width: 100%;
+    font-size: 0.70rem;
+    padding: 3px 6px;
+    box-sizing: border-box;
+    min-height: 22px;
+}
+.table-filters th {
+    padding: 3px 6px !important;
+}
+.column-toggle-panel {
+    margin-bottom: 1rem;
+    font-size: 0.72rem;
+}
+.column-toggle-panel .fw-bold {
+    font-size: 0.83rem;
+}
+.column-toggle-panel .form-check,
+.column-toggle-panel .form-check-label {
+    font-size: 0.72rem;
+}
+.column-toggle-panel .form-check {
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+}
+.column-toggle-panel .form-check-input {
+    margin-top: 0.3rem;
+    margin-right: 0.35rem;
+}
+#tableComparatif_wrapper .dataTables_length,
+#tableComparatif_wrapper .dataTables_info {
+    font-size: 0.72rem;
+}
+#tableComparatif_wrapper .row:first-child {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+#tableComparatif_wrapper .dataTables_length {
+    margin-right: auto;
+}
+#tableComparatif_wrapper .dataTables_length select {
+    font-size: 0.72rem;
+    padding: 2px 24px 2px 10px;
+    min-width: 4em;
+    text-align: center;
+}
+.text-ecart-pos {
+    color: #198754;
+    font-weight: 700;
+}
+.text-ecart-neg {
+    color: #dc3545;
+    font-weight: 700;
+}
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-        <h1 class="h3 mb-0">
-            <i class="fas fa-table me-2"></i>
-            Tableau comparatif
-        </h1>
-        <a href="{{ url_for('projet11.index', expand='analyse-dossiers') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Retour au Projet 11
-        </a>
-    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-table"></i> Tableau comparatif
+                </h1>
+                <div>
+                    <span class="badge bg-info fs-6 me-2">{{ lignes|length }} dossier(s)</span>
+                    <a href="{{ url_for('projet11.index', expand='analyse-dossiers') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Retour
+                    </a>
+                </div>
+            </div>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <form method="get" action="{{ url_for('projet11.tableau_comparatif') }}" class="row g-2 align-items-end">
-                <div class="col-auto">
-                    <label for="numero" class="form-label">Filtrer par numéro de dossier</label>
-                    <input type="text" class="form-control" id="numero" name="numero" value="{{ numero }}" placeholder="Numéro de dossier...">
+            <div class="card">
+                <div class="card-body">
+                    <div class="column-toggle-panel">
+                        <div class="fw-bold mb-2">Afficher/Masquer les colonnes :</div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center" id="columnToggleContainer">
+                            <div class="form-check form-check-inline me-2" id="colToggleAllWrapper">
+                                <input class="form-check-input" type="checkbox" id="colToggleAll" checked title="Tout cocher / tout décocher">
+                                <label class="form-check-label" for="colToggleAll">Tout cocher</label>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0" id="colExportButtonsWrapper">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnEnregistrerFiltre" title="Enregistrer les filtres et colonnes affichées">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                                    Enregistrer une vue
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive position-relative">
+                        <div class="table-scroll-top">
+                            <div class="table-scroll-inner"></div>
+                        </div>
+                        <table class="table table-striped table-hover mb-0" id="tableComparatif">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="col-numero">Dossier</th>
+                                    <th class="col-client">Client</th>
+                                    <th class="col-temps">Tps prévu (h)</th>
+                                    <th class="col-temps">Tps réel (h)</th>
+                                    <th class="col-cout">Coût prévu (€)</th>
+                                    <th class="col-cout">Coût réel (€)</th>
+                                    <th class="col-nb">Nb op prévues</th>
+                                    <th class="col-nb">Qté réelle</th>
+                                    <th class="col-ecart">Écart Qté</th>
+                                    <th class="col-ecart">Écart Tps</th>
+                                    <th class="col-ecart">Écart Coût</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in lignes %}
+                                <tr>
+                                    <td class="col-numero"><strong>{{ d.numero }}</strong></td>
+                                    <td class="col-client">{{ d.client or '-' }}</td>
+                                    <td class="col-temps text-end" data-order="{{ d.tps_prev }}">{{ "%.2f"|format(d.tps_prev) }}</td>
+                                    <td class="col-temps text-end" data-order="{{ d.tps_reel }}"><strong>{{ "%.2f"|format(d.tps_reel) }}</strong></td>
+                                    <td class="col-cout text-end" data-order="{{ d.cout_prev }}">{{ "%.2f"|format(d.cout_prev) }}</td>
+                                    <td class="col-cout text-end" data-order="{{ d.cout_reel }}"><strong>{{ "%.2f"|format(d.cout_reel) }}</strong></td>
+                                    <td class="col-nb text-end" data-order="{{ d.nb_op_prev }}">{{ "%.2f"|format(d.nb_op_prev) }}</td>
+                                    <td class="col-nb text-end" data-order="{{ d.quantite_reelle }}"><strong>{{ "%.2f"|format(d.quantite_reelle) }}</strong></td>
+                                    <td class="col-ecart text-end {% if d.ecart_quantite >= 0 %}text-ecart-pos{% else %}text-ecart-neg{% endif %}" data-order="{{ d.ecart_quantite }}">{{ "%.2f"|format(d.ecart_quantite) }}</td>
+                                    <td class="col-ecart text-end {% if d.ecart_tps <= 0 %}text-ecart-pos{% else %}text-ecart-neg{% endif %}" data-order="{{ d.ecart_tps }}">{{ "%.2f"|format(d.ecart_tps) }}</td>
+                                    <td class="col-ecart text-end {% if d.ecart_cout <= 0 %}text-ecart-pos{% else %}text-ecart-neg{% endif %}" data-order="{{ d.ecart_cout }}">{{ "%.2f"|format(d.ecart_cout) }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="11" class="text-center text-muted">Aucun dossier trouvé</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-filter"></i> Filtrer
-                    </button>
-                </div>
-                <div class="col-auto ms-auto">
-                    <span class="badge bg-info fs-6">{{ lignes|length }} dossier(s) affiché(s)</span>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
-
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle bg-white">
-            <thead class="table-light">
-                <tr>
-                    <th>Dossier</th>
-                    <th>Client</th>
-                    <th class="text-end">Tps prévu (h)</th>
-                    <th class="text-end">Tps réel (h)</th>
-                    <th class="text-end">Coût prévu (€)</th>
-                    <th class="text-end">Coût réel (€)</th>
-                    <th class="text-end">Nb op prévues</th>
-                    <th class="text-end">Qté réelle</th>
-                    <th class="text-end">Écart Qté</th>
-                    <th class="text-end">Écart Tps</th>
-                    <th class="text-end">Écart Coût</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for d in lignes %}
-                <tr>
-                    <td><strong>{{ d.numero }}</strong></td>
-                    <td>{{ d.client or '-' }}</td>
-                    <td class="text-end">{{ "%.2f"|format(d.tps_prev) }}</td>
-                    <td class="text-end"><strong>{{ "%.2f"|format(d.tps_reel) }}</strong></td>
-                    <td class="text-end">{{ "%.2f"|format(d.cout_prev) }}</td>
-                    <td class="text-end"><strong>{{ "%.2f"|format(d.cout_reel) }}</strong></td>
-                    <td class="text-end">{{ "%.2f"|format(d.nb_op_prev) }}</td>
-                    <td class="text-end"><strong>{{ "%.2f"|format(d.quantite_reelle) }}</strong></td>
-                    <td class="text-end {% if d.ecart_quantite >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ "%.2f"|format(d.ecart_quantite) }}</td>
-                    <td class="text-end {% if d.ecart_tps <= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ "%.2f"|format(d.ecart_tps) }}</td>
-                    <td class="text-end {% if d.ecart_cout <= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">{{ "%.2f"|format(d.ecart_cout) }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="11" class="text-center text-muted py-4">Aucun dossier avec temps réel renseigné pour ce filtre.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 </div>
+
+<script>
+const FILTRE_STORAGE_KEY = 'projet11_comparatif_filtre_default';
+
+$(document).ready(function() {
+    const $table = $('#tableComparatif');
+    const hasData = $table.find('tbody tr').length > 0
+        && !$table.find('tbody tr td[colspan]').length;
+    if (!hasData) {
+        return;
+    }
+
+    const colonneDefs = [
+        { titre: 'Dossier', filtre: true, toggle: true, className: 'col-numero', width: '120px' },
+        { titre: 'Client', filtre: true, toggle: true, className: 'col-client', width: '175px' },
+        { titre: 'Tps prévu (h)', filtre: true, toggle: true, className: 'col-temps', width: '110px' },
+        { titre: 'Tps réel (h)', filtre: true, toggle: true, className: 'col-temps', width: '110px' },
+        { titre: 'Coût prévu (€)', filtre: true, toggle: true, className: 'col-cout', width: '110px' },
+        { titre: 'Coût réel (€)', filtre: true, toggle: true, className: 'col-cout', width: '110px' },
+        { titre: 'Nb op prévues', filtre: true, toggle: true, className: 'col-nb', width: '110px' },
+        { titre: 'Qté réelle', filtre: true, toggle: true, className: 'col-nb', width: '110px' },
+        { titre: 'Écart Qté', filtre: true, toggle: true, className: 'col-ecart', width: '110px' },
+        { titre: 'Écart Tps', filtre: true, toggle: true, className: 'col-ecart', width: '110px' },
+        { titre: 'Écart Coût', filtre: true, toggle: true, className: 'col-ecart', width: '110px' }
+    ];
+
+    const $thead = $table.find('thead');
+    const $filterRow = $('<tr class="table-filters"></tr>');
+    $thead.find('tr').first().find('th').each(function(index) {
+        const def = colonneDefs[index];
+        const $cell = $('<th></th>');
+        if (def && def.filtre) {
+            $cell.append(`<input type="text" placeholder="Filtrer ${def.titre}" data-col="${index}" />`);
+        }
+        $filterRow.append($cell);
+    });
+    $thead.append($filterRow);
+
+    let updateTopScrollWidth = function(){};
+    let evaluerScrollHorizontal = function(){};
+
+    const columnDefsConfig = colonneDefs.map((def, index) => ({
+        targets: index,
+        orderable: true,
+        className: def.className || '',
+        width: def.width || null
+    }));
+
+    const dataTable = $table.DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/fr-FR.json'
+        },
+        order: [[0, 'asc']],
+        dom: 'lrtip',
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tous']],
+        autoWidth: false,
+        columnDefs: columnDefsConfig,
+        initComplete: function() {
+            const api = this.api();
+            function appliquerEtat(etat) {
+                if (!etat) return;
+                colonneDefs.forEach(function(def, i) {
+                    if (def && def.toggle && etat.colVisible && etat.colVisible[i] !== undefined) {
+                        api.column(i).visible(etat.colVisible[i], false);
+                    }
+                });
+                colonneDefs.forEach(function(def, i) {
+                    if (etat.filterValues && etat.filterValues[i] !== undefined) {
+                        var input = $('.table-filters input[data-col="' + i + '"]');
+                        if (input.length) {
+                            var raw = etat.filterValues[i] || '';
+                            var escaped = $.fn.dataTable.util.escapeRegex(raw);
+                            input.val(raw);
+                            api.column(i).search(escaped, true, false, true);
+                        }
+                    }
+                });
+                if (etat.toutCocher !== undefined) $('#colToggleAll').prop('checked', etat.toutCocher);
+                if (etat.pageLength) api.page.len(etat.pageLength);
+                api.draw(false);
+            }
+            function finInit() {
+                initialiserFiltres(api);
+                initialiserToggles(api);
+                api.columns.adjust();
+                setTimeout(function() {
+                    updateTopScrollWidth();
+                    evaluerScrollHorizontal();
+                }, 0);
+            }
+            try {
+                var savedStr = localStorage.getItem(FILTRE_STORAGE_KEY);
+                var saved = savedStr ? JSON.parse(savedStr) : null;
+                if (saved && (saved.colVisible || saved.filterValues)) {
+                    appliquerEtat(saved);
+                }
+            } catch (e) { }
+            finInit();
+        }
+    });
+
+    function setupHorizontalScrollSync() {
+        const $wrapper = $('.table-responsive');
+        const $topScroll = $wrapper.find('.table-scroll-top');
+        const $topInner = $topScroll.find('.table-scroll-inner');
+        if ($topScroll.length === 0) return;
+
+        function _evaluerScrollHorizontal() {
+            const tableWidth = $table.outerWidth();
+            const wrapperWidth = $wrapper.innerWidth();
+            if (tableWidth <= wrapperWidth + 1) {
+                $wrapper.addClass('no-horizontal-scroll');
+            } else {
+                $wrapper.removeClass('no-horizontal-scroll');
+            }
+        }
+        function _updateTopScrollWidth() {
+            $topInner.width($('#tableComparatif').outerWidth());
+            _evaluerScrollHorizontal();
+        }
+
+        let isSyncingTop = false;
+        let isSyncingBottom = false;
+        $topScroll.off('scroll.tableSync').on('scroll.tableSync', function() {
+            if (isSyncingTop) return;
+            isSyncingBottom = true;
+            $wrapper.scrollLeft($topScroll.scrollLeft());
+            isSyncingBottom = false;
+        });
+        $wrapper.off('scroll.tableSync').on('scroll.tableSync', function() {
+            if (isSyncingBottom) return;
+            isSyncingTop = true;
+            $topScroll.scrollLeft($wrapper.scrollLeft());
+            isSyncingTop = false;
+        });
+
+        updateTopScrollWidth = _updateTopScrollWidth;
+        evaluerScrollHorizontal = _evaluerScrollHorizontal;
+        updateTopScrollWidth();
+        $(window).off('resize.tableSync').on('resize.tableSync', function() {
+            updateTopScrollWidth();
+            evaluerScrollHorizontal();
+        });
+        dataTable.on('draw', function() {
+            dataTable.columns.adjust();
+            setTimeout(function() {
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
+            }, 0);
+        });
+    }
+
+    setupHorizontalScrollSync();
+
+    $('#btnEnregistrerFiltre').on('click', function() {
+        var api = $('#tableComparatif').DataTable();
+        if (!api) return;
+        var colVisible = [];
+        var filterValues = [];
+        api.columns().every(function() {
+            colVisible.push(this.visible());
+            var input = $('.table-filters input[data-col="' + this.index() + '"]');
+            filterValues.push(input.length ? input.val() || '' : '');
+        });
+        var payload = {
+            colVisible: colVisible,
+            filterValues: filterValues,
+            toutCocher: $('#colToggleAll').prop('checked'),
+            pageLength: api.page.len()
+        };
+        try {
+            localStorage.setItem(FILTRE_STORAGE_KEY, JSON.stringify(payload));
+            alert('Filtre enregistré. Il sera appliqué par défaut à chaque chargement de la page.');
+        } catch (e) {
+            alert('Erreur lors de l\'enregistrement du filtre : ' + (e.message || 'stockage non disponible'));
+        }
+    });
+
+    function initialiserFiltres(api) {
+        api.columns().every(function() {
+            const column = this;
+            const colIndex = column.index();
+            const def = colonneDefs[colIndex];
+            if (!def || !def.filtre) return;
+            const input = $(`.table-filters input[data-col="${colIndex}"]`);
+            input.on('keyup change clear', function() {
+                const value = this.value || '';
+                const escaped = $.fn.dataTable.util.escapeRegex(value);
+                if (column.search() !== escaped) {
+                    column.search(escaped, true, false, true).draw();
+                }
+            });
+        });
+    }
+
+    function initialiserToggles(api) {
+        const $container = $('#columnToggleContainer');
+        const $toggleAll = $('#colToggleAll');
+        $container.children().not('#colToggleAllWrapper, #colExportButtonsWrapper').remove();
+
+        function updateToggleAllState() {
+            let allVisible = true;
+            colonneDefs.forEach(function(def, index) {
+                if (def && def.toggle && !api.column(index).visible()) {
+                    allVisible = false;
+                }
+            });
+            $toggleAll.prop('checked', allVisible);
+        }
+
+        $toggleAll.off('change').on('change', function() {
+            const check = this.checked;
+            colonneDefs.forEach(function(def, index) {
+                if (def && def.toggle) {
+                    api.column(index).visible(check, false);
+                }
+            });
+            $container.find('.form-check-input').not('#colToggleAll').prop('checked', check);
+            api.columns.adjust().draw(false);
+            setTimeout(function() {
+                updateTopScrollWidth();
+                evaluerScrollHorizontal();
+            }, 100);
+        });
+
+        colonneDefs.forEach(function(def, index) {
+            if (!def || !def.toggle) return;
+            const column = api.column(index);
+            const toggleId = `colToggle_${index}`;
+            const isVisible = column.visible();
+            const $checkbox = $(`
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="${toggleId}" ${isVisible ? 'checked' : ''}>
+                    <label class="form-check-label" for="${toggleId}">${def.titre}</label>
+                </div>
+            `);
+            $checkbox.find('input').on('change', function() {
+                column.visible(this.checked, false);
+                api.columns.adjust().draw(false);
+                updateToggleAllState();
+                setTimeout(function() {
+                    updateTopScrollWidth();
+                    evaluerScrollHorizontal();
+                }, 100);
+            });
+            $checkbox.insertBefore($('#colExportButtonsWrapper'));
+        });
+        updateToggleAllState();
+    }
+});
+</script>
 {% endblock %}

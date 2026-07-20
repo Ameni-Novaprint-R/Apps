@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Modifier la visite{% endblock %}
 
@@ -8,12 +8,12 @@
         <h1>
             <i class="fas fa-edit section-icon"></i>Modifier la visite
         </h1>
-        <a href="{{ url_for('projet28.details_visite', id_visite=visite.ID) }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('projet4.details_visite', id_visite=visite.ID) }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left"></i> Retour aux détails
         </a>
     </div>
 
-    <form method="POST" action="{{ url_for('projet28.update_visite', id_visite=visite.ID) }}">
+    <form method="POST" action="{{ url_for('projet4.update_visite', id_visite=visite.ID) }}">
         <input type="hidden" name="id_societe" value="{{ visite.ID_SOCIETE }}">
         <input type="hidden" name="id_visite" value="{{ visite.ID }}">
 

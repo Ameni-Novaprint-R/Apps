@@ -37,7 +37,8 @@ from logic.projet16 import (
     get_preventive_task_by_id,
     create_preventive_task,
     update_preventive_task,
-    delete_preventive_task
+    delete_preventive_task,
+    get_equipement_historique,
 )
 from logic.projet16_preventive_import import (
     PREVENTIVE_IMPORT_DIR,
@@ -933,6 +934,26 @@ def api_machines():
         return jsonify(machines)
     except Exception as e:
         print(f"[ERREUR API] Erreur dans api_machines: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@projet16_bp.route('/api/equipements/historique')
+def api_equipement_historique():
+    """Historique chronologique des interventions d'une machine (corrective + préventive)."""
+    try:
+        machine = (request.args.get('machine') or '').strip()
+        if not machine:
+            return jsonify({"error": "Paramètre machine requis"}), 400
+        historique = get_equipement_historique(machine)
+        return jsonify({
+            "machine": machine,
+            "count": len(historique),
+            "interventions": historique,
+        })
+    except Exception as e:
+        print(f"[ERREUR API] Erreur dans api_equipement_historique: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500

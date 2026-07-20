@@ -1840,10 +1840,63 @@ def get_traitement_by_fiche(id_fiche_travail):
 # FONCTIONS CRUD POUR WEB_TRAITEMENTS
 # ============================================================================
 
-def get_all_traitements():
-    """Récupère tous les traitements enregistrés dans WEB_TRAITEMENTS"""
+def resolve_periode_filtre(periode='jour'):
+    """
+    Bornes de période pour la liste des traitements (filtre sur DteDeb).
+    periodes : jour | semaine | mois | tous
+    Retourne dict : periode, date_debut (date|None), date_fin (date|None), label
+    """
+    from datetime import date, timedelta
+
+    periode = (periode or 'jour').strip().lower()
+    if periode not in ('jour', 'semaine', 'mois', 'tous'):
+        periode = 'jour'
+
+    today = date.today()
+    if periode == 'jour':
+        return {
+            'periode': periode,
+            'date_debut': today,
+            'date_fin': today,
+            'label': "Aujourd'hui",
+        }
+    if periode == 'semaine':
+        return {
+            'periode': periode,
+            'date_debut': today - timedelta(days=6),
+            'date_fin': today,
+            'label': '7 derniers jours',
+        }
+    if periode == 'mois':
+        return {
+            'periode': periode,
+            'date_debut': today.replace(day=1),
+            'date_fin': today,
+            'label': 'Mois en cours',
+        }
+    return {
+        'periode': 'tous',
+        'date_debut': None,
+        'date_fin': None,
+        'label': 'Tous les traitements',
+    }
+
+
+def get_all_traitements(periode=None, date_debut=None, date_fin=None):
+    """
+    Récupère les traitements WEB_TRAITEMENTS.
+    - periode : jour | semaine | mois | tous (filtre sur CAST(DteDeb AS DATE))
+    - date_debut / date_fin : bornes explicites (prioritaires si fournies)
+    Sans filtre (periode=None et dates None) : tous les traitements (compat API).
+    """
     ensure_nom_fd_column()
     ensure_controle_valide_columns()
+
+    if date_debut is None and date_fin is None and periode:
+        bounds = resolve_periode_filtre(periode)
+        date_debut = bounds['date_debut']
+        date_fin = bounds['date_fin']
+
     with get_db_cursor() as cursor:
         cols_cloture = ', Cloture' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture') else ', CAST(0 AS TINYINT) AS Cloture'
         cols_desc = ', Description' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Description') else ', CAST(NULL AS NVARCHAR(MAX)) AS Description'
@@ -1854,6 +1907,18 @@ def get_all_traitements():
             if has_cv
             else ', CAST(0 AS TINYINT) AS ControleValide, CAST(NULL AS DATETIME2) AS ControleValideDte, CAST(NULL AS INT) AS ControleValideMatricule'
         )
+
+        where_parts = []
+        params = []
+        # Filtre période sur la date de début du traitement (métier)
+        if date_debut is not None:
+            where_parts.append("CAST(DteDeb AS DATE) >= ?")
+            params.append(date_debut)
+        if date_fin is not None:
+            where_parts.append("CAST(DteDeb AS DATE) <= ?")
+            params.append(date_fin)
+        where_sql = (" WHERE " + " AND ".join(where_parts)) if where_parts else ""
+
         cursor.execute(f"""
             SELECT 
                 ID,
@@ -1883,8 +1948,9 @@ def get_all_traitements():
                 {cols_nom_fd}
                 {cols_controle}
             FROM WEB_TRAITEMENTS
+            {where_sql}
             ORDER BY DateCreation DESC
-        """)
+        """, tuple(params))
         
         traitements = []
         for row in cursor.fetchall():
@@ -3745,6 +3811,9 @@ def get_tableau_comparatif_commandes(numero_filter=None):
     Données pour le Tableau comparatif (prévu / réel par dossier).
     Retourne une liste de dossiers avec totaux et écarts (temps, coût, quantité).
     Uniquement les commandes non terminées (C.Termine = 0) avec au moins du temps réel.
+
+    Temps réel = SUM(WEB_TRAITEMENTS.TpsReel) des traitements terminés (DteFin renseignée).
+    Quantité réelle = SUM(GP_TRAITEMENTS.NbOp) ERP (inchangé).
     """
     def _f(v):
         if v is None:
@@ -3762,7 +3831,14 @@ def get_tableau_comparatif_commandes(numero_filter=None):
             ISNULL(FT.CtPrevDev, 0) AS cout_prev,
             ISNULL(FT.CtReel, 0) AS cout_reel,
             ISNULL(FI.TpsPrevDev, 0) AS tps_prev,
-            ISNULL(FI.TpsReel, 0) AS tps_reel,
+            ISNULL((
+                SELECT SUM(WT.TpsReel)
+                FROM WEB_TRAITEMENTS WT
+                WHERE LTRIM(RTRIM(WT.Numero_COMMANDES)) = LTRIM(RTRIM(C.Numero))
+                  AND WT.DteFin IS NOT NULL
+                  AND WT.TpsReel IS NOT NULL
+                  AND WT.TpsReel > 0
+            ), 0) AS tps_reel,
             (SELECT ISNULL(SUM(FO.OpPrevDev), 0) FROM GP_FICHES_OPERATIONS FO WHERE FO.ID_FICHE_TRAVAIL = FT.ID) AS nb_op_prev,
             (SELECT ISNULL(SUM(T.NbOp), 0) FROM GP_TRAITEMENTS T WHERE T.ID_FICHE_TRAVAIL = FT.ID) AS quantite_reelle
         FROM COMMANDES C
@@ -3782,6 +3858,7 @@ def get_tableau_comparatif_commandes(numero_filter=None):
         rows = cursor.fetchall()
 
     # Regroupement par numéro de commande
+    # tps_reel est déjà au niveau dossier (sous-requête WEB_TRAITEMENTS) : ne pas le resommer par fiche
     by_numero = {}
     for row in rows:
         num = (row.numero or "").strip()
@@ -3792,14 +3869,13 @@ def get_tableau_comparatif_commandes(numero_filter=None):
                 "numero": num,
                 "client": (row.client or "").strip(),
                 "tps_prev": 0.0,
-                "tps_reel": 0.0,
+                "tps_reel": _f(row.tps_reel),
                 "cout_prev": 0.0,
                 "cout_reel": 0.0,
                 "nb_op_prev": 0.0,
                 "quantite_reelle": 0.0,
             }
         by_numero[num]["tps_prev"] += _f(row.tps_prev)
-        by_numero[num]["tps_reel"] += _f(row.tps_reel)
         by_numero[num]["cout_prev"] += _f(row.cout_prev)
         by_numero[num]["cout_reel"] += _f(row.cout_reel)
         by_numero[num]["nb_op_prev"] += _f(row.nb_op_prev)
@@ -3810,6 +3886,12 @@ def get_tableau_comparatif_commandes(numero_filter=None):
     for num, data in by_numero.items():
         if data["tps_reel"] == 0:
             continue
+        data["tps_prev"] = round(data["tps_prev"], 2)
+        data["tps_reel"] = round(data["tps_reel"], 2)
+        data["cout_prev"] = round(data["cout_prev"], 2)
+        data["cout_reel"] = round(data["cout_reel"], 2)
+        data["nb_op_prev"] = round(data["nb_op_prev"], 2)
+        data["quantite_reelle"] = round(data["quantite_reelle"], 2)
         data["ecart_tps"] = round(data["tps_reel"] - data["tps_prev"], 2)
         data["ecart_cout"] = round(data["cout_reel"] - data["cout_prev"], 2)
         data["ecart_quantite"] = round(data["quantite_reelle"] - data["nb_op_prev"], 2)
@@ -3851,32 +3933,25 @@ def _month_bounds(year, month):
 
 def get_machines_pour_rapport_kba():
     """
-    Liste des machines pour le rapport : PostesReel distincts (traitements)
-    + postes GP_POSTES, triés alphabétiquement.
+    Liste des machines pour le rapport : postes GP_POSTES non archivés
+    (Archive = FAUX), triés alphabétiquement.
     """
-    names = set()
+    names = []
     with get_db_cursor() as cursor:
         cursor.execute("""
-            SELECT DISTINCT LTRIM(RTRIM(PostesReel)) AS nom
-            FROM WEB_TRAITEMENTS
-            WHERE PostesReel IS NOT NULL AND LTRIM(RTRIM(PostesReel)) <> ''
+            SELECT DISTINCT LTRIM(RTRIM(Nom)) AS nom
+            FROM GP_POSTES
+            WHERE Nom IS NOT NULL
+              AND LTRIM(RTRIM(Nom)) <> ''
+              AND ISNULL(Archive, 0) = 0
+            ORDER BY LTRIM(RTRIM(Nom))
         """)
+        seen = set()
         for row in cursor.fetchall():
             n = (row.nom or "").strip()
-            if n:
-                names.add(n)
-        try:
-            cursor.execute("""
-                SELECT DISTINCT LTRIM(RTRIM(Nom)) AS nom
-                FROM GP_POSTES
-                WHERE Nom IS NOT NULL AND LTRIM(RTRIM(Nom)) <> ''
-            """)
-            for row in cursor.fetchall():
-                n = (row.nom or "").strip()
-                if n:
-                    names.add(n)
-        except Exception:
-            pass
+            if n and n.lower() not in seen:
+                seen.add(n.lower())
+                names.append(n)
     return sorted(names, key=lambda x: x.lower())
 
 
@@ -3997,6 +4072,155 @@ def _fetch_compteur_rapport_kba(machine, year, month):
     return result
 
 
+def _fetch_rapport_kba_vitesse_repartition(machine, year, month):
+    """
+    Répartition KBA du temps d'impression du mois par tranche de cadence.
+
+    Chaque traitement terminé avec TpsReel > 0 est classé selon :
+        cadence = NbOp / TpsReel (feuilles/heure)
+    Le pourcentage d'une tranche est :
+        somme(TpsReel de la tranche) / somme(TpsReel éligible) * 100
+
+    Une tranche sans temps retourne pct=None afin d'afficher « — % ».
+    """
+    machine = (machine or "").strip()
+    debut, fin = _month_bounds(year, month)
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                SUM(CASE WHEN cadence < 8000
+                    THEN TpsReel ELSE 0 END) AS tps_moins_8000,
+                SUM(CASE WHEN cadence >= 8000 AND cadence < 12000
+                    THEN TpsReel ELSE 0 END) AS tps_8000_12000,
+                SUM(CASE WHEN cadence >= 12000 AND cadence <= 16000
+                    THEN TpsReel ELSE 0 END) AS tps_12000_16000,
+                SUM(CASE WHEN cadence > 16000
+                    THEN TpsReel ELSE 0 END) AS tps_plus_16000,
+                SUM(TpsReel) AS tps_total
+            FROM (
+                SELECT
+                    CAST(ISNULL(NbOp, 0) AS FLOAT)
+                        / NULLIF(CAST(TpsReel AS FLOAT), 0) AS cadence,
+                    CAST(TpsReel AS FLOAT) AS TpsReel
+                FROM WEB_TRAITEMENTS
+                WHERE LTRIM(RTRIM(PostesReel)) = ?
+                  AND DteDeb IS NOT NULL
+                  AND CAST(DteDeb AS DATE) >= ?
+                  AND CAST(DteDeb AS DATE) <= ?
+                  AND DteFin IS NOT NULL
+                  AND TpsReel IS NOT NULL
+                  AND TpsReel > 0
+            ) AS traitements_eligibles
+            """,
+            (machine, debut, fin),
+        )
+        row = cursor.fetchone()
+
+    labels = [
+        "< 8.000 f/h",
+        "8.000 - 12.000 f/h",
+        "12.000 - 16.000 f/h",
+        "> 16.000 f/h",
+    ]
+    if not row:
+        return [{"label": label, "pct": None, "heures": 0} for label in labels]
+
+    total = float(row.tps_total or 0)
+    temps = [
+        float(row.tps_moins_8000 or 0),
+        float(row.tps_8000_12000 or 0),
+        float(row.tps_12000_16000 or 0),
+        float(row.tps_plus_16000 or 0),
+    ]
+    return [
+        {
+            "label": label,
+            "pct": round(tps / total * 100, 1) if total > 0 and tps > 0 else None,
+            "heures": round(tps, 2),
+        }
+        for label, tps in zip(labels, temps)
+    ]
+
+
+def _fetch_rapport_kba_operateurs(machine, date_debut, date_fin):
+    """
+    Performance opérateurs sur une machine (6 mois).
+    Cadence = Somme(NbOp) / Somme(TpsReel) — même formule que
+    « Cadence par opérateur » du tableau de bord (traitements terminés, TpsReel > 0).
+    Jobs = nombre de dossiers distincts (Numero_COMMANDES).
+    Période alignée sur DteDeb (comme le reste du rapport KBA).
+    """
+    machine = (machine or "").strip()
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                ISNULL(LTRIM(RTRIM(Nom_personel)), '') AS nom,
+                ISNULL(LTRIM(RTRIM(Prenom_personel)), '') AS prenom,
+                YEAR(DteDeb) AS annee,
+                MONTH(DteDeb) AS mois,
+                SUM(CASE
+                    WHEN DteFin IS NOT NULL AND TpsReel IS NOT NULL AND TpsReel > 0
+                    THEN ISNULL(NbOp, 0) ELSE 0 END) AS ops_cadence,
+                SUM(CASE
+                    WHEN DteFin IS NOT NULL AND TpsReel IS NOT NULL AND TpsReel > 0
+                    THEN TpsReel ELSE 0 END) AS tps_cadence,
+                COUNT(DISTINCT NULLIF(LTRIM(RTRIM(CAST(Numero_COMMANDES AS NVARCHAR(50)))), '')) AS nb_jobs
+            FROM WEB_TRAITEMENTS
+            WHERE LTRIM(RTRIM(PostesReel)) = ?
+              AND DteDeb IS NOT NULL
+              AND CAST(DteDeb AS DATE) >= ?
+              AND CAST(DteDeb AS DATE) <= ?
+              AND (
+                    (Nom_personel IS NOT NULL AND LTRIM(RTRIM(Nom_personel)) <> '')
+                 OR (Prenom_personel IS NOT NULL AND LTRIM(RTRIM(Prenom_personel)) <> '')
+              )
+            GROUP BY
+                ISNULL(LTRIM(RTRIM(Nom_personel)), ''),
+                ISNULL(LTRIM(RTRIM(Prenom_personel)), ''),
+                YEAR(DteDeb),
+                MONTH(DteDeb)
+            """,
+            (machine, date_debut, date_fin),
+        )
+        rows = cursor.fetchall()
+
+    by_op = {}
+    for row in rows:
+        nom = (row.nom or "").strip()
+        prenom = (row.prenom or "").strip()
+        label = f"{nom} {prenom}".strip() or "Non renseigné"
+        key = (int(row.annee), int(row.mois))
+        tps = float(row.tps_cadence or 0)
+        ops = float(row.ops_cadence or 0)
+        cadence = round(ops / tps, 0) if tps > 0 else 0
+        jobs = int(row.nb_jobs or 0)
+        entry = by_op.setdefault(label, {
+            "operateur": label,
+            "mois": {},
+            "total_jobs": 0,
+            "total_ops": 0.0,
+            "total_tps": 0.0,
+        })
+        entry["mois"][key] = {
+            "cadence": int(cadence),
+            "nb_jobs": jobs,
+        }
+        entry["total_jobs"] += jobs
+        entry["total_ops"] += ops
+        entry["total_tps"] += tps
+
+    operateurs = list(by_op.values())
+    # Tri : volume d'activité (jobs) puis cadence globale
+    def _sort_key(op):
+        cad = (op["total_ops"] / op["total_tps"]) if op["total_tps"] > 0 else 0
+        return (-op["total_jobs"], -cad, op["operateur"].lower())
+
+    operateurs.sort(key=_sort_key)
+    return operateurs
+
+
 def get_rapport_kba_data(machine, year, month, nb_mois_historique=6):
     """
     Données pour le rapport mensuel type KBA à partir de WEB_TRAITEMENTS.
@@ -4015,6 +4239,7 @@ def get_rapport_kba_data(machine, year, month, nb_mois_historique=6):
     _, range_fin = _month_bounds(year, month)
 
     by_key = _fetch_rapport_kba_monthly_rows(machine, range_debut, range_fin)
+    operateurs_performance = _fetch_rapport_kba_operateurs(machine, range_debut, range_fin)
 
     historique = []
     y, m = start_y, start_m
@@ -4044,7 +4269,12 @@ def get_rapport_kba_data(machine, year, month, nb_mois_historique=6):
     # mois courant = dernier de l'historique
     mois_courant = historique[-1] if historique else {}
     compteur = _fetch_compteur_rapport_kba(machine, year, month)
+    repartition_vitesses = _fetch_rapport_kba_vitesse_repartition(machine, year, month)
     historique_graph = list(reversed(historique))
+
+    # Compteur feuilles brut/net : cumul du mois sélectionné (toutes les opérations)
+    feuilles_brut_mois = int(mois_courant.get("feuilles_brut") or mois_courant.get("total_operations") or 0)
+    feuilles_net_mois = int(mois_courant.get("feuilles_net") or mois_courant.get("total_operations") or 0)
 
     return {
         "machine": machine,
@@ -4061,9 +4291,10 @@ def get_rapport_kba_data(machine, year, month, nb_mois_historique=6):
         "mois_courant": mois_courant,
         "historique": historique,
         "historique_graph": historique_graph,
+        "operateurs_performance": operateurs_performance,
         "compteur": compteur,
-        "compteur_brut": compteur.get("max_cumul"),
-        "compteur_net": compteur.get("max_cumul"),
+        "compteur_brut": feuilles_brut_mois,
+        "compteur_net": feuilles_net_mois,
         "source": "Projet 11 — WEB_TRAITEMENTS (DteDeb)",
         "sections_telemetry": {
             "disponibilite_pct": None,
@@ -4072,7 +4303,7 @@ def get_rapport_kba_data(machine, year, month, nb_mois_historique=6):
             "temps_impression_h": mois_courant.get("total_heures"),
             "temps_plaques_h": None,
             "temps_lavage_h": None,
-            "vitesses": None,
+            "vitesses": repartition_vitesses,
             "performance_score": None,
             "maintenance": None,
         },

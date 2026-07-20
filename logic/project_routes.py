@@ -8,7 +8,7 @@ PROJECT_ROUTES = {
     1: ('projet1.index', 'Planning'),
     2: ('projet2.commandes', 'Commandes'),
     3: ('projet3.page_projet3', 'Suivi BAT'),
-    4: ('projet4.rapport_visite', 'Rapport Visite'),
+    4: ('projet4.rapport_visite', 'Rapport de Visite'),
     5: ('projet5.index', 'Planning Production'),
     6: ('projet6.programme_voyage', 'Voyages'),
     7: ('projet7_bp.import_facture', 'Factures STEG'),
@@ -32,7 +32,6 @@ PROJECT_ROUTES = {
     25: ('projet25.index', 'Congés et autorisations'),
     26: ('projet26.index', 'Gestion des formations'),
     27: ('projet27.index', 'Crédit Leasing'),
-    28: ('projet28.rapport_visite', 'Rapport de Visite'),
 }
 
 # Mapping des numéros de projets vers leurs icônes
@@ -64,7 +63,6 @@ PROJECT_ICONS = {
     25: '📅',
     26: '🎓',
     27: '💳',
-    28: '📝',
 }
 
 def get_project_url(project_num):

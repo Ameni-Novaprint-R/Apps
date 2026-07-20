@@ -19,6 +19,7 @@ from reportlab.platypus import (
     Paragraph,
     Spacer,
     KeepTogether,
+    PageBreak,
 )
 from reportlab.graphics.shapes import Drawing, String, Circle, Line, Rect
 from reportlab.graphics.charts.barcharts import VerticalBarChart
@@ -514,6 +515,168 @@ def _score_changement_section(data, mc, width, styles):
     return block
 
 
+def _operateurs_section(data, hist, width, styles):
+    """
+    Performance des opérateurs — style KBA type Vitesse (sans graphique) :
+    pour chaque opérateur, ligne haute = cadence (f/h), ligne basse = jobs (dossiers),
+    avec pastilles + libellés sur chaque ligne (carrés réduits).
+    """
+    hist_chrono = sorted(hist, key=lambda h: (h.get("annee", 0), h.get("mois", 0)))
+    if not hist_chrono:
+        return Spacer(1, 1)
+
+    labels = [(h.get("mois_label") or "").lower() for h in hist_chrono]
+    month_keys = [(int(h.get("annee", 0)), int(h.get("mois", 0))) for h in hist_chrono]
+    n = max(len(labels), 1)
+    operateurs = data.get("operateurs_performance") or []
+
+    name_w = min(100, width * 0.22)
+    label_w = 88
+    col_w = max((width - name_w - label_w - 4) / n, 34)
+
+    name_style = ParagraphStyle(
+        "kba_op_name",
+        fontName="Helvetica-Bold",
+        fontSize=6.5,
+        textColor=C["navy"],
+        leading=8,
+        alignment=0,
+    )
+    month_style = ParagraphStyle(
+        "kba_op_month",
+        fontName="Helvetica",
+        fontSize=6,
+        textColor=C["text_muted"],
+        leading=7,
+        alignment=TA_CENTER,
+    )
+    label_style = ParagraphStyle(
+        "kba_op_lbl",
+        fontName="Helvetica",
+        fontSize=5.5,
+        textColor=C["text_muted"],
+        leading=7,
+        alignment=0,
+    )
+    cad_color = KBA_COLORS["blue_steel"]
+    job_color = KBA_COLORS["navy"]
+    cad_style = ParagraphStyle(
+        "kba_op_cad",
+        fontName="Helvetica-Bold",
+        fontSize=6.5,
+        textColor=C["blue_steel"],
+        leading=8,
+        alignment=TA_CENTER,
+    )
+    job_style = ParagraphStyle(
+        "kba_op_job",
+        fontName="Helvetica-Bold",
+        fontSize=6.5,
+        textColor=C["navy"],
+        leading=8,
+        alignment=TA_CENTER,
+    )
+
+    def _mini_label(text, color):
+        """Pastille réduite + libellé (style Vitesse, carré minimisé)."""
+        swatch = Table([[""]], colWidths=[5], rowHeights=[5])
+        swatch.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), color),
+            ("BOX", (0, 0), (-1, -1), 0.3, C["navy"]),
+        ]))
+        t = Table([[swatch, _p(text, label_style)]], colWidths=[8, label_w - 10])
+        t.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        return t
+
+    header_cells = (
+        [_p("", name_style)]
+        + [_p(lbl, month_style) for lbl in labels]
+        + [_p("", label_style)]
+    )
+    table_rows = [header_cells]
+    span_commands = []
+
+    if not operateurs:
+        table_rows.append(
+            [_p("<i>Aucun opérateur</i>", name_style)]
+            + [_p("—", job_style) for _ in labels]
+            + [_p("", label_style)]
+        )
+    else:
+        for op in operateurs:
+            mois_data = op.get("mois") or {}
+            cad_cells = [_p(op.get("operateur") or "—", name_style)]
+            job_cells = [_p("", name_style)]
+            for key in month_keys:
+                cell = mois_data.get(key)
+                if not cell or (not cell.get("nb_jobs") and not cell.get("cadence")):
+                    cad_cells.append(_p("—", cad_style))
+                    job_cells.append(_p("—", job_style))
+                else:
+                    cad_cells.append(_p(
+                        f'<font color="{cad_color}"><b>{_fmt_num(cell.get("cadence", 0))}</b></font>',
+                        cad_style,
+                    ))
+                    job_cells.append(_p(
+                        f'<font color="{job_color}"><b>{_fmt_num(cell.get("nb_jobs", 0))}</b></font>',
+                        job_style,
+                    ))
+            cad_cells.append(_mini_label("cadence (f/h)", C["blue_steel"]))
+            job_cells.append(_mini_label("jobs (dossiers)", C["navy"]))
+            row_idx = len(table_rows)
+            table_rows.append(cad_cells)
+            table_rows.append(job_cells)
+            span_commands.append(("SPAN", (0, row_idx), (0, row_idx + 1)))
+            span_commands.append(("VALIGN", (0, row_idx), (0, row_idx + 1), "MIDDLE"))
+
+    col_widths = [name_w] + [col_w] * n + [label_w]
+    data_table = Table(table_rows, colWidths=col_widths)
+    grid_style = [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("ALIGN", (1, 0), (n, -1), "CENTER"),
+        ("ALIGN", (n + 1, 0), (n + 1, -1), "LEFT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 1),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+    ] + span_commands
+
+    for i, op_i in enumerate(range(1, len(table_rows), 2)):
+        if i % 2 == 1:
+            end = min(op_i + 1, len(table_rows) - 1)
+            grid_style.append(
+                ("BACKGROUND", (0, op_i), (-1, end), colors.Color(0.96, 0.97, 0.98))
+            )
+    data_table.setStyle(TableStyle(grid_style))
+
+    title_row = Table(
+        [[_section_title("Performance des opérateurs", styles, left=True)]],
+        colWidths=[width],
+    )
+    title_row.setStyle(TableStyle([
+        ("LEFTPADDING", (0, 0), (0, 0), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ]))
+
+    block = Table([[title_row], [data_table]], colWidths=[width])
+    block.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.5, C["line_red"]),
+    ]))
+    return block
+
+
 def _vitesse_section(hist, width, styles, kpi_value, kpi_label):
     """Bloc Vitesse d'impression style KBA : une seule section (titre + courbe + détails + KPI)."""
     hist_chrono = sorted(hist, key=lambda h: (h.get("annee", 0), h.get("mois", 0)))
@@ -628,21 +791,22 @@ def _stacked_bar_productivite(nets, bruts, width=110, height=80):
     d.add(Line(pad_left, pad_bottom, width - pad_right, pad_bottom,
                strokeColor=C["grey_light"], strokeWidth=0.5))
 
-    # Partie bleue = Net (fidèle). Partie grise = écart (Brut - Net) avec une
-    # AMPLIFICATION VISUELLE (x GREY_AMP) pour rester lisible sur les faibles écarts.
-    # Les données ne changent pas ; seul l'affichage de la coiffe est agrandi.
+    # Sommet de la barre = Brut (hauteur ∝ brut, jamais > plot_h → pas de débordement
+    # sur le titre). La coiffe grise (écart Brut - Net) est amplifiée visuellement
+    # (x GREY_AMP) À L'INTÉRIEUR de la barre : le bleu (Net) est réduit d'autant.
+    # Les données ne changent pas ; seul le partage visuel bleu/gris est accentué.
     GREY_AMP = 20.0
     for i in range(n):
         brut = bruts_f[i]
         net = nets_f[i]
         cx = pad_left + slot * i + slot / 2
         x = cx - bar_w / 2
-        h_net = (net / max_v) * plot_h
+        h_brut = (brut / max_v) * plot_h          # sommet = brut (borné à plot_h)
         gap_real_h = ((brut - net) / max_v) * plot_h
         grey_h = gap_real_h * GREY_AMP
-        # Garde-fou : la coiffe amplifiée ne dépasse jamais la hauteur du bleu
-        if h_net > 0:
-            grey_h = min(grey_h, h_net)
+        # La coiffe reste dans la barre (max 50 %) : le gris ne dépasse jamais le bleu
+        grey_h = min(grey_h, h_brut * 0.5)
+        h_net = max(0.0, h_brut - grey_h)
 
         if h_net > 0:
             d.add(Rect(x, pad_bottom, bar_w, h_net,
@@ -815,32 +979,19 @@ def _chart_section(
     return t
 
 
-def build_rapport_kba_pdf(data):
-    """Génère le PDF Performance Report portrait (bytes)."""
-    buffer = BytesIO()
-    page_w, _ = A4
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=10 * mm,
-        rightMargin=10 * mm,
-        topMargin=7 * mm,
-        bottomMargin=7 * mm,
-    )
-    styles = _make_styles()
-    story = []
-    usable_w = page_w - 20 * mm
-
+def _build_rapport_kba_page_content(data, styles, usable_w):
+    """Construit le contenu flowable d'un rapport (une page)."""
     mc = data.get("mois_courant") or {}
     hist = data.get("historique_graph") or []
     tel = data.get("sections_telemetry") or {}
-    compteur = data.get("compteur") or {}
 
-    labels_short = [(h.get("mois_label") or "")[:3] for h in hist]
-
-    brut_c = data.get("compteur_brut") or compteur.get("max_cumul")
-    net_c = data.get("compteur_net") or compteur.get("max_cumul")
-    compteur_txt = f"{_fmt_num(brut_c)} / {_fmt_num(net_c)}" if brut_c or net_c else "— / —"
+    brut_c = data.get("compteur_brut")
+    if brut_c is None:
+        brut_c = mc.get("feuilles_brut", mc.get("total_operations", 0))
+    net_c = data.get("compteur_net")
+    if net_c is None:
+        net_c = mc.get("feuilles_net", mc.get("total_operations", 0))
+    compteur_txt = f"{_fmt_num(brut_c)} / {_fmt_num(net_c)}"
 
     # --- En-tête : Machine | Compteur — pleine largeur, gap central (réf. screenshot) ---
     header_gap = usable_w * 0.07
@@ -1005,6 +1156,7 @@ def build_rapport_kba_pdf(data):
         ))
 
         page_content.append(_score_changement_section(data, mc, chart_w, styles))
+        page_content.append(_operateurs_section(data, hist, chart_w, styles))
 
     footer_text = (
         f'<font color="{KBA_COLORS["red"]}"><b>A</b></font> Maint. retard · '
@@ -1014,7 +1166,37 @@ def build_rapport_kba_pdf(data):
     page_content.append(_red_line(usable_w))
     page_content.append(Table([[_p(footer_text, styles["footer"])]], colWidths=[usable_w]))
 
-    story.append(KeepTogether(page_content))
+    return page_content
+
+
+def build_rapport_kba_pdf(data):
+    """Génère le PDF Performance Report portrait (bytes).
+
+    Accepte un dict (un rapport) ou une liste de dicts (plusieurs rapports,
+    un par page, séparés par PageBreak).
+    """
+    data_list = data if isinstance(data, list) else [data]
+
+    buffer = BytesIO()
+    page_w, _ = A4
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=7 * mm,
+        bottomMargin=7 * mm,
+    )
+    styles = _make_styles()
+    story = []
+    usable_w = page_w - 20 * mm
+
+    for i, item in enumerate(data_list):
+        if i > 0:
+            story.append(PageBreak())
+        page_content = _build_rapport_kba_page_content(item, styles, usable_w)
+        story.append(KeepTogether(page_content))
+
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()

@@ -43,7 +43,6 @@ NUM_TO_URL = {
     25: '/projet25/',
     26: '/projet26/',
     27: '/projet27/',
-    28: '/projet28/',
 }
 
 
@@ -84,10 +83,10 @@ def api_navigation_menu():
         except Exception as e:
             print(f"[navigation-menu] ensure_projet27: {e}")
         try:
-            from routes.projet28_routes import ensure_projet28_in_web_projets
-            ensure_projet28_in_web_projets()
+            from routes.projet4_routes import ensure_projet4_in_web_projets
+            ensure_projet4_in_web_projets()
         except Exception as e:
-            print(f"[navigation-menu] ensure_projet28: {e}")
+            print(f"[navigation-menu] ensure_projet4: {e}")
         projects_raw = get_user_projects()
         if not projects_raw:
             return jsonify({'projects': []})
@@ -115,7 +114,7 @@ def api_navigation_menu():
                 nom = 'Gestion des congés et autorisations de sortie'
             if num == 26:
                 nom = 'Gestion des formations'
-            if num == 28:
+            if num == 4:
                 nom = 'Rapport de Visite'
             projects.append({
                 'id': p.get('id'),
@@ -203,7 +202,6 @@ app.register_blueprint(auth_bp)
 from logic.projet1 import bp as projet1_bp
 from logic.projet2 import bp as projet2_bp
 from logic.projet3 import bp as projet3_bp
-from logic.projet4 import bp as projet4_bp
 from logic.projet5 import bp as projet5_bp
 from logic.projet8 import bp as projet8_bp
 from logic.projet9 import bp as projet9_bp
@@ -214,7 +212,6 @@ from logic.projet6 import projet6_bp
 app.register_blueprint(projet1_bp)
 app.register_blueprint(projet2_bp)
 app.register_blueprint(projet3_bp)
-app.register_blueprint(projet4_bp)
 app.register_blueprint(projet5_bp)
 app.register_blueprint(projet8_bp)
 app.register_blueprint(projet9_bp)
@@ -240,7 +237,7 @@ from routes.projet24_routes import projet24_bp
 from routes.projet25_routes import projet25_bp
 from routes.projet26_routes import projet26_bp
 from routes.projet27_routes import projet27_bp
-from routes.projet28_routes import projet28_bp
+from routes.projet4_routes import projet4_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
 from routes.renommer_table_route import renommer_bp
@@ -262,7 +259,7 @@ app.register_blueprint(projet24_bp)
 app.register_blueprint(projet25_bp)
 app.register_blueprint(projet26_bp)
 app.register_blueprint(projet27_bp)
-app.register_blueprint(projet28_bp)
+app.register_blueprint(projet4_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
 app.register_blueprint(renommer_bp)
@@ -299,13 +296,13 @@ def _ensure_projets_web_menu():
         except Exception as e:
             print(f"[Projet 27] ensure_projet27_in_web_projets: {e}")
         app._projet27_web_projets_ensured = True
-    if not getattr(app, '_projet28_web_projets_ensured', False):
+    if not getattr(app, '_projet4_web_projets_ensured', False):
         try:
-            from routes.projet28_routes import ensure_projet28_in_web_projets
-            ensure_projet28_in_web_projets()
+            from routes.projet4_routes import ensure_projet4_in_web_projets
+            ensure_projet4_in_web_projets()
         except Exception as e:
-            print(f"[Projet 28] ensure_projet28_in_web_projets: {e}")
-        app._projet28_web_projets_ensured = True
+            print(f"[Projet 4] ensure_projet4_in_web_projets: {e}")
+        app._projet4_web_projets_ensured = True
 
 
 if __name__ == '__main__':

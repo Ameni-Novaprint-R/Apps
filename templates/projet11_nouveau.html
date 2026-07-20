@@ -699,6 +699,7 @@ function scheduleRefreshDerniereLectureCompteur() {
     }, 180);
 }
 let currentNumeroCommande = null;
+let lastConfirmedNumeroCommande = null;
 let currentService = null;
 let currentServiceId = null;
 let currentFicheId = null;
@@ -1396,6 +1397,7 @@ function chargerDonneesTraitement(data) {
         if (champCommande) {
             champCommande.value = data.numero_commandes;
             currentNumeroCommande = data.numero_commandes;
+            lastConfirmedNumeroCommande = data.numero_commandes;
             
             // Afficher les infos de la commande
             const selectedOption = $('#commandes_list option[value="' + data.numero_commandes + '"]');
@@ -1814,75 +1816,73 @@ function initialiserSelect2Contient($element, parentSelector, placeholderText = 
 // ============================================================================
 // ÉTAPE 1: Sélection de la commande
 // ============================================================================
-// S'assurer que le champ est prêt pour la saisie au focus
-$('#numero_commande').on('focus', function() {
-    $(this).select(); // Sélectionner tout le texte s'il y en a
-});
-
-// Empêcher la soumission du formulaire avec la touche Entrée sur le champ de commande
-$('#numero_commande').on('keypress', function(e) {
-    if (e.which === 13) {  // Touche Entrée
-        e.preventDefault();
-        // Déplacer le focus vers le champ de service s'il est visible
-        if ($('#sectionService').is(':visible')) {
-            $('#service_prevu').focus();
-        }
+function commandeEstValide(numeroCommande) {
+    const n = (numeroCommande || '').trim();
+    if (!n) {
         return false;
     }
-});
+    return $('#commandes_list option').filter(function() {
+        return $(this).attr('value') === n;
+    }).length > 0;
+}
 
-$('#numero_commande').on('input change', function() {
-    const numeroCommande = $(this).val().trim();
+function masquerSectionsApresCommande() {
+    $('#infoCommandeSelectionnee').hide();
+    $('#sectionService').hide();
+    $('#infoPrevues').hide();
+    $('#traitementsExistants').hide();
+    $('#sectionSaisie').hide();
+    $('#separator').hide();
+}
+
+function chargerCommandeSelectionnee(numeroCommande, options) {
+    options = options || {};
+    const focusService = !!options.focusService;
+    numeroCommande = (numeroCommande || '').trim();
+
+    if (!commandeEstValide(numeroCommande)) {
+        return false;
+    }
+
+    if (lastConfirmedNumeroCommande !== numeroCommande) {
+        resetForm();
+    }
+
     currentNumeroCommande = numeroCommande;
-    
-    // Réinitialiser
-    resetForm();
-
-    // Le dossier change : rafraîchir la dernière lecture compteur (si la machine/service sont déjà saisis)
+    lastConfirmedNumeroCommande = numeroCommande;
     scheduleRefreshDerniereLectureCompteur();
-    
-    if (!numeroCommande) {
-        return;
-    }
-    
-    // Récupérer les infos de la commande depuis le datalist
-    const selectedOption = $('#commandes_list option[value="' + numeroCommande + '"]');
-    
-    if (selectedOption.length > 0) {
-        $('#info_numero_cmd').text(numeroCommande);
-        $('#info_client_cmd').text(selectedOption.data('client') || '-');
-        $('#info_reference_cmd').text(selectedOption.data('reference') || '-');
-        $('#infoCommandeSelectionnee').show();
-    } else {
-        // Si le numéro n'est pas dans la liste, ne rien afficher
-        return;
-    }
-    
-    // Charger les services prévus
+
+    const selectedOption = $('#commandes_list option').filter(function() {
+        return $(this).attr('value') === numeroCommande;
+    }).first();
+
+    $('#info_numero_cmd').text(numeroCommande);
+    $('#info_client_cmd').text(selectedOption.data('client') || '-');
+    $('#info_reference_cmd').text(selectedOption.data('reference') || '-');
+    $('#infoCommandeSelectionnee').show();
+
     fetch(`/projet11/api/services-prevus/${encodeURIComponent(numeroCommande)}`)
         .then(response => response.json())
         .then(services => {
             const datalistService = $('#services_list');
             datalistService.empty();
             servicesPrevusMap = {};
-            
+
             if (services.length > 0) {
-                // Ajouter les services prévus dans le datalist
                 services.forEach(srv => {
                     datalistService.append(`<option value="${srv.nom_service}">${srv.nom_service} (${srv.nb_fiches} poste(s))</option>`);
                     servicesPrevusMap[(srv.nom_service || '').toLowerCase()] = srv.id_service;
                 });
-                
-                // Ajouter l'option pour service non prévu
                 datalistService.append('<option value="__AUTRE__">🔧 Autre service (non prévu)</option>');
             }
-            
+
             $('#sectionService').show();
-            
-            // Mettre automatiquement le focus sur le champ de service
-            setTimeout(function() {
-                $('#service_prevu').focus();
-            }, 100);
+
+            if (focusService) {
+                setTimeout(function() {
+                    $('#service_prevu').focus();
+                }, 100);
+            }
 
             const storedService = storedFormValues && storedFormValues.service_prevu;
             if (storedService) {
@@ -1897,6 +1897,56 @@ $('#numero_commande').on('input change', function() {
             console.error('Erreur:', error);
             alert('Erreur lors du chargement des services');
         });
+
+    return true;
+}
+
+// S'assurer que le champ est prêt pour la saisie au focus
+$('#numero_commande').on('focus', function() {
+    $(this).select();
+});
+
+// Entrée : valider la commande si numéro complet reconnu, puis passer au service
+$('#numero_commande').on('keydown', function(e) {
+    if (e.key === 'Enter' || e.which === 13) {
+        e.preventDefault();
+        const numeroCommande = $(this).val().trim();
+        if (chargerCommandeSelectionnee(numeroCommande, { focusService: true })) {
+            return false;
+        }
+        if ($('#sectionService').is(':visible') && numeroCommande === lastConfirmedNumeroCommande) {
+            $('#service_prevu').focus();
+        }
+        return false;
+    }
+});
+
+// Saisie en cours : ne pas avancer tant que la commande n'est pas confirmée
+$('#numero_commande').on('input', function() {
+    const numeroCommande = $(this).val().trim();
+    scheduleRefreshDerniereLectureCompteur();
+
+    if (!numeroCommande) {
+        lastConfirmedNumeroCommande = null;
+        currentNumeroCommande = null;
+        resetForm();
+        masquerSectionsApresCommande();
+        return;
+    }
+
+    if (numeroCommande !== lastConfirmedNumeroCommande) {
+        currentNumeroCommande = null;
+        masquerSectionsApresCommande();
+    }
+});
+
+// Sélection dans la liste (datalist) ou validation après saisie complète
+$('#numero_commande').on('change', function() {
+    const numeroCommande = $(this).val().trim();
+    if (!numeroCommande) {
+        return;
+    }
+    chargerCommandeSelectionnee(numeroCommande, { focusService: true });
 });
 
 // ============================================================================

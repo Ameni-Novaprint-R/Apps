@@ -1,17 +1,17 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
-Routes Projet 28 – Rapport de Visite Client (migration Prinects Projet 4).
-Préfixe /projet28. Contenu intégré dans base.html (header/footer portail).
+Routes Projet 4 – Rapport de Visite Client (migration Prinects Projet 4).
+Préfixe /projet4. Contenu intégré dans base.html (header/footer portail).
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from db import get_db_cursor, get_contact_principal, creer_prospect, ajouter_contact, get_contact_by_id
 from logic.auth import login_required, has_project_access, is_super_user, get_user_sections
-from logic import projet28 as p28
+from logic import projet4 as p4
 from datetime import datetime
 
-projet28_bp = Blueprint('projet28', __name__, url_prefix='/projet28')
+projet4_bp = Blueprint('projet4', __name__, url_prefix='/projet4')
 
-PROJET28_SECTION_KEYS = p28.PROJET28_SECTION_KEYS
+PROJET4_SECTION_KEYS = p4.PROJET4_SECTION_KEYS
 
 
 def _current_user():
@@ -19,17 +19,17 @@ def _current_user():
 
 
 def _check_access():
-    return has_project_access(28) or is_super_user()
+    return has_project_access(4) or is_super_user()
 
 
-def get_projet28_allowed_sections():
+def get_projet4_allowed_sections():
     if is_super_user():
-        return list(PROJET28_SECTION_KEYS.values())
-    raw = get_user_sections(28)
+        return list(PROJET4_SECTION_KEYS.values())
+    raw = get_user_sections(4)
     allowed = []
     for s in raw:
         nom = (s.get('nom') or s.get('Nom') or '').strip()
-        key = PROJET28_SECTION_KEYS.get(nom)
+        key = PROJET4_SECTION_KEYS.get(nom)
         if not key and nom:
             nl = nom.lower()
             if 'nouveau' in nl or 'rapport' in nl:
@@ -43,10 +43,10 @@ def get_projet28_allowed_sections():
     return allowed
 
 
-@projet28_bp.before_request
-def _projet28_before():
+@projet4_bp.before_request
+def _projet4_before():
     from logic.auth import is_authenticated
-    p28.init_projet28()
+    p4.init_projet4()
     if not is_authenticated():
         return redirect(url_for('auth.login', next=request.url))
     if not _check_access():
@@ -56,7 +56,7 @@ def _projet28_before():
 # Routes principales
 # =============================================
 
-@projet28_bp.route("/", methods=["GET", "POST"])
+@projet4_bp.route("/", methods=["GET", "POST"])
 def rapport_visite():
     if request.method == "POST":
         try:
@@ -123,7 +123,7 @@ def rapport_visite():
                             (id_visite, id_personne),
                         )
                     except Exception as e:
-                        print(f"[projet28] VISITES_PERSONNES: {e}")
+                        print(f"[projet4] VISITES_PERSONNES: {e}")
 
                 for action_id, priority, date_echeance in zip(action_selects, action_priorities, action_dates):
                     if not action_id:
@@ -149,20 +149,20 @@ def rapport_visite():
                 cursor.connection.commit()
 
             flash("Rapport enregistré avec succès.", "success")
-            return redirect(url_for("projet28.rapport_visite"))
+            return redirect(url_for("projet4.rapport_visite"))
 
         except Exception as e:
             print(f"Erreur lors de l'enregistrement de la visite: {str(e)}")
             flash(f"Erreur lors de l'enregistrement: {str(e)}", "error")
-            return redirect(url_for("projet28.rapport_visite"))
+            return redirect(url_for("projet4.rapport_visite"))
 
-    return render_template("projet28.html", allowed_sections=get_projet28_allowed_sections(), section='nouveau')
+    return render_template("projet4.html", allowed_sections=get_projet4_allowed_sections(), section='nouveau')
 
-@projet28_bp.route("/historique", methods=["GET"])
+@projet4_bp.route("/historique", methods=["GET"])
 def historique_visites():
-    return render_template("projet28_historique.html")
+    return render_template("projet4_historique.html")
 
-@projet28_bp.route("/visite/<int:id_visite>", methods=["GET"])
+@projet4_bp.route("/visite/<int:id_visite>", methods=["GET"])
 def details_visite(id_visite):
     try:
         with get_db_cursor() as cursor:
@@ -256,7 +256,7 @@ def details_visite(id_visite):
                 print(f"Erreur lors de la récupération des contacts: {str(e)}")
                 contacts = []
 
-            return render_template("projet28_details_visite.html", 
+            return render_template("projet4_details_visite.html", 
                 visite=visite,
                 actions=actions,
                 contacts=contacts
@@ -266,7 +266,7 @@ def details_visite(id_visite):
         print(f"Erreur lors de la récupération des détails de la visite: {str(e)}")
         return render_template("error.html", message=str(e)), 500
 
-@projet28_bp.route("/visite/<int:id_visite>/edit", methods=["GET"])
+@projet4_bp.route("/visite/<int:id_visite>/edit", methods=["GET"])
 def edit_visite(id_visite):
     try:
         with get_db_cursor() as cursor:
@@ -319,7 +319,7 @@ def edit_visite(id_visite):
                     except ValueError:
                         action.DATE_ECHEANCE = None
 
-            return render_template("projet28_edit_visite.html", 
+            return render_template("projet4_edit_visite.html", 
                 visite=visite,
                 actions=actions
             )
@@ -328,7 +328,7 @@ def edit_visite(id_visite):
         print(f"Erreur lors de la récupération des détails de la visite: {str(e)}")
         return render_template("error.html", message=str(e)), 500
 
-@projet28_bp.route("/visite/<int:id_visite>/update", methods=["POST"])
+@projet4_bp.route("/visite/<int:id_visite>/update", methods=["POST"])
 def update_visite(id_visite):
     try:
         with get_db_cursor() as cursor:
@@ -373,22 +373,22 @@ def update_visite(id_visite):
 
             cursor.connection.commit()
             flash("Visite mise à jour avec succès", "success")
-            return redirect(url_for('projet28.details_visite', id_visite=id_visite))
+            return redirect(url_for('projet4.details_visite', id_visite=id_visite))
 
     except Exception as e:
         print(f"Erreur lors de la mise à jour de la visite: {str(e)}")
         flash(f"Erreur lors de la mise à jour: {str(e)}", "error")
-        return redirect(url_for('projet28.edit_visite', id_visite=id_visite))
+        return redirect(url_for('projet4.edit_visite', id_visite=id_visite))
 
-@projet28_bp.route("/dashboard", methods=["GET"])
+@projet4_bp.route("/dashboard", methods=["GET"])
 def dashboard():
-    return render_template("projet28_dashboard.html")
+    return render_template("projet4_dashboard.html")
 
 # =============================================
 # API - Gestion des sociétés
 # =============================================
 
-@projet28_bp.route("/api/societes", methods=["GET"])
+@projet4_bp.route("/api/societes", methods=["GET"])
 def get_societes():
     filter_query = request.args.get("filter", "").strip().lower()
     
@@ -432,7 +432,7 @@ def get_societes():
 
     return jsonify(societes)
 
-@projet28_bp.route("/api/societes", methods=["POST"])
+@projet4_bp.route("/api/societes", methods=["POST"])
 def create_societe():
     try:
         data = request.get_json()
@@ -513,7 +513,7 @@ def create_societe():
         print(f"Erreur lors de la création de la société: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@projet28_bp.route("/api/update_societe", methods=["POST"])
+@projet4_bp.route("/api/update_societe", methods=["POST"])
 def update_societe():
     try:
         data = request.get_json()
@@ -581,7 +581,7 @@ def update_societe():
         print(f"Erreur lors de la mise à jour de la société: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@projet28_bp.route("/api/societes/<int:id>", methods=["GET"])
+@projet4_bp.route("/api/societes/<int:id>", methods=["GET"])
 def get_societe_details(id):
     try:
         with get_db_cursor() as cursor:
@@ -629,7 +629,7 @@ def get_societe_details(id):
 # API - Gestion des contacts
 # =============================================
 
-@projet28_bp.route("/api/contacts", methods=["GET"])
+@projet4_bp.route("/api/contacts", methods=["GET"])
 def get_contacts():
     id_societe = request.args.get("id_societe")
     if not id_societe:
@@ -677,14 +677,14 @@ def get_contacts():
 
     return jsonify(contacts)
 
-@projet28_bp.route("/api/contacts/<int:id_contact>", methods=["GET"])
+@projet4_bp.route("/api/contacts/<int:id_contact>", methods=["GET"])
 def get_contact(id_contact):
     contact = get_contact_by_id(id_contact)
     if contact:
         return jsonify(contact)
     return jsonify({"error": "Aucun contact trouvé"}), 404
 
-@projet28_bp.route("/api/contacts", methods=["POST"])
+@projet4_bp.route("/api/contacts", methods=["POST"])
 def add_contact():
     data = request.get_json()
     id_societe = data.get("id_societe")
@@ -722,7 +722,7 @@ def add_contact():
 
     return jsonify({"success": True, "id_personne": id_personne})
 
-@projet28_bp.route("/api/contacts/<int:id_contact>", methods=["PUT"])
+@projet4_bp.route("/api/contacts/<int:id_contact>", methods=["PUT"])
 def update_contact(id_contact):
     data = request.get_json()
     with get_db_cursor() as cursor:
@@ -766,7 +766,7 @@ def update_contact(id_contact):
 # API - Gestion des actions
 # =============================================
 
-@projet28_bp.route("/api/actions", methods=["GET"])
+@projet4_bp.route("/api/actions", methods=["GET"])
 def get_actions():
     with get_db_cursor() as cursor:
         cursor.execute("""
@@ -784,7 +784,7 @@ def get_actions():
     } for row in rows]
     return jsonify(actions)
 
-@projet28_bp.route("/api/actions", methods=["POST"])
+@projet4_bp.route("/api/actions", methods=["POST"])
 def add_action():
     data = request.get_json()
     id_visite = data.get("id_visite")
@@ -813,7 +813,7 @@ def add_action():
 
     return jsonify({"success": True, "id_action": id_action})
 
-@projet28_bp.route("/api/actions/<int:id_action>", methods=["PUT"])
+@projet4_bp.route("/api/actions/<int:id_action>", methods=["PUT"])
 def update_action(id_action):
     data = request.get_json()
     statut = data.get("statut")
@@ -840,7 +840,7 @@ def update_action(id_action):
 
     return jsonify({"success": True})
 
-@projet28_bp.route("/api/actions/<int:id_action>", methods=["DELETE"])
+@projet4_bp.route("/api/actions/<int:id_action>", methods=["DELETE"])
 def delete_action(id_action):
     if not id_action:
         return jsonify({"error": "ID action manquant"}), 400
@@ -851,7 +851,7 @@ def delete_action(id_action):
 
     return jsonify({"success": True})
 
-@projet28_bp.route("/api/actions/a_venir", methods=["GET"])
+@projet4_bp.route("/api/actions/a_venir", methods=["GET"])
 def get_actions_a_venir():
     try:
         with get_db_cursor() as cursor:
@@ -913,13 +913,13 @@ def get_actions_a_venir():
 # API - Données de référence
 # =============================================
 
-@projet28_bp.route("/api/pays", methods=["GET"])
+@projet4_bp.route("/api/pays", methods=["GET"])
 def get_pays():
     with get_db_cursor() as cursor:
         cursor.execute("SELECT ID, Nom FROM PAYS ORDER BY Nom")
         return jsonify([{"id": row.ID, "nom": row.Nom} for row in cursor.fetchall()])
 
-@projet28_bp.route("/api/categories", methods=["GET"])
+@projet4_bp.route("/api/categories", methods=["GET"])
 def get_categories():
     with get_db_cursor() as cursor:
         cursor.execute("""
@@ -931,7 +931,7 @@ def get_categories():
         categories = [{"id": row.ID, "nom": row.Nom} for row in rows]
     return jsonify(categories)
 
-@projet28_bp.route("/api/fonctions", methods=["GET"])
+@projet4_bp.route("/api/fonctions", methods=["GET"])
 def get_fonctions():
     try:
         with get_db_cursor() as cursor:
@@ -946,7 +946,7 @@ def get_fonctions():
         print(f"Erreur lors de la récupération des fonctions: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@projet28_bp.route("/api/statuts", methods=["GET"])
+@projet4_bp.route("/api/statuts", methods=["GET"])
 def get_statuts():
     with get_db_cursor() as cursor:
         cursor.execute("SELECT NOM, COULEUR FROM STATUTS_ACTION ORDER BY ORDRE")
@@ -954,7 +954,7 @@ def get_statuts():
         statuts = [{"nom": row.NOM, "couleur": row.COULEUR} for row in rows]
     return jsonify(statuts)
 
-@projet28_bp.route("/api/priorites", methods=["GET"])
+@projet4_bp.route("/api/priorites", methods=["GET"])
 def get_priorites():
     with get_db_cursor() as cursor:
         cursor.execute("SELECT NOM, COULEUR FROM PRIORITES_ACTION ORDER BY ORDRE")
@@ -962,7 +962,7 @@ def get_priorites():
         priorites = [{"nom": row.NOM, "couleur": row.COULEUR} for row in rows]
     return jsonify(priorites)
 
-@projet28_bp.route("/api/importance", methods=["GET"])
+@projet4_bp.route("/api/importance", methods=["GET"])
 def get_importance():
     with get_db_cursor() as cursor:
         cursor.execute("""
@@ -982,7 +982,7 @@ def get_importance():
 # API - Historique et rapports
 # =============================================
 
-@projet28_bp.route("/api/historique", methods=["GET"])
+@projet4_bp.route("/api/historique", methods=["GET"])
 def get_historique():
     try:
         query = request.args.get("query", "").strip().lower()
@@ -1048,5 +1048,5 @@ def get_historique():
         return jsonify({"error": "Erreur lors du traitement de la requête"}), 500
 
 
-def ensure_projet28_in_web_projets():
-    p28.init_projet28()
+def ensure_projet4_in_web_projets():
+    p4.init_projet4()

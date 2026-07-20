@@ -1,6 +1,6 @@
-// Configuration globale
+﻿// Configuration globale
 const config = {
-    apiBaseUrl: '/projet28/api',
+    apiBaseUrl: '/projet4/api',
     refreshInterval: 300000 // 5 minutes
 };
 

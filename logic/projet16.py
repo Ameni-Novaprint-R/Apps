@@ -2933,3 +2933,123 @@ def delete_preventive_task(task_id):
         cursor.execute("DELETE FROM WEB_GMAO_PREVENTIVE WHERE ID = ?", (task_id,))
         cursor.connection.commit()
         return True
+
+
+def _format_nature_intervention(nat_raw):
+    """Convertit Nat (Mec/Elec) en libellé lisible."""
+    if not nat_raw:
+        return None
+    text = str(nat_raw).strip()
+    lower = text.lower()
+    parts = []
+    if 'mec' in lower:
+        parts.append('Mécanique')
+    if 'elec' in lower:
+        parts.append('Électrique')
+    if parts:
+        return ' / '.join(parts)
+    return text
+
+
+def _detect_intervention_type(type_in, id_preventive, desc_prob=None):
+    """Détermine Préventive vs Corrective."""
+    if type_in and str(type_in).strip().upper() == 'P':
+        return 'Préventive'
+    if id_preventive:
+        return 'Préventive'
+    if desc_prob:
+        lower = str(desc_prob).lower()
+        if 'maintenance préventive' in lower or 'maintenance preventive' in lower:
+            return 'Préventive'
+        if lower.strip() in ('préventive', 'preventive', 'préventif', 'preventif'):
+            return 'Préventive'
+    return 'Corrective'
+
+
+def get_equipement_historique(machine_name):
+    """
+    Historique chronologique des interventions (correctives + préventives)
+    pour une machine donnée (PostesReel = nom GP_POSTES).
+    """
+    machine_name = (machine_name or '').strip()
+    if not machine_name:
+        return []
+
+    with get_db_cursor() as cursor:
+        typein_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'TypeIN')
+        preventive_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'ID_WEB_GMAO_PREVENTIVE')
+        descprob_exists = column_exists(cursor, 'WEB_GMAO_REPARATION', 'DescProb')
+
+        sel_type = ", r.TypeIN as TypeIN" if typein_exists else ", NULL as TypeIN"
+        sel_prev = ", r.ID_WEB_GMAO_PREVENTIVE as ID_Preventive" if preventive_exists else ", NULL as ID_Preventive"
+        sel_desc = ", r.DescProb as DescProb" if descprob_exists else ", NULL as DescProb"
+        join_prev = (
+            "LEFT JOIN WEB_GMAO_PREVENTIVE p ON p.ID = r.ID_WEB_GMAO_PREVENTIVE"
+            if preventive_exists else ""
+        )
+        sel_tache = ", p.Tache as TachePreventive, p.Reference as RefPreventive" if preventive_exists else ", NULL as TachePreventive, NULL as RefPreventive"
+
+        cursor.execute(f"""
+            SELECT
+                r.ID as ID_Reparation,
+                r.ID_WEB_GMAO_Dem_In as ID_Demande,
+                r.DteDeb,
+                r.DteFin,
+                r.PostesReel,
+                r.Nat,
+                r.Intervenant,
+                r.MatInter,
+                r.ID_StatRep,
+                g.DteDemIn,
+                g.DemIn,
+                sr.Designation as StatutReparation
+                {sel_type}
+                {sel_prev}
+                {sel_desc}
+                {sel_tache}
+            FROM WEB_GMAO_REPARATION r
+            LEFT JOIN WEB_GMAO g ON g.ID = r.ID_WEB_GMAO_Dem_In
+            LEFT JOIN WEB_GMAO_StatRep sr ON r.ID_StatRep = sr.ID
+            {join_prev}
+            WHERE LTRIM(RTRIM(ISNULL(r.PostesReel, ''))) = ?
+            ORDER BY COALESCE(r.DteDeb, g.DteDemIn, r.DteFin) DESC, r.ID DESC
+        """, (machine_name,))
+
+        historique = []
+        for row in cursor.fetchall():
+            dte = row.DteDeb or row.DteDemIn or row.DteFin
+            dte_str = dte.strftime('%Y-%m-%d %H:%M:%S') if dte else None
+            dte_fin_str = row.DteFin.strftime('%Y-%m-%d %H:%M:%S') if row.DteFin else None
+
+            desc_prob = getattr(row, 'DescProb', None)
+            id_preventive = getattr(row, 'ID_Preventive', None)
+            type_in = getattr(row, 'TypeIN', None)
+            type_intervention = _detect_intervention_type(type_in, id_preventive, desc_prob)
+
+            nature_parts = []
+            nature_label = _format_nature_intervention(row.Nat)
+            if nature_label:
+                nature_parts.append(nature_label)
+
+            tache_prev = getattr(row, 'TachePreventive', None)
+            ref_prev = getattr(row, 'RefPreventive', None)
+            if tache_prev:
+                titre = f"{ref_prev} — {tache_prev}" if ref_prev else tache_prev
+                nature_parts.append(titre.strip(' —'))
+            elif row.DemIn and str(row.DemIn).strip():
+                nature_parts.append(str(row.DemIn).strip())
+
+            historique.append({
+                "id": row.ID_Reparation,
+                "id_demande": row.ID_Demande,
+                "date": dte_str,
+                "date_fin": dte_fin_str,
+                "type": type_intervention,
+                "nature": ' — '.join(nature_parts) if nature_parts else None,
+                "observations": (str(desc_prob).strip() if desc_prob and str(desc_prob).strip() else None),
+                "intervenant": row.Intervenant,
+                "mat_inter": row.MatInter,
+                "statut": row.StatutReparation or None,
+                "machine": (row.PostesReel or '').strip(),
+            })
+        return historique

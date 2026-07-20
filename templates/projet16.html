@@ -26,6 +26,41 @@
 <style>
     .gmao-container {
         padding: 20px;
+        position: relative;
+    }
+
+    .gmao-back-btn {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: 1px solid #cfd8dc;
+        background: #fff;
+        color: #37474f;
+        text-decoration: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .gmao-back-btn:hover {
+        background: #eceff1;
+        color: #263238;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+        text-decoration: none;
+    }
+
+    .gmao-back-btn svg {
+        width: 20px;
+        height: 20px;
+        display: block;
     }
     
     /* Styles pour la section Maintenance Préventive */
@@ -139,6 +174,117 @@
         color: #333;
     }
 
+    .equipements-section {
+        display: none;
+        background: #f5f7fa;
+        padding: 25px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+        border: 2px solid #607d8b;
+    }
+
+    .equipements-section h3 {
+        color: #37474f;
+        font-size: 1.35em;
+        margin: 0 0 8px 0;
+    }
+
+    .equipements-section > p {
+        color: #546e7a;
+        margin: 0 0 20px 0;
+    }
+
+    .equipements-machine-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+        margin-bottom: 18px;
+        background: #fff;
+        border: 1px solid #cfd8dc;
+        border-radius: 8px;
+        padding: 16px;
+    }
+
+    .equipements-machine-bar label {
+        display: block;
+        font-weight: 600;
+        color: #37474f;
+        margin-bottom: 6px;
+    }
+
+    .equipements-machine-bar select {
+        min-width: 280px;
+        padding: 10px 12px;
+        border: 1px solid #b0bec5;
+        border-radius: 6px;
+        font-size: 1em;
+        background: #fff;
+    }
+
+    .equipements-count {
+        color: #546e7a;
+        font-size: 0.95em;
+        margin-bottom: 12px;
+    }
+
+    .badge-type {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.82em;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .badge-type.preventive {
+        background: #e8f5e9;
+        color: #1b5e20;
+        border: 1px solid #a5d6a7;
+    }
+
+    .badge-type.corrective {
+        background: #fff3e0;
+        color: #e65100;
+        border: 1px solid #ffcc80;
+    }
+
+    .equipements-historique-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .equipements-historique-table th {
+        background: linear-gradient(135deg, #546e7a 0%, #37474f 100%);
+        color: #fff;
+        padding: 12px;
+        text-align: left;
+        border: 1px solid #455a64;
+        font-weight: 600;
+    }
+
+    .equipements-historique-table td {
+        padding: 12px;
+        border: 1px solid #eceff1;
+        vertical-align: top;
+        color: #333;
+    }
+
+    .equipements-historique-table tbody tr:hover {
+        background: #fafafa;
+    }
+
+    .equipements-empty {
+        text-align: center;
+        padding: 28px;
+        color: #78909c;
+        background: #fff;
+        border: 1px dashed #b0bec5;
+        border-radius: 8px;
+    }
+
     .preventive-task-row.selected {
         background: #e8f5e9 !important;
         border-left: 4px solid #2e7d32;
@@ -245,6 +391,10 @@
 
     .maintenance-btn.corrective {
         background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    }
+
+    .maintenance-btn.equipements {
+        background: linear-gradient(135deg, #607d8b 0%, #455a64 100%);
     }
 
     .maintenance-btn:hover {
@@ -1423,6 +1573,11 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 
 <div class="gmao-container"{% if popup_only %} id="gmao-main-content"{% endif %}>
+    <a href="/" class="gmao-back-btn" id="gmao-back-btn" title="Retour à la page précédente" aria-label="Retour à la page précédente" onclick="goBackToPreviousPage(event)">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
     <div class="gmao-header">
         <h2>🛠️ GMAO - Gestion de la Maintenance</h2>
         <p>Gestion de la Maintenance Assistée par Ordinateur</p>
@@ -1432,6 +1587,9 @@
     <div class="maintenance-buttons">
         <button class="maintenance-btn preventive" onclick="selectMaintenanceType('preventive')">
             🔧 Maintenance Préventive
+        </button>
+        <button class="maintenance-btn equipements" onclick="selectMaintenanceType('equipements')">
+            📋 Suivi des équipements
         </button>
         <button class="maintenance-btn corrective" onclick="selectMaintenanceType('corrective')">
             ⚠️ Maintenance Corrective
@@ -1664,6 +1822,51 @@
         </div>
 </div>
 </div>
+
+    <!-- Section Suivi des équipements -->
+    <div id="equipements-section" class="equipements-section">
+        <h3>📋 Suivi des équipements</h3>
+        <p>Sélectionnez une machine pour consulter l’historique complet de ses interventions (correctives et préventives).</p>
+
+        <div class="equipements-machine-bar">
+            <div>
+                <label for="equipement-machine-select">Machine</label>
+                <select id="equipement-machine-select">
+                    <option value="">— Choisir une machine —</option>
+                    {% for machine in machines %}
+                    <option value="{{ machine.nom }}">{{ machine.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="button" onclick="loadEquipementHistorique()"
+                    style="padding: 10px 18px; background: #455a64; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                Afficher l’historique
+            </button>
+        </div>
+
+        <div id="equipements-count" class="equipements-count" style="display: none;"></div>
+        <div id="equipements-loading" style="display: none; text-align: center; padding: 20px; color: #666;">
+            Chargement de l’historique…
+        </div>
+        <div id="equipements-empty" class="equipements-empty" style="display: none;">
+            Aucune intervention trouvée pour cette machine.
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="equipements-historique-table" id="equipements-historique-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Nature</th>
+                        <th>Observations / commentaires</th>
+                        <th>Intervenant</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody id="equipements-historique-tbody"></tbody>
+            </table>
+        </div>
+    </div>
 
 <!-- Modal Réclamation -->
 <div id="demandeModal" class="modal">
@@ -2333,15 +2536,27 @@
         };
     })();
     
+    function goBackToPreviousPage(event) {
+        if (event) {
+            event.preventDefault();
+        }
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+        window.location.href = '/';
+    }
+
     // Sélection du type de maintenance
     function selectMaintenanceType(type) {
         // Exposer la version principale pour le fallback défini en haut de page
         window._selectMaintenanceTypeImpl = selectMaintenanceType;
         window.selectMaintenanceType = selectMaintenanceType;
         if (type === 'corrective') {
-            // Toujours masquer les sections préventives quand on passe en corrective
+            // Toujours masquer les sections préventives / équipements quand on passe en corrective
             $('#preventive-section').slideUp(300);
             $('#preventive-tracking').slideUp(300);
+            $('#equipements-section').slideUp(300);
             // Toggle: si déjà visible, on cache, sinon on affiche
             if ($('#corrective-options').is(':visible')) {
                 $('#corrective-options').slideUp(300);
@@ -2355,16 +2570,105 @@
             if ($('#preventive-section').is(':visible')) {
                 $('#preventive-section').slideUp(300);
             } else {
-                // Cacher les sections correctives si elles sont visibles
+                // Cacher les sections correctives / équipements si elles sont visibles
                 $('#corrective-options').slideUp(300);
                 $('.demandes-section').slideUp(300);
                 $('#filter-section').slideUp(300);
+                $('#equipements-section').slideUp(300);
                 // Afficher la section de maintenance préventive
                 $('#preventive-section').slideDown(300);
                 loadPreventiveTasks();
             }
+        } else if (type === 'equipements') {
+            if ($('#equipements-section').is(':visible')) {
+                $('#equipements-section').slideUp(300);
+            } else {
+                $('#corrective-options').slideUp(300);
+                $('.demandes-section').slideUp(300);
+                $('#filter-section').slideUp(300);
+                $('#preventive-section').slideUp(300);
+                $('#preventive-tracking').slideUp(300);
+                $('#equipements-section').slideDown(300);
+            }
         }
     }
+
+    function formatEquipementDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return dateStr;
+        return d.toLocaleString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function loadEquipementHistorique() {
+        const machine = ($('#equipement-machine-select').val() || '').trim();
+        const $table = $('#equipements-historique-table');
+        const $tbody = $('#equipements-historique-tbody');
+        const $loading = $('#equipements-loading');
+        const $empty = $('#equipements-empty');
+        const $count = $('#equipements-count');
+
+        $table.hide();
+        $empty.hide();
+        $count.hide();
+        $tbody.empty();
+
+        if (!machine) {
+            $empty.text('Veuillez sélectionner une machine.').show();
+            return;
+        }
+
+        $loading.show();
+        $.ajax({
+            url: '/projet16/api/equipements/historique',
+            method: 'GET',
+            data: { machine: machine },
+            success: function(result) {
+                $loading.hide();
+                const interventions = (result && result.interventions) ? result.interventions : [];
+                if (!interventions.length) {
+                    $empty.text('Aucune intervention trouvée pour cette machine.').show();
+                    $count.text(machine + ' — 0 intervention').show();
+                    return;
+                }
+
+                $count.text(machine + ' — ' + interventions.length + ' intervention(s)').show();
+                interventions.forEach(function(item) {
+                    const typeClass = item.type === 'Préventive' ? 'preventive' : 'corrective';
+                    const typeLabel = item.type || 'Corrective';
+                    const row = `
+                        <tr>
+                            <td style="white-space: nowrap;">${escapeHtml(formatEquipementDate(item.date))}</td>
+                            <td><span class="badge-type ${typeClass}">${escapeHtml(typeLabel)}</span></td>
+                            <td>${escapeHtml(item.nature || '—')}</td>
+                            <td style="max-width: 420px; white-space: pre-wrap;">${escapeHtml(item.observations || '—')}</td>
+                            <td>${escapeHtml(item.intervenant || '—')}</td>
+                            <td>${escapeHtml(item.statut || '—')}</td>
+                        </tr>
+                    `;
+                    $tbody.append(row);
+                });
+                $table.show();
+            },
+            error: function(xhr) {
+                $loading.hide();
+                const err = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Erreur lors du chargement de l\'historique';
+                $empty.text(err).show();
+            }
+        });
+    }
+
+    $(document).on('change', '#equipement-machine-select', function() {
+        if (($(this).val() || '').trim()) {
+            loadEquipementHistorique();
+        }
+    });
 
     // Toggle pour le suivi des fiches
     function toggleSuiviFiches() {
