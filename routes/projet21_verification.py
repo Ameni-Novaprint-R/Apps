@@ -187,18 +187,22 @@ def verify_sync():
     target_conn = get_connection(TARGET_CONFIG)
     target_cursor = target_conn.cursor()
     
-    # Récupérer toutes les tables source
+    # Uniquement le schéma dbo : la sync principale est dbo→dbo.
+    # La cible contient aussi le schéma XRT (copie séparée) ; sans ce filtre,
+    # des noms comme AA_AALTUSRTL (dans XRT) provoquent Invalid object name (42S02)
+    # car SELECT FROM [AA_AALTUSRTL] résout en dbo.
     source_cursor.execute("""
         SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
         WHERE TABLE_TYPE = 'BASE TABLE'
+          AND TABLE_SCHEMA = 'dbo'
         ORDER BY TABLE_NAME
     """)
     source_tables = [row.TABLE_NAME for row in source_cursor.fetchall()]
     
-    # Récupérer toutes les tables cible
     target_cursor.execute("""
         SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
         WHERE TABLE_TYPE = 'BASE TABLE'
+          AND TABLE_SCHEMA = 'dbo'
         ORDER BY TABLE_NAME
     """)
     target_tables = [row.TABLE_NAME for row in target_cursor.fetchall()]
@@ -224,7 +228,7 @@ def verify_sync():
     for table_name in source_tables:
         try:
             if table_name in target_tables:
-                # Comparaison réelle par clé primaire
+                # Comparaison réelle par clé primaire (tables dbo)
                 comparison = compare_table_records(source_cursor, target_cursor, table_name)
                 
                 if 'error' in comparison:
@@ -267,12 +271,15 @@ def verify_sync():
         except Exception as e:
             output_lines.append(f"Erreur sur {table_name}: {e}")
     
-    # Tables présentes uniquement dans la cible
+    # Tables présentes uniquement dans la cible (dbo)
     for table_name in target_tables:
         if table_name not in source_tables:
-            target_cursor.execute(f"SELECT COUNT(*) FROM [{table_name}]")
-            target_count = target_cursor.fetchone()[0]
-            results['manquantes_source'].append((table_name, target_count))
+            try:
+                target_cursor.execute(f"SELECT COUNT(*) FROM [dbo].[{table_name}]")
+                target_count = target_cursor.fetchone()[0]
+                results['manquantes_source'].append((table_name, target_count))
+            except Exception as e:
+                output_lines.append(f"Erreur sur table cible-only {table_name}: {e}")
     
     # Vérifier les doublons de PK dans toutes les tables cibles
     output_lines.append("\n" + "=" * 80)

@@ -28,8 +28,15 @@
         <label>Date d'achat :</label><br>
         <input type="date" name="date_achat"><br><br>
 
+        <label>Mode de suivi vidange :</label><br>
+        <select name="mode_suivi_vidange" required>
+            <option value="KM" selected>Kilométrage ({{ vidange_intervalle_km }} km)</option>
+            <option value="HEURES">Heures moteur ({{ vidange_intervalle_heures }} h)</option>
+        </select>
+        <p style="font-size:0.85rem;color:#607d8b;margin:4px 0 15px;">Ce choix est définitif et ne pourra plus être modifié.</p>
+
         <button type="submit">💾 Ajouter le camion</button>
-        <a href="{{ url_for('projet6.programme_voyage') }}" style="margin-left: 15px;">⬅️ Retour</a>
+        <a href="{{ url_for('projet6.programme_voyage', section='gestion_vehicules') }}" style="margin-left: 15px;">⬅️ Retour</a>
     </form>
 </div>
 
@@ -47,13 +54,14 @@
         font-weight: bold;
     }
 
-    input[type="text"], input[type="date"] {
+    input[type="text"], input[type="date"], select {
         width: 100%;
         padding: 8px;
         margin-top: 3px;
         margin-bottom: 15px;
         border: 1px solid #ccc;
         border-radius: 5px;
+        box-sizing: border-box;
     }
 
     button {

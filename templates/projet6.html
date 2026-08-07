@@ -1,127 +1,1175 @@
 {% extends "base.html" %}
-{% block title %}Programme de Voyage{% endblock %}
+{% block title %}Projet 6 – Transport & Logistique{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* En-tête et sections – même palette que Projet 27 (vert d'eau #0097a7) */
+    .p6-page-header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 14px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%) !important;
+        color: #006064;
+        border: 2px solid #0097a7;
+        position: relative;
+    }
+    .p6-page-header-inner {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 12px;
+        position: relative;
+    }
+    .p6-page-header-text { flex: 1; text-align: center; }
+    #p6-notif-bell {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        font-size: 1.45rem;
+        color: #006064;
+        line-height: 1;
+        padding: 6px;
+    }
+    #p6-notif-bell:hover { color: #00838f; }
+    #p6-notif-badge {
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: #c62828;
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        border-radius: 50%;
+        min-width: 18px;
+        height: 18px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+    }
+    #p6-notif-list { list-style: none; margin: 0; padding: 0; }
+    #p6-notif-empty { padding: 24px 16px; text-align: center; color: #90a4ae; }
+    /* Hors .container (z-index:1) pour passer au-dessus de la navbar */
+    #p6-notif-panel.offcanvas {
+        z-index: 1080 !important;
+        width: min(380px, 92vw);
+        box-shadow: -4px 0 24px rgba(0,0,0,0.18);
+    }
+    .offcanvas-backdrop.show {
+        z-index: 1075 !important;
+    }
+    #p6-notif-panel .offcanvas-header {
+        border-bottom: 1px solid #b2ebf2;
+        background: #e0f7fa;
+        color: #006064;
+    }
+    #p6-notif-panel .offcanvas-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #006064;
+    }
+    #p6-notif-panel .offcanvas-body {
+        background: #fafafa;
+        overflow-y: auto;
+    }
+    .p6-notif-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #e0e0e0;
+        background: #fff;
+        margin: 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .p6-notif-item.p6-notif-unread {
+        background: #e0f7fa;
+        border-left: 4px solid #0097a7;
+        padding-left: 12px;
+    }
+    .p6-notif-item-body {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .p6-notif-item-date {
+        display: block;
+        font-size: 0.75rem;
+        color: #78909c;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+    .p6-notif-item-msg {
+        font-size: 0.9rem;
+        color: #263238;
+        line-height: 1.4;
+        font-weight: 500;
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+    .p6-notif-item.p6-notif-unread .p6-notif-item-msg {
+        color: #006064;
+        font-weight: 700;
+    }
+    .p6-notif-del {
+        flex: 0 0 auto;
+        border: none;
+        background: transparent;
+        color: #90a4ae;
+        font-size: 1.35rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 4px;
+        border-radius: 4px;
+    }
+    .p6-notif-del:hover { color: #c62828; background: #ffebee; }
+
+    .p6-page-header h1 {
+        font-size: 1.6rem;
+        margin: 0 0 4px;
+        font-weight: 700;
+        color: #00838f;
+    }
+    .p6-page-header .p6-header-subtitle {
+        color: #006064;
+        opacity: 0.9;
+        margin-top: 6px;
+        font-size: 0.85rem;
+    }
+    .p6-section-selection {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        text-align: center;
+    }
+    .p6-section-options {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .p6-section-btn {
+        padding: 15px 20px;
+        background: white;
+        color: #2c3e50;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+        border: 2px solid #ddd;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        user-select: none;
+    }
+    .p6-section-btn:hover {
+        background: #0097a7;
+        color: white;
+        border-color: #0097a7;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 151, 167, 0.35);
+    }
+    .p6-section-btn.active {
+        background: #0097a7;
+        color: white;
+        border-color: #00838f;
+        box-shadow: 0 2px 6px rgba(0, 131, 143, 0.3);
+    }
+    .p6-empty-hint {
+        color: #607d8b;
+        margin: 14px 0 0;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .p6-panel { display: none !important; }
+    .p6-panel.active { display: block !important; }
+    .p6-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        margin-bottom: 20px;
+    }
+    .p6-section-title {
+        color: #00838f;
+        font-size: 1.35rem;
+        margin: 0 0 16px;
+        border-bottom: 3px solid #0097a7;
+        padding-bottom: 8px;
+        font-weight: 700;
+    }
+    .p6-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    .p6-form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    .p6-form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+        color: #2c3e50;
+    }
+    .p6-form-group input,
+    .p6-form-group select {
+        width: 100%;
+        max-width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        margin: 0;
+        box-sizing: border-box;
+    }
+    .p6-camion-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .p6-camion-row select { flex: 1 1 180px; }
+    .p6-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        color: inherit;
+    }
+    .p6-btn-primary { background: #0097a7; color: white; }
+    .p6-btn-primary:hover { background: #00838f; color: white; }
+    .p6-btn-secondary { background: #607d8b; color: white; }
+    .p6-btn-secondary:hover { background: #546e7a; color: white; }
+    .p6-btn-success { background: #28a745; color: white; }
+    .p6-btn-success:hover { background: #218838; color: white; }
+    .p6-btn-warning { background: #ffc107; color: #212529; }
+    .p6-btn-danger { background: #dc3545; color: white; border: none; cursor: pointer; }
+    .p6-btn-danger:hover { background: #c82333; color: white; }
+    .p6-btn-sm { padding: 6px 10px; font-size: 0.85rem; }
+    .p6-btn-zone {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        align-items: center;
+    }
+    .p6-table-wrap {
+        overflow-x: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        margin-bottom: 12px;
+    }
+    .p6-table-voyage {
+        width: 100%;
+        min-width: 1000px;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 0.85rem;
+    }
+    .p6-table-voyage th,
+    .p6-table-voyage td {
+        border: 1px solid #ccc;
+        padding: 6px;
+        text-align: center;
+        vertical-align: middle;
+        overflow: hidden;
+    }
+    .p6-table-voyage th {
+        background: #e0f7fa;
+        color: #006064;
+        font-weight: 700;
+    }
+    .p6-table-voyage input[type="text"],
+    .p6-table-voyage input[type="number"],
+    .p6-table-voyage input:not([type]),
+    .p6-table-voyage input:not([type="checkbox"]):not([type="hidden"]) {
+        width: 100%;
+        max-width: 100%;
+        height: 32px;
+        margin: 0;
+        padding: 4px 6px;
+        box-sizing: border-box;
+        font-size: 0.85rem;
+        line-height: 1.2;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background: #fff;
+        vertical-align: middle;
+    }
+    .p6-table-voyage input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: initial;
+        background: initial;
+    }
+    .p6-table-voyage col.col-dossier { width: 118px; }
+    .p6-table-voyage col.col-quantite { width: 110px; }
+    .p6-table-voyage col.col-article { width: 28%; min-width: 220px; }
+    .p6-table-voyage col.col-narrow { width: 100px; }
+    .p6-table-voyage col.col-termine { width: 58px; }
+    .p6-table-voyage th.col-dossier,
+    .p6-table-voyage td.col-dossier {
+        width: 118px;
+        max-width: 118px;
+    }
+    .p6-table-voyage th.col-quantite,
+    .p6-table-voyage td.col-quantite {
+        width: 110px;
+        max-width: 110px;
+    }
+    .p6-table-voyage th.col-article,
+    .p6-table-voyage td.col-article {
+        width: 28%;
+        min-width: 220px;
+    }
+    .p6-table-voyage th.col-narrow,
+    .p6-table-voyage td.col-narrow {
+        width: 100px;
+        max-width: 110px;
+        padding: 4px 4px;
+    }
+    .p6-table-voyage th.col-narrow {
+        font-size: 0.75rem;
+        line-height: 1.15;
+        white-space: normal;
+        word-break: break-word;
+        padding: 6px 4px;
+    }
+    .p6-table-voyage td.col-narrow input[type="number"] {
+        width: 100%;
+        max-width: 100px;
+        padding: 4px 4px;
+        text-align: center;
+        -moz-appearance: textfield;
+    }
+    .p6-table-voyage td.col-narrow input[type="number"]::-webkit-outer-spin-button,
+    .p6-table-voyage td.col-narrow input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    .p6-table-voyage td.col-article input {
+        width: 100%;
+        min-width: 0;
+    }
+    .p6-table-voyage input.p6-dossier-locked {
+        background: #f0f4f5;
+        color: #37474f;
+        cursor: default;
+    }
+    .p6-table-voyage input.p6-client-locked {
+        background: #f0f4f5;
+        color: #37474f;
+        cursor: default;
+    }
+    .p6-cmd-suggestions {
+        position: fixed;
+        z-index: 10050;
+        display: none;
+        max-height: 240px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: #fff;
+        border: 1px solid #90a4ae;
+        border-radius: 4px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+        min-width: 280px;
+    }
+    .p6-cmd-suggestions .p6-cmd-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #eceff1;
+        font-size: 0.85rem;
+        line-height: 1.35;
+        color: #263238;
+    }
+    .p6-cmd-suggestions .p6-cmd-item:last-child { border-bottom: none; }
+    .p6-cmd-suggestions .p6-cmd-item:hover,
+    .p6-cmd-suggestions .p6-cmd-item.is-active {
+        background: #e0f7fa;
+    }
+    .p6-cmd-suggestions .p6-cmd-empty {
+        padding: 10px 12px;
+        color: #78909c;
+        font-size: 0.85rem;
+    }
+    .p6-cmd-suggestions .p6-cmd-num { font-weight: 700; color: #006064; }
+    .p6-cmd-suggestions .p6-cmd-meta { color: #546e7a; }
+    .p6-table-voyage th.col-termine,
+    .p6-table-voyage td.col-termine {
+        width: 58px;
+        padding: 4px 0;
+        white-space: nowrap;
+    }
+    .p6-table-voyage th.col-termine {
+        font-size: 0.72rem;
+        padding: 6px 2px;
+        line-height: 1.1;
+        word-break: break-word;
+        white-space: normal;
+    }
+    .p6-table-voyage td.col-termine input[type="checkbox"] {
+        margin: 0 auto;
+        display: block;
+        width: 16px;
+        height: 16px;
+    }
+    .p6-flash { padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; }
+    .p6-flash-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .p6-flash-danger, .p6-flash-error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+    .p6-search-form {
+        display: flex;
+        align-items: flex-end;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    .p6-search-form .p6-form-group { margin: 0; }
+    .p6-search-form .p6-form-group input,
+    .p6-search-form .p6-form-group select {
+        width: 200px;
+        max-width: 100%;
+        height: 36px;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        box-sizing: border-box;
+        background: #fff;
+    }
+    .p6-list-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    .p6-list-table th,
+    .p6-list-table td {
+        border: 1px solid #dee2e6;
+        padding: 8px 10px;
+        text-align: left;
+    }
+    .p6-list-table th {
+        background: #e0f7fa;
+        color: #006064;
+        font-weight: 700;
+        text-align: center;
+    }
+    .p6-list-table td { vertical-align: middle; }
+    .p6-list-table tbody tr:hover { background: #f5fbfc; }
+    .p6-list-table .p6-actions-cell {
+        white-space: nowrap;
+        text-align: center;
+        width: 1%;
+    }
+    .p6-actions-group {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: center;
+    }
+    .p6-inline-form {
+        display: inline;
+        margin: 0;
+    }
+    .p6-empty-list {
+        text-align: center;
+        color: #78909c;
+        padding: 24px;
+        font-style: italic;
+    }
+    .p6-camion-table {
+        width: 100%;
+        max-width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        table-layout: fixed;
+        font-size: 0.84rem;
+    }
+    .p6-table-wrap-vehicules {
+        overflow-x: auto;
+    }
+    .p6-camion-table th, .p6-camion-table td {
+        border: 1px solid #cfd8dc;
+        padding: 7px 6px;
+        text-align: center;
+        vertical-align: middle;
+        line-height: 1.35;
+    }
+    .p6-camion-table th {
+        background: #e0f7fa;
+        color: #006064;
+        font-weight: 700;
+        font-size: 0.8rem;
+        white-space: normal;
+        line-height: 1.25;
+    }
+    .p6-camion-table th.col-km,
+    .p6-camion-table td.col-km,
+    .p6-camion-table th.col-date,
+    .p6-camion-table td.col-date {
+        white-space: nowrap;
+        min-width: 0;
+    }
+    .p6-camion-table td.col-obs {
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .p6-camion-table td.col-actions {
+        white-space: nowrap;
+        width: 84px;
+        padding: 4px;
+    }
+    .p6-camion-table .p6-actions-group {
+        gap: 4px;
+        justify-content: center;
+    }
+    .p6-camion-table .p6-btn-sm {
+        padding: 5px 8px;
+        font-size: 0.8rem;
+    }
+    .p6-alert-visite-bientot { background-color: #ffeeba !important; }
+    .p6-alert-visite-retard { background-color: #f8d7da !important; }
+    .p6-statut-ok { color: #2e7d32; font-weight: 700; font-size: 1.1rem; }
+    .p6-statut-bientot { color: #f57c00; font-weight: 700; font-size: 1.1rem; }
+    .p6-statut-retard { color: #c62828; font-weight: 700; font-size: 1.1rem; }
+    .p6-statut-nr { color: #90a4ae; font-weight: 600; }
+    .p6-vidange-tip {
+        position: relative;
+        cursor: help;
+    }
+    .p6-vidange-tip .p6-tip-box,
+    .p6-tip-box.p6-tip-floating {
+        display: none;
+        position: fixed;
+        z-index: 10050;
+        min-width: 210px;
+        max-width: 280px;
+        padding: 10px 12px;
+        background: #263238;
+        color: #fff;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        text-align: left;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+        white-space: normal;
+        pointer-events: none;
+    }
+    .p6-tip-box.p6-tip-floating.is-visible {
+        display: block;
+    }
+    .p6-tip-box.p6-tip-floating::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: var(--arrow-left, 50%);
+        transform: translateX(-50%);
+        margin-left: 0;
+        border: 6px solid transparent;
+        border-top-color: #263238;
+    }
+    .p6-tip-box strong { color: #80deea; }
+    @media (max-width: 768px) {
+        .p6-section-options { flex-direction: column; }
+        .p6-section-btn { width: 100%; max-width: 100%; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-
-<div class="container">
-  <h1>Programme de Voyage</h1>
+<div class="container-fluid py-3">
+  <div class="p6-page-header">
+    <div class="p6-page-header-inner">
+      <div class="p6-page-header-text">
+        <h1><i class="fas fa-truck"></i> Projet 6 – Transport & Logistique</h1>
+        <div class="p6-header-subtitle">Voyages, livraisons et gestion du parc véhicules</div>
+      </div>
+      <div id="p6-notif-bell" title="Notifications" onclick="p6ToggleNotifPanel()" role="button" aria-label="Notifications">
+        <i class="fas fa-bell"></i>
+        <span id="p6-notif-badge">0</span>
+      </div>
+    </div>
+  </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="flash-messages">
-        {% for category, message in messages %}
-          <div class="flash flash-{{ category }}">{{ message }}</div>
-        {% endfor %}
-      </div>
+      {% for category, message in messages %}
+        {% if not message.startswith('Connexion réussie') %}
+        <div class="p6-flash p6-flash-{{ category }}">{{ message }}</div>
+        {% endif %}
+      {% endfor %}
     {% endif %}
   {% endwith %}
 
-  <div class="form-section">
-    <a href="{{ url_for('projet6.list_voyages') }}" class="btn-link">⮐️ Voir voyages antérieurs</a><br><br>
+  <div class="p6-section-selection">
+    <div class="p6-section-options">
+      {% if 'nouveau_voyage' in (allowed_sections or []) or is_super %}
+      <button type="button" class="p6-section-btn" data-p6-section="nouveau_voyage">
+        <i class="fas fa-plus-circle"></i> Nouveau voyage
+      </button>
+      {% endif %}
+      {% if 'liste_voyages' in (allowed_sections or []) or is_super %}
+      <button type="button" class="p6-section-btn" data-p6-section="liste_voyages">
+        <i class="fas fa-list"></i> Liste des voyages
+      </button>
+      {% endif %}
+      {% if 'gestion_vehicules' in (allowed_sections or []) or is_super %}
+      <button type="button" class="p6-section-btn" data-p6-section="gestion_vehicules">
+        <i class="fas fa-truck-moving"></i> Gestion des véhicules
+      </button>
+      {% endif %}
+    </div>
+    <p class="p6-empty-hint" id="p6-empty-hint">Sélectionnez une section pour afficher le contenu.</p>
+  </div>
 
-    <form method="post" action="/projet6/save">
-      <label>Date :</label>
-      <input type="date" name="date" value="{{ date or '' }}" required>
+  <div id="p6-panel-nouveau_voyage" class="p6-panel">
+    <div class="p6-card">
+      <h2 class="p6-section-title"><i class="fas fa-route"></i> Nouveau voyage</h2>
 
-      <label>Destination :</label>
-      <input type="text" name="destination" value="{{ destination or '' }}" required>
+      <form method="post" action="/projet6/save">
+        <div class="p6-form-grid">
+          <div class="p6-form-group">
+            <label>Date</label>
+            <input type="date" name="date" value="{{ date or '' }}" required>
+          </div>
+          <div class="p6-form-group">
+            <label>Destination</label>
+            <input type="text" name="destination" value="{{ destination or '' }}" required>
+          </div>
+          <div class="p6-form-group">
+            <label>Camion</label>
+            <div class="p6-camion-row">
+              <select name="camion" required id="select-camion">
+                {% for camion in camions %}
+                  <option value="{{ camion[1] }}" {% if camion[1] == camion_selectionne %}selected{% endif %}>
+                    {{ camion[1] }} - {{ camion[2] }} {{ camion[3] }}
+                  </option>
+                {% endfor %}
+              </select>
+              <a href="{{ url_for('projet6.ajouter_camion') }}" target="_blank" class="p6-btn p6-btn-success p6-btn-sm">
+                <i class="fas fa-plus"></i> Camion
+              </a>
+              <button type="button" class="p6-btn p6-btn-warning p6-btn-sm" onclick="rafraichirCamions()" title="Actualiser">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+          </div>
+          <div class="p6-form-group">
+            <label>Chauffeur</label>
+            <input type="text" name="chauffeur" value="{{ chauffeur or '' }}">
+          </div>
+          <div class="p6-form-group">
+            <label>ID du Voyage</label>
+            <input type="text" name="id_voyage" id="id_voyage" value="{{ id_voyage or '' }}" readonly>
+          </div>
+          <div class="p6-form-group">
+            <label>Numéro de Voyage</label>
+            <input type="text" name="numero_voyage" id="numero_voyage" value="{{ numero_voyage or '' }}" readonly>
+          </div>
+        </div>
 
-      <label>Camion :</label>
-      <select name="camion" required id="select-camion">
-        {% for camion in camions %}
-          <option value="{{ camion[1] }}" {% if camion[1] == camion_selectionne %}selected{% endif %}>
-            {{ camion[1] }} - {{ camion[2] }} {{ camion[3] }}
-          </option>
-        {% endfor %}
-      </select>
-      <a href="{{ url_for('projet6.ajouter_camion') }}" target="_blank" class="btn-ajout-camion">➕ Ajouter Camion</a>
-      <button type="button" class="btn-refresh" onclick="rafraichirCamions()">🔄</button>
+        <div class="p6-table-wrap">
+          <table class="p6-table-voyage">
+            <colgroup>
+              <col class="col-dossier">
+              <col>
+              <col class="col-article">
+              <col class="col-quantite">
+              <col class="col-quantite">
+              <col class="col-narrow">
+              <col class="col-narrow">
+              <col class="col-narrow">
+              <col class="col-termine">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="col-dossier">N° Dossier</th>
+                <th>Client</th>
+                <th class="col-article">Article</th>
+                <th class="col-quantite">Quantité</th>
+                <th class="col-quantite">Pièces/Carton</th>
+                <th class="col-narrow">Cartons/Palette</th>
+                <th class="col-narrow">Cartons</th>
+                <th class="col-narrow">Palettes</th>
+                <th class="col-termine">Terminé</th>
+              </tr>
+            </thead>
+            <tbody id="table-lignes">
+              {% if lignes %}
+                {% for ligne in lignes %}
+                <tr>
+                  <td class="col-dossier">
+                    <input type="text" name="num_dossier_{{ loop.index0 }}" id="num_dossier_{{ loop.index0 }}"
+                           value="{{ ligne.NumDossier }}" required autocomplete="off"
+                           placeholder="Tapez un n° dossier…"
+                           data-locked="{% if ligne.NumDossier %}1{% else %}0{% endif %}"
+                           data-locked-value="{{ ligne.NumDossier or '' }}"
+                           class="{% if ligne.NumDossier %}p6-dossier-locked{% endif %}"
+                           oninput="onNumDossierInput(this, {{ loop.index0 }})"
+                           onkeydown="onNumDossierKeydown(event, {{ loop.index0 }})"
+                           onpaste="onNumDossierPaste(event, {{ loop.index0 }})"
+                           title="Après sélection : verrouillé. Suppr / Retour arrière vide le n° et les champs liés.">
+                  </td>
+                  <td>
+                    <input type="text" name="client_{{ loop.index0 }}" id="client_{{ loop.index0 }}"
+                           value="{{ ligne.Client }}" required autocomplete="off"
+                           placeholder="Tapez un client…"
+                           {% if ligne.NumDossier %}readonly class="p6-client-locked"{% endif %}
+                           oninput="autocompleteCommande(this, {{ loop.index0 }})"
+                           onkeydown="onClientKeydown(event, {{ loop.index0 }})">
+                  </td>
+                  <td class="col-article">
+                    <input type="text" name="article_{{ loop.index0 }}" id="article_{{ loop.index0 }}"
+                           value="{{ ligne.Article or '' }}" autocomplete="off"
+                           placeholder="Article…">
+                  </td>
+                  <td class="col-quantite"><input type="number" name="quantite_{{ loop.index0 }}" id="quantite_{{ loop.index0 }}" value="{{ ligne.Quantite }}" required oninput="calculerCartonsPalettes({{ loop.index0 }})"></td>
+                  <td class="col-quantite"><input type="number" name="pieces_par_carton_{{ loop.index0 }}" id="pieces_par_carton_{{ loop.index0 }}" value="{{ ligne.PiecesParCarton }}" required oninput="calculerCartonsPalettes({{ loop.index0 }})"></td>
+                  <td class="col-narrow"><input type="number" name="cartons_par_palette_{{ loop.index0 }}" id="cartons_par_palette_{{ loop.index0 }}" value="{{ ligne.CartonsParPalette }}" min="0" max="999" required oninput="calculerCartonsPalettes({{ loop.index0 }})"></td>
+                  <td class="col-narrow"><input type="number" name="nb_carton_{{ loop.index0 }}" id="nb_carton_{{ loop.index0 }}" value="{{ ligne.NbCarton }}" min="0" max="999" readonly></td>
+                  <td class="col-narrow"><input type="number" name="nb_palette_{{ loop.index0 }}" id="nb_palette_{{ loop.index0 }}" value="{{ ligne.NbPalette }}" min="0" max="999" readonly></td>
+                  <td class="col-termine"><input type="checkbox" name="termine_{{ loop.index0 }}" {% if ligne.Termine %}checked{% endif %}></td>
+                </tr>
+                {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
 
-      <label>Chauffeur :</label>
-      <input type="text" name="chauffeur" value="{{ chauffeur or '' }}">
+        <button type="button" class="p6-btn p6-btn-secondary p6-btn-sm" onclick="ajouterLigne()">
+          <i class="fas fa-plus"></i> Ajouter une ligne
+        </button>
 
-      <label>ID du Voyage :</label>
-      <input type="text" name="id_voyage" id="id_voyage" value="{{ id_voyage or '' }}" readonly>
+        <input type="hidden" name="nb_lignes" id="nb_lignes" value="{{ lignes|length if lignes else 0 }}">
 
-      <label>Numéro de Voyage :</label>
-      <input type="text" name="numero_voyage" id="numero_voyage" value="{{ numero_voyage or '' }}" readonly>
+        <div class="p6-btn-zone">
+          <button type="submit" class="p6-btn p6-btn-primary">
+            <i class="fas fa-save"></i> Enregistrer
+          </button>
+          {% if id_voyage %}
+            <a href="/projet6/pdf/{{ id_voyage }}" target="_blank" class="p6-btn p6-btn-secondary">
+              <i class="fas fa-file-pdf"></i> Générer PDF
+            </a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
 
-      <div class="table-wrapper">
-        <table class="table-voyage">
+  <div id="p6-panel-liste_voyages" class="p6-panel">
+    <div class="p6-card">
+      <h2 class="p6-section-title"><i class="fas fa-list"></i> Liste des voyages</h2>
+
+      <form method="get" action="{{ url_for('projet6.programme_voyage') }}" class="p6-search-form">
+        <input type="hidden" name="section" value="liste_voyages">
+        <div class="p6-form-group">
+          <label>Période</label>
+          <select name="periode" id="p6-periode-voyages" onchange="this.form.submit()">
+            <option value="semaine" {% if search_periode == 'semaine' %}selected{% endif %}>Semaine en cours</option>
+            <option value="mois" {% if search_periode == 'mois' %}selected{% endif %}>Mois en cours</option>
+            <option value="historique" {% if search_periode == 'historique' %}selected{% endif %}>Tout l'historique</option>
+          </select>
+        </div>
+        <div class="p6-form-group">
+          <label>Numéro de voyage</label>
+          <input type="text" name="numero" value="{{ search_numero or '' }}" placeholder="Ex. 251">
+        </div>
+        <button type="submit" class="p6-btn p6-btn-primary p6-btn-sm">
+          <i class="fas fa-search"></i> Rechercher
+        </button>
+        <a href="{{ url_for('projet6.programme_voyage', section='liste_voyages', periode='semaine') }}" class="p6-btn p6-btn-secondary p6-btn-sm">
+          <i class="fas fa-undo"></i> Réinitialiser
+        </a>
+      </form>
+
+      <div class="p6-table-wrap">
+        <table class="p6-list-table">
           <thead>
             <tr>
-              <th>Recherche</th>
-              <th>Client</th>
-              <th>N° Dossier</th>
-              <th>Quantité</th>
-              <th>Pièces/Carton</th>
-              <th>Cartons/Palette</th>
-              <th>Cartons</th>
-              <th>Palettes</th>
-              <th>Terminé</th>
+              <th>Numéro</th>
+              <th>Date</th>
+              <th>Destination</th>
+              <th>Camion</th>
+              <th>Chauffeur</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="table-lignes">
-            {% if lignes %}
-              {% for ligne in lignes %}
+          <tbody>
+            {% if voyages %}
+              {% for voyage in voyages %}
               <tr>
-                <td><input type="text" name="search_{{ loop.index0 }}" placeholder="Recherche commande..."></td>
-                <td><input name="client_{{ loop.index0 }}" value="{{ ligne.Client }}" required></td>
-                <td><input name="num_dossier_{{ loop.index0 }}" value="{{ ligne.NumDossier }}" readonly></td>
-                <td><input type="number" name="quantite_{{ loop.index0 }}" value="{{ ligne.Quantite }}" required></td>
-                <td><input type="number" name="pieces_par_carton_{{ loop.index0 }}" value="{{ ligne.PiecesParCarton }}" required></td>
-                <td><input type="number" name="cartons_par_palette_{{ loop.index0 }}" value="{{ ligne.CartonsParPalette }}" required></td>
-                <td><input type="number" name="nb_carton_{{ loop.index0 }}" value="{{ ligne.NbCarton }}" readonly></td>
-                <td><input type="number" name="nb_palette_{{ loop.index0 }}" value="{{ ligne.NbPalette }}" readonly></td>
-                <td><input type="checkbox" name="termine_{{ loop.index0 }}" {% if ligne.Termine %}checked{% endif %}></td>
+                <td>{{ voyage[1] }}</td>
+                <td>{{ voyage[2] }}</td>
+                <td>{{ voyage[3] }}</td>
+                <td>{{ voyage[4] }}</td>
+                <td>{{ voyage[5] }}</td>
+                <td class="p6-actions-cell">
+                  <div class="p6-actions-group">
+                    <a href="{{ url_for('projet6.edit_voyage', id=voyage[0]) }}" class="p6-btn p6-btn-secondary p6-btn-sm" title="Modifier">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="/projet6/pdf/{{ voyage[0] }}" target="_blank" class="p6-btn p6-btn-primary p6-btn-sm" title="PDF">
+                      <i class="fas fa-file-pdf"></i>
+                    </a>
+                    <form method="post" action="{{ url_for('projet6.supprimer_voyage', id=voyage[0]) }}" class="p6-inline-form" onsubmit="return confirm('Supprimer ce voyage ?');">
+                      <button type="submit" class="p6-btn p6-btn-danger p6-btn-sm" title="Supprimer">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
               </tr>
               {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="6" class="p6-empty-list">Aucun voyage trouvé.</td>
+              </tr>
             {% endif %}
           </tbody>
         </table>
       </div>
+    </div>
+  </div>
 
-      <button type="button" class="btn-add-line" onclick="ajouterLigne()">➕ Ajouter une ligne</button>
+  <div id="p6-panel-gestion_vehicules" class="p6-panel">
+    <div class="p6-card">
+      <h2 class="p6-section-title"><i class="fas fa-truck-moving"></i> Gestion des véhicules</h2>
 
-      <input type="hidden" name="nb_lignes" id="nb_lignes" value="{{ lignes|length if lignes else 0 }}">
-
-      <div class="btn-zone">
-        <button type="submit">💾 Enregistrer</button>
-        {% if id_voyage %}
-          <a href="/projet6/pdf/{{ id_voyage }}" target="_blank" class="btn-pdf">📄 Générer PDF</a>
-        {% endif %}
+      <div class="p6-toolbar">
+        <a href="{{ url_for('projet6.ajouter_camion') }}" class="p6-btn p6-btn-success p6-btn-sm">
+          <i class="fas fa-plus"></i> Ajouter un nouveau camion
+        </a>
       </div>
-    </form>
+
+      <div class="p6-table-wrap p6-table-wrap-vehicules">
+        <table class="p6-camion-table">
+          <thead>
+            <tr>
+              <th>Immatriculation</th>
+              <th>Marque</th>
+              <th>Modèle</th>
+              <th class="col-date" title="Date d'achat">Date achat</th>
+              <th class="col-date" title="Dernière visite">Dernière visite</th>
+              <th class="col-date" title="Prochaine visite">Prochaine visite</th>
+              <th class="col-date" title="Dernière vidange">Dernière vidange</th>
+              <th class="col-km" title="Compteur à la dernière vidange">Cpt vidange</th>
+              <th class="col-km" title="Compteur actuel">Cpt actuel</th>
+              <th title="Statut vidange">Statut</th>
+              <th>Observations</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in camions_suivi %}
+            {% set tip_prochaine = (c.compteur_prochain|string + ' ' + c.unite_vidange) if c.compteur_prochain is not none else 'non calculable' %}
+            {% set tip_date = c.date_derniere_vidange if c.date_derniere_vidange else 'non renseignée' %}
+            {% set tip_mode = 'Heures moteur' if c.mode_suivi_vidange == 'HEURES' else 'Kilométrage' %}
+            <tr>
+              <td>{{ c.immatriculation }}</td>
+              <td>{{ c.marque or '' }}</td>
+              <td>{{ c.modele or '' }}</td>
+              <td class="col-date">{{ c.date_achat.strftime('%d/%m/%y') if c.date_achat else '—' }}</td>
+              <td class="col-date">{{ c.date_derniere_visite.strftime('%d/%m/%y') if c.date_derniere_visite else '—' }}</td>
+              <td class="col-date {% if c.statut_visite == 'bientot' %}p6-alert-visite-bientot{% elif c.statut_visite == 'retard' %}p6-alert-visite-retard{% endif %}">
+                {{ c.date_prochaine_visite.strftime('%d/%m/%y') if c.date_prochaine_visite else '—' }}
+              </td>
+              <td class="p6-vidange-tip col-date">
+                {{ c.date_derniere_vidange.strftime('%d/%m/%y') if c.date_derniere_vidange else '—' }}
+                <span class="p6-tip-box">
+                  <div><strong>Mode</strong> : {{ tip_mode }}</div>
+                  <div><strong>Prochaine vidange</strong> : {{ tip_prochaine }}</div>
+                  <div><strong>Dernière vidange</strong> : {{ tip_date }}</div>
+                  <div style="margin-top:4px;opacity:.85">Intervalle : {{ c.intervalle_vidange }} {{ c.unite_vidange }}</div>
+                </span>
+              </td>
+              <td class="p6-vidange-tip col-km">
+                {% if c.compteur_vidange is not none %}{{ '{:,}'.format(c.compteur_vidange).replace(',', ' ') }}&nbsp;{{ c.unite_vidange }}{% else %}—{% endif %}
+                <span class="p6-tip-box">
+                  <div><strong>Mode</strong> : {{ tip_mode }}</div>
+                  <div><strong>Prochaine vidange</strong> : {{ tip_prochaine }}</div>
+                  <div><strong>Dernière vidange</strong> : {{ tip_date }}</div>
+                  <div style="margin-top:4px;opacity:.85">Intervalle : {{ c.intervalle_vidange }} {{ c.unite_vidange }}</div>
+                </span>
+              </td>
+              <td class="p6-vidange-tip col-km">
+                {% if c.compteur_actuel is not none %}{{ '{:,}'.format(c.compteur_actuel).replace(',', ' ') }}&nbsp;{{ c.unite_vidange }}{% else %}—{% endif %}
+                <span class="p6-tip-box">
+                  <div><strong>Mode</strong> : {{ tip_mode }}</div>
+                  <div><strong>Prochaine vidange</strong> : {{ tip_prochaine }}</div>
+                  <div><strong>Dernière vidange</strong> : {{ tip_date }}</div>
+                  <div style="margin-top:4px;opacity:.85">Intervalle : {{ c.intervalle_vidange }} {{ c.unite_vidange }}</div>
+                </span>
+              </td>
+              <td class="p6-vidange-tip">
+                {% if c.statut_vidange == 'ok' %}
+                  <span class="p6-statut-ok" title="OK">✓</span>
+                {% elif c.statut_vidange == 'bientot' %}
+                  <span class="p6-statut-bientot" title="Bientôt">⚠</span>
+                {% elif c.statut_vidange == 'retard' %}
+                  <span class="p6-statut-retard" title="En retard">✗</span>
+                {% else %}
+                  <span class="p6-statut-nr">—</span>
+                {% endif %}
+                <span class="p6-tip-box">
+                  <div><strong>Mode</strong> : {{ tip_mode }}</div>
+                  <div><strong>Prochaine vidange</strong> : {{ tip_prochaine }}</div>
+                  <div><strong>Dernière vidange</strong> : {{ tip_date }}</div>
+                  <div style="margin-top:4px;opacity:.85">Intervalle : {{ c.intervalle_vidange }} {{ c.unite_vidange }}</div>
+                </span>
+              </td>
+              <td class="col-obs" title="{{ c.observations or '' }}">{{ c.observations or '' }}</td>
+              <td class="col-actions">
+                <div class="p6-actions-group">
+                  <a href="{{ url_for('projet6.edit_camion', id=c.id) }}" class="p6-btn p6-btn-secondary p6-btn-sm" title="Modifier">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <form method="post" action="{{ url_for('projet6.supprimer_camion', id=c.id) }}" class="p6-inline-form" onsubmit="return confirm('Supprimer ce véhicule ?');">
+                    <button type="submit" class="p6-btn p6-btn-danger p6-btn-sm" title="Supprimer">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="12" class="p6-empty-list">Aucun véhicule enregistré.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
+
 <script>
+const P6 = { activeSection: null };
 let ligneIndex = {{ lignes|length if lignes else 0 }};
+
+function p6SyncSectionUrl(name) {
+  const url = new URL(window.location.href);
+  if (name) {
+    url.searchParams.set('section', name);
+  } else {
+    url.searchParams.delete('section');
+  }
+  if (name !== 'liste_voyages') {
+    url.searchParams.delete('numero');
+    url.searchParams.delete('periode');
+  }
+  const next = url.pathname + (url.search || '') + (url.hash || '');
+  if (next !== window.location.pathname + window.location.search + window.location.hash) {
+    history.replaceState(null, '', next);
+  }
+}
+
+function p6ToggleSection(name, syncUrl) {
+  if (syncUrl === undefined) syncUrl = true;
+  const panel = document.getElementById('p6-panel-' + name);
+  const hint = document.getElementById('p6-empty-hint');
+  const isSameOpen = P6.activeSection === name;
+
+  document.querySelectorAll('.p6-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.p6-section-btn').forEach(b => b.classList.remove('active'));
+  P6.activeSection = null;
+  if (hint) hint.style.display = '';
+
+  if (isSameOpen) {
+    if (syncUrl) p6SyncSectionUrl(null);
+    return;
+  }
+
+  P6.activeSection = name;
+  if (panel) panel.classList.add('active');
+  document.querySelectorAll('[data-p6-section="' + name + '"]').forEach(b => b.classList.add('active'));
+  if (hint) hint.style.display = 'none';
+  if (syncUrl) p6SyncSectionUrl(name);
+}
 
 async function fetchCommandes(query) {
   const response = await fetch(`/api/commandes?q=${encodeURIComponent(query)}`);
   return await response.json();
 }
 
+function getCmdSuggestionsBox() {
+  let box = document.getElementById('p6-cmd-suggestions');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'p6-cmd-suggestions';
+    box.className = 'p6-cmd-suggestions';
+    document.body.appendChild(box);
+  }
+  return box;
+}
+
+function placeCmdSuggestions(input) {
+  const box = getCmdSuggestionsBox();
+  const r = input.getBoundingClientRect();
+  const width = Math.max(r.width, 340);
+  let left = r.left;
+  left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+  box.style.left = left + 'px';
+  box.style.top = (r.bottom + 2) + 'px';
+  box.style.width = width + 'px';
+  box.style.display = 'block';
+}
+
 function ajouterLigne() {
   const table = document.getElementById('table-lignes');
+  const idx = ligneIndex;
   const row = document.createElement('tr');
   row.innerHTML = `
-    <td>
-      <input type="text" id="search_${ligneIndex}" placeholder="Recherche commande..." oninput="autocompleteCommande(this, ${ligneIndex})">
-      <div id="suggestions_${ligneIndex}" class="suggestions"></div>
+    <td class="col-dossier">
+      <input type="text" name="num_dossier_${idx}" id="num_dossier_${idx}" required autocomplete="off"
+             placeholder="Tapez un n° dossier…"
+             data-locked="0" data-locked-value=""
+             oninput="onNumDossierInput(this, ${idx})"
+             onkeydown="onNumDossierKeydown(event, ${idx})"
+             onpaste="onNumDossierPaste(event, ${idx})"
+             title="Après sélection : verrouillé. Suppr / Retour arrière vide le n° et les champs liés.">
     </td>
-    <td><input name="client_${ligneIndex}" id="client_${ligneIndex}" required readonly></td>
-    <td><input name="num_dossier_${ligneIndex}" id="num_dossier_${ligneIndex}" required readonly></td>
-    <td><input type="number" name="quantite_${ligneIndex}" id="quantite_${ligneIndex}" required oninput="calculerCartonsPalettes(${ligneIndex})"></td>
-    <td><input type="number" name="pieces_par_carton_${ligneIndex}" id="pieces_par_carton_${ligneIndex}" required oninput="calculerCartonsPalettes(${ligneIndex})"></td>
-    <td><input type="number" name="cartons_par_palette_${ligneIndex}" id="cartons_par_palette_${ligneIndex}" required oninput="calculerCartonsPalettes(${ligneIndex})"></td>
-    <td><input type="number" name="nb_carton_${ligneIndex}" id="nb_carton_${ligneIndex}" readonly></td>
-    <td><input type="number" name="nb_palette_${ligneIndex}" id="nb_palette_${ligneIndex}" readonly></td>
-    <td><input type="checkbox" name="termine_${ligneIndex}"></td>
+    <td>
+      <input type="text" name="client_${idx}" id="client_${idx}" required autocomplete="off"
+             placeholder="Tapez un client…"
+             oninput="autocompleteCommande(this, ${idx})"
+             onkeydown="onClientKeydown(event, ${idx})">
+    </td>
+    <td class="col-article">
+      <input type="text" name="article_${idx}" id="article_${idx}" autocomplete="off" placeholder="Article…">
+    </td>
+    <td class="col-quantite"><input type="number" name="quantite_${idx}" id="quantite_${idx}" required oninput="calculerCartonsPalettes(${idx})"></td>
+    <td class="col-quantite"><input type="number" name="pieces_par_carton_${idx}" id="pieces_par_carton_${idx}" required oninput="calculerCartonsPalettes(${idx})"></td>
+    <td class="col-narrow"><input type="number" name="cartons_par_palette_${idx}" id="cartons_par_palette_${idx}" min="0" max="999" required oninput="calculerCartonsPalettes(${idx})"></td>
+    <td class="col-narrow"><input type="number" name="nb_carton_${idx}" id="nb_carton_${idx}" min="0" max="999" readonly></td>
+    <td class="col-narrow"><input type="number" name="nb_palette_${idx}" id="nb_palette_${idx}" min="0" max="999" readonly></td>
+    <td class="col-termine"><input type="checkbox" name="termine_${idx}"></td>
   `;
   table.appendChild(row);
   ligneIndex++;
   document.getElementById('nb_lignes').value = ligneIndex;
+}
+
+function setClientLocked(index, locked) {
+  const client = document.getElementById(`client_${index}`);
+  if (!client) return;
+  client.readOnly = !!locked;
+  client.classList.toggle('p6-client-locked', !!locked);
+}
+
+function lockNumDossier(index, numero) {
+  const el = document.getElementById(`num_dossier_${index}`);
+  if (!el) return;
+  el.dataset.locked = '1';
+  el.dataset.lockedValue = numero || el.value || '';
+  el.classList.add('p6-dossier-locked');
+  setClientLocked(index, true);
+}
+
+function unlockNumDossier(index) {
+  const el = document.getElementById(`num_dossier_${index}`);
+  if (!el) return;
+  el.dataset.locked = '0';
+  el.dataset.lockedValue = '';
+  el.classList.remove('p6-dossier-locked');
+  setClientLocked(index, false);
+}
+
+function clearNumDossierField(index) {
+  const el = document.getElementById(`num_dossier_${index}`);
+  if (!el) return;
+  el.value = '';
+  unlockNumDossier(index);
+
+  const client = document.getElementById(`client_${index}`);
+  const article = document.getElementById(`article_${index}`);
+  const quantite = document.getElementById(`quantite_${index}`);
+  const ppc = document.getElementById(`pieces_par_carton_${index}`);
+  const cpp = document.getElementById(`cartons_par_palette_${index}`);
+  const nbCarton = document.getElementById(`nb_carton_${index}`);
+  const nbPalette = document.getElementById(`nb_palette_${index}`);
+  const termine = document.querySelector(`input[name="termine_${index}"]`);
+
+  if (client) client.value = '';
+  if (article) article.value = '';
+  if (quantite) quantite.value = '';
+  if (ppc) ppc.value = '';
+  if (cpp) cpp.value = '';
+  if (nbCarton) nbCarton.value = '';
+  if (nbPalette) nbPalette.value = '';
+  if (termine) termine.checked = false;
+
+  hideCmdSuggestions();
+}
+
+function onNumDossierKeydown(e, index) {
+  const el = e.target;
+
+  // Navigation clavier dans la liste (champ non verrouillé)
+  if (el.dataset.locked !== '1' && handleSuggestKeydown(e, index)) return;
+
+  if (el.dataset.locked !== '1') return;
+
+  const navKeys = ['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'];
+  if (navKeys.includes(e.key)) return;
+  if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'A', 'C'].includes(e.key)) return;
+
+  if (e.key === 'Backspace' || e.key === 'Delete') {
+    e.preventDefault();
+    clearNumDossierField(index);
+    return;
+  }
+  e.preventDefault();
+}
+
+function onClientKeydown(e, index) {
+  const client = e.target;
+  if (client.readOnly) {
+    if (e.key === 'Tab') return;
+    e.preventDefault();
+    return;
+  }
+  handleSuggestKeydown(e, index);
+}
+
+function onNumDossierPaste(e, index) {
+  if (e.target.dataset.locked === '1') e.preventDefault();
+}
+
+function onNumDossierInput(input, index) {
+  if (input.dataset.locked === '1') {
+    if (!input.value) {
+      unlockNumDossier(index);
+      return;
+    }
+    input.value = input.dataset.lockedValue || '';
+    return;
+  }
+  autocompleteCommande(input, index);
 }
 
 function calculerCartonsPalettes(index) {
@@ -136,43 +1184,355 @@ function calculerCartonsPalettes(index) {
   document.getElementById(`nb_palette_${index}`).value = nbPalette;
 }
 
+let p6SuggestTimer = null;
+let p6SuggestInput = null;
+let p6SuggestSeq = 0;
+let p6SuggestActiveIndex = -1;
+let p6SuggestLineIndex = null;
+
+function hideCmdSuggestions() {
+  const box = document.getElementById('p6-cmd-suggestions');
+  if (box) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+  p6SuggestInput = null;
+  p6SuggestActiveIndex = -1;
+  p6SuggestLineIndex = null;
+}
+
+function highlightSuggestItem(activeIdx) {
+  const box = document.getElementById('p6-cmd-suggestions');
+  if (!box) return;
+  const items = box.querySelectorAll('.p6-cmd-item');
+  items.forEach((it, i) => {
+    const on = i === activeIdx;
+    it.classList.toggle('is-active', on);
+    if (on) it.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function handleSuggestKeydown(e, index) {
+  const box = document.getElementById('p6-cmd-suggestions');
+  const open = box && box.style.display === 'block';
+  if (!open) return false;
+
+  const items = box.querySelectorAll('.p6-cmd-item');
+  if (!items.length) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      hideCmdSuggestions();
+      return true;
+    }
+    return false;
+  }
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    p6SuggestActiveIndex = Math.min(p6SuggestActiveIndex + 1, items.length - 1);
+    if (p6SuggestActiveIndex < 0) p6SuggestActiveIndex = 0;
+    highlightSuggestItem(p6SuggestActiveIndex);
+    return true;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    p6SuggestActiveIndex = Math.max(p6SuggestActiveIndex - 1, 0);
+    highlightSuggestItem(p6SuggestActiveIndex);
+    return true;
+  }
+  if (e.key === 'Enter') {
+    if (p6SuggestActiveIndex >= 0 && items[p6SuggestActiveIndex]) {
+      e.preventDefault();
+      items[p6SuggestActiveIndex].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      return true;
+    }
+    return false;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    hideCmdSuggestions();
+    return true;
+  }
+  return false;
+}
+
 async function autocompleteCommande(input, index) {
-  const query = input.value;
-  const suggestionsBox = document.getElementById(`suggestions_${index}`);
+  const query = (input.value || '').trim();
+  p6SuggestInput = input;
+  p6SuggestLineIndex = index;
+  clearTimeout(p6SuggestTimer);
+
   if (!query) {
-    suggestionsBox.innerHTML = '';
+    hideCmdSuggestions();
     return;
   }
 
-  try {
-    const results = await fetchCommandes(query);
-    if (!Array.isArray(results)) {
-      suggestionsBox.innerHTML = '<div>Erreur de chargement</div>';
-      return;
-    }
+  const seq = ++p6SuggestSeq;
+  p6SuggestTimer = setTimeout(async () => {
+    try {
+      const results = await fetchCommandes(query);
+      if (seq !== p6SuggestSeq || p6SuggestInput !== input) return;
 
-    suggestionsBox.innerHTML = results.map(cmd => `
-      <div onclick="selectCommande(${index}, '${cmd.Numero}', '${cmd.Client}', '${cmd.QteComm || ''}')">
-        ${cmd.Client} - ${cmd.Numero}
-      </div>
-    `).join('');
-  } catch (error) {
-    suggestionsBox.innerHTML = '<div>Erreur serveur</div>';
+      const box = getCmdSuggestionsBox();
+      box.innerHTML = '';
+      p6SuggestActiveIndex = -1;
+
+      if (!Array.isArray(results)) {
+        box.innerHTML = '<div class="p6-cmd-empty">Erreur de chargement</div>';
+        placeCmdSuggestions(input);
+        return;
+      }
+      if (!results.length) {
+        box.innerHTML = '<div class="p6-cmd-empty">Aucun résultat</div>';
+        placeCmdSuggestions(input);
+        return;
+      }
+
+      results.forEach(cmd => {
+        const item = document.createElement('div');
+        item.className = 'p6-cmd-item';
+        const num = document.createElement('span');
+        num.className = 'p6-cmd-num';
+        num.textContent = cmd.Numero || '';
+        const meta = document.createElement('span');
+        meta.className = 'p6-cmd-meta';
+        const parts = [cmd.Client, cmd.Reference].filter(Boolean);
+        meta.textContent = parts.length ? (' — ' + parts.join(' — ')) : '';
+        item.appendChild(num);
+        item.appendChild(meta);
+        item.addEventListener('mousedown', (ev) => {
+          ev.preventDefault();
+          selectCommande(index, cmd.Numero || '', cmd.Client || '', cmd.QteComm || '', cmd.Reference || '');
+        });
+        box.appendChild(item);
+      });
+      placeCmdSuggestions(input);
+      p6SuggestActiveIndex = 0;
+      highlightSuggestItem(0);
+    } catch (error) {
+      if (seq !== p6SuggestSeq || p6SuggestInput !== input) return;
+      const box = getCmdSuggestionsBox();
+      box.innerHTML = '<div class="p6-cmd-empty">Erreur serveur</div>';
+      placeCmdSuggestions(input);
+    }
+  }, 200);
+}
+
+function selectCommande(index, numero, client, quantite, article) {
+  const num = String(numero || '').trim();
+  const dossier = document.getElementById(`num_dossier_${index}`);
+  dossier.value = num;
+  lockNumDossier(index, num);
+  document.getElementById(`client_${index}`).value = client;
+  setClientLocked(index, true);
+  const art = document.getElementById(`article_${index}`);
+  if (art) art.value = article || '';
+  document.getElementById(`quantite_${index}`).value = quantite;
+  hideCmdSuggestions();
+  calculerCartonsPalettes(index);
+}
+
+async function rafraichirCamions() {
+  try {
+    const res = await fetch('/api/camions');
+    const camions = await res.json();
+    const select = document.getElementById('select-camion');
+    if (!select || !Array.isArray(camions)) return;
+    const current = select.value;
+    select.innerHTML = camions.map(c => {
+      const immat = c.Immatriculation || c[1] || '';
+      const marque = c.Marque || c[2] || '';
+      const modele = c.Modele || c[3] || '';
+      return `<option value="${immat}">${immat} - ${marque} ${modele}</option>`;
+    }).join('');
+    if (current) select.value = current;
+  } catch (e) {
+    console.error(e);
   }
 }
 
-function selectCommande(index, numero, client, quantite) {
-  document.getElementById(`client_${index}`).value = client;
-  document.getElementById(`num_dossier_${index}`).value = numero;
-  document.getElementById(`quantite_${index}`).value = quantite;
-  document.getElementById(`search_${index}`).value = `${client} - ${numero}`;
-  document.getElementById(`suggestions_${index}`).innerHTML = '';
-  calculerCartonsPalettes(index);
+function p6EscapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function p6UpdateNotifBadge(list) {
+  const badge = document.getElementById('p6-notif-badge');
+  if (!badge) return;
+  const n = (list || []).filter(x => !x.lu).length;
+  badge.textContent = n > 99 ? '99+' : String(n);
+  badge.style.display = n > 0 ? 'flex' : 'none';
+}
+
+function p6RenderNotifList(list) {
+  const ul = document.getElementById('p6-notif-list');
+  const empty = document.getElementById('p6-notif-empty');
+  if (!ul) return;
+  if (!list || !list.length) {
+    ul.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  ul.innerHTML = list.map(n => `
+    <li class="p6-notif-item ${n.lu ? '' : 'p6-notif-unread'}" data-id="${n.id}">
+      <div class="p6-notif-item-body">
+        <span class="p6-notif-item-date">${p6EscapeHtml(n.date)}</span>
+        <div class="p6-notif-item-msg">${p6EscapeHtml(n.message)}</div>
+      </div>
+      <button type="button" class="p6-notif-del" title="Supprimer" aria-label="Supprimer"
+              onclick="p6DeleteNotification(${n.id}, event)">&times;</button>
+    </li>
+  `).join('');
+}
+
+async function p6RefreshNotifBadge() {
+  try {
+    const res = await fetch('/projet6/api/notifications');
+    if (!res.ok) return;
+    const list = await res.json();
+    if (!Array.isArray(list)) return;
+    p6UpdateNotifBadge(list);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function p6LoadNotifications() {
+  try {
+    const res = await fetch('/projet6/api/notifications');
+    if (!res.ok) return;
+    const list = await res.json();
+    if (!Array.isArray(list)) return;
+    p6RenderNotifList(list);
+    p6UpdateNotifBadge(list);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function p6ToggleNotifPanel() {
+  const el = document.getElementById('p6-notif-panel');
+  if (!el || !window.bootstrap) return;
+  bootstrap.Offcanvas.getOrCreateInstance(el).show();
+  p6LoadNotifications().then(() => p6MarkNotificationsRead());
+}
+
+async function p6MarkNotificationsRead() {
+  try {
+    await fetch('/projet6/api/notifications/lire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    document.querySelectorAll('.p6-notif-item.p6-notif-unread').forEach(el => {
+      el.classList.remove('p6-notif-unread');
+    });
+    p6UpdateNotifBadge([]);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function p6DeleteNotification(id, ev) {
+  if (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  try {
+    const res = await fetch('/projet6/api/notifications/' + id + '/supprimer', { method: 'POST' });
+    if (!res.ok) return;
+    const li = document.querySelector('.p6-notif-item[data-id="' + id + '"]');
+    if (li) li.remove();
+    const ul = document.getElementById('p6-notif-list');
+    const empty = document.getElementById('p6-notif-empty');
+    if (ul && !ul.children.length && empty) empty.style.display = 'block';
+    await p6RefreshNotifBadge();
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   if (ligneIndex === 0) ajouterLigne();
+
+  document.querySelectorAll('.p6-section-btn').forEach(btn => {
+    btn.addEventListener('click', () => p6ToggleSection(btn.dataset.p6Section));
+  });
+
+  const openSection = {{ (open_section or '')|tojson }};
+  if (openSection) {
+    p6ToggleSection(openSection, false);
+  }
+
+  p6RefreshNotifBadge();
+
+  document.addEventListener('click', (e) => {
+    const box = document.getElementById('p6-cmd-suggestions');
+    if (!box || box.style.display === 'none') return;
+    if (box.contains(e.target) || e.target === p6SuggestInput) return;
+    hideCmdSuggestions();
+  });
+  window.addEventListener('scroll', () => {
+    if (p6SuggestInput && document.getElementById('p6-cmd-suggestions')?.style.display === 'block') {
+      placeCmdSuggestions(p6SuggestInput);
+    }
+  }, true);
+  window.addEventListener('resize', hideCmdSuggestions);
+
+  // Popups vidange : toujours au-dessus, position fixed (hors overflow du tableau)
+  document.querySelectorAll('.p6-vidange-tip').forEach(cell => {
+    const tip = cell.querySelector('.p6-tip-box');
+    if (!tip) return;
+    tip.classList.add('p6-tip-floating');
+
+    const placeTip = () => {
+      const r = cell.getBoundingClientRect();
+      tip.classList.add('is-visible');
+      document.body.appendChild(tip);
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      let left = r.left + (r.width / 2) - (tw / 2);
+      let top = r.top - th - 10;
+      left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+      // Toujours au-dessus ; si trop haut, coller sous le bord haut de l'écran
+      top = Math.max(8, top);
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+      // Flèche centrée sous le tip, vers la cellule
+      const arrowLeft = Math.max(12, Math.min(r.left + r.width / 2 - left, tw - 12));
+      tip.style.setProperty('--arrow-left', arrowLeft + 'px');
+    };
+
+    const hideTip = () => {
+      tip.classList.remove('is-visible');
+      tip.style.left = '';
+      tip.style.top = '';
+      if (tip.parentElement !== cell) cell.appendChild(tip);
+    };
+
+    cell.addEventListener('mouseenter', placeTip);
+    cell.addEventListener('mouseleave', hideTip);
+    window.addEventListener('scroll', () => {
+      if (tip.classList.contains('is-visible')) placeTip();
+    }, true);
+  });
 });
 </script>
+{% endblock %}
 
+{% block page_modals %}
+<div class="offcanvas offcanvas-end" tabindex="-1" id="p6-notif-panel" aria-labelledby="p6-notif-title">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="p6-notif-title"><i class="fas fa-bell"></i> Notifications</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fermer"></button>
+  </div>
+  <div class="offcanvas-body p-0">
+    <ul id="p6-notif-list"></ul>
+    <div id="p6-notif-empty" style="display:none;">Aucune notification</div>
+  </div>
+</div>
 {% endblock %}

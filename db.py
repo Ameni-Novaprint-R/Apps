@@ -106,9 +106,9 @@ def init_projet6_tables():
     with get_db_cursor() as cursor:
         # Verifier que la table n'existe pas avant de la creer (syntaxe SQL Server)
         cursor.execute("""
-            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'VOYAGES')
+            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'WEB_VOYAGES')
             BEGIN
-                CREATE TABLE VOYAGES (
+                CREATE TABLE WEB_VOYAGES (
                     ID INT IDENTITY(1,1) PRIMARY KEY,
                     DateVoyage DATE NOT NULL,
                     Destination NVARCHAR(255),
@@ -118,19 +118,82 @@ def init_projet6_tables():
             END
         """)
         cursor.execute("""
-            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'VOYAGE_LIGNES')
+            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'WEB_VOYAGE_LIGNES')
             BEGIN
-                CREATE TABLE VOYAGE_LIGNES (
+                CREATE TABLE WEB_VOYAGE_LIGNES (
                     ID INT IDENTITY(1,1) PRIMARY KEY,
                     ID_VOYAGE INT,
                     Client NVARCHAR(255),
                     NumDossier NVARCHAR(255),
+                    Article NVARCHAR(500),
                     Quantite INT,
                     NbCarton INT,
                     NbPalette INT,
                     Termine BIT,
-                    FOREIGN KEY (ID_VOYAGE) REFERENCES VOYAGES(ID)
+                    FOREIGN KEY (ID_VOYAGE) REFERENCES WEB_VOYAGES(ID)
                 )
+            END
+        """)
+        cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_VOYAGE_LIGNES', 'Article') IS NULL
+                ALTER TABLE dbo.WEB_VOYAGE_LIGNES ADD Article NVARCHAR(500) NULL
+        """)
+        cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_CAMIONS', 'KmActuel') IS NULL
+                ALTER TABLE dbo.WEB_CAMIONS ADD KmActuel INT NULL
+        """)
+        cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_CAMIONS', 'HeuresActuelles') IS NULL
+                ALTER TABLE dbo.WEB_CAMIONS ADD HeuresActuelles INT NULL
+        """)
+        cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_CAMIONS', 'ModeSuiviVidange') IS NULL
+                ALTER TABLE dbo.WEB_CAMIONS ADD ModeSuiviVidange NVARCHAR(10) NULL
+        """)
+        cursor.execute("""
+            UPDATE WEB_CAMIONS
+            SET ModeSuiviVidange = 'KM'
+            WHERE ModeSuiviVidange IS NULL OR LTRIM(RTRIM(ModeSuiviVidange)) = ''
+        """)
+        cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_CAMIONS', 'DateProchaineVisiteTechnique') IS NULL
+                ALTER TABLE dbo.WEB_CAMIONS ADD DateProchaineVisiteTechnique DATE NULL
+        """)
+        for col in (
+            'DateDebutAssurance',
+            'DateFinAssurance',
+            'DatePaiementTaxe',
+            'PaiementTaxe',
+        ):
+            cursor.execute(f"""
+                IF COL_LENGTH('dbo.WEB_CAMIONS', '{col}') IS NOT NULL
+                    ALTER TABLE dbo.WEB_CAMIONS DROP COLUMN {col}
+            """)
+        cursor.execute("""
+            IF OBJECT_ID('dbo.WEB_CAMION_VIDANGES', 'U') IS NULL
+            CREATE TABLE dbo.WEB_CAMION_VIDANGES (
+                ID INT IDENTITY(1,1) PRIMARY KEY,
+                ID_Camion INT NOT NULL,
+                DateVidange DATE NOT NULL,
+                Km INT NULL,
+                Heures INT NULL,
+                Remarque NVARCHAR(500) NULL,
+                CreeLe DATETIME NOT NULL DEFAULT GETDATE(),
+                CONSTRAINT FK_WEB_CAMION_VIDANGES_CAMION
+                    FOREIGN KEY (ID_Camion) REFERENCES dbo.WEB_CAMIONS(ID)
+            )
+        """)
+        cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_CAMION_VIDANGES', 'Heures') IS NULL
+                ALTER TABLE dbo.WEB_CAMION_VIDANGES ADD Heures INT NULL
+        """)
+        cursor.execute("""
+            IF EXISTS (
+                SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'WEB_CAMION_VIDANGES' AND COLUMN_NAME = 'Km' AND IS_NULLABLE = 'NO'
+            )
+            BEGIN
+                ALTER TABLE dbo.WEB_CAMION_VIDANGES ALTER COLUMN Km INT NULL
             END
         """)
         cursor.connection.commit()

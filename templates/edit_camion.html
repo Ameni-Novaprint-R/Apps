@@ -1,55 +1,145 @@
 {% extends "base.html" %}
-{% block title %}Modifier Camion{% endblock %}
+{% block title %}Modifier Camion – {{ camion.immatriculation }}{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>✏️ Modifier Camion – {{ camion[1] }}</h1>
+<div class="edit-camion-wrap">
+    <h1>✏️ Modifier Camion – {{ camion.immatriculation }}</h1>
+    <p class="subtitle">{{ camion.marque or '' }} {{ camion.modele or '' }}</p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-messages">
           {% for category, message in messages %}
+            {% if not message.startswith('Connexion réussie') %}
             <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endif %}
           {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
 
-    <form method="post">
-        <label>Visite Technique :</label><br>
-        <input type="date" name="date_visite" value="{{ camion[5] or '' }}"><br><br>
+    <form method="post" class="card-form">
+        <h2>Informations & maintenance</h2>
 
-        <label>Paiement Taxe :</label><br>
-        <input type="date" name="date_taxe" value="{{ camion[6] or '' }}"><br><br>
+        <label>Mode de suivi vidange</label>
+        <input type="text" value="{% if mode_suivi_vidange == 'HEURES' %}Heures moteur{% else %}Kilométrage{% endif %}" readonly>
+        <p class="hint">Mode fixé à la création du véhicule (non modifiable).</p>
 
-        <label>Observations :</label><br>
-        <textarea name="observations" rows="4" cols="50">{{ camion[7] or '' }}</textarea><br><br>
+        <label>Dernière visite technique</label>
+        <input type="date" name="date_derniere_visite" value="{{ camion.date_derniere_visite }}">
 
-        <button type="submit">💾 Mettre à jour</button>
-        <a href="{{ url_for('projet6.liste_camions') }}" style="margin-left: 10px;">⬅️ Retour</a>
+        <label>Prochaine visite technique</label>
+        <input type="date" name="date_prochaine_visite" value="{{ camion.date_prochaine_visite }}">
+        <p class="hint">À saisir manuellement (intervalle variable : 1, 2 ou 4 ans selon le véhicule).</p>
+
+        {% if mode_suivi_vidange == 'HEURES' %}
+        <label>Heures moteur actuelles</label>
+        <input type="number" name="heures_actuelles" min="0" step="1" value="{{ camion.heures_actuelles if camion.heures_actuelles is not none else '' }}" placeholder="Ex. 1250">
+        {% else %}
+        <label>Kilométrage actuel</label>
+        <input type="number" name="km_actuel" min="0" step="1" value="{{ camion.km_actuel if camion.km_actuel is not none else '' }}" placeholder="Ex. 125000">
+        {% endif %}
+
+        <label>Observations</label>
+        <textarea name="observations" rows="4">{{ camion.observations }}</textarea>
+
+        <div class="btn-row">
+            <button type="submit" class="btn-primary">💾 Mettre à jour</button>
+            <a href="{{ url_for('projet6.programme_voyage', section='gestion_vehicules') }}" class="btn-link">⬅️ Retour</a>
+        </div>
     </form>
+
+    <form method="post" action="{{ url_for('projet6.enregistrer_vidange', id=camion.id) }}" class="card-form card-vidange">
+        <h2>🛢️ Vidange effectuée</h2>
+        <p class="hint">Intervalle fixe : {{ intervalle_vidange }} {{ unite_vidange }}
+            {% if compteur_prochain is not none %} — prochaine à <strong>{{ '{:,}'.format(compteur_prochain).replace(',', ' ') }}</strong> {{ unite_vidange }}{% endif %}
+        </p>
+
+        <label>Date de vidange</label>
+        <input type="date" name="date_vidange" value="{{ today }}" required>
+
+        <label>{% if mode_suivi_vidange == 'HEURES' %}Heures à la vidange{% else %}Kilométrage à la vidange{% endif %}</label>
+        <input type="number" name="compteur_vidange" min="0" step="1" value="{{ compteur_actuel_prefill if compteur_actuel_prefill is not none else '' }}" required>
+
+        <label>Remarque (optionnel)</label>
+        <textarea name="remarque_vidange" rows="2" placeholder="Huile, filtre, etc."></textarea>
+
+        <div class="btn-row">
+            <button type="submit" class="btn-vidange">✓ Enregistrer la vidange</button>
+        </div>
+    </form>
+
+    <div class="card-form">
+        <h2>Historique des vidanges</h2>
+        {% if vidanges %}
+        <table class="hist-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Compteur</th>
+                    <th>Remarque</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in vidanges %}
+                <tr>
+                    <td>{{ v.date or '' }}</td>
+                    <td>
+                      {% if mode_suivi_vidange == 'HEURES' %}
+                        {% if v.heures is not none %}{{ '{:,}'.format(v.heures).replace(',', ' ') }} h{% else %}—{% endif %}
+                      {% else %}
+                        {% if v.km is not none %}{{ '{:,}'.format(v.km).replace(',', ' ') }} km{% else %}—{% endif %}
+                      {% endif %}
+                    </td>
+                    <td>{{ v.remarque }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="hint">Aucune vidange enregistrée pour ce véhicule.</p>
+        {% endif %}
+    </div>
 </div>
 
 <style>
-    .container {
-        max-width: 600px;
-        margin: auto;
+    .edit-camion-wrap {
+        max-width: 640px;
+        margin: 0 auto 40px;
+    }
+    .edit-camion-wrap h1 { margin-bottom: 4px; }
+    .subtitle { color: #607d8b; margin-bottom: 18px; }
+    .card-form {
         background: #f9f9f9;
         padding: 20px;
         border-radius: 10px;
-        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        box-shadow: 0 0 8px rgba(0,0,0,0.08);
+        margin-bottom: 18px;
     }
-
-    input[type="date"], textarea {
+    .card-vidange { border: 2px solid #0097a7; background: #e0f7fa; }
+    .card-form h2 {
+        font-size: 1.15rem;
+        margin: 0 0 12px;
+        color: #006064;
+    }
+    .hint { font-size: 0.9rem; color: #455a64; margin: 0 0 12px; }
+    label {
+        font-weight: bold;
+        display: block;
+        margin-top: 8px;
+        margin-bottom: 4px;
+    }
+    input[type="date"], input[type="number"], input[type="text"], textarea {
         width: 100%;
         padding: 8px;
         margin-bottom: 10px;
         border: 1px solid #ccc;
         border-radius: 5px;
+        box-sizing: border-box;
     }
-
-    button {
-        background-color: #3a86ff;
+    input[readonly] { background: #eceff1; color: #455a64; }
+    .btn-row { margin-top: 10px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .btn-primary, .btn-vidange {
         color: white;
         padding: 10px 20px;
         font-weight: bold;
@@ -57,23 +147,25 @@
         border-radius: 5px;
         cursor: pointer;
     }
-
-    button:hover {
-        background-color: #265fbc;
+    .btn-primary { background-color: #3a86ff; }
+    .btn-primary:hover { background-color: #265fbc; }
+    .btn-vidange { background-color: #0097a7; }
+    .btn-vidange:hover { background-color: #00838f; }
+    .btn-link { text-decoration: none; color: #455a64; }
+    .flash { padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+    .flash-success { background-color: #d4edda; color: #155724; }
+    .flash-danger, .flash-error { background-color: #f8d7da; color: #721c24; }
+    .hist-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
     }
-
-    .flash-success {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 10px;
-        border-radius: 5px;
+    .hist-table th, .hist-table td {
+        border: 1px solid #cfd8dc;
+        padding: 8px;
+        text-align: left;
+        font-size: 0.9rem;
     }
-
-    .flash-danger {
-        background-color: #f8d7da;
-        color: #721c24;
-        padding: 10px;
-        border-radius: 5px;
-    }
+    .hist-table th { background: #e0f7fa; color: #006064; }
 </style>
 {% endblock %}

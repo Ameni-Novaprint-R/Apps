@@ -34,7 +34,6 @@ def login():
                     success, message = login_atelier(identifiant, password)
                 
                 if success:
-                    flash(message, "success")
                     next_page = request.args.get('next')
                     if next_page:
                         return redirect(next_page)

@@ -1,0 +1,833 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 28 – Codes-barres MP{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+    .p28-page-header {
+        text-align: center; margin-bottom: 20px; padding: 14px 20px; border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        color: #1b5e20; border: 2px solid #43a047;
+    }
+    .p28-page-header h1 { font-size: 1.55rem; margin-bottom: 4px; font-weight: 700; color: #2e7d32; }
+    .p28-page-header .sub { font-size: 0.85rem; opacity: 0.9; }
+    .p28-payload-pill {
+        display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 6px;
+        background: #fff; border: 1px dashed #43a047; font-family: Consolas, monospace; font-size: 0.8rem;
+    }
+    .p28-section-selection { background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+    .p28-section-options { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+    .p28-section-btn {
+        padding: 12px 18px; background: white; color: #2c3e50; text-decoration: none; border-radius: 8px;
+        font-weight: 600; border: 2px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        display: inline-flex; align-items: center; gap: 8px;
+    }
+    .p28-section-btn:hover, .p28-section-btn.active {
+        background: #43a047; color: #fff; border-color: #2e7d32;
+    }
+    .p28-card {
+        background: #fff; border-radius: 8px; padding: 18px; margin-bottom: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08); border: 1px solid #e0e0e0;
+    }
+    .p28-card h2 { font-size: 1.15rem; margin-bottom: 12px; color: #2e7d32; }
+    .p28-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .p28-table th, .p28-table td { border-bottom: 1px solid #eee; padding: 8px 6px; text-align: left; vertical-align: middle; }
+    .p28-table th { background: #f1f8e9; color: #33691e; position: sticky; top: 0; }
+    .p28-table tr:hover { background: #f9fff5; }
+    .p28-table tr.selected { background: #e8f5e9; }
+    .p28-mono { font-family: Consolas, 'Courier New', monospace; font-size: 0.82rem; }
+    .p28-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600;
+        background: #eee; color: #333;
+    }
+    .p28-badge.P { background: #e3f2fd; color: #1565c0; }
+    .p28-badge.B { background: #fff3e0; color: #e65100; }
+    .p28-badge.EN_STOCK, .p28-badge.RECU { background: #e8f5e9; color: #2e7d32; }
+    .p28-badge.PARTIEL { background: #e3f2fd; color: #1565c0; }
+    .p28-badge.SORTIE, .p28-badge.RESERVE { background: #fff8e1; color: #f57f17; }
+    .p28-badge.CONSOMME, .p28-badge.ANNULE { background: #ffebee; color: #c62828; }
+    .p28-form-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: end; }
+    .p28-field { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+    .p28-field label { font-size: 0.8rem; font-weight: 600; color: #555; }
+    .p28-field input, .p28-field select, .p28-field textarea {
+        padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem;
+    }
+    .p28-field.grow { flex: 1; min-width: 220px; }
+    .p28-btn {
+        padding: 9px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;
+        background: #43a047; color: #fff;
+    }
+    .p28-btn:hover { background: #2e7d32; }
+    .p28-btn.secondary { background: #607d8b; }
+    .p28-btn.secondary:hover { background: #455a64; }
+    .p28-btn.outline { background: #fff; color: #2e7d32; border: 2px solid #43a047; }
+    .p28-alert { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem; }
+    .p28-alert.err { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; }
+    .p28-alert.ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+    .p28-alert.info { background: #e3f2fd; color: #0d47a1; border: 1px solid #90caf9; }
+    .p28-preview-box {
+        background: #fafafa; border: 1px dashed #81c784; border-radius: 8px; padding: 14px; text-align: center;
+    }
+    .p28-scan-input {
+        width: 100%; font-size: 1.15rem; padding: 14px; border: 2px solid #43a047; border-radius: 8px;
+        font-family: Consolas, monospace;
+    }
+    .p28-scroll { max-height: 420px; overflow: auto; border: 1px solid #eee; border-radius: 6px; }
+
+    /* Étiquettes A4 */
+    .p28-label-sheet { display: none; }
+    @media screen {
+        .p28-label-preview-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .p28-label {
+            border: 1px solid #333; padding: 10px 12px; background: #fff;
+            font-size: 11px; page-break-inside: avoid;
+        }
+    }
+    @media print {
+        body * { visibility: hidden !important; }
+        .p28-label-sheet, .p28-label-sheet * { visibility: visible !important; }
+        .p28-label-sheet {
+            display: block !important; position: absolute; left: 0; top: 0; width: 100%;
+        }
+        .p28-no-print { display: none !important; }
+        .p28-label {
+            border: 1px solid #000; padding: 8mm; margin: 0 0 6mm 0;
+            page-break-inside: avoid; break-inside: avoid;
+            width: 190mm; box-sizing: border-box;
+        }
+        .p28-label-sheet .p28-label:nth-child(2n) { page-break-after: always; }
+    }
+    .p28-label-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; border-bottom: 1px solid #000; padding-bottom: 4px; }
+    .p28-label-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
+    .p28-label-grid .full { grid-column: 1 / -1; }
+    .p28-label-grid .k { color: #444; }
+    .p28-label-grid .v { font-weight: 600; }
+    .p28-label-bc { text-align: center; margin-top: 8px; }
+    .p28-label-bc svg { max-width: 100%; height: 48px; }
+    .p28-label-payload { font-family: Consolas, monospace; font-size: 9px; word-break: break-all; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+    <div class="p28-page-header p28-no-print">
+        <h1><i class="fas fa-barcode"></i> Projet 28 – Gestion des codes-barres MP</h1>
+        <div class="sub">Matières premières · Palette / Bobine · Code 128</div>
+        <div class="p28-payload-pill">{{ payload_exemple }}</div>
+    </div>
+
+    <div class="p28-section-selection p28-no-print">
+        <div class="p28-section-options">
+            {% if 'generation' in allowed_sections %}
+            <a class="p28-section-btn {% if section=='generation' %}active{% endif %}"
+               href="{% if section=='generation' %}{{ url_for('projet28.index') }}{% else %}{{ url_for('projet28.generation') }}{% endif %}"
+               title="{% if section=='generation' %}Masquer la section{% else %}Afficher la section{% endif %}">
+                <i class="fas fa-plus-square"></i> Génération
+            </a>
+            {% endif %}
+            {% if 'unites' in allowed_sections %}
+            <a class="p28-section-btn {% if section=='unites' %}active{% endif %}"
+               href="{% if section=='unites' %}{{ url_for('projet28.index') }}{% else %}{{ url_for('projet28.unites') }}{% endif %}"
+               title="{% if section=='unites' %}Masquer la section{% else %}Afficher la section{% endif %}">
+                <i class="fas fa-boxes"></i> Unités
+            </a>
+            {% endif %}
+            {% if 'scan' in allowed_sections %}
+            <a class="p28-section-btn {% if section=='scan' %}active{% endif %}"
+               href="{% if section=='scan' %}{{ url_for('projet28.index') }}{% else %}{{ url_for('projet28.scan') }}{% endif %}"
+               title="{% if section=='scan' %}Masquer la section{% else %}Afficher la section{% endif %}">
+                <i class="fas fa-qrcode"></i> Scan
+            </a>
+            {% endif %}
+            {% if 'etiquettes' in allowed_sections %}
+            <a class="p28-section-btn {% if section=='etiquettes' %}active{% endif %}"
+               href="{% if section=='etiquettes' %}{{ url_for('projet28.index') }}{% else %}{{ url_for('projet28.etiquettes') }}{% endif %}"
+               title="{% if section=='etiquettes' %}Masquer la section{% else %}Afficher la section{% endif %}">
+                <i class="fas fa-print"></i> Étiquettes
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="p28-msg" class="p28-no-print"></div>
+
+    {% if not section %}
+    <div class="p28-card p28-no-print" style="text-align:center; color:#555;">
+        <p style="margin:0;">Choisissez une section ci-dessus pour commencer.</p>
+    </div>
+    {% endif %}
+
+    {% if section == 'generation' %}
+    <div class="p28-card p28-no-print">
+        <h2>1. Rechercher un mouvement d’entrée (TypePiece = C)</h2>
+        <div class="p28-alert info">
+            Filtre provisoire : entrées stock uniquement. Les retours (G) seront validés avec le responsable dépôt.
+            <code>NumOrdrePiece</code> = n° d’entrée (affiché sur étiquette, hors payload).
+        </div>
+        <div class="p28-form-row">
+            <div class="p28-field grow">
+                <label>Recherche (article, famille, ID mvt, n° entrée)</label>
+                <input type="text" id="gen-q" placeholder="ex. COUCHE, 9354, 230737…">
+            </div>
+            <button class="p28-btn" type="button" id="btn-search-mvt"><i class="fas fa-search"></i> Rechercher</button>
+        </div>
+        <div class="p28-scroll">
+            <table class="p28-table" id="tbl-mvt">
+                <thead>
+                    <tr>
+                        <th>ID MVT</th><th>N° entrée</th><th>Date</th><th>Type</th>
+                        <th>Famille</th><th>Article</th><th>Qté mvt</th><th>Déjà généré</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="p28-card p28-no-print">
+        <h2>2. Générer les codes-barres</h2>
+        <div id="gen-mvt-info" class="p28-alert info">Sélectionnez un mouvement dans le tableau.</div>
+        <div class="p28-form-row">
+            <div class="p28-field">
+                <label>Mode (auto selon unité ERP)</label>
+                <select id="gen-mode">
+                    <option value="P">P – Palette (feuilles)</option>
+                    <option value="B">B – Bobine (kg)</option>
+                </select>
+            </div>
+            <div class="p28-field">
+                <label>Nb unités (palettes/bobines)</label>
+                <input type="number" id="gen-nb" min="1" max="999" value="1">
+            </div>
+            <div class="p28-field">
+                <label id="gen-qte-label">Qté par unité (feuilles)</label>
+                <input type="number" id="gen-qte" min="0.001" step="any" value="1">
+            </div>
+            <div class="p28-field grow">
+                <label>Dimensions (optionnel)</label>
+                <input type="text" id="gen-dim" placeholder="ex. 65 x 100">
+            </div>
+        </div>
+        <div class="p28-form-row">
+            <button class="p28-btn outline" type="button" id="btn-apercu">Aperçu payload</button>
+            <button class="p28-btn" type="button" id="btn-generer"><i class="fas fa-barcode"></i> Générer</button>
+            <button class="p28-btn secondary" type="button" id="btn-print-gen" disabled>
+                <i class="fas fa-print"></i> Imprimer les étiquettes
+            </button>
+        </div>
+        <div class="p28-preview-box" id="gen-preview">
+            <div class="p28-mono" id="gen-preview-text">—</div>
+            <svg id="gen-preview-bc"></svg>
+        </div>
+        <div id="gen-result" class="p28-scroll" style="margin-top:12px; display:none;">
+            <table class="p28-table" id="tbl-gen-result">
+                <thead>
+                    <tr><th>CodeId</th><th>Payload</th><th>Mode</th><th>Qté</th><th>Statut</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if section == 'unites' %}
+    <div class="p28-card p28-no-print">
+        <h2>Unités générées</h2>
+        <div class="p28-form-row">
+            <div class="p28-field grow">
+                <label>Recherche</label>
+                <input type="text" id="unites-q" placeholder="payload, article, n° entrée…">
+            </div>
+            <div class="p28-field">
+                <label>Statut</label>
+                <select id="unites-statut">
+                    <option value="">Tous</option>
+                    {% for code, label in statuts.items() %}
+                    <option value="{{ code }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="p28-btn" type="button" id="btn-load-unites">Actualiser</button>
+            <button class="p28-btn secondary" type="button" id="btn-print-selected" disabled>Imprimer sélection</button>
+        </div>
+        <div class="p28-scroll">
+            <table class="p28-table" id="tbl-unites">
+                <thead>
+                    <tr>
+                        <th></th><th>CodeId</th><th>Payload</th><th>Article</th>
+                        <th>Mode</th><th>Reste</th><th>Statut</th><th>N° entrée</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if section == 'scan' %}
+    <div class="p28-card p28-no-print">
+        <h2>Lecture douchette (Keyboard Wedge)</h2>
+        <div class="p28-alert info">
+            La Honeywell 1400G n’envoie pas Entrée automatiquement : placez le focus dans le champ,
+            scannez, puis validez (bouton ou Entrée manuelle). Un délai d’inactivité (~400&nbsp;ms) déclenche aussi la lecture.
+        </div>
+        <div class="p28-field" style="margin-bottom:12px;">
+            <label>Champ scan</label>
+            <input type="text" id="scan-input" class="p28-scan-input" autocomplete="off" placeholder="Scanner ici…">
+        </div>
+        <div class="p28-form-row">
+            <div class="p28-field">
+                <label>Lieu (optionnel)</label>
+                <input type="text" id="scan-lieu" placeholder="ex. Magasin MP">
+            </div>
+            <button class="p28-btn" type="button" id="btn-scan">Valider le scan</button>
+        </div>
+        <div id="scan-result"></div>
+        <div id="scan-actions" style="display:none;">
+            <div class="p28-form-row" id="scan-conso-row">
+                <div class="p28-field">
+                    <label>Consommer / sortir (qté)</label>
+                    <input type="number" id="scan-qte" min="0.001" step="any">
+                </div>
+                <button class="p28-btn secondary" type="button" id="btn-consommer">Enregistrer consommation</button>
+            </div>
+            <div class="p28-form-row" id="scan-retour-row" style="display:none;">
+                <div class="p28-field">
+                    <label>Retour en stock (qté)</label>
+                    <input type="number" id="scan-retour-qte" min="0.001" step="any">
+                </div>
+                <div class="p28-field">
+                    <label>Max autorisé</label>
+                    <input type="text" id="scan-retour-max" readonly>
+                </div>
+                <button class="p28-btn" type="button" id="btn-retour-stock" style="background:#1565c0;">
+                    <i class="fas fa-warehouse"></i> Retour en stock
+                </button>
+            </div>
+            <div class="p28-card" id="scan-histo-card" style="margin-top:8px; padding:12px; box-shadow:none;">
+                <h2 style="font-size:1rem; margin-bottom:8px;">Historique des mouvements</h2>
+                <div class="p28-alert info" style="margin-bottom:8px;">
+                    L’annulation crée une <strong>nouvelle écriture</strong> : la sortie d’origine reste visible.
+                </div>
+                <div class="p28-scroll" style="max-height:320px;">
+                    <table class="p28-table" id="tbl-scan-mvt">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Qté</th>
+                                <th>Utilisateur</th>
+                                <th>Lieu</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if section == 'etiquettes' %}
+    <div class="p28-card p28-no-print">
+        <h2>Impression étiquettes A4</h2>
+        <div class="p28-alert info">
+            Template V1 : champs métier prêts ; certaines sources (BR, fournisseur, origine…) seront branchées après validation.
+            Utilisez Ctrl+P / Imprimer.
+        </div>
+        <div class="p28-form-row">
+            <div class="p28-field grow">
+                <label>IDs unités (séparés par virgule)</label>
+                <input type="text" id="etiq-ids" value="{{ etiquette_ids or '' }}" placeholder="12,13,14">
+            </div>
+            <button class="p28-btn" type="button" id="btn-load-etiq">Charger</button>
+            <button class="p28-btn secondary" type="button" id="btn-print-etiq">Imprimer (A4)</button>
+        </div>
+        <div class="p28-label-preview-wrap" id="etiq-preview"></div>
+    </div>
+    {% endif %}
+
+    <!-- Zone impression commune -->
+    <div class="p28-label-sheet" id="p28-print-sheet"></div>
+</div>
+
+<script>
+(function () {
+    const section = {{ (section or '')|tojson }};
+    let selectedMvt = null;
+    let lastGeneratedIds = [];
+    let selectedUniteIds = new Set();
+    let lastScannedUniteId = null;
+    let scanTimer = null;
+
+    function msg(text, type) {
+        const el = document.getElementById('p28-msg');
+        if (!el) return;
+        el.innerHTML = text ? `<div class="p28-alert ${type || 'info'}">${text}</div>` : '';
+    }
+
+    function api(url, opts) {
+        return fetch(url, Object.assign({
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+        }, opts || {})).then(async r => {
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+            return data;
+        });
+    }
+
+    function renderBarcode(svgEl, payload) {
+        if (!svgEl || !payload || typeof JsBarcode === 'undefined') return;
+        try {
+            JsBarcode(svgEl, payload, {
+                format: 'CODE128',
+                displayValue: false,
+                margin: 4,
+                height: 48,
+                width: 1.4
+            });
+        } catch (e) {
+            console.warn('JsBarcode', e);
+        }
+    }
+
+    function dash(v) {
+        return (v === null || v === undefined || v === '') ? '—' : v;
+    }
+
+    function buildLabelHtml(u) {
+        const entree = (u.NumOrdrePieceAffiche != null) ? u.NumOrdrePieceAffiche : (u.NumOrdrePiece != null ? u.NumOrdrePiece : '-');
+        const ref = [u.DesignationType || u.CodeType, u.CodeFamille, u.CodeArticle].filter(Boolean).join(' · ');
+        const svgId = 'bc_' + u.ID;
+        return `
+        <div class="p28-label" data-id="${u.ID}">
+            <div class="p28-label-title">NOVAPRINT – Matière première</div>
+            <div class="p28-label-grid">
+                <div><span class="k">Entrée n°</span> <span class="v">${dash(entree)}</span></div>
+                <div><span class="k">BR n°</span> <span class="v">—</span></div>
+                <div><span class="k">Date réception</span> <span class="v">${dash(u.DateReception)}</span></div>
+                <div><span class="k">Fournisseur</span> <span class="v">—</span></div>
+                <div class="full"><span class="k">Origine (ville / pays)</span> <span class="v">—</span></div>
+                <div class="full"><span class="k">Référence</span> <span class="v">${dash(ref)}</span></div>
+                <div><span class="k">Pièces</span> <span class="v">${dash(u.ModeLabel)}</span></div>
+                <div><span class="k">Unité</span> <span class="v">${dash(u.Unite)}</span></div>
+                <div><span class="k">Poids palette vide</span> <span class="v">—</span></div>
+                <div><span class="k">Dimension après coupe</span> <span class="v">${dash(u.Dimensions)}</span></div>
+                <div><span class="k">Quantité sortie</span> <span class="v">${(u.QteInitiale != null && u.QteRestante != null) ? (Number(u.QteInitiale) - Number(u.QteRestante)) : '—'}</span></div>
+                <div><span class="k">Quantité restante</span> <span class="v">${dash(u.QteRestante)} ${dash(u.Unite)}</span></div>
+                <div class="full"><span class="k">CodeId</span> <span class="v p28-mono">${dash(u.CodeId)}</span></div>
+            </div>
+            <div class="p28-label-bc">
+                <svg id="${svgId}"></svg>
+                <div class="p28-label-payload">${dash(u.Payload)}</div>
+            </div>
+        </div>`;
+    }
+
+    function mountLabels(unites, previewEl, printEl) {
+        const html = unites.map(buildLabelHtml).join('');
+        if (previewEl) previewEl.innerHTML = html;
+        if (printEl) printEl.innerHTML = html;
+        unites.forEach(u => {
+            const nodes = document.querySelectorAll(`svg#bc_${u.ID}`);
+            nodes.forEach(svg => renderBarcode(svg, u.Payload));
+        });
+    }
+
+    function printSheet() {
+        window.print();
+    }
+
+    // ----- Génération -----
+    if (section === 'generation') {
+        const tbody = document.querySelector('#tbl-mvt tbody');
+
+        function loadMvt() {
+            const q = document.getElementById('gen-q').value.trim();
+            msg('Recherche…', 'info');
+            api('/projet28/api/mouvements?limit=80' + (q ? '&q=' + encodeURIComponent(q) : ''))
+                .then(rows => {
+                    tbody.innerHTML = '';
+                    if (!rows.length) {
+                        tbody.innerHTML = '<tr><td colspan="8">Aucun mouvement.</td></tr>';
+                        msg('Aucun résultat.', 'info');
+                        return;
+                    }
+                    rows.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="p28-mono">${r.ID_MVT}</td>
+                            <td>${r.NumOrdrePiece != null ? r.NumOrdrePiece : '-'}</td>
+                            <td>${dash(r.DatePiece)}</td>
+                            <td><span class="p28-badge">${dash(r.CodeType)}</span> ${dash(r.DesignationType)}</td>
+                            <td>${dash(r.CodeFamille)}</td>
+                            <td><strong>${dash(r.CodeArticle)}</strong><br><small>${dash(r.DesignationArticle)}</small></td>
+                            <td>${dash(r.Quantite)} ${dash(r.Unite)}</td>
+                            <td>${r.NbUnitesGenerees || 0} (max seq ${r.MaxSequence || 0})</td>`;
+                        tr.addEventListener('click', () => {
+                            tbody.querySelectorAll('tr').forEach(x => x.classList.remove('selected'));
+                            tr.classList.add('selected');
+                            selectedMvt = r;
+                            const modeSel = document.getElementById('gen-mode');
+                            const modeErp = r.ModeSuggere || null;
+                            if (modeErp) {
+                                modeSel.value = modeErp;
+                                modeSel.disabled = true;
+                                document.getElementById('gen-qte-label').textContent =
+                                    modeErp === 'B' ? 'Qté par unité (kg net)' : 'Qté par unité (feuilles)';
+                            } else {
+                                modeSel.disabled = false;
+                            }
+                            const modeLabel = r.ModeSuggereLabel || (modeSel.value === 'B' ? 'Bobine' : 'Palette');
+                            document.getElementById('gen-mvt-info').className = 'p28-alert ok';
+                            document.getElementById('gen-mvt-info').textContent =
+                                `MVT ${r.ID_MVT} · Entrée ${r.NumOrdrePiece != null ? r.NumOrdrePiece : '-'} · ` +
+                                `${r.CodeType};${r.CodeFamille};${r.CodeArticle} · Unité ERP « ${dash(r.Unite)} » → mode ${modeLabel} · ` +
+                                `déjà ${r.NbUnitesGenerees || 0} unité(s)`;
+                            const nextSeq = (r.MaxSequence || 0) + 1;
+                            document.getElementById('gen-nb').value = 1;
+                            apercu(nextSeq);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    msg(`${rows.length} mouvement(s).`, 'ok');
+                })
+                .catch(e => msg(e.message, 'err'));
+        }
+
+        function apercu(seq) {
+            if (!selectedMvt) return msg('Sélectionnez un mouvement.', 'err');
+            const mode = document.getElementById('gen-mode').value;
+            const sequence = seq || ((selectedMvt.MaxSequence || 0) + 1);
+            api('/projet28/api/apercu-payload', {
+                method: 'POST',
+                body: JSON.stringify({ id_mvt: selectedMvt.ID_MVT, sequence, mode })
+            }).then(data => {
+                if (data.mode) {
+                    const modeSel = document.getElementById('gen-mode');
+                    modeSel.value = data.mode;
+                    if (data.mode_depuis_unite) modeSel.disabled = true;
+                    document.getElementById('gen-qte-label').textContent =
+                        data.mode === 'B' ? 'Qté par unité (kg net)' : 'Qté par unité (feuilles)';
+                }
+                document.getElementById('gen-preview-text').textContent = data.payload;
+                renderBarcode(document.getElementById('gen-preview-bc'), data.payload);
+            }).catch(e => msg(e.message, 'err'));
+        }
+
+        document.getElementById('gen-mode').addEventListener('change', () => {
+            const mode = document.getElementById('gen-mode').value;
+            document.getElementById('gen-qte-label').textContent =
+                mode === 'B' ? 'Qté par unité (kg net)' : 'Qté par unité (feuilles)';
+            if (selectedMvt) apercu();
+        });
+        document.getElementById('btn-search-mvt').addEventListener('click', loadMvt);
+        document.getElementById('gen-q').addEventListener('keydown', e => {
+            if (e.key === 'Enter') loadMvt();
+        });
+        document.getElementById('btn-apercu').addEventListener('click', () => apercu());
+        document.getElementById('btn-generer').addEventListener('click', () => {
+            if (!selectedMvt) return msg('Sélectionnez un mouvement.', 'err');
+            const body = {
+                id_mvt: selectedMvt.ID_MVT,
+                nb_unites: document.getElementById('gen-nb').value,
+                mode: document.getElementById('gen-mode').value,
+                qte_par_unite: document.getElementById('gen-qte').value,
+                dimensions: document.getElementById('gen-dim').value,
+                mettre_en_stock: true
+            };
+            api('/projet28/api/generer', { method: 'POST', body: JSON.stringify(body) })
+                .then(data => {
+                    lastGeneratedIds = data.unites.map(u => u.ID);
+                    const tb = document.querySelector('#tbl-gen-result tbody');
+                    tb.innerHTML = '';
+                    data.unites.forEach(u => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="p28-mono">${u.CodeId}</td>
+                            <td class="p28-mono">${u.Payload}</td>
+                            <td><span class="p28-badge ${u.Mode}">${u.ModeLabel}</span></td>
+                            <td>${u.QteInitiale} ${u.Unite}</td>
+                            <td><span class="p28-badge ${u.Statut}">${u.StatutLabel}</span></td>`;
+                        tb.appendChild(tr);
+                    });
+                    document.getElementById('gen-result').style.display = 'block';
+                    document.getElementById('btn-print-gen').disabled = !lastGeneratedIds.length;
+                    msg(`${data.count} code(s) généré(s).`, 'ok');
+                    if (data.unites[0]) {
+                        document.getElementById('gen-preview-text').textContent = data.unites[0].Payload;
+                        renderBarcode(document.getElementById('gen-preview-bc'), data.unites[0].Payload);
+                    }
+                    selectedMvt.MaxSequence = (selectedMvt.MaxSequence || 0) + data.count;
+                    selectedMvt.NbUnitesGenerees = (selectedMvt.NbUnitesGenerees || 0) + data.count;
+                    loadMvt();
+                })
+                .catch(e => msg(e.message, 'err'));
+        });
+        document.getElementById('btn-print-gen').addEventListener('click', () => {
+            if (!lastGeneratedIds.length) return;
+            window.location.href = '/projet28/etiquettes?ids=' + lastGeneratedIds.join(',');
+        });
+        loadMvt();
+    }
+
+    // ----- Unités -----
+    if (section === 'unites') {
+        const tbody = document.querySelector('#tbl-unites tbody');
+        function load() {
+            const q = document.getElementById('unites-q').value.trim();
+            const st = document.getElementById('unites-statut').value;
+            let url = '/projet28/api/unites?limit=200';
+            if (q) url += '&q=' + encodeURIComponent(q);
+            if (st) url += '&statut=' + encodeURIComponent(st);
+            api(url).then(rows => {
+                tbody.innerHTML = '';
+                selectedUniteIds.clear();
+                document.getElementById('btn-print-selected').disabled = true;
+                rows.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><input type="checkbox" data-id="${u.ID}"></td>
+                        <td class="p28-mono">${u.CodeId}</td>
+                        <td class="p28-mono">${u.Payload}</td>
+                        <td>${u.CodeArticle}<br><small>${dash(u.DesignationArticle)}</small></td>
+                        <td><span class="p28-badge ${u.Mode}">${u.ModeLabel}</span></td>
+                        <td>${u.QteRestante} / ${u.QteInitiale} ${u.Unite}</td>
+                        <td><span class="p28-badge ${u.Statut}">${u.StatutLabel}</span></td>
+                        <td>${u.NumOrdrePieceAffiche}</td>`;
+                    tr.querySelector('input').addEventListener('change', (e) => {
+                        if (e.target.checked) selectedUniteIds.add(u.ID);
+                        else selectedUniteIds.delete(u.ID);
+                        document.getElementById('btn-print-selected').disabled = selectedUniteIds.size === 0;
+                    });
+                    tbody.appendChild(tr);
+                });
+                msg(`${rows.length} unité(s).`, 'ok');
+            }).catch(e => msg(e.message, 'err'));
+        }
+        document.getElementById('btn-load-unites').addEventListener('click', load);
+        document.getElementById('btn-print-selected').addEventListener('click', () => {
+            window.location.href = '/projet28/etiquettes?ids=' + Array.from(selectedUniteIds).join(',');
+        });
+        load();
+    }
+
+    // ----- Scan -----
+    if (section === 'scan') {
+        const input = document.getElementById('scan-input');
+        let lastScanMeta = { max_retour: 0, unite: null };
+
+        function formatQteMvt(m, uniteLabel) {
+            if (m.qte_signee == null) return '—';
+            const sign = m.qte_signee > 0 ? '+' : '';
+            return sign + m.qte_signee + ' ' + (uniteLabel || '');
+        }
+
+        function renderMouvements(mouvements, uniteLabel) {
+            const tbody = document.querySelector('#tbl-scan-mvt tbody');
+            tbody.innerHTML = '';
+            if (!mouvements || !mouvements.length) {
+                tbody.innerHTML = '<tr><td colspan="6">Aucun mouvement (sortie / retour / annulation).</td></tr>';
+                return;
+            }
+            mouvements.forEach(m => {
+                const tr = document.createElement('tr');
+                if (m.annulee) tr.style.opacity = '0.65';
+                let actionCell = '—';
+                if (m.annulable) {
+                    actionCell = '<button type="button" class="p28-btn outline btn-annul-ligne" data-scan-id="' +
+                        m.scan_id + '" data-qte="' + m.qte + '" style="padding:4px 10px;font-size:0.8rem;">Annuler</button>';
+                } else if (m.annulee) {
+                    actionCell = '<span class="p28-badge ANNULE">Annulée</span>';
+                } else if (m.action === 'ANNULATION_SORTIE' && m.scan_conso_id_lie) {
+                    actionCell = '<small class="p28-mono">→ sortie #' + m.scan_conso_id_lie + '</small>';
+                }
+                let typeHtml = m.action_label;
+                if (m.action === 'CONSOMMATION') typeHtml = '<span class="p28-badge SORTIE">Sortie</span>';
+                else if (m.action === 'ANNULATION_SORTIE') typeHtml = '<span class="p28-badge PARTIEL">Annulation</span>';
+                else if (m.action === 'RETOUR_STOCK') typeHtml = '<span class="p28-badge EN_STOCK">Retour</span>';
+                tr.innerHTML =
+                    '<td>' + dash(m.date_scan) + '</td>' +
+                    '<td>' + typeHtml + '<br><small class="p28-mono">#' + m.scan_id + '</small></td>' +
+                    '<td class="p28-mono">' + formatQteMvt(m, uniteLabel) + '</td>' +
+                    '<td>' + dash(m.utilisateur) + '</td>' +
+                    '<td>' + dash(m.lieu) + '</td>' +
+                    '<td>' + actionCell + '</td>';
+                tbody.appendChild(tr);
+            });
+            tbody.querySelectorAll('.btn-annul-ligne').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const scanId = btn.getAttribute('data-scan-id');
+                    const qte = btn.getAttribute('data-qte');
+                    if (!lastScannedUniteId) return;
+                    if (!confirm(
+                        'Créer une écriture d’annulation de ' + qte + ' ' + (lastScanMeta.unite && lastScanMeta.unite.Unite || '') +
+                        ' pour la sortie #' + scanId + ' ?\nLa sortie d’origine restera dans l’historique.'
+                    )) return;
+                    api('/projet28/api/annuler-sortie', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            id_unite: lastScannedUniteId,
+                            scan_id: parseInt(scanId, 10),
+                            lieu: document.getElementById('scan-lieu').value.trim() || null
+                        })
+                    }).then(data => {
+                        reloadUniteAfterAction(
+                            data,
+                            'Écriture d’annulation créée (+' + data.info.qte_annulee + ') · reste ' +
+                            data.unite.QteRestante + ' ' + data.unite.Unite
+                        );
+                    }).catch(e => msg(e.message, 'err'));
+                });
+            });
+        }
+
+        function refreshScanActions(data) {
+            const u = data.unite;
+            lastScannedUniteId = u ? u.ID : null;
+            lastScanMeta.max_retour = Number(data.max_retour || 0);
+            lastScanMeta.unite = u;
+            const actions = document.getElementById('scan-actions');
+            if (!u || u.Statut === 'ANNULE') {
+                actions.style.display = 'none';
+                return;
+            }
+            actions.style.display = 'block';
+            const canConso = Number(u.QteRestante) > 0 && u.Statut !== 'CONSOMME';
+            document.getElementById('scan-conso-row').style.display = canConso ? 'flex' : 'none';
+            document.getElementById('scan-qte').value = '';
+
+            const retourRow = document.getElementById('scan-retour-row');
+            if (lastScanMeta.max_retour > 0) {
+                retourRow.style.display = 'flex';
+                document.getElementById('scan-retour-max').value = lastScanMeta.max_retour + ' ' + u.Unite;
+                document.getElementById('scan-retour-qte').value = '';
+                document.getElementById('scan-retour-qte').max = lastScanMeta.max_retour;
+            } else {
+                retourRow.style.display = 'none';
+            }
+            renderMouvements(data.mouvements || [], u.Unite);
+        }
+
+        function renderUniteBox(u) {
+            const box = document.getElementById('scan-result');
+            box.innerHTML =
+                '<div class="p28-alert ok">Unité trouvée</div>' +
+                '<div class="p28-preview-box">' +
+                '<div class="p28-mono">' + u.Payload + '</div>' +
+                '<svg id="scan-bc"></svg>' +
+                '<div style="margin-top:8px;text-align:left;">' +
+                '<div><strong>' + u.ModeLabel + '</strong> · <span class="p28-badge ' + u.Statut + '">' + u.StatutLabel + '</span></div>' +
+                '<div>Article ' + u.CodeArticle + ' · Famille ' + u.CodeFamille + ' · Type ' + u.CodeType + '</div>' +
+                '<div>Reste : <strong>' + u.QteRestante + '</strong> / ' + u.QteInitiale + ' ' + u.Unite + '</div>' +
+                '<div>Entrée n° ' + u.NumOrdrePieceAffiche + ' · ID MVT ' + u.ID_MVT + ' · Seq ' + u.Sequence + '</div>' +
+                '</div></div>';
+            renderBarcode(document.getElementById('scan-bc'), u.Payload);
+        }
+
+        function doScan() {
+            const payload = input.value.trim();
+            if (!payload) return;
+            api('/projet28/api/scan', {
+                method: 'POST',
+                body: JSON.stringify({
+                    payload: payload,
+                    lieu: document.getElementById('scan-lieu').value.trim() || null
+                })
+            }).then(data => {
+                if (!data.ok || !data.unite) {
+                    document.getElementById('scan-result').innerHTML =
+                        '<div class="p28-alert err">Code non reconnu.<br><span class="p28-mono">' + payload + '</span>' +
+                        (data.parsed ? '<br>Parse OK (segments) mais unité absente en base.' : '<br>Format payload invalide.') +
+                        '</div>';
+                    document.getElementById('scan-actions').style.display = 'none';
+                    lastScannedUniteId = null;
+                    return;
+                }
+                renderUniteBox(data.unite);
+                refreshScanActions(data);
+                msg('Scan enregistré.', 'ok');
+            }).catch(e => msg(e.message, 'err'));
+        }
+
+        function reloadUniteAfterAction(data, okMsg) {
+            msg(okMsg, 'ok');
+            input.value = data.unite.Payload;
+            renderUniteBox(data.unite);
+            refreshScanActions(data);
+        }
+
+        input.addEventListener('input', () => {
+            clearTimeout(scanTimer);
+            scanTimer = setTimeout(() => {
+                if (input.value.trim().length >= 10) doScan();
+            }, 400);
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); doScan(); }
+        });
+        document.getElementById('btn-scan').addEventListener('click', doScan);
+
+        document.getElementById('btn-consommer').addEventListener('click', () => {
+            if (!lastScannedUniteId) return;
+            api('/projet28/api/consommer', {
+                method: 'POST',
+                body: JSON.stringify({
+                    id_unite: lastScannedUniteId,
+                    qte: document.getElementById('scan-qte').value,
+                    lieu: document.getElementById('scan-lieu').value.trim() || null
+                })
+            }).then(data => {
+                reloadUniteAfterAction(data, 'Consommation OK · reste ' + data.unite.QteRestante + ' ' + data.unite.Unite);
+            }).catch(e => msg(e.message, 'err'));
+        });
+
+        document.getElementById('btn-retour-stock').addEventListener('click', () => {
+            if (!lastScannedUniteId) return;
+            api('/projet28/api/retour-stock', {
+                method: 'POST',
+                body: JSON.stringify({
+                    id_unite: lastScannedUniteId,
+                    qte: document.getElementById('scan-retour-qte').value,
+                    lieu: document.getElementById('scan-lieu').value.trim() || null
+                })
+            }).then(data => {
+                reloadUniteAfterAction(
+                    data,
+                    'Retour OK · +' + data.info.qte_retournee + ' · reste ' + data.unite.QteRestante + ' ' + data.unite.Unite
+                );
+            }).catch(e => msg(e.message, 'err'));
+        });
+
+        setTimeout(() => input.focus(), 200);
+    }
+
+    // ----- Étiquettes -----
+    if (section === 'etiquettes') {
+        const preview = document.getElementById('etiq-preview');
+        const sheet = document.getElementById('p28-print-sheet');
+        function load() {
+            const ids = document.getElementById('etiq-ids').value.trim();
+            if (!ids) return msg('Indiquez des IDs.', 'err');
+            api('/projet28/api/unites/by-ids?ids=' + encodeURIComponent(ids))
+                .then(rows => {
+                    if (!rows.length) return msg('Aucune unité.', 'err');
+                    mountLabels(rows, preview, sheet);
+                    msg(`${rows.length} étiquette(s) prête(s).`, 'ok');
+                })
+                .catch(e => msg(e.message, 'err'));
+        }
+        document.getElementById('btn-load-etiq').addEventListener('click', load);
+        document.getElementById('btn-print-etiq').addEventListener('click', () => {
+            if (!sheet.innerHTML.trim()) load();
+            setTimeout(printSheet, 300);
+        });
+        if (document.getElementById('etiq-ids').value.trim()) load();
+    }
+})();
+</script>
+{% endblock %}

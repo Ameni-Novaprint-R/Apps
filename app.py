@@ -43,6 +43,7 @@ NUM_TO_URL = {
     25: '/projet25/',
     26: '/projet26/',
     27: '/projet27/',
+    28: '/projet28/',
 }
 
 
@@ -83,6 +84,11 @@ def api_navigation_menu():
         except Exception as e:
             print(f"[navigation-menu] ensure_projet27: {e}")
         try:
+            from routes.projet28_routes import ensure_projet28_in_web_projets
+            ensure_projet28_in_web_projets()
+        except Exception as e:
+            print(f"[navigation-menu] ensure_projet28: {e}")
+        try:
             from routes.projet4_routes import ensure_projet4_in_web_projets
             ensure_projet4_in_web_projets()
         except Exception as e:
@@ -104,7 +110,19 @@ def api_navigation_menu():
                 has_26 = True
             url = get_project_url(num) or NUM_TO_URL.get(num, f'/projet{num}/' if num else '#')
             sections_raw = get_user_sections(p.get('id') or num)
-            sections = [{'nom': s.get('nom', s.get('Nom', '')), 'url': url} for s in sections_raw]
+            sections = []
+            for s in sections_raw:
+                snom = s.get('nom', s.get('Nom', ''))
+                surl = url
+                if num == 6:
+                    snl = (snom or '').strip().lower()
+                    if 'nouveau' in snl and 'voyage' in snl:
+                        surl = '/projet6?section=nouveau_voyage'
+                    elif 'liste' in snl and 'voyage' in snl:
+                        surl = '/projet6?section=liste_voyages'
+                    elif 'vehicul' in snl or 'véhicul' in snl:
+                        surl = '/projet6?section=gestion_vehicules'
+                sections.append({'nom': snom, 'url': surl})
             nom = p.get('nom', p.get('Nom', ''))
             if num == 23:
                 nom = 'Projet 23 – TBD de la situation de la trésorerie'
@@ -114,8 +132,12 @@ def api_navigation_menu():
                 nom = 'Gestion des congés et autorisations de sortie'
             if num == 26:
                 nom = 'Gestion des formations'
+            if num == 6:
+                nom = 'Transport & Logistique'
             if num == 4:
                 nom = 'Rapport de Visite'
+            if num == 28:
+                nom = 'Gestion des codes-barres MP'
             projects.append({
                 'id': p.get('id'),
                 'url': url,
@@ -237,6 +259,7 @@ from routes.projet24_routes import projet24_bp
 from routes.projet25_routes import projet25_bp
 from routes.projet26_routes import projet26_bp
 from routes.projet27_routes import projet27_bp
+from routes.projet28_routes import projet28_bp
 from routes.projet4_routes import projet4_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
@@ -259,6 +282,7 @@ app.register_blueprint(projet24_bp)
 app.register_blueprint(projet25_bp)
 app.register_blueprint(projet26_bp)
 app.register_blueprint(projet27_bp)
+app.register_blueprint(projet28_bp)
 app.register_blueprint(projet4_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
@@ -296,6 +320,13 @@ def _ensure_projets_web_menu():
         except Exception as e:
             print(f"[Projet 27] ensure_projet27_in_web_projets: {e}")
         app._projet27_web_projets_ensured = True
+    if not getattr(app, '_projet28_web_projets_ensured', False):
+        try:
+            from routes.projet28_routes import ensure_projet28_in_web_projets
+            ensure_projet28_in_web_projets()
+        except Exception as e:
+            print(f"[Projet 28] ensure_projet28_in_web_projets: {e}")
+        app._projet28_web_projets_ensured = True
     if not getattr(app, '_projet4_web_projets_ensured', False):
         try:
             from routes.projet4_routes import ensure_projet4_in_web_projets

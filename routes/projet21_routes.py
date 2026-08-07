@@ -1721,13 +1721,13 @@ def auto_realign_table_ids(source_cursor, target_cursor, target_conn, table_name
         # 1. Vérifier que les deux tables existent
         source_cursor.execute("""
             SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE'
+            WHERE TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = 'dbo'
         """, (table_name,))
         source_exists = source_cursor.fetchone()[0] > 0
         
         target_cursor.execute("""
             SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE'
+            WHERE TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = 'dbo'
         """, (table_name,))
         target_exists = target_cursor.fetchone()[0] > 0
         
@@ -1990,15 +1990,19 @@ def sync_databases():
         target_conn = get_connection(TARGET_CONFIG)
         target_cursor = target_conn.cursor()
         
+        # dbo uniquement : ignorer le schéma XRT (sync XRT séparée) pour éviter
+        # les collisions de noms (ex. AA_AALTUSRTL existe en XRT mais pas en dbo).
         source_cursor.execute("""
             SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
             WHERE TABLE_TYPE = 'BASE TABLE'
+              AND TABLE_SCHEMA = 'dbo'
         """)
         source_tables = [row.TABLE_NAME for row in source_cursor.fetchall()]
         
         target_cursor.execute("""
             SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
             WHERE TABLE_TYPE = 'BASE TABLE'
+              AND TABLE_SCHEMA = 'dbo'
         """)
         target_tables = [row.TABLE_NAME for row in target_cursor.fetchall()]
         
@@ -2858,11 +2862,12 @@ def sync_databases():
         # Vérifier TOUTES les tables communes, pas seulement celles qui ont échoué
         sync_status['details'].append(f"\n🔍 Vérification finale de toutes les tables...")
         
-        # Récupérer toutes les tables communes
+        # Récupérer toutes les tables communes (dbo uniquement, hors schéma XRT)
         source_cursor.execute("""
             SELECT TABLE_NAME 
             FROM INFORMATION_SCHEMA.TABLES 
             WHERE TABLE_TYPE = 'BASE TABLE' 
+            AND TABLE_SCHEMA = 'dbo'
             AND TABLE_NAME NOT LIKE '#%'
             ORDER BY TABLE_NAME
         """)
@@ -2872,6 +2877,7 @@ def sync_databases():
             SELECT TABLE_NAME 
             FROM INFORMATION_SCHEMA.TABLES 
             WHERE TABLE_TYPE = 'BASE TABLE' 
+            AND TABLE_SCHEMA = 'dbo'
             AND TABLE_NAME NOT LIKE '#%'
             ORDER BY TABLE_NAME
         """)
