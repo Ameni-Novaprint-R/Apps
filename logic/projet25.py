@@ -10,8 +10,13 @@ from logic.projet25_email import send_email
 
 # Matricule RH (CHAARI ISLEM)
 MATRICULE_RH = 366
-# E-mail fixe du service RH (notifications nouvelles demandes de congé)
-EMAIL_RH_GRH = os.environ.get('PROJET25_EMAIL_RH', 'grh@novaprint.tn').strip()
+# E-mails fixes RH (notifications nouvelles demandes de congé) — séparés par des virgules
+_EMAIL_RH_DEFAULT = 'grh@novaprint.tn,ameni.compta@novaprint.tn'
+EMAILS_RH_NOTIF = [
+    a.strip()
+    for a in (os.environ.get('PROJET25_EMAIL_RH') or _EMAIL_RH_DEFAULT).split(',')
+    if a.strip()
+]
 NUM_PROJ = 25
 DELAI_MIN_HEURES = 24
 UPLOAD_SUBDIR = 'uploads_projet25'
@@ -628,8 +633,9 @@ def notifier_demande_nouvelle(demande_id):
         p_rh = get_person(m_rh)
         if p_rh:
             _ajouter_email_dest(emails, p_rh.get('email'))
-    if d['type_demande'] == 'CONGE' and EMAIL_RH_GRH:
-        _ajouter_email_dest(emails, EMAIL_RH_GRH)
+    if d['type_demande'] == 'CONGE':
+        for addr in EMAILS_RH_NOTIF:
+            _ajouter_email_dest(emails, addr)
     send_email(
         emails,
         f"[Congés] Nouvelle demande – {label}",
@@ -1328,3 +1334,95 @@ def upload_dir():
     path = os.path.join(base, UPLOAD_SUBDIR)
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def get_calendrier_absences(date_debut, date_fin):
+    """
+    Absences (congés + sorties) EN_ATTENTE / VALIDE + jours fériés
+    pour une plage [date_debut, date_fin].
+    """
+    if isinstance(date_debut, str):
+        d1 = datetime.strptime(date_debut[:10], '%Y-%m-%d').date()
+    else:
+        d1 = date_debut
+    if isinstance(date_fin, str):
+        d2 = datetime.strptime(date_fin[:10], '%Y-%m-%d').date()
+    else:
+        d2 = date_fin
+    if d2 < d1:
+        d1, d2 = d2, d1
+
+    absences = []
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT D.ID, D.TypeDemande, D.MatriculeDemandeur, D.Statut,
+                   D.DateDebut, D.DateFin, D.DemiJournee,
+                   D.DateSortie, D.HeureDepart, D.HeureRetour,
+                   T.Libelle AS TypeCongeLibelle,
+                   P.Nom, P.Prenom
+            FROM WEB_CONGE_DEMANDE D
+            LEFT JOIN WEB_CONGE_TYPE T ON T.ID = D.ID_TypeConge
+            LEFT JOIN personel P ON P.Matricule = D.MatriculeDemandeur
+            WHERE D.Statut IN ('EN_ATTENTE', 'VALIDE')
+              AND (
+                (D.TypeDemande = 'CONGE' AND D.DateDebut IS NOT NULL AND D.DateFin IS NOT NULL
+                 AND D.DateDebut <= ? AND D.DateFin >= ?)
+                OR
+                (D.TypeDemande = 'SORTIE' AND D.DateSortie IS NOT NULL
+                 AND D.DateSortie >= ? AND D.DateSortie <= ?)
+              )
+            ORDER BY P.Nom, P.Prenom, D.ID
+        """, (d2, d1, d1, d2))
+        for r in cursor.fetchall():
+            label = f"{(r.Nom or '').strip()} {(r.Prenom or '').strip()}".strip() or str(r.MatriculeDemandeur)
+            heure_dep = r.HeureDepart.strftime('%H:%M') if r.HeureDepart and hasattr(r.HeureDepart, 'strftime') else (
+                str(r.HeureDepart)[:5] if r.HeureDepart else None
+            )
+            heure_ret = r.HeureRetour.strftime('%H:%M') if r.HeureRetour and hasattr(r.HeureRetour, 'strftime') else (
+                str(r.HeureRetour)[:5] if r.HeureRetour else None
+            )
+            absences.append({
+                'id': r.ID,
+                'type_demande': r.TypeDemande,
+                'matricule': r.MatriculeDemandeur,
+                'label': label,
+                'statut': r.Statut,
+                'type_libelle': r.TypeCongeLibelle if r.TypeDemande == 'CONGE' else 'Autorisation de sortie',
+                'date_debut': r.DateDebut.strftime('%Y-%m-%d') if r.DateDebut else None,
+                'date_fin': r.DateFin.strftime('%Y-%m-%d') if r.DateFin else None,
+                'date_sortie': r.DateSortie.strftime('%Y-%m-%d') if r.DateSortie else None,
+                'demi_journee': r.DemiJournee,
+                'heure_depart': heure_dep,
+                'heure_retour': heure_ret,
+            })
+
+    annees = set(range(d1.year, d2.year + 1))
+    feries = []
+    seen_f = set()
+    for an in annees:
+        for f in list_jours_feries(an):
+            fd = f.get('date')
+            if not fd:
+                continue
+            if isinstance(fd, date):
+                fd_s = fd.strftime('%Y-%m-%d')
+                fd_d = fd
+            else:
+                fd_s = str(fd)[:10]
+                try:
+                    fd_d = datetime.strptime(fd_s, '%Y-%m-%d').date()
+                except ValueError:
+                    continue
+            if d1 <= fd_d <= d2 and fd_s not in seen_f:
+                seen_f.add(fd_s)
+                feries.append({
+                    'date': fd_s,
+                    'libelle': f.get('libelle') or 'Jour férié',
+                })
+
+    return {
+        'debut': d1.strftime('%Y-%m-%d'),
+        'fin': d2.strftime('%Y-%m-%d'),
+        'absences': absences,
+        'feries': feries,
+    }

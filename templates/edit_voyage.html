@@ -108,6 +108,7 @@
           <tr>
             <th>Client</th>
             <th>Numéro Dossier</th>
+            <th>N° BL</th>
             <th>Article</th>
             <th>Quantité</th>
             <th>Pièces/Carton</th>
@@ -122,6 +123,7 @@
           <tr>
             <td><input name="client_{{ loop.index0 }}" value="{{ ligne.Client }}" required></td>
             <td><input name="num_dossier_{{ loop.index0 }}" value="{{ ligne.NumDossier }}" readonly></td>
+            <td><input name="num_bl_{{ loop.index0 }}" value="{{ ligne.NumBL or '' }}"></td>
             <td><input name="article_{{ loop.index0 }}" value="{{ ligne.Article or '' }}"></td>
             <td><input type="number" name="quantite_{{ loop.index0 }}" value="{{ ligne.Quantite }}" required></td>
             <td><input type="number" name="pieces_par_carton_{{ loop.index0 }}" value="{{ ligne.PiecesParCarton }}" required></td>
@@ -151,6 +153,7 @@ function ajouterLigne() {
   row.innerHTML = `
     <td><input name="client_${index}" required></td>
     <td><input name="num_dossier_${index}" required></td>
+    <td><input name="num_bl_${index}"></td>
     <td><input name="article_${index}"></td>
     <td><input type="number" name="quantite_${index}" required></td>
     <td><input type="number" name="pieces_par_carton_${index}" required></td>

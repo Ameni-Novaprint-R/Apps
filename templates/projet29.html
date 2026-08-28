@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Projet 29 – Suivi des connexions{% endblock %}
+
+{% block head %}
+<style>
+    .p29-header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 16px 20px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        color: #0d47a1;
+        border: 2px solid #1976d2;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+    .p29-header h1 { font-size: 1.55rem; font-weight: 700; margin: 0 0 4px; color: #1565c0; }
+    .p29-header p { margin: 0; font-size: 0.9rem; color: #1565c0; opacity: 0.9; }
+    .p29-kpis { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .p29-kpi {
+        flex: 1; min-width: 160px; background: #fff; border: 1px solid #dee2e6;
+        border-radius: 10px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .p29-kpi .lbl { font-size: 0.78rem; color: #6c757d; text-transform: uppercase; letter-spacing: .04em; }
+    .p29-kpi .val { font-size: 1.6rem; font-weight: 700; color: #1565c0; line-height: 1.2; }
+    .p29-card {
+        background: #fff; border: 1px solid #dee2e6; border-radius: 10px;
+        padding: 16px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .p29-card h2 { font-size: 1.1rem; color: #1e3c72; margin: 0 0 12px; }
+    .p29-dot {
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        background: #2e7d32; margin-right: 6px; box-shadow: 0 0 0 3px rgba(46,125,50,.2);
+    }
+    .p29-meta { font-size: 0.8rem; color: #6c757d; margin-bottom: 10px; }
+    .p29-table th { white-space: nowrap; font-size: 0.8rem; }
+    .p29-table td { font-size: 0.88rem; vertical-align: middle; }
+    .p29-empty { color: #6c757d; font-style: italic; padding: 18px 8px; text-align: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p29-header">
+    <h1>💻 Projet 29 – Suivi des connexions</h1>
+    <p>Personnes ayant au moins un onglet ouvert sur le portail. Historique conservé 7 jours.</p>
+</div>
+
+<div class="p29-kpis">
+    <div class="p29-kpi">
+        <div class="lbl">Connectés maintenant</div>
+        <div class="val" id="p29-kpi-now">—</div>
+    </div>
+    <div class="p29-kpi">
+        <div class="lbl">Employés</div>
+        <div class="val" id="p29-kpi-emp">—</div>
+    </div>
+    <div class="p29-kpi">
+        <div class="lbl">Ateliers</div>
+        <div class="val" id="p29-kpi-atelier">—</div>
+    </div>
+    <div class="p29-kpi">
+        <div class="lbl">Sessions (7 j.)</div>
+        <div class="val" id="p29-kpi-hist">—</div>
+    </div>
+</div>
+
+<div class="p29-card">
+    <h2><span class="p29-dot"></span>Utilisateurs connectés</h2>
+    <p class="p29-meta" id="p29-live-meta">Chargement…</p>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover p29-table align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Identité</th>
+                    <th>Type</th>
+                    <th>Connecté depuis</th>
+                    <th>Dernière activité</th>
+                    <th>Page</th>
+                    <th>IP</th>
+                    <th>Navigateur</th>
+                </tr>
+            </thead>
+            <tbody id="p29-live-body">
+                <tr><td colspan="7" class="p29-empty">Chargement…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="p29-card">
+    <h2>Historique des connexions (7 jours)</h2>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover p29-table align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Identité</th>
+                    <th>Type</th>
+                    <th>Début</th>
+                    <th>Fin</th>
+                    <th>Durée</th>
+                    <th>Dernière page</th>
+                    <th>IP</th>
+                    <th>Navigateur</th>
+                </tr>
+            </thead>
+            <tbody id="p29-hist-body">
+                <tr><td colspan="8" class="p29-empty">Chargement…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const LIVE_MS = 5000;
+
+    function fmt(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    function duree(sec) {
+        if (sec == null) return '—';
+        const s = Math.max(0, parseInt(sec, 10));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const r = s % 60;
+        if (h) return h + ' h ' + String(m).padStart(2, '0') + ' min';
+        if (m) return m + ' min ' + r + ' s';
+        return r + ' s';
+    }
+    function identite(u) {
+        if (u.type_user === 'atelier') {
+            return (u.nom || 'Atelier') + (u.atelier_id != null ? ' <small class="text-muted">#' + u.atelier_id + '</small>' : '');
+        }
+        const mat = u.matricule != null ? u.matricule : '—';
+        return (u.nom || '') + ' <small class="text-muted">(' + mat + ')</small>';
+    }
+    function typeBadge(u) {
+        if (u.type_user === 'atelier') return '<span class="badge text-bg-warning">Atelier</span>';
+        return '<span class="badge text-bg-primary">Employé</span>';
+    }
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function renderLive(users) {
+        const body = document.getElementById('p29-live-body');
+        document.getElementById('p29-kpi-now').textContent = users.length;
+        document.getElementById('p29-kpi-emp').textContent = users.filter(u => u.type_user !== 'atelier').length;
+        document.getElementById('p29-kpi-atelier').textContent = users.filter(u => u.type_user === 'atelier').length;
+        document.getElementById('p29-live-meta').textContent =
+            'Mise à jour ' + new Date().toLocaleTimeString('fr-FR') + ' · rafraîchi toutes les 5 s';
+        if (!users.length) {
+            body.innerHTML = '<tr><td colspan="7" class="p29-empty">Personne n’a d’onglet ouvert pour le moment.</td></tr>';
+            return;
+        }
+        body.innerHTML = users.map(u => {
+            const onglets = u.nb_onglets > 1 ? ' <span class="badge text-bg-secondary">' + u.nb_onglets + ' onglets</span>' : '';
+            return '<tr>' +
+                '<td>' + identite(u) + onglets + '</td>' +
+                '<td>' + typeBadge(u) + '</td>' +
+                '<td>' + fmt(u.connected_at) + '</td>' +
+                '<td>' + fmt(u.last_seen) + '</td>' +
+                '<td>' + esc(u.page) + '</td>' +
+                '<td>' + esc(u.ip) + '</td>' +
+                '<td>' + esc(u.navigateur) + '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    function renderHist(rows) {
+        const body = document.getElementById('p29-hist-body');
+        document.getElementById('p29-kpi-hist').textContent = rows.length;
+        if (!rows.length) {
+            body.innerHTML = '<tr><td colspan="8" class="p29-empty">Aucune connexion sur les 7 derniers jours.</td></tr>';
+            return;
+        }
+        body.innerHTML = rows.map(u => {
+            const fin = u.en_cours
+                ? '<span class="badge text-bg-success">En cours</span>'
+                : fmt(u.disconnected_at);
+            return '<tr>' +
+                '<td>' + identite(u) + '</td>' +
+                '<td>' + typeBadge(u) + '</td>' +
+                '<td>' + fmt(u.connected_at) + '</td>' +
+                '<td>' + fin + '</td>' +
+                '<td>' + duree(u.duree_secondes) + '</td>' +
+                '<td>' + esc(u.page) + '</td>' +
+                '<td>' + esc(u.ip) + '</td>' +
+                '<td>' + esc(u.navigateur) + '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    function load() {
+        Promise.all([
+            fetch('/projet29/api/connectes').then(r => r.json()),
+            fetch('/projet29/api/historique').then(r => r.json())
+        ]).then(([live, hist]) => {
+            renderLive(live.users || []);
+            renderHist(hist.rows || []);
+        }).catch(() => {
+            document.getElementById('p29-live-meta').textContent = 'Erreur de chargement';
+        });
+    }
+
+    load();
+    setInterval(function () {
+        if (document.visibilityState === 'visible') load();
+    }, LIVE_MS);
+})();
+</script>
+{% endblock %}

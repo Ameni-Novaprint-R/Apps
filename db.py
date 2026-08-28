@@ -139,6 +139,10 @@ def init_projet6_tables():
                 ALTER TABLE dbo.WEB_VOYAGE_LIGNES ADD Article NVARCHAR(500) NULL
         """)
         cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_VOYAGE_LIGNES', 'NumBL') IS NULL
+                ALTER TABLE dbo.WEB_VOYAGE_LIGNES ADD NumBL NVARCHAR(50) NULL
+        """)
+        cursor.execute("""
             IF COL_LENGTH('dbo.WEB_CAMIONS', 'KmActuel') IS NULL
                 ALTER TABLE dbo.WEB_CAMIONS ADD KmActuel INT NULL
         """)

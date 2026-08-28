@@ -33,6 +33,7 @@
     <tr>
       <th>Client</th>
       <th>Numéro de Dossier</th>
+      <th>N° BL</th>
       <th>Article</th>
       <th>Quantité</th>
       <th>Pièces/Carton</th>
@@ -47,6 +48,7 @@
     <tr>
       <td>{{ ligne.Client }}</td>
       <td>{{ ligne.NumDossier }}</td>
+      <td>{{ ligne.NumBL or '' }}</td>
       <td>{{ ligne.Article or '' }}</td>
       <td>{{ ligne.Quantite }}</td>
       <td>{{ ligne.PiecesParCarton }}</td>

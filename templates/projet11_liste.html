@@ -296,6 +296,11 @@ th.col-nomfd, td.col-nomfd {
     width: 130px;
     max-width: 170px;
 }
+th.col-posesfd, td.col-posesfd {
+    width: 90px;
+    max-width: 110px;
+    text-align: center;
+}
 th.col-actions, td.col-actions {
     width: 165px;
     min-width: 155px;
@@ -555,6 +560,7 @@ th.col-actions, td.col-actions {
                                     <th class="col-ecart">Écart</th>
                                     <th class="col-cadence">Cadence (op/h)</th>
                                     <th class="col-nomfd">Nom F.D.</th>
+                                    <th class="col-posesfd">Nbr Poses FD</th>
                                     <th class="col-description">Description</th>
                                     <th class="col-statut">Statut</th>
                                     <th class="col-controle">Contrôle</th>
@@ -647,6 +653,13 @@ th.col-actions, td.col-actions {
                                         {% endif %}
                                     </td>
                                     <td class="col-nomfd">{{ t.nom_fd or '-' }}</td>
+                                    <td class="col-posesfd">
+                                        {% if t.nbr_poses_fd is not none %}
+                                            {{ t.nbr_poses_fd }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="col-description">
                                         {% if t.description %}
                                             <span class="d-inline-block text-truncate w-100 truncate-cell"
@@ -851,6 +864,7 @@ $(document).ready(function() {
         { titre: 'Écart', filtre: true, toggle: true, className: 'col-ecart', width: '95px' },
         { titre: 'Cadence (op/h)', filtre: true, toggle: true, className: 'col-cadence', width: '95px' },
         { titre: 'Nom F.D.', filtre: true, toggle: true, className: 'col-nomfd', width: '130px' },
+        { titre: 'Nbr Poses FD', filtre: true, toggle: true, className: 'col-posesfd', width: '90px' },
         { titre: 'Description', filtre: true, toggle: true, className: 'col-description', width: '180px' },
         { titre: 'Statut', filtre: true, toggle: true, className: 'col-statut', width: '100px' },
         { titre: 'Contrôle', filtre: true, toggle: true, className: 'col-controle', width: '110px' },

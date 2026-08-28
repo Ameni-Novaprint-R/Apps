@@ -1898,58 +1898,88 @@ def get_all_traitements(periode=None, date_debut=None, date_fin=None):
         date_fin = bounds['date_fin']
 
     with get_db_cursor() as cursor:
-        cols_cloture = ', Cloture' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture') else ', CAST(0 AS TINYINT) AS Cloture'
-        cols_desc = ', Description' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Description') else ', CAST(NULL AS NVARCHAR(MAX)) AS Description'
-        cols_nom_fd = ', NOM_FD' if column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD') else ", CAST(NULL AS NVARCHAR(100)) AS NOM_FD"
+        cols_cloture = ', WT.Cloture' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Cloture') else ', CAST(0 AS TINYINT) AS Cloture'
+        cols_desc = ', WT.Description' if column_exists(cursor, 'WEB_TRAITEMENTS', 'Description') else ', CAST(NULL AS NVARCHAR(MAX)) AS Description'
+        has_nom_fd = column_exists(cursor, 'WEB_TRAITEMENTS', 'NOM_FD')
+        cols_nom_fd = ', WT.NOM_FD' if has_nom_fd else ", CAST(NULL AS NVARCHAR(100)) AS NOM_FD"
         has_cv = column_exists(cursor, 'WEB_TRAITEMENTS', 'ControleValide')
         cols_controle = (
-            ', ControleValide, ControleValideDte, ControleValideMatricule'
+            ', WT.ControleValide, WT.ControleValideDte, WT.ControleValideMatricule'
             if has_cv
             else ', CAST(0 AS TINYINT) AS ControleValide, CAST(NULL AS DATETIME2) AS ControleValideDte, CAST(NULL AS INT) AS ControleValideMatricule'
         )
+
+        # Poses de la forme de découpe (Projet 24 / suivi des formes)
+        has_formes = False
+        has_nombre_pose = False
+        try:
+            cursor.execute("""
+                SELECT COUNT(*) AS c
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'WEB_FORMES_DECOUPE'
+            """)
+            has_formes = (cursor.fetchone().c or 0) > 0
+            if has_formes:
+                has_nombre_pose = column_exists(cursor, 'WEB_FORMES_DECOUPE', 'NOMBRE_POSE')
+        except Exception:
+            has_formes = False
+            has_nombre_pose = False
+
+        join_formes = ""
+        cols_poses = ", CAST(NULL AS INT) AS NbrPosesFD"
+        if has_nom_fd and has_formes and has_nombre_pose:
+            join_formes = """
+                LEFT JOIN WEB_FORMES_DECOUPE FD
+                    ON LTRIM(RTRIM(FD.NOM)) = LTRIM(RTRIM(WT.NOM_FD))
+                   AND WT.NOM_FD IS NOT NULL
+                   AND LTRIM(RTRIM(WT.NOM_FD)) <> ''
+            """
+            cols_poses = ", FD.NOMBRE_POSE AS NbrPosesFD"
 
         where_parts = []
         params = []
         # Filtre période sur la date de début du traitement (métier)
         if date_debut is not None:
-            where_parts.append("CAST(DteDeb AS DATE) >= ?")
+            where_parts.append("CAST(WT.DteDeb AS DATE) >= ?")
             params.append(date_debut)
         if date_fin is not None:
-            where_parts.append("CAST(DteDeb AS DATE) <= ?")
+            where_parts.append("CAST(WT.DteDeb AS DATE) <= ?")
             params.append(date_fin)
         where_sql = (" WHERE " + " AND ".join(where_parts)) if where_parts else ""
 
         cursor.execute(f"""
             SELECT 
-                ID,
-                ID_FICHE_TRAVAIL,
-                ID_GP_TRAITEMENTS,
-                DteDeb,
-                DteFin,
-                NbOp,
-                NbPers,
-                Numero_COMMANDES,
-                Reference_COMMANDES,
-                RaiSocTri_SOCIETES,
-                Nom_GP_POSTES,
-                Nom_GP_SERVICES,
-                Nom_personel,
-                Prenom_personel,
-                PostesReel,
-                PdtC,
-                PdtNNC,
-                PdtANC,
-                TpsPrevDev_GP_FICHTRA_INT,
-                TpsReel,
-                DateCreation,
-                DateModification
+                WT.ID,
+                WT.ID_FICHE_TRAVAIL,
+                WT.ID_GP_TRAITEMENTS,
+                WT.DteDeb,
+                WT.DteFin,
+                WT.NbOp,
+                WT.NbPers,
+                WT.Numero_COMMANDES,
+                WT.Reference_COMMANDES,
+                WT.RaiSocTri_SOCIETES,
+                WT.Nom_GP_POSTES,
+                WT.Nom_GP_SERVICES,
+                WT.Nom_personel,
+                WT.Prenom_personel,
+                WT.PostesReel,
+                WT.PdtC,
+                WT.PdtNNC,
+                WT.PdtANC,
+                WT.TpsPrevDev_GP_FICHTRA_INT,
+                WT.TpsReel,
+                WT.DateCreation,
+                WT.DateModification
                 {cols_cloture}
                 {cols_desc}
                 {cols_nom_fd}
                 {cols_controle}
-            FROM WEB_TRAITEMENTS
+                {cols_poses}
+            FROM WEB_TRAITEMENTS WT
+            {join_formes}
             {where_sql}
-            ORDER BY DateCreation DESC
+            ORDER BY WT.DateCreation DESC
         """, tuple(params))
         
         traitements = []
@@ -1959,6 +1989,12 @@ def get_all_traitements(periode=None, date_debut=None, date_fin=None):
             ecart = None
             if tps_prev is not None and tps_reel is not None:
                 ecart = tps_reel - tps_prev
+
+            nbr_poses_fd = getattr(row, 'NbrPosesFD', None)
+            try:
+                nbr_poses_fd = int(nbr_poses_fd) if nbr_poses_fd is not None else None
+            except (TypeError, ValueError):
+                nbr_poses_fd = None
             
             traitements.append({
                 "id": row.ID,
@@ -1986,6 +2022,7 @@ def get_all_traitements(periode=None, date_debut=None, date_fin=None):
                 "cloture": _to_int(getattr(row, 'Cloture', 0)),
                 "description": getattr(row, 'Description', None) or '',
                 "nom_fd": (getattr(row, 'NOM_FD', None) or '').strip(),
+                "nbr_poses_fd": nbr_poses_fd,
                 "controle_valide": _to_int(getattr(row, "ControleValide", 0)),
                 "controle_valide_dte": (
                     row.ControleValideDte.strftime("%Y-%m-%d %H:%M:%S")

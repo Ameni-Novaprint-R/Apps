@@ -98,10 +98,14 @@ def ensure_projet6_vidange_schema(cur):
 
 
 def ensure_projet6_voyage_lignes_schema(cur):
-    """Colonnes lignes de voyage (Article modifiable, prérempli depuis la commande)."""
+    """Colonnes lignes de voyage (Article / N° BL)."""
     cur.execute("""
         IF COL_LENGTH('dbo.WEB_VOYAGE_LIGNES', 'Article') IS NULL
             ALTER TABLE dbo.WEB_VOYAGE_LIGNES ADD Article NVARCHAR(500) NULL
+    """)
+    cur.execute("""
+        IF COL_LENGTH('dbo.WEB_VOYAGE_LIGNES', 'NumBL') IS NULL
+            ALTER TABLE dbo.WEB_VOYAGE_LIGNES ADD NumBL NVARCHAR(50) NULL
     """)
 
 
@@ -406,26 +410,41 @@ def get_projet6_allowed_sections():
     return allowed
 
 
-def _period_range_voyages(periode):
-    """Retourne (date_debut, date_fin) ou (None, None) pour tout l'historique."""
+def _period_range_voyages(mois=None, annee=None):
+    """
+    mois  : 'recent' | 'tous' | '1'..'12'
+    annee : '2024'..'2027'
+    Retourne (date_debut, date_fin) ou (None, None) pour tout afficher.
+    """
     today = date.today()
-    periode = (periode or 'semaine').strip().lower()
-    if periode == 'mois':
-        start = today.replace(day=1)
-        if today.month == 12:
-            end = date(today.year + 1, 1, 1) - timedelta(days=1)
-        else:
-            end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+    mois_val = (mois or 'recent').strip().lower()
+    try:
+        annee_int = int(annee or today.year)
+    except (ValueError, TypeError):
+        annee_int = today.year
+
+    if mois_val == 'recent':
+        # 30 derniers jours, année ignorée
+        return today - timedelta(days=29), today
+
+    if mois_val == 'tous':
+        # toute l'année sélectionnée
+        return date(annee_int, 1, 1), date(annee_int, 12, 31)
+
+    try:
+        m = int(mois_val)
+        m = max(1, min(12, m))
+        start = date(annee_int, m, 1)
+        end = date(annee_int, m + 1, 1) - timedelta(days=1) if m < 12 else date(annee_int, 12, 31)
         return start, end
-    if periode in ('historique', 'tous', 'all'):
-        return None, None
-    # semaine en cours (lundi → dimanche)
-    start = today - timedelta(days=today.weekday())
-    end = start + timedelta(days=6)
-    return start, end
+    except (ValueError, TypeError):
+        pass
+
+    # fallback
+    return today - timedelta(days=29), today
 
 
-def fetch_voyages(cur, numero='', periode='semaine'):
+def fetch_voyages(cur, numero='', mois=None, annee=None, **_):
     query = """
         SELECT ID, NumeroVoyage, DateVoyage, Destination, Camion, Chauffeur
         FROM WEB_VOYAGES
@@ -435,7 +454,7 @@ def fetch_voyages(cur, numero='', periode='semaine'):
     if numero:
         query += " AND NumeroVoyage LIKE ?"
         params.append(f"%{numero}%")
-    start, end = _period_range_voyages(periode)
+    start, end = _period_range_voyages(mois=mois, annee=annee)
     if start is not None and end is not None:
         query += " AND DateVoyage >= ? AND DateVoyage <= ?"
         params.extend([start, end])
@@ -448,7 +467,9 @@ def render_projet6(section=None, open_section=None, **kwargs):
     allowed = get_projet6_allowed_sections()
     kwargs.setdefault('voyages', [])
     kwargs.setdefault('search_numero', '')
-    kwargs.setdefault('search_periode', 'semaine')
+    kwargs.setdefault('search_mois', 'recent')
+    kwargs.setdefault('search_annee', str(date.today().year))
+    kwargs.setdefault('current_year', date.today().year)
     kwargs.setdefault('camions', [])
     kwargs.setdefault('camions_suivi', [])
     kwargs.setdefault('today', datetime.today().date())
@@ -471,10 +492,10 @@ def programme_voyage():
         flash("Vous n'avez pas accès à ce projet.", "error")
         return redirect(url_for('index'))
 
+    today = date.today()
     numero = (request.args.get('numero') or '').strip()
-    periode = (request.args.get('periode') or 'semaine').strip().lower()
-    if periode not in ('semaine', 'mois', 'historique'):
-        periode = 'semaine'
+    search_mois = (request.args.get('mois') or 'recent').strip().lower()
+    search_annee = (request.args.get('annee') or str(today.year)).strip()
     open_section = (request.args.get('section') or '').strip() or None
 
     with get_db_cursor() as cur:
@@ -485,7 +506,7 @@ def programme_voyage():
         cur.connection.commit()
         cur.execute("SELECT * FROM WEB_CAMIONS ORDER BY Immatriculation")
         camions = cur.fetchall()
-        voyages = fetch_voyages(cur, numero=numero, periode=periode)
+        voyages = fetch_voyages(cur, numero=numero, mois=search_mois, annee=search_annee)
         camions_suivi = fetch_camions_suivi(cur)
 
     return render_projet6(
@@ -493,8 +514,10 @@ def programme_voyage():
         camions_suivi=camions_suivi,
         voyages=voyages,
         search_numero=numero,
-        search_periode=periode,
+        search_mois=search_mois,
+        search_annee=search_annee,
         open_section=open_section,
+        current_year=today.year,
     )
 
 @projet6_bp.route('/projet6/save', methods=['POST'])
@@ -516,6 +539,7 @@ def save_programme():
         while True:
             client = (request.form.get(f'client_{index}') or '').strip()
             num_dossier = (request.form.get(f'num_dossier_{index}') or '').strip()
+            num_bl = (request.form.get(f'num_bl_{index}') or '').strip()
             article = request.form.get(f'article_{index}')
             quantite = request.form.get(f'quantite_{index}')
             pieces_par_carton = request.form.get(f'pieces_par_carton_{index}')
@@ -524,12 +548,13 @@ def save_programme():
             nb_palette = request.form.get(f'nb_palette_{index}')
             termine = request.form.get(f'termine_{index}') == 'on'
 
-            if not client and not num_dossier:
+            if not client and not num_dossier and not num_bl:
                 break
 
             lignes.append({
                 'Client': client,
                 'NumDossier': num_dossier,
+                'NumBL': num_bl,
                 'Article': article,
                 'Quantite': quantite,
                 'PiecesParCarton': pieces_par_carton,
@@ -562,12 +587,12 @@ def save_programme():
             for ligne in lignes:
                 cur.execute("""
                     INSERT INTO WEB_VOYAGE_LIGNES (
-                        ID_VOYAGE, Client, NumDossier, Article, Quantite,
+                        ID_VOYAGE, Client, NumDossier, NumBL, Article, Quantite,
                         PiecesParCarton, CartonsParPalette, NbCarton,
                         NbPalette, Termine
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (id_voyage, ligne['Client'], ligne['NumDossier'], ligne['Article'], ligne['Quantite'],
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (id_voyage, ligne['Client'], ligne['NumDossier'], ligne['NumBL'], ligne['Article'], ligne['Quantite'],
                       ligne['PiecesParCarton'], ligne['CartonsParPalette'],
                       ligne['NbCarton'], ligne['NbPalette'], ligne['Termine']))
 
@@ -635,6 +660,83 @@ def api_commandes():
         return jsonify([]), 500
 
 
+@projet6_bp.route('/api/bons_liv')
+@login_required
+def api_bons_liv():
+    """Recherche de bons de livraison (BONS_LIV.Numero) pour le nouveau voyage."""
+    try:
+        q = (request.args.get('q') or '').strip()
+        if not q:
+            return jsonify([])
+        like = f"%{q}%"
+        with get_db_cursor() as cur:
+            cur.execute("""
+                SELECT TOP 25
+                    LTRIM(RTRIM(bl.Numero)) AS Numero,
+                    MAX(ISNULL(NULLIF(LTRIM(RTRIM(s.RaiSocTri)), ''), sa.Nom)) AS Client,
+                    MAX(bl.Reference) AS Reference,
+                    MAX(LTRIM(RTRIM(CAST(c.Numero AS NVARCHAR(50))))) AS NumDossier,
+                    CAST(SUM(CAST(ISNULL(bll.Qte, 0) AS FLOAT)) AS INT) AS Quantite,
+                    MAX(ISNULL(NULLIF(LTRIM(RTRIM(sa.Ville)), ''), sa.Nom)) AS Destination,
+                    CONVERT(varchar(10), MAX(bl.DateBl), 23) AS DateBl
+                FROM BONS_LIV bl
+                LEFT JOIN BONS_LIV_LIGNES bll ON bll.ID_BON_LIV = bl.ID
+                LEFT JOIN LIVR_CMDE_VERSIONS lv ON lv.ID = bll.ID_LIVR_VERSION
+                LEFT JOIN LIVRAISONS_CMDE lc ON lc.ID = lv.ID_LIVRAISON
+                LEFT JOIN COMMANDES c ON c.ID = lc.ID_COMMANDE
+                LEFT JOIN SOCIETES s ON s.ID = c.ID_SOCIETE
+                LEFT JOIN SOCIETES_ADRESSES sa ON sa.ID = bl.ID_ADRESSE_DEST
+                WHERE (
+                    LTRIM(RTRIM(CAST(bl.Numero AS NVARCHAR(50)))) COLLATE Latin1_General_CI_AI LIKE ?
+                    OR ISNULL(s.RaiSocTri, '') COLLATE Latin1_General_CI_AI LIKE ?
+                    OR ISNULL(sa.Nom, '') COLLATE Latin1_General_CI_AI LIKE ?
+                    OR ISNULL(bl.Reference, '') COLLATE Latin1_General_CI_AI LIKE ?
+                )
+                GROUP BY LTRIM(RTRIM(bl.Numero))
+                ORDER BY MAX(bl.ID) DESC
+            """, (like, like, like, like))
+            rows = cur.fetchall()
+            resultats = [
+                {
+                    "Numero": (str(row[0]).strip() if row[0] is not None else ""),
+                    "Client": row[1] or "",
+                    "Reference": row[2] or "",
+                    "NumDossier": (str(row[3]).strip() if row[3] is not None else ""),
+                    "Quantite": row[4] or 0,
+                    "Destination": row[5] or "",
+                    "DateBl": row[6] or "",
+                }
+                for row in rows
+            ]
+            return jsonify(resultats)
+    except Exception as e:
+        print("❌ Erreur dans /api/bons_liv :", e)
+        return jsonify([]), 500
+
+
+@projet6_bp.route('/projet6/api/voyages')
+@login_required
+def api_voyages():
+    if not has_project_access(6) and not is_super_user():
+        return jsonify({'error': 'Accès refusé'}), 403
+    today = date.today()
+    numero = (request.args.get('numero') or '').strip()
+    mois = (request.args.get('mois') or 'recent').strip().lower()
+    annee = (request.args.get('annee') or str(today.year)).strip()
+    try:
+        with get_db_cursor() as cur:
+            rows = fetch_voyages(cur, numero=numero, mois=mois, annee=annee)
+        result = [
+            {'id': r[0], 'numero': r[1], 'date': str(r[2]) if r[2] else '',
+             'destination': r[3] or '', 'camion': r[4] or '', 'chauffeur': r[5] or ''}
+            for r in rows
+        ]
+        return jsonify(result)
+    except Exception as e:
+        print("❌ Erreur /projet6/api/voyages :", e)
+        return jsonify([]), 500
+
+
 @projet6_bp.route('/projet6/api/notifications')
 @login_required
 def api_projet6_notifications():
@@ -672,14 +774,15 @@ def list_voyages():
     if not has_project_access(6) and not is_super_user():
         flash("Vous n'avez pas accès à ce projet.", "error")
         return redirect(url_for('index'))
+    today = date.today()
     args = {'section': 'liste_voyages'}
     numero = (request.args.get('numero') or '').strip()
-    periode = (request.args.get('periode') or 'semaine').strip().lower()
-    if periode not in ('semaine', 'mois', 'historique'):
-        periode = 'semaine'
+    mois = (request.args.get('mois') or 'recent').strip().lower()
+    annee = (request.args.get('annee') or str(today.year)).strip()
     if numero:
         args['numero'] = numero
-    args['periode'] = periode
+    args['mois'] = mois
+    args['annee'] = annee
     return redirect(url_for('projet6.programme_voyage', **args))
 
 
@@ -721,7 +824,7 @@ def edit_voyage(id):
                 return redirect(url_for('projet6.list_voyages'))
 
             cur.execute("""
-                SELECT ID_LIGNE, Client, NumDossier, Article, Quantite, PiecesParCarton, CartonsParPalette, NbCarton, NbPalette, Termine
+                SELECT ID_LIGNE, Client, NumDossier, NumBL, Article, Quantite, PiecesParCarton, CartonsParPalette, NbCarton, NbPalette, Termine
                 FROM WEB_VOYAGE_LIGNES WHERE ID_VOYAGE = ? ORDER BY ID_LIGNE
             """, (id,))
             lignes = cur.fetchall()
@@ -748,6 +851,7 @@ def edit_voyage(id):
                 for index in range(nb_lignes):
                     client = (request.form.get(f'client_{index}') or '').strip()
                     num_dossier = (request.form.get(f'num_dossier_{index}') or '').strip()
+                    num_bl = (request.form.get(f'num_bl_{index}') or '').strip()
                     article = request.form.get(f'article_{index}')
                     quantite = request.form.get(f'quantite_{index}')
                     pieces_par_carton = request.form.get(f'pieces_par_carton_{index}')
@@ -757,10 +861,10 @@ def edit_voyage(id):
                     termine = request.form.get(f'termine_{index}') == 'on'
 
                     cur.execute("""
-                        INSERT INTO WEB_VOYAGE_LIGNES (ID_VOYAGE, Client, NumDossier, Article, Quantite,
+                        INSERT INTO WEB_VOYAGE_LIGNES (ID_VOYAGE, Client, NumDossier, NumBL, Article, Quantite,
                             PiecesParCarton, CartonsParPalette, NbCarton, NbPalette, Termine)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (id, client, num_dossier, article, quantite, pieces_par_carton, cartons_par_palette, nb_carton, nb_palette, termine))
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (id, client, num_dossier, num_bl, article, quantite, pieces_par_carton, cartons_par_palette, nb_carton, nb_palette, termine))
 
                     if termine and num_dossier:
                         cur.execute("""
@@ -1061,6 +1165,104 @@ def enregistrer_vidange(id):
     return redirect(url_for('projet6.edit_camion', id=id))
 
 
+def _get_vidange_for_camion(cur, camion_id, vidange_id):
+    cur.execute("""
+        SELECT v.ID, v.ID_Camion, v.DateVidange, v.Km, v.Heures, v.Remarque,
+               c.ModeSuiviVidange, c.Immatriculation
+        FROM WEB_CAMION_VIDANGES v
+        INNER JOIN WEB_CAMIONS c ON c.ID = v.ID_Camion
+        WHERE v.ID = ? AND v.ID_Camion = ?
+    """, (vidange_id, camion_id))
+    return cur.fetchone()
+
+
+@projet6_bp.route('/projet6/camion/<int:id>/vidange/<int:vidange_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_vidange(id, vidange_id):
+    if not has_project_access(6) and not is_super_user():
+        flash("Vous n'avez pas accès à ce projet.", "error")
+        return redirect(url_for('index'))
+
+    with get_db_cursor() as cur:
+        ensure_projet6_vidange_schema(cur)
+        row = _get_vidange_for_camion(cur, id, vidange_id)
+        if not row:
+            flash("Vidange introuvable.", "danger")
+            return redirect(url_for('projet6.edit_camion', id=id))
+
+        mode = _normalize_mode_vidange(row.ModeSuiviVidange)
+        unite = 'h' if mode == MODE_VIDANGE_HEURES else 'km'
+        compteur = row.Heures if mode == MODE_VIDANGE_HEURES else row.Km
+
+        if request.method == 'POST':
+            date_vidange = (request.form.get('date_vidange') or '').strip()
+            compteur_raw = (request.form.get('compteur_vidange') or '').strip()
+            remarque = (request.form.get('remarque_vidange') or '').strip() or None
+            if not date_vidange or not compteur_raw.isdigit():
+                flash("Date et compteur de vidange obligatoires.", "danger")
+                return redirect(url_for('projet6.edit_vidange', id=id, vidange_id=vidange_id))
+            compteur_val = int(compteur_raw)
+            try:
+                if mode == MODE_VIDANGE_HEURES:
+                    cur.execute("""
+                        UPDATE WEB_CAMION_VIDANGES
+                        SET DateVidange = ?, Km = NULL, Heures = ?, Remarque = ?
+                        WHERE ID = ? AND ID_Camion = ?
+                    """, (date_vidange, compteur_val, remarque, vidange_id, id))
+                else:
+                    cur.execute("""
+                        UPDATE WEB_CAMION_VIDANGES
+                        SET DateVidange = ?, Km = ?, Heures = NULL, Remarque = ?
+                        WHERE ID = ? AND ID_Camion = ?
+                    """, (date_vidange, compteur_val, remarque, vidange_id, id))
+                cur.connection.commit()
+                flash("Vidange mise à jour.", "success")
+                return redirect(url_for('projet6.edit_camion', id=id))
+            except Exception as e:
+                cur.connection.rollback()
+                flash(f"Impossible de modifier la vidange : {e}", "danger")
+                return redirect(url_for('projet6.edit_vidange', id=id, vidange_id=vidange_id))
+
+        return render_template(
+            'edit_vidange.html',
+            camion_id=id,
+            immatriculation=row.Immatriculation,
+            vidange_id=vidange_id,
+            date_vidange=_format_date_input(row.DateVidange),
+            compteur=compteur,
+            remarque=row.Remarque or '',
+            mode_suivi_vidange=mode,
+            unite_vidange=unite,
+        )
+
+
+@projet6_bp.route('/projet6/camion/<int:id>/vidange/<int:vidange_id>/supprimer', methods=['POST'])
+@login_required
+def supprimer_vidange(id, vidange_id):
+    if not has_project_access(6) and not is_super_user():
+        flash("Vous n'avez pas accès à ce projet.", "error")
+        return redirect(url_for('index'))
+
+    with get_db_cursor() as cur:
+        ensure_projet6_vidange_schema(cur)
+        row = _get_vidange_for_camion(cur, id, vidange_id)
+        if not row:
+            flash("Vidange introuvable.", "danger")
+            return redirect(url_for('projet6.edit_camion', id=id))
+        try:
+            cur.execute(
+                "DELETE FROM WEB_CAMION_VIDANGES WHERE ID = ? AND ID_Camion = ?",
+                (vidange_id, id),
+            )
+            cur.connection.commit()
+            flash("Vidange supprimée.", "success")
+        except Exception as e:
+            cur.connection.rollback()
+            flash(f"Impossible de supprimer la vidange : {e}", "danger")
+
+    return redirect(url_for('projet6.edit_camion', id=id))
+
+
 @projet6_bp.route('/projet6/camion/<int:id>/supprimer', methods=['POST'])
 @login_required
 def supprimer_camion(id):
@@ -1135,7 +1337,7 @@ def export_pdf(id):
         }
 
         cur.execute("""
-            SELECT Client, NumDossier, Article, Quantite, PiecesParCarton,
+            SELECT Client, NumDossier, NumBL, Article, Quantite, PiecesParCarton,
                    CartonsParPalette, NbCarton, NbPalette, Termine
             FROM WEB_VOYAGE_LIGNES
             WHERE ID_VOYAGE = ?
@@ -1145,13 +1347,14 @@ def export_pdf(id):
         lignes = [{
             "Client": ligne[0],
             "NumDossier": ligne[1],
-            "Article": ligne[2],
-            "Quantite": ligne[3],
-            "PiecesParCarton": ligne[4],
-            "CartonsParPalette": ligne[5],
-            "NbCarton": ligne[6],
-            "NbPalette": ligne[7],
-            "Termine": bool(ligne[8])
+            "NumBL": ligne[2],
+            "Article": ligne[3],
+            "Quantite": ligne[4],
+            "PiecesParCarton": ligne[5],
+            "CartonsParPalette": ligne[6],
+            "NbCarton": ligne[7],
+            "NbPalette": ligne[8],
+            "Termine": bool(ligne[9])
         } for ligne in lignes_data]
 
     rendered = render_template("programme_pdf.html", voyage=voyage, lignes=lignes)

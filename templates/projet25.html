@@ -120,6 +120,30 @@ body.modal-open .modal-backdrop { z-index: 1065 !important; }
     color: #212529 !important;
 }
 .p25-modal .modal-title { font-weight: 700; color: var(--p25-text) !important; }
+
+/* Calendrier des absences */
+.p25-cal-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+.p25-cal-toolbar .form-check { margin-bottom: 0; }
+.p25-cal-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85rem; margin-bottom: 12px; }
+.p25-cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.p25-cal-dot { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.p25-cal-dot.ferie { background: #f5d76e; border: 1px solid #d4a017; }
+.p25-cal-grids { display: grid; gap: 16px; }
+.p25-cal-grids.two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.p25-cal-month { border: 1px solid #ead2dd; border-radius: 8px; overflow: hidden; background: #fff; }
+.p25-cal-month-title { background: linear-gradient(135deg, var(--p25-gradient-start), var(--p25-gradient-end)); color: var(--p25-text); font-weight: 700; text-align: center; padding: 8px; }
+.p25-cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.78rem; }
+.p25-cal-table th { background: #f8eef2; text-align: center; padding: 6px 2px; border: 1px solid #ead2dd; font-weight: 600; }
+.p25-cal-table td { vertical-align: top; height: 88px; border: 1px solid #ead2dd; padding: 3px; background: #fff; }
+.p25-cal-table td.p25-cal-empty { background: #fafafa; }
+.p25-cal-table td.p25-cal-ferie { background: #fff8dc; }
+.p25-cal-table td.p25-cal-today { box-shadow: inset 0 0 0 2px var(--p25-primary-dark); }
+.p25-cal-daynum { font-weight: 700; color: #555; margin-bottom: 2px; }
+.p25-cal-ferie-lab { font-size: 0.7rem; color: #8a6d00; font-style: italic; margin-bottom: 2px; line-height: 1.15; }
+.p25-cal-abs { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; cursor: default; }
+.p25-cal-abs.conge { color: #8b2252; font-weight: 600; }
+.p25-cal-abs.sortie { color: #1a5276; font-weight: 600; }
+.p25-cal-abs.attente { opacity: 0.72; font-style: italic; border-bottom: 1px dashed currentColor; }
 </style>
 {% endblock %}
 
@@ -167,6 +191,9 @@ body.modal-open .modal-backdrop { z-index: 1065 !important; }
             {% endif %}
             {% if 'soldes' in allowed_sections or is_rh or is_super %}
             <button type="button" class="p25-section-btn" data-p25-section="soldes"><i class="fas fa-calendar-check"></i> Solde de congés</button>
+            {% endif %}
+            {% if 'calendrier' in allowed_sections or is_rh or is_super %}
+            <button type="button" class="p25-section-btn" data-p25-section="calendrier"><i class="fas fa-calendar-alt"></i> Calendrier des absences</button>
             {% endif %}
         </div>
     </div>
@@ -266,6 +293,40 @@ body.modal-open .modal-backdrop { z-index: 1065 !important; }
             </div>
             <h5 class="mt-3">Droits supplémentaires (informatif)</h5>
             <ul id="p25-sf-droits-suppl" class="small text-muted"></ul>
+        </div>
+    </div>
+
+    <!-- Calendrier des absences -->
+    <div id="p25-panel-calendrier" class="p25-panel">
+        <div class="p25-card">
+            <h3>Calendrier des absences</h3>
+            <div class="p25-cal-toolbar">
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary" id="p25-cal-mode-1" onclick="p25CalSetMode(1)">1 mois</button>
+                    <button type="button" class="btn btn-outline-secondary active" id="p25-cal-mode-2" onclick="p25CalSetMode(2)">2 mois</button>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="p25CalNav(-1)" title="Précédent"><i class="fas fa-chevron-left"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="p25CalGoToday()">Aujourd'hui</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="p25CalNav(1)" title="Suivant"><i class="fas fa-chevron-right"></i></button>
+                <strong id="p25-cal-period-label" class="ms-1"></strong>
+                <div class="ms-auto d-flex flex-wrap gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="p25-cal-show-conges" checked onchange="p25CalRender()">
+                        <label class="form-check-label" for="p25-cal-show-conges">Congés</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="p25-cal-show-sorties" checked onchange="p25CalRender()">
+                        <label class="form-check-label" for="p25-cal-show-sorties">Autorisations de sortie</label>
+                    </div>
+                </div>
+            </div>
+            <div class="p25-cal-legend">
+                <span><span class="p25-cal-abs conge">Nom Prénom</span> Congé</span>
+                <span><span class="p25-cal-abs sortie">Nom Prénom</span> Autorisation de sortie</span>
+                <span><span class="p25-cal-abs conge attente">Nom…</span> En attente (italique / pointillé)</span>
+                <span><span class="p25-cal-dot ferie"></span> Jour férié</span>
+            </div>
+            <div id="p25-cal-grids" class="p25-cal-grids two"></div>
         </div>
     </div>
 
@@ -655,6 +716,7 @@ function p25ToggleSection(s) {
     if (s === 'validateurs') p25LoadValidateurs();
     if (s === 'feries') p25LoadFeries();
     if (s === 'soldes') p25LoadSoldeFiches();
+    if (s === 'calendrier') p25LoadCalendrier();
 }
 
 function p25TodayISO() {
@@ -1634,6 +1696,190 @@ function p25SaveSoldeFicheRh() {
           if (!res.ok) alert(res.j.error || 'Erreur');
           else { p25ShowToast('Fiche mise à jour'); p25OpenSoldeFiche(P25_SF_CURRENT); p25LoadSoldeFiches(); }
       });
+}
+
+var P25_CAL = { mode: 2, year: null, month: null, data: null };
+
+function p25CalPad(n) { return String(n).padStart(2, '0'); }
+function p25CalIso(y, m, d) { return y + '-' + p25CalPad(m) + '-' + p25CalPad(d); }
+function p25CalMonthName(y, m) {
+    return new Date(y, m - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+}
+function p25CalDaysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+
+function p25CalEnsureInit() {
+    if (P25_CAL.year == null) {
+        var now = new Date();
+        P25_CAL.year = now.getFullYear();
+        P25_CAL.month = now.getMonth() + 1;
+    }
+}
+
+function p25CalSetMode(mode) {
+    P25_CAL.mode = mode === 1 ? 1 : 2;
+    document.getElementById('p25-cal-mode-1').classList.toggle('active', P25_CAL.mode === 1);
+    document.getElementById('p25-cal-mode-2').classList.toggle('active', P25_CAL.mode === 2);
+    var grids = document.getElementById('p25-cal-grids');
+    if (grids) grids.classList.toggle('two', P25_CAL.mode === 2);
+    p25LoadCalendrier();
+}
+
+function p25CalNav(deltaMonths) {
+    p25CalEnsureInit();
+    var step = P25_CAL.mode === 2 ? 2 : 1;
+    var m = P25_CAL.month + (deltaMonths * step);
+    var y = P25_CAL.year;
+    while (m < 1) { m += 12; y -= 1; }
+    while (m > 12) { m -= 12; y += 1; }
+    P25_CAL.year = y;
+    P25_CAL.month = m;
+    p25LoadCalendrier();
+}
+
+function p25CalGoToday() {
+    var now = new Date();
+    P25_CAL.year = now.getFullYear();
+    P25_CAL.month = now.getMonth() + 1;
+    p25LoadCalendrier();
+}
+
+function p25CalRange() {
+    p25CalEnsureInit();
+    var y = P25_CAL.year, m = P25_CAL.month;
+    var debut = p25CalIso(y, m, 1);
+    var finM = m, finY = y;
+    if (P25_CAL.mode === 2) {
+        finM = m + 1;
+        if (finM > 12) { finM = 1; finY = y + 1; }
+    }
+    var fin = p25CalIso(finY, finM, p25CalDaysInMonth(finY, finM));
+    return { debut: debut, fin: fin, months: P25_CAL.mode === 2
+        ? [{ y: y, m: m }, { y: finY, m: finM }]
+        : [{ y: y, m: m }] };
+}
+
+function p25LoadCalendrier() {
+    var range = p25CalRange();
+    var label = document.getElementById('p25-cal-period-label');
+    if (label) {
+        label.textContent = range.months.map(function(x) { return p25CalMonthName(x.y, x.m); }).join(' — ');
+    }
+    var grids = document.getElementById('p25-cal-grids');
+    if (grids) grids.innerHTML = '<div class="text-muted p-3">Chargement…</div>';
+    fetch('/projet25/api/calendrier-absences?debut=' + range.debut + '&fin=' + range.fin)
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+        .then(function(res) {
+            if (!res.ok) {
+                if (grids) grids.innerHTML = '<div class="alert alert-warning">' + (res.j.error || 'Erreur') + '</div>';
+                return;
+            }
+            P25_CAL.data = res.j;
+            p25CalRender();
+        })
+        .catch(function() {
+            if (grids) grids.innerHTML = '<div class="alert alert-danger">Erreur de chargement</div>';
+        });
+}
+
+function p25CalDemiLabel(d) {
+    if (!d) return '';
+    if (d === 'MATIN') return 'matin';
+    if (d === 'APRES_MIDI') return 'après-midi';
+    return d;
+}
+
+function p25CalTooltip(a) {
+    var parts = [a.label, a.type_libelle || '', a.statut === 'EN_ATTENTE' ? 'En attente' : 'Validé'];
+    if (a.type_demande === 'SORTIE') {
+        if (a.heure_depart || a.heure_retour) {
+            parts.push((a.heure_depart || '?') + ' – ' + (a.heure_retour || '?'));
+        }
+    } else if (a.demi_journee) {
+        parts.push('Demi-journée : ' + p25CalDemiLabel(a.demi_journee));
+    }
+    return parts.filter(Boolean).join(' · ');
+}
+
+function p25CalBuildDayMap(data) {
+    var byDay = {};
+    var showC = document.getElementById('p25-cal-show-conges');
+    var showS = document.getElementById('p25-cal-show-sorties');
+    var wantC = !showC || showC.checked;
+    var wantS = !showS || showS.checked;
+    (data.feries || []).forEach(function(f) {
+        if (!byDay[f.date]) byDay[f.date] = { ferie: null, absences: [] };
+        byDay[f.date].ferie = f.libelle;
+    });
+    (data.absences || []).forEach(function(a) {
+        if (a.type_demande === 'CONGE' && !wantC) return;
+        if (a.type_demande === 'SORTIE' && !wantS) return;
+        var dates = [];
+        if (a.type_demande === 'SORTIE' && a.date_sortie) {
+            dates.push(a.date_sortie);
+        } else if (a.date_debut && a.date_fin) {
+            var cur = new Date(a.date_debut + 'T00:00:00');
+            var end = new Date(a.date_fin + 'T00:00:00');
+            while (cur <= end) {
+                dates.push(p25CalIso(cur.getFullYear(), cur.getMonth() + 1, cur.getDate()));
+                cur.setDate(cur.getDate() + 1);
+            }
+        }
+        dates.forEach(function(ds) {
+            if (!byDay[ds]) byDay[ds] = { ferie: null, absences: [] };
+            byDay[ds].absences.push(a);
+        });
+    });
+    return byDay;
+}
+
+function p25CalRenderMonth(y, m, byDay) {
+    var today = p25CalIso(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
+    var firstDow = new Date(y, m - 1, 1).getDay();
+    var startOffset = (firstDow + 6) % 7;
+    var dim = p25CalDaysInMonth(y, m);
+    var html = '<div class="p25-cal-month"><div class="p25-cal-month-title">' + p25CalMonthName(y, m) + '</div>';
+    html += '<table class="p25-cal-table"><thead><tr>';
+    ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].forEach(function(d) { html += '<th>' + d + '</th>'; });
+    html += '</tr></thead><tbody><tr>';
+    var cell = 0;
+    for (var i = 0; i < startOffset; i++) {
+        html += '<td class="p25-cal-empty"></td>';
+        cell++;
+    }
+    for (var day = 1; day <= dim; day++) {
+        if (cell > 0 && cell % 7 === 0) html += '</tr><tr>';
+        var iso = p25CalIso(y, m, day);
+        var info = byDay[iso] || { ferie: null, absences: [] };
+        var cls = [];
+        if (info.ferie) cls.push('p25-cal-ferie');
+        if (iso === today) cls.push('p25-cal-today');
+        html += '<td class="' + cls.join(' ') + '"><div class="p25-cal-daynum">' + day + '</div>';
+        if (info.ferie) html += '<div class="p25-cal-ferie-lab" title="' + info.ferie.replace(/"/g, '&quot;') + '">' + info.ferie + '</div>';
+        info.absences.forEach(function(a) {
+            var c = (a.type_demande === 'SORTIE' ? 'sortie' : 'conge') + (a.statut === 'EN_ATTENTE' ? ' attente' : '');
+            var tip = p25CalTooltip(a).replace(/"/g, '&quot;');
+            html += '<span class="p25-cal-abs ' + c + '" title="' + tip + '">' + (a.label || '') + '</span>';
+        });
+        html += '</td>';
+        cell++;
+    }
+    while (cell % 7 !== 0) {
+        html += '<td class="p25-cal-empty"></td>';
+        cell++;
+    }
+    html += '</tr></tbody></table></div>';
+    return html;
+}
+
+function p25CalRender() {
+    var grids = document.getElementById('p25-cal-grids');
+    if (!grids || !P25_CAL.data) return;
+    var range = p25CalRange();
+    var byDay = p25CalBuildDayMap(P25_CAL.data);
+    grids.classList.toggle('two', P25_CAL.mode === 2);
+    grids.innerHTML = range.months.map(function(x) {
+        return p25CalRenderMonth(x.y, x.m, byDay);
+    }).join('');
 }
 
 function p25LoadSoldes() {

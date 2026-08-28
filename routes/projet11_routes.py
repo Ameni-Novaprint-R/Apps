@@ -2096,6 +2096,8 @@ def export_traitements_excel():
                 'Tps Réel': f"{t.get('tps_reel', 0):.2f}" if t.get('tps_reel') else '',
                 'Écart': f"{t.get('ecart_temps', 0):.2f}" if t.get('ecart_temps') is not None else '',
                 'Cadence (op/h)': f"{cadence_val:.2f}" if cadence_val is not None else '',
+                'Nom F.D.': t.get('nom_fd', '') or '',
+                'Nbr Poses FD': t.get('nbr_poses_fd') if t.get('nbr_poses_fd') is not None else '',
                 'Description': t.get('description', '') or '',
                 'Pdt C': t.get('pdt_c', 0),
                 'Pdt NNC': t.get('pdt_nnc', 0),

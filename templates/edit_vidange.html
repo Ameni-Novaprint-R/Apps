@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Modifier vidange – {{ immatriculation }}{% endblock %}
+
+{% block content %}
+<div class="edit-camion-wrap">
+    <h1>🛢️ Modifier une vidange</h1>
+    <p class="subtitle">{{ immatriculation }}</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            {% if not message.startswith('Connexion réussie') %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" class="card-form">
+        <label>Date de vidange</label>
+        <input type="date" name="date_vidange" value="{{ date_vidange }}" required>
+
+        <label>{% if mode_suivi_vidange == 'HEURES' %}Heures à la vidange{% else %}Kilométrage à la vidange{% endif %}</label>
+        <input type="number" name="compteur_vidange" min="0" step="1" value="{{ compteur if compteur is not none else '' }}" required>
+
+        <label>Remarque (optionnel)</label>
+        <textarea name="remarque_vidange" rows="2">{{ remarque }}</textarea>
+
+        <div class="btn-row">
+            <button type="submit" class="btn-vidange">💾 Enregistrer</button>
+            <a href="{{ url_for('projet6.edit_camion', id=camion_id) }}" class="btn-link">⬅️ Retour</a>
+        </div>
+    </form>
+</div>
+
+<style>
+    .edit-camion-wrap { max-width: 640px; margin: 0 auto 40px; }
+    .subtitle { color: #607d8b; margin-bottom: 18px; }
+    .card-form {
+        background: #e0f7fa;
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #0097a7;
+        box-shadow: 0 0 8px rgba(0,0,0,0.08);
+    }
+    label { font-weight: bold; display: block; margin-top: 8px; margin-bottom: 4px; }
+    input[type="date"], input[type="number"], textarea {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
+    .btn-row { margin-top: 10px; display: flex; gap: 12px; align-items: center; }
+    .btn-vidange {
+        color: white;
+        background-color: #0097a7;
+        padding: 10px 20px;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .btn-vidange:hover { background-color: #00838f; }
+    .btn-link { text-decoration: none; color: #455a64; }
+    .flash { padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+    .flash-success { background-color: #d4edda; color: #155724; }
+    .flash-danger, .flash-error { background-color: #f8d7da; color: #721c24; }
+</style>
+{% endblock %}

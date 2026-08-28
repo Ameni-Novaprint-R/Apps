@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Routes Projet 28 – Gestion des codes-barres matières premières.
-Préfixe /projet28 — accès super-utilisateurs uniquement (V1).
+Préfixe /projet28 — super-utilisateurs + matricules autorisés (WEB_DROITS_ACCES).
 """
 from functools import wraps
 
@@ -9,12 +9,13 @@ from flask import (
     Blueprint, render_template, request, jsonify, redirect, url_for, session,
 )
 
-from logic.auth import login_required, is_super_user, get_user_sections
+from logic.auth import login_required, is_super_user, has_project_access, get_user_sections
 from logic import projet28 as p28
 
 projet28_bp = Blueprint('projet28', __name__, url_prefix='/projet28')
 
 PROJET28_SECTION_KEYS = {
+    'Mise en place': 'mise_en_place',
     'Génération': 'generation',
     'Unités': 'unites',
     'Scan': 'scan',
@@ -25,16 +26,18 @@ PROJET28_SECTION_KEYS = {
 def _ensure_tables():
     try:
         p28.init_web_cod_bar_tables()
+        p28.ensure_projet28_actions()
     except Exception as e:
         print(f'[Projet28] init tables: {e}')
 
 
-def super_user_required(f):
+def projet28_access_required(f):
+    """Super-user ou droit projet 28 via WEB_DROITS_ACCES."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not is_super_user():
+        if not is_super_user() and not has_project_access(28):
             if request.path.startswith('/projet28/api/'):
-                return jsonify({'error': 'Accès réservé aux super-utilisateurs'}), 403
+                return jsonify({'error': 'Accès non autorisé au Projet 28'}), 403
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated
@@ -74,36 +77,43 @@ def _projet28_before():
 
 @projet28_bp.route('/')
 @login_required
-@super_user_required
+@projet28_access_required
 def index():
     """Accueil : en-tête + choix de section, sans contenu métier par défaut."""
     return render_projet28(section=None)
 
 
+@projet28_bp.route('/mise-en-place')
+@login_required
+@projet28_access_required
+def mise_en_place():
+    return render_projet28(section='mise_en_place')
+
+
 @projet28_bp.route('/generation')
 @login_required
-@super_user_required
+@projet28_access_required
 def generation():
     return render_projet28(section='generation')
 
 
 @projet28_bp.route('/unites')
 @login_required
-@super_user_required
+@projet28_access_required
 def unites():
     return render_projet28(section='unites')
 
 
 @projet28_bp.route('/scan')
 @login_required
-@super_user_required
+@projet28_access_required
 def scan():
     return render_projet28(section='scan')
 
 
 @projet28_bp.route('/etiquettes')
 @login_required
-@super_user_required
+@projet28_access_required
 def etiquettes():
     ids = request.args.get('ids', '')
     return render_projet28(section='etiquettes', etiquette_ids=ids)
@@ -125,14 +135,14 @@ def _current_user_label():
 
 @projet28_bp.route('/api/types')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_types():
     return jsonify(p28.list_types_mp(actif_only=False))
 
 
 @projet28_bp.route('/api/mouvements')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_mouvements():
     q = request.args.get('q')
     num = request.args.get('num_ordre')
@@ -140,9 +150,110 @@ def api_mouvements():
     return jsonify(p28.search_mouvements_entree(q=q, num_ordre=num, limit=limit, for_json=True))
 
 
+@projet28_bp.route('/api/stocks-inventaire')
+@login_required
+@projet28_access_required
+def api_stocks_inventaire():
+    data = p28.search_stocks_inventaire(
+        q=request.args.get('q'),
+        limit=request.args.get('limit', 100),
+        for_json=True,
+    )
+    return jsonify(data)
+
+
+@projet28_bp.route('/api/campagnes-inventaire')
+@login_required
+@projet28_access_required
+def api_campagnes_inventaire():
+    return jsonify({
+        'campagne': p28.get_campagne_active(),
+        'campagnes': p28.list_campagnes(limit=request.args.get('limit', 50)),
+    })
+
+
+@projet28_bp.route('/api/campagnes-inventaire', methods=['POST'])
+@login_required
+@projet28_access_required
+def api_campagnes_inventaire_post():
+    data = request.get_json(silent=True) or {}
+    action = (data.get('action') or 'creer').strip().lower()
+    if action == 'activer':
+        camp, err = p28.activer_campagne(data.get('code_campagne'))
+    else:
+        camp, err = p28.creer_ou_activer_campagne(
+            type_campagne=data.get('type_campagne') or 'TRIMESTRIEL',
+            annee=data.get('annee'),
+            trimestre=data.get('trimestre'),
+            libelle=data.get('libelle'),
+            code_campagne=data.get('code_campagne'),
+            activer=bool(data.get('activer', True)),
+        )
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    return jsonify({
+        'success': True,
+        'campagne': camp,
+        'campagnes': p28.list_campagnes(),
+    })
+
+
+@projet28_bp.route('/api/inventaire-qte', methods=['POST'])
+@login_required
+@projet28_access_required
+def api_inventaire_qte():
+    data = request.get_json(silent=True) or {}
+    row, err = p28.enregistrer_qte_inventoriee(
+        id_stock=data.get('id_stock'),
+        qte_inventoriee=data.get('qte_inventoriee'),
+        utilisateur=_current_user_label(),
+    )
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    return jsonify({'success': True, 'inventaire': row})
+
+
+@projet28_bp.route('/api/generer-inventaire', methods=['POST'])
+@login_required
+@projet28_access_required
+def api_generer_inventaire():
+    data = request.get_json(silent=True) or {}
+    try:
+        id_stock = int(data.get('id_stock'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'id_stock invalide'}), 400
+    id_mvt = data.get('id_mvt')
+    if id_mvt in ('', '-', None):
+        id_mvt = None
+    elif id_mvt is not None:
+        try:
+            id_mvt = int(id_mvt)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'id_mvt invalide'}), 400
+    # Persister aussi la qté inventoriée cible avant génération
+    if data.get('qte_inventoriee') is not None:
+        p28.enregistrer_qte_inventoriee(
+            id_stock=id_stock,
+            qte_inventoriee=data.get('qte_inventoriee'),
+            utilisateur=_current_user_label(),
+        )
+    unites, err = p28.generer_unites_inventaire(
+        id_stock=id_stock,
+        qte_inventoriee=data.get('qte_inventoriee'),
+        lignes=data.get('lignes'),
+        mode=data.get('mode'),
+        id_mvt=id_mvt,
+        utilisateur=_current_user_label(),
+        mettre_en_stock=bool(data.get('mettre_en_stock', True)),
+    )
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    return jsonify({'success': True, 'unites': unites, 'count': len(unites)})
+
+
 @projet28_bp.route('/api/mouvements/<int:id_mvt>')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_mouvement(id_mvt):
     m = p28.get_mouvement_entree(id_mvt, for_json=True)
     if not m:
@@ -152,7 +263,7 @@ def api_mouvement(id_mvt):
 
 @projet28_bp.route('/api/apercu-payload', methods=['POST'])
 @login_required
-@super_user_required
+@projet28_access_required
 def api_apercu_payload():
     data = request.get_json(silent=True) or {}
     try:
@@ -176,7 +287,7 @@ def api_apercu_payload():
 
 @projet28_bp.route('/api/generer', methods=['POST'])
 @login_required
-@super_user_required
+@projet28_access_required
 def api_generer():
     data = request.get_json(silent=True) or {}
     try:
@@ -189,17 +300,27 @@ def api_generer():
         mode=data.get('mode'),
         qte_par_unite=data.get('qte_par_unite'),
         dimensions=data.get('dimensions'),
+        lignes=data.get('lignes'),
         utilisateur=_current_user_label(),
         mettre_en_stock=bool(data.get('mettre_en_stock', True)),
     )
     if err:
         return jsonify({'success': False, 'error': err}), 400
-    return jsonify({'success': True, 'unites': unites, 'count': len(unites)})
+    mvt_maj = p28.get_mouvement_entree(id_mvt, for_json=True)
+    return jsonify({
+        'success': True,
+        'unites': unites,
+        'count': len(unites),
+        'mouvement': mvt_maj,
+        'sum_qte_generee': (mvt_maj or {}).get('SumQteGeneree', 0),
+        'nb_unites_generees': (mvt_maj or {}).get('NbUnitesGenerees', 0),
+        'max_sequence': (mvt_maj or {}).get('MaxSequence', 0),
+    })
 
 
 @projet28_bp.route('/api/unites')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_unites():
     return jsonify(p28.list_unites(
         id_mvt=request.args.get('id_mvt', type=int),
@@ -211,7 +332,7 @@ def api_unites():
 
 @projet28_bp.route('/api/unites/<int:unite_id>')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_unite(unite_id):
     u = p28.get_unite(unite_id=unite_id)
     if not u:
@@ -221,7 +342,7 @@ def api_unite(unite_id):
 
 @projet28_bp.route('/api/unites/by-ids')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_unites_by_ids():
     raw = request.args.get('ids') or ''
     ids = []
@@ -234,7 +355,7 @@ def api_unites_by_ids():
 
 @projet28_bp.route('/api/scan', methods=['POST'])
 @login_required
-@super_user_required
+@projet28_access_required
 def api_scan():
     data = request.get_json(silent=True) or {}
     payload = (data.get('payload') or '').strip()
@@ -273,7 +394,7 @@ def _dec_safe(v):
 
 @projet28_bp.route('/api/unites/<int:unite_id>/mouvements')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_mouvements_unite(unite_id):
     unite = p28.get_unite(unite_id=unite_id)
     if not unite:
@@ -286,7 +407,7 @@ def api_mouvements_unite(unite_id):
 
 @projet28_bp.route('/api/consommer', methods=['POST'])
 @login_required
-@super_user_required
+@projet28_access_required
 def api_consommer():
     data = request.get_json(silent=True) or {}
     try:
@@ -306,7 +427,7 @@ def api_consommer():
 
 @projet28_bp.route('/api/annuler-sortie', methods=['POST'])
 @login_required
-@super_user_required
+@projet28_access_required
 def api_annuler_sortie():
     data = request.get_json(silent=True) or {}
     try:
@@ -335,7 +456,7 @@ def api_annuler_sortie():
 
 @projet28_bp.route('/api/retour-stock', methods=['POST'])
 @login_required
-@super_user_required
+@projet28_access_required
 def api_retour_stock():
     data = request.get_json(silent=True) or {}
     try:
@@ -360,7 +481,7 @@ def api_retour_stock():
 
 @projet28_bp.route('/api/payload-spec')
 @login_required
-@super_user_required
+@projet28_access_required
 def api_payload_spec():
     return jsonify({
         'format': 'MP{ID_MVT}{SEQ3};{TYPE_MP};{CODE_FAM};{CODE_ART};{P|B}',

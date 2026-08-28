@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Modifier Camion – {{ camion.immatriculation }}{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
 {% block content %}
 <div class="edit-camion-wrap">
     <h1>✏️ Modifier Camion – {{ camion.immatriculation }}</h1>
@@ -78,12 +82,13 @@
                     <th>Date</th>
                     <th>Compteur</th>
                     <th>Remarque</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for v in vidanges %}
                 <tr>
-                    <td>{{ v.date or '' }}</td>
+                    <td>{% if v.date %}{{ v.date.strftime('%d/%m/%Y') }}{% endif %}</td>
                     <td>
                       {% if mode_suivi_vidange == 'HEURES' %}
                         {% if v.heures is not none %}{{ '{:,}'.format(v.heures).replace(',', ' ') }} h{% else %}—{% endif %}
@@ -92,6 +97,16 @@
                       {% endif %}
                     </td>
                     <td>{{ v.remarque }}</td>
+                    <td class="hist-actions">
+                      <a href="{{ url_for('projet6.edit_vidange', id=camion.id, vidange_id=v.id) }}" class="btn-hist btn-hist-edit" title="Modifier">
+                        <i class="fas fa-edit"></i>
+                      </a>
+                      <form method="post" action="{{ url_for('projet6.supprimer_vidange', id=camion.id, vidange_id=v.id) }}" class="hist-del-form" onsubmit="return confirm('Supprimer cette vidange ?');">
+                        <button type="submit" class="btn-hist btn-hist-del" title="Supprimer">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -167,5 +182,31 @@
         font-size: 0.9rem;
     }
     .hist-table th { background: #e0f7fa; color: #006064; }
+    .hist-actions {
+        white-space: nowrap;
+        width: 1%;
+        text-align: center;
+        padding: 4px !important;
+    }
+    .hist-actions .hist-del-form { display: inline; margin: 0; }
+    .btn-hist {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 0.85rem;
+        vertical-align: middle;
+        margin: 0 2px;
+    }
+    .btn-hist-edit { background: #eceff1; color: #37474f; }
+    .btn-hist-edit:hover { background: #cfd8dc; color: #263238; }
+    .btn-hist-del { background: #dc3545; color: #fff; }
+    .btn-hist-del:hover { background: #c82333; color: #fff; }
 </style>
 {% endblock %}

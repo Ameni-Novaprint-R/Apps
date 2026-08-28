@@ -219,8 +219,8 @@
     }
     .p6-form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 16px;
+        grid-template-columns: 1fr 1fr 1.3fr 1fr;
+        gap: 16px 20px;
         margin-bottom: 20px;
     }
     .p6-form-group label {
@@ -239,14 +239,38 @@
         border-radius: 6px;
         margin: 0;
         box-sizing: border-box;
+        height: 38px;
+    }
+    .p6-form-group input[readonly] {
+        background: #f5f5f5;
+        color: #78909c;
+        cursor: default;
     }
     .p6-camion-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
+        gap: 6px;
+        flex-wrap: nowrap;
     }
-    .p6-camion-row select { flex: 1 1 180px; }
+    .p6-camion-row select {
+        flex: 1 1 0;
+        min-width: 0;
+        height: 38px;
+    }
+    .p6-camion-row .p6-btn-icon {
+        flex-shrink: 0;
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        font-size: 1rem;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+    }
     .p6-btn {
         padding: 10px 20px;
         border: none;
@@ -287,20 +311,39 @@
         min-width: 1000px;
         border-collapse: collapse;
         table-layout: fixed;
-        font-size: 0.85rem;
     }
     .p6-table-voyage th,
     .p6-table-voyage td {
         border: 1px solid #ccc;
-        padding: 6px;
+        padding: 0;
         text-align: center;
         vertical-align: middle;
         overflow: hidden;
+        background: #fff;
+    }
+    .p6-table-voyage td {
+        font-size: calc(0.85rem + 2pt);
     }
     .p6-table-voyage th {
         background: #e0f7fa;
         color: #006064;
         font-weight: 700;
+        padding: 6px;
+        font-size: 0.85rem;
+    }
+    .p6-table-voyage th.col-dossier,
+    .p6-table-voyage th.col-bl,
+    .p6-table-voyage th.col-client,
+    .p6-table-voyage th.col-article,
+    .p6-table-voyage th.col-quantite:nth-child(5),
+    .p6-table-voyage th.col-narrow:nth-child(8),
+    .p6-table-voyage th.col-narrow:nth-child(9) {
+        font-size: calc(0.85rem + 1pt);
+        white-space: nowrap;
+    }
+    .p6-table-voyage td:focus-within {
+        background: #e8f8fa;
+        box-shadow: inset 0 0 0 2px #0097a7;
     }
     .p6-table-voyage input[type="text"],
     .p6-table-voyage input[type="number"],
@@ -308,15 +351,19 @@
     .p6-table-voyage input:not([type="checkbox"]):not([type="hidden"]) {
         width: 100%;
         max-width: 100%;
-        height: 32px;
+        height: 34px;
         margin: 0;
-        padding: 4px 6px;
+        padding: 4px 8px;
         box-sizing: border-box;
-        font-size: 0.85rem;
+        font-size: calc(0.85rem + 2pt);
+        color: #263238;
         line-height: 1.2;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        background: #fff;
+        text-align: left;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        outline: none;
         vertical-align: middle;
     }
     .p6-table-voyage input[type="checkbox"] {
@@ -326,31 +373,39 @@
         border: initial;
         background: initial;
     }
-    .p6-table-voyage col.col-dossier { width: 118px; }
+    .p6-table-voyage col.col-dossier { width: 106px; }
+    .p6-table-voyage col.col-bl { width: 106px; }
+    .p6-table-voyage col.col-client { width: 16%; min-width: 140px; }
     .p6-table-voyage col.col-quantite { width: 110px; }
-    .p6-table-voyage col.col-article { width: 28%; min-width: 220px; }
+    .p6-table-voyage col.col-article { width: 22%; min-width: 180px; }
     .p6-table-voyage col.col-narrow { width: 100px; }
     .p6-table-voyage col.col-termine { width: 58px; }
     .p6-table-voyage th.col-dossier,
-    .p6-table-voyage td.col-dossier {
-        width: 118px;
-        max-width: 118px;
+    .p6-table-voyage td.col-dossier,
+    .p6-table-voyage th.col-bl,
+    .p6-table-voyage td.col-bl {
+        width: 106px;
+        max-width: 106px;
     }
     .p6-table-voyage th.col-quantite,
     .p6-table-voyage td.col-quantite {
         width: 110px;
         max-width: 110px;
     }
+    .p6-table-voyage th.col-client,
+    .p6-table-voyage td.col-client {
+        width: 16%;
+        min-width: 140px;
+    }
     .p6-table-voyage th.col-article,
     .p6-table-voyage td.col-article {
-        width: 28%;
-        min-width: 220px;
+        width: 20%;
+        min-width: 160px;
     }
     .p6-table-voyage th.col-narrow,
     .p6-table-voyage td.col-narrow {
         width: 100px;
         max-width: 110px;
-        padding: 4px 4px;
     }
     .p6-table-voyage th.col-narrow {
         font-size: 0.75rem;
@@ -359,28 +414,24 @@
         word-break: break-word;
         padding: 6px 4px;
     }
-    .p6-table-voyage td.col-narrow input[type="number"] {
+    .p6-table-voyage td.col-narrow input[type="number"],
+    .p6-table-voyage td.col-quantite input[type="number"] {
         width: 100%;
-        max-width: 100px;
+        max-width: none;
         padding: 4px 4px;
         text-align: center;
         -moz-appearance: textfield;
     }
     .p6-table-voyage td.col-narrow input[type="number"]::-webkit-outer-spin-button,
-    .p6-table-voyage td.col-narrow input[type="number"]::-webkit-inner-spin-button {
+    .p6-table-voyage td.col-narrow input[type="number"]::-webkit-inner-spin-button,
+    .p6-table-voyage td.col-quantite input[type="number"]::-webkit-outer-spin-button,
+    .p6-table-voyage td.col-quantite input[type="number"]::-webkit-inner-spin-button {
         -webkit-appearance: none;
         margin: 0;
     }
-    .p6-table-voyage td.col-article input {
-        width: 100%;
-        min-width: 0;
-    }
-    .p6-table-voyage input.p6-dossier-locked {
-        background: #f0f4f5;
-        color: #37474f;
-        cursor: default;
-    }
-    .p6-table-voyage input.p6-client-locked {
+    .p6-table-voyage input.p6-dossier-locked,
+    .p6-table-voyage input.p6-client-locked,
+    .p6-table-voyage input.p6-bl-locked {
         background: #f0f4f5;
         color: #37474f;
         cursor: default;
@@ -654,11 +705,11 @@
         <div class="p6-form-grid">
           <div class="p6-form-group">
             <label>Date</label>
-            <input type="date" name="date" value="{{ date or '' }}" required>
+            <input type="date" name="date" id="p6-date-voyage" value="{{ date or '' }}" required>
           </div>
           <div class="p6-form-group">
             <label>Destination</label>
-            <input type="text" name="destination" value="{{ destination or '' }}" required>
+            <input type="text" name="destination" id="p6-destination" value="{{ destination or '' }}" required>
           </div>
           <div class="p6-form-group">
             <label>Camion</label>
@@ -670,10 +721,11 @@
                   </option>
                 {% endfor %}
               </select>
-              <a href="{{ url_for('projet6.ajouter_camion') }}" target="_blank" class="p6-btn p6-btn-success p6-btn-sm">
-                <i class="fas fa-plus"></i> Camion
+              <a href="{{ url_for('projet6.ajouter_camion') }}" target="_blank"
+                 class="p6-btn-icon p6-btn-success" title="Ajouter un camion">
+                <i class="fas fa-plus"></i>
               </a>
-              <button type="button" class="p6-btn p6-btn-warning p6-btn-sm" onclick="rafraichirCamions()" title="Actualiser">
+              <button type="button" class="p6-btn-icon p6-btn-warning" onclick="rafraichirCamions()" title="Actualiser la liste">
                 <i class="fas fa-sync-alt"></i>
               </button>
             </div>
@@ -690,13 +742,16 @@
             <label>Numéro de Voyage</label>
             <input type="text" name="numero_voyage" id="numero_voyage" value="{{ numero_voyage or '' }}" readonly>
           </div>
+          <div class="p6-form-group" style="visibility:hidden;"></div>
+          <div class="p6-form-group" style="visibility:hidden;"></div>
         </div>
 
         <div class="p6-table-wrap">
           <table class="p6-table-voyage">
             <colgroup>
               <col class="col-dossier">
-              <col>
+              <col class="col-bl">
+              <col class="col-client">
               <col class="col-article">
               <col class="col-quantite">
               <col class="col-quantite">
@@ -708,7 +763,8 @@
             <thead>
               <tr>
                 <th class="col-dossier">N° Dossier</th>
-                <th>Client</th>
+                <th class="col-bl">N° BL</th>
+                <th class="col-client">Client</th>
                 <th class="col-article">Article</th>
                 <th class="col-quantite">Quantité</th>
                 <th class="col-quantite">Pièces/Carton</th>
@@ -734,11 +790,23 @@
                            onpaste="onNumDossierPaste(event, {{ loop.index0 }})"
                            title="Après sélection : verrouillé. Suppr / Retour arrière vide le n° et les champs liés.">
                   </td>
-                  <td>
+                  <td class="col-bl">
+                    <input type="text" name="num_bl_{{ loop.index0 }}" id="num_bl_{{ loop.index0 }}"
+                           value="{{ ligne.NumBL or '' }}" autocomplete="off"
+                           placeholder="Tapez un n° BL…"
+                           data-locked="{% if ligne.NumBL %}1{% else %}0{% endif %}"
+                           data-locked-value="{{ ligne.NumBL or '' }}"
+                           class="{% if ligne.NumBL %}p6-bl-locked{% endif %}"
+                           oninput="onNumBlInput(this, {{ loop.index0 }})"
+                           onkeydown="onNumBlKeydown(event, {{ loop.index0 }})"
+                           onpaste="onNumBlPaste(event, {{ loop.index0 }})"
+                           title="Après sélection : verrouillé. Suppr / Retour arrière vide le BL et les champs liés.">
+                  </td>
+                  <td class="col-client">
                     <input type="text" name="client_{{ loop.index0 }}" id="client_{{ loop.index0 }}"
                            value="{{ ligne.Client }}" required autocomplete="off"
                            placeholder="Tapez un client…"
-                           {% if ligne.NumDossier %}readonly class="p6-client-locked"{% endif %}
+                           {% if ligne.NumDossier or ligne.NumBL %}readonly class="p6-client-locked"{% endif %}
                            oninput="autocompleteCommande(this, {{ loop.index0 }})"
                            onkeydown="onClientKeydown(event, {{ loop.index0 }})">
                   </td>
@@ -784,24 +852,35 @@
     <div class="p6-card">
       <h2 class="p6-section-title"><i class="fas fa-list"></i> Liste des voyages</h2>
 
-      <form method="get" action="{{ url_for('projet6.programme_voyage') }}" class="p6-search-form">
+      <form method="get" action="{{ url_for('projet6.programme_voyage') }}" class="p6-search-form" id="p6-form-liste-voyages">
         <input type="hidden" name="section" value="liste_voyages">
         <div class="p6-form-group">
-          <label>Période</label>
-          <select name="periode" id="p6-periode-voyages" onchange="this.form.submit()">
-            <option value="semaine" {% if search_periode == 'semaine' %}selected{% endif %}>Semaine en cours</option>
-            <option value="mois" {% if search_periode == 'mois' %}selected{% endif %}>Mois en cours</option>
-            <option value="historique" {% if search_periode == 'historique' %}selected{% endif %}>Tout l'historique</option>
+          <label>Mois</label>
+          <select name="mois" id="p6-mois-sel">
+            <option value="recent" {% if search_mois == 'recent' or not search_mois %}selected{% endif %}>Récent (30 j)</option>
+            <option value="tous" {% if search_mois == 'tous' %}selected{% endif %}>Tous les mois</option>
+            <option disabled>──────────</option>
+            {% set mois_noms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'] %}
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if search_mois == m|string %}selected{% endif %}>
+              {{ mois_noms[m-1] }}
+            </option>
+            {% endfor %}
           </select>
         </div>
         <div class="p6-form-group">
-          <label>Numéro de voyage</label>
-          <input type="text" name="numero" value="{{ search_numero or '' }}" placeholder="Ex. 251">
+          <label>Année</label>
+          <select name="annee" id="p6-annee-sel">
+            {% for y in range(current_year - 3, current_year + 2) %}
+            <option value="{{ y }}" {% if search_annee|int == y %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <button type="submit" class="p6-btn p6-btn-primary p6-btn-sm">
-          <i class="fas fa-search"></i> Rechercher
-        </button>
-        <a href="{{ url_for('projet6.programme_voyage', section='liste_voyages', periode='semaine') }}" class="p6-btn p6-btn-secondary p6-btn-sm">
+        <div class="p6-form-group">
+          <label>N° Voyage</label>
+          <input type="text" name="numero" id="p6-numero-voyage" value="{{ search_numero or '' }}" placeholder="Ex. 251" autocomplete="off">
+        </div>
+        <a href="{{ url_for('projet6.programme_voyage', section='liste_voyages') }}" class="p6-btn p6-btn-secondary p6-btn-sm">
           <i class="fas fa-undo"></i> Réinitialiser
         </a>
       </form>
@@ -818,7 +897,7 @@
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="p6-liste-voyages-tbody">
             {% if voyages %}
               {% for voyage in voyages %}
               <tr>
@@ -971,6 +1050,80 @@
 const P6 = { activeSection: null };
 let ligneIndex = {{ lignes|length if lignes else 0 }};
 
+// ── Filtrage AJAX liste des voyages ─────────────────────────────────────────
+(function () {
+  let _debounceTimer = null;
+
+  function p6FetchVoyages() {
+    const form = document.getElementById('p6-form-liste-voyages');
+    const tbody = document.getElementById('p6-liste-voyages-tbody');
+    if (!form || !tbody) return;
+
+    const params = new URLSearchParams({
+      mois:   document.getElementById('p6-mois-sel')?.value || 'recent',
+      annee:  document.getElementById('p6-annee-sel')?.value || '',
+      numero: document.getElementById('p6-numero-voyage')?.value || '',
+    });
+
+    fetch('/projet6/api/voyages?' + params.toString())
+      .then(r => r.json())
+      .then(rows => {
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="p6-empty-list">Aucun voyage trouvé.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = rows.map(v => {
+          const editUrl  = `/projet6/voyage/${v.id}/edit`;
+          const pdfUrl   = `/projet6/pdf/${v.id}`;
+          const suppUrl  = `/projet6/voyage/${v.id}/supprimer`;
+          const dateDisp = v.date ? v.date.split('-').reverse().join('/') : '';
+          return `<tr>
+            <td>${p6Esc(v.numero)}</td>
+            <td>${dateDisp}</td>
+            <td>${p6Esc(v.destination)}</td>
+            <td>${p6Esc(v.camion)}</td>
+            <td>${p6Esc(v.chauffeur)}</td>
+            <td class="p6-actions-cell">
+              <div class="p6-actions-group">
+                <a href="${editUrl}" class="p6-btn p6-btn-secondary p6-btn-sm" title="Modifier"><i class="fas fa-edit"></i></a>
+                <a href="${pdfUrl}" target="_blank" class="p6-btn p6-btn-primary p6-btn-sm" title="PDF"><i class="fas fa-file-pdf"></i></a>
+                <form method="post" action="${suppUrl}" class="p6-inline-form" onsubmit="return confirm('Supprimer ce voyage ?');">
+                  <button type="submit" class="p6-btn p6-btn-danger p6-btn-sm" title="Supprimer"><i class="fas fa-trash-alt"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
+      })
+      .catch(() => {
+        tbody.innerHTML = '<tr><td colspan="6" class="p6-empty-list">Erreur de chargement.</td></tr>';
+      });
+  }
+
+  function p6Esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  window.p6SubmitListeVoyages = p6FetchVoyages;
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // selects → rechargement immédiat
+    ['p6-mois-sel', 'p6-annee-sel'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', p6FetchVoyages);
+    });
+    // saisie N° voyage → debounce 400 ms, focus conservé
+    const inp = document.getElementById('p6-numero-voyage');
+    if (inp) {
+      inp.addEventListener('input', function () {
+        clearTimeout(_debounceTimer);
+        _debounceTimer = setTimeout(p6FetchVoyages, 400);
+      });
+    }
+  });
+})();
+
+
 function p6SyncSectionUrl(name) {
   const url = new URL(window.location.href);
   if (name) {
@@ -1053,7 +1206,16 @@ function ajouterLigne() {
              onpaste="onNumDossierPaste(event, ${idx})"
              title="Après sélection : verrouillé. Suppr / Retour arrière vide le n° et les champs liés.">
     </td>
-    <td>
+    <td class="col-bl">
+      <input type="text" name="num_bl_${idx}" id="num_bl_${idx}" autocomplete="off"
+             placeholder="Tapez un n° BL…"
+             data-locked="0" data-locked-value=""
+             oninput="onNumBlInput(this, ${idx})"
+             onkeydown="onNumBlKeydown(event, ${idx})"
+             onpaste="onNumBlPaste(event, ${idx})"
+             title="Après sélection : verrouillé. Suppr / Retour arrière vide le BL et les champs liés.">
+    </td>
+    <td class="col-client">
       <input type="text" name="client_${idx}" id="client_${idx}" required autocomplete="off"
              placeholder="Tapez un client…"
              oninput="autocompleteCommande(this, ${idx})"
@@ -1096,15 +1258,28 @@ function unlockNumDossier(index) {
   el.dataset.locked = '0';
   el.dataset.lockedValue = '';
   el.classList.remove('p6-dossier-locked');
-  setClientLocked(index, false);
+  const bl = document.getElementById(`num_bl_${index}`);
+  if (!bl || bl.dataset.locked !== '1') setClientLocked(index, false);
 }
 
-function clearNumDossierField(index) {
-  const el = document.getElementById(`num_dossier_${index}`);
+function lockNumBl(index, numero) {
+  const el = document.getElementById(`num_bl_${index}`);
   if (!el) return;
-  el.value = '';
-  unlockNumDossier(index);
+  el.dataset.locked = '1';
+  el.dataset.lockedValue = numero || el.value || '';
+  el.classList.add('p6-bl-locked');
+  setClientLocked(index, true);
+}
 
+function unlockNumBl(index) {
+  const el = document.getElementById(`num_bl_${index}`);
+  if (!el) return;
+  el.dataset.locked = '0';
+  el.dataset.lockedValue = '';
+  el.classList.remove('p6-bl-locked');
+}
+
+function clearLigneLieeFields(index, keepBl) {
   const client = document.getElementById(`client_${index}`);
   const article = document.getElementById(`article_${index}`);
   const quantite = document.getElementById(`quantite_${index}`);
@@ -1113,6 +1288,8 @@ function clearNumDossierField(index) {
   const nbCarton = document.getElementById(`nb_carton_${index}`);
   const nbPalette = document.getElementById(`nb_palette_${index}`);
   const termine = document.querySelector(`input[name="termine_${index}"]`);
+  const dossier = document.getElementById(`num_dossier_${index}`);
+  const bl = document.getElementById(`num_bl_${index}`);
 
   if (client) client.value = '';
   if (article) article.value = '';
@@ -1122,8 +1299,23 @@ function clearNumDossierField(index) {
   if (nbCarton) nbCarton.value = '';
   if (nbPalette) nbPalette.value = '';
   if (termine) termine.checked = false;
-
+  if (dossier) {
+    dossier.value = '';
+    unlockNumDossier(index);
+  }
+  if (!keepBl && bl) {
+    bl.value = '';
+    unlockNumBl(index);
+  }
   hideCmdSuggestions();
+}
+
+function clearNumDossierField(index) {
+  clearLigneLieeFields(index, false);
+}
+
+function clearNumBlField(index) {
+  clearLigneLieeFields(index, false);
 }
 
 function onNumDossierKeydown(e, index) {
@@ -1170,6 +1362,136 @@ function onNumDossierInput(input, index) {
     return;
   }
   autocompleteCommande(input, index);
+}
+
+function onNumBlKeydown(e, index) {
+  const el = e.target;
+  if (el.dataset.locked !== '1' && handleSuggestKeydown(e, index)) return;
+  if (el.dataset.locked !== '1') return;
+  const navKeys = ['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'];
+  if (navKeys.includes(e.key)) return;
+  if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'A', 'C'].includes(e.key)) return;
+  if (e.key === 'Backspace' || e.key === 'Delete') {
+    e.preventDefault();
+    clearNumBlField(index);
+    return;
+  }
+  e.preventDefault();
+}
+
+function onNumBlPaste(e, index) {
+  if (e.target.dataset.locked === '1') e.preventDefault();
+}
+
+function onNumBlInput(input, index) {
+  if (input.dataset.locked === '1') {
+    if (!input.value) {
+      unlockNumBl(index);
+      return;
+    }
+    input.value = input.dataset.lockedValue || '';
+    return;
+  }
+  autocompleteBonsLiv(input, index);
+}
+
+async function fetchBonsLiv(query) {
+  const response = await fetch(`/api/bons_liv?q=${encodeURIComponent(query)}`);
+  return await response.json();
+}
+
+async function autocompleteBonsLiv(input, index) {
+  const query = (input.value || '').trim();
+  p6SuggestInput = input;
+  p6SuggestLineIndex = index;
+  clearTimeout(p6SuggestTimer);
+
+  if (!query) {
+    hideCmdSuggestions();
+    return;
+  }
+
+  const seq = ++p6SuggestSeq;
+  p6SuggestTimer = setTimeout(async () => {
+    try {
+      const results = await fetchBonsLiv(query);
+      if (seq !== p6SuggestSeq || p6SuggestInput !== input) return;
+
+      const box = getCmdSuggestionsBox();
+      box.innerHTML = '';
+      p6SuggestActiveIndex = -1;
+
+      if (!Array.isArray(results)) {
+        box.innerHTML = '<div class="p6-cmd-empty">Erreur de chargement</div>';
+        placeCmdSuggestions(input);
+        return;
+      }
+      if (!results.length) {
+        box.innerHTML = '<div class="p6-cmd-empty">Aucun résultat</div>';
+        placeCmdSuggestions(input);
+        return;
+      }
+
+      results.forEach(bl => {
+        const item = document.createElement('div');
+        item.className = 'p6-cmd-item';
+        const num = document.createElement('span');
+        num.className = 'p6-cmd-num';
+        num.textContent = bl.Numero || '';
+        const meta = document.createElement('span');
+        meta.className = 'p6-cmd-meta';
+        const parts = [bl.Client, bl.Reference].filter(Boolean);
+        meta.textContent = parts.length ? (' — ' + parts.join(' — ')) : '';
+        item.appendChild(num);
+        item.appendChild(meta);
+        item.addEventListener('mousedown', (ev) => {
+          ev.preventDefault();
+          selectBonLiv(index, bl);
+        });
+        box.appendChild(item);
+      });
+      placeCmdSuggestions(input);
+      p6SuggestActiveIndex = 0;
+      highlightSuggestItem(0);
+    } catch (error) {
+      if (seq !== p6SuggestSeq || p6SuggestInput !== input) return;
+      const box = getCmdSuggestionsBox();
+      box.innerHTML = '<div class="p6-cmd-empty">Erreur serveur</div>';
+      placeCmdSuggestions(input);
+    }
+  }, 200);
+}
+
+function selectBonLiv(index, bl) {
+  const numBl = String((bl && bl.Numero) || '').trim();
+  const numDossier = String((bl && bl.NumDossier) || '').trim();
+  const blInput = document.getElementById(`num_bl_${index}`);
+  if (blInput) {
+    blInput.value = numBl;
+    lockNumBl(index, numBl);
+  }
+  const dossier = document.getElementById(`num_dossier_${index}`);
+  if (dossier) {
+    dossier.value = numDossier;
+    if (numDossier) lockNumDossier(index, numDossier);
+  }
+  const client = document.getElementById(`client_${index}`);
+  if (client) {
+    client.value = (bl && bl.Client) || '';
+    setClientLocked(index, true);
+  }
+  const art = document.getElementById(`article_${index}`);
+  if (art) art.value = (bl && bl.Reference) || '';
+  const qte = document.getElementById(`quantite_${index}`);
+  if (qte) qte.value = (bl && bl.Quantite) || '';
+
+  const dest = document.getElementById('p6-destination');
+  if (dest && bl && bl.Destination && !dest.value) dest.value = bl.Destination;
+  const dateVoyage = document.getElementById('p6-date-voyage');
+  if (dateVoyage && bl && bl.DateBl && !dateVoyage.value) dateVoyage.value = bl.DateBl;
+
+  hideCmdSuggestions();
+  calculerCartonsPalettes(index);
 }
 
 function calculerCartonsPalettes(index) {

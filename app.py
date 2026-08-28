@@ -44,6 +44,7 @@ NUM_TO_URL = {
     26: '/projet26/',
     27: '/projet27/',
     28: '/projet28/',
+    29: '/projet29/',
 }
 
 
@@ -88,6 +89,11 @@ def api_navigation_menu():
             ensure_projet28_in_web_projets()
         except Exception as e:
             print(f"[navigation-menu] ensure_projet28: {e}")
+        try:
+            from routes.projet29_routes import ensure_projet29_in_web_projets
+            ensure_projet29_in_web_projets()
+        except Exception as e:
+            print(f"[navigation-menu] ensure_projet29: {e}")
         try:
             from routes.projet4_routes import ensure_projet4_in_web_projets
             ensure_projet4_in_web_projets()
@@ -138,6 +144,8 @@ def api_navigation_menu():
                 nom = 'Rapport de Visite'
             if num == 28:
                 nom = 'Gestion des codes-barres MP'
+            if num == 29:
+                nom = 'Suivi des connexions'
             projects.append({
                 'id': p.get('id'),
                 'url': url,
@@ -260,6 +268,7 @@ from routes.projet25_routes import projet25_bp
 from routes.projet26_routes import projet26_bp
 from routes.projet27_routes import projet27_bp
 from routes.projet28_routes import projet28_bp
+from routes.projet29_routes import projet29_bp
 from routes.projet4_routes import projet4_bp
 from routes.admin_routes import admin_bp
 from routes.crystal_reports_routes import crystal_reports
@@ -283,6 +292,7 @@ app.register_blueprint(projet25_bp)
 app.register_blueprint(projet26_bp)
 app.register_blueprint(projet27_bp)
 app.register_blueprint(projet28_bp)
+app.register_blueprint(projet29_bp)
 app.register_blueprint(projet4_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(crystal_reports)
@@ -327,6 +337,13 @@ def _ensure_projets_web_menu():
         except Exception as e:
             print(f"[Projet 28] ensure_projet28_in_web_projets: {e}")
         app._projet28_web_projets_ensured = True
+    if not getattr(app, '_projet29_web_projets_ensured', False):
+        try:
+            from routes.projet29_routes import ensure_projet29_in_web_projets
+            ensure_projet29_in_web_projets()
+        except Exception as e:
+            print(f"[Projet 29] ensure_projet29_in_web_projets: {e}")
+        app._projet29_web_projets_ensured = True
     if not getattr(app, '_projet4_web_projets_ensured', False):
         try:
             from routes.projet4_routes import ensure_projet4_in_web_projets

@@ -290,5 +290,68 @@
     });
     </script>
 
+    {% if is_authenticated() %}
+    <script>
+    (function () {
+        const STORAGE_KEY = 'novaprint_tab_id';
+        let tabId = sessionStorage.getItem(STORAGE_KEY);
+        if (!tabId) {
+            tabId = (crypto.randomUUID && crypto.randomUUID()) ||
+                ('t-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+            sessionStorage.setItem(STORAGE_KEY, tabId);
+        }
+
+        function payload() {
+            return JSON.stringify({
+                tab_id: tabId,
+                path: location.pathname + location.search,
+                title: document.title || ''
+            });
+        }
+
+        function ping() {
+            fetch('/projet29/api/heartbeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload(),
+                credentials: 'same-origin',
+                keepalive: true
+            }).catch(function () {});
+        }
+
+        function leave() {
+            const params = new URLSearchParams({ tab_id: tabId });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('/projet29/api/leave', params);
+            } else {
+                fetch('/projet29/api/leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                    credentials: 'same-origin',
+                    keepalive: true
+                }).catch(function () {});
+            }
+        }
+
+        ping();
+        setInterval(function () {
+            if (document.visibilityState === 'visible') ping();
+        }, 15000);
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') ping();
+            else ping();
+        });
+        window.addEventListener('pagehide', leave);
+
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest && e.target.closest('a[href*="/auth/logout"]');
+            if (a) leave();
+        });
+    })();
+    </script>
+    {% endif %}
+
 </body>
 </html>

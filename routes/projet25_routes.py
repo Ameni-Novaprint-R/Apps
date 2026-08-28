@@ -23,6 +23,7 @@ PROJET25_SECTION_KEYS = {
     'Organigramme validateurs': 'validateurs',
     'Jours fériés': 'feries',
     'Solde de congés': 'soldes',
+    'Calendrier des absences': 'calendrier',
 }
 
 
@@ -61,6 +62,8 @@ def get_projet25_allowed_sections():
                 key = 'feries'
             elif 'solde' in nl and 'cong' in nl:
                 key = 'soldes'
+            elif 'calendrier' in nl or ('absence' in nl and 'calend' in nl):
+                key = 'calendrier'
         if key and key not in allowed:
             allowed.append(key)
     if is_super_user() and not allowed:
@@ -428,6 +431,21 @@ def api_solde_fiches_ecarts():
     if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
         return jsonify({'error': 'Accès refusé'}), 403
     return jsonify(p25_solde.list_import_ecarts())
+
+
+@projet25_bp.route('/api/calendrier-absences')
+@login_required
+def api_calendrier_absences():
+    if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
+        return jsonify({'error': 'Accès refusé'}), 403
+    debut = request.args.get('debut')
+    fin = request.args.get('fin')
+    if not debut or not fin:
+        return jsonify({'error': 'Paramètres debut et fin requis (YYYY-MM-DD)'}), 400
+    try:
+        return jsonify(p25.get_calendrier_absences(debut, fin))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @projet25_bp.route('/api/soldes', methods=['GET', 'POST'])

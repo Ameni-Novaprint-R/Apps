@@ -375,8 +375,9 @@ def has_project_access(project_id):
                         INNER JOIN WEB_ACTIONS WA ON WA.ID = WDA.ID_Action
                         INNER JOIN WEB_SECTIONS WS ON WS.ID = WA.ID_Section
                         INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
-                        WHERE WDA.NomAtelier = ? AND (WDA.Autorise = 1 OR WDA.Autorise IS NULL) AND WP.NumProj = ?
-                    """, (nom_atelier, project_id))
+                        WHERE WDA.NomAtelier = ? AND (WDA.Autorise = 1 OR WDA.Autorise IS NULL)
+                        AND (WP.NumProj = ? OR WP.ID = ?)
+                    """, (nom_atelier, project_id, project_id))
                     r = cursor.fetchone()
                     if r and r.nb and r.nb > 0:
                         return True
@@ -395,16 +396,17 @@ def has_project_access(project_id):
             return True
         
         with get_db_cursor() as cursor:
-            # Vérifier si l'utilisateur a au moins un droit sur ce projet
+            # project_id = NumProj (ex. 28) ou ID interne WEB_PROJETS (ex. 29)
             cursor.execute("""
                 SELECT COUNT(*) as nb_droits
                 FROM WEB_DROITS_ACCES WDA
                 INNER JOIN WEB_ACTIONS WA ON WA.ID = WDA.ID_Action
                 INNER JOIN WEB_SECTIONS WS ON WS.ID = WA.ID_Section
+                INNER JOIN WEB_PROJETS WP ON WP.ID = WS.ID_Proj
                 WHERE WDA.Matricule = ?
                 AND (WDA.Autorise = 1 OR WDA.Autorise IS NULL)
-                AND WS.ID_Proj = ?
-            """, (matricule, project_id))
+                AND (WP.NumProj = ? OR WP.ID = ?)
+            """, (matricule, project_id, project_id))
             
             result = cursor.fetchone()
             return result and result.nb_droits > 0

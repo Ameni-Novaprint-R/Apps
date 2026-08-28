@@ -35,6 +35,7 @@ PROJECT_TO_CATEGORY = {
     26: 'rh-organisation',
     27: 'finance-pilotage',
     28: 'production-exploitation',
+    29: 'systemes-support',
 }
 
 CATEGORY_DEFINITIONS = [
@@ -94,6 +95,7 @@ def normalize_project_display_name(num, nom):
         26: 'Gestion des formations',
         27: 'Crédit Leasing',
         28: 'Gestion des codes-barres MP',
+        29: 'Suivi des connexions',
         4: 'Rapport de Visite',
     }
     return overrides.get(num, nom or '')
