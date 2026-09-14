@@ -103,37 +103,110 @@
     .p28-legend .lg-orange { background: #ffcc80; }
     .p28-legend .lg-bleu { background: #90caf9; }
 
-    /* Étiquettes A4 */
-    .p28-label-sheet { display: none; }
-    @media screen {
-        .p28-label-preview-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-        .p28-label {
-            border: 1px solid #333; padding: 10px 12px; background: #fff;
-            font-size: 11px; page-break-inside: avoid;
-        }
+    /* Étiquettes — aperçu écran (ratio A5 paysage) */
+    .p28-label-sheet { display: none !important; }
+    .p28-label-preview-wrap {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(520px, 1fr));
+        gap: 16px;
     }
-    @media print {
-        body * { visibility: hidden !important; }
-        .p28-label-sheet, .p28-label-sheet * { visibility: visible !important; }
-        .p28-label-sheet {
-            display: block !important; position: absolute; left: 0; top: 0; width: 100%;
-        }
-        .p28-no-print { display: none !important; }
-        .p28-label {
-            border: 1px solid #000; padding: 8mm; margin: 0 0 6mm 0;
-            page-break-inside: avoid; break-inside: avoid;
-            width: 190mm; box-sizing: border-box;
-        }
-        .p28-label-sheet .p28-label:nth-child(2n) { page-break-after: always; }
+    .p28-label {
+        border: 1px solid #333;
+        background: #fff;
+        box-sizing: border-box;
+        width: 100%;
+        aspect-ratio: 210 / 148;
+        padding: 14px 16px 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        font-family: Arial, Helvetica, sans-serif;
     }
-    .p28-label-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; border-bottom: 1px solid #000; padding-bottom: 4px; }
-    .p28-label-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
-    .p28-label-grid .full { grid-column: 1 / -1; }
-    .p28-label-grid .k { color: #444; }
-    .p28-label-grid .v { font-weight: 600; }
-    .p28-label-bc { text-align: center; margin-top: 8px; }
-    .p28-label-bc svg { max-width: 100%; height: 48px; }
-    .p28-label-payload { font-family: Consolas, monospace; font-size: 9px; word-break: break-all; margin-top: 4px; }
+    .p28-label-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-shrink: 0;
+        padding-bottom: 8px;
+        border-bottom: 1.5px solid #111;
+    }
+    .p28-label-logo {
+        height: 40px; width: auto; max-width: 115px; object-fit: contain; flex-shrink: 0;
+    }
+    .p28-label-title-wrap { flex: 1; min-width: 0; }
+    .p28-label-title {
+        font-weight: 700; font-size: 17.5px; margin: 0; line-height: 1.15; color: #111;
+    }
+    .p28-label-subtitle {
+        margin: 2px 0 0; font-size: 10.5px; color: #666; font-weight: 500;
+    }
+    .p28-label-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        justify-content: flex-start;
+        gap: 22px;
+        padding-top: 10px;
+        padding-bottom: 4px;
+    }
+    .p28-label-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 28px;
+        row-gap: 16px;
+        align-content: start;
+        flex: 0 0 auto;
+    }
+    .p28-label-field {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+        line-height: 1.25;
+    }
+    .p28-label-field.span2 { grid-column: 1 / -1; }
+    .p28-label-field .k {
+        flex-shrink: 0;
+        font-size: 12.5px;
+        color: #666;
+        font-weight: 400;
+    }
+    .p28-label-field .v {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #111;
+        min-width: 0;
+        word-break: break-word;
+    }
+    .p28-label-bc {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        flex: 0 0 auto;
+        width: 100%;
+        margin-top: 2px;
+        padding-top: 8px;
+        border-top: 1px solid #111;
+    }
+    .p28-label-bc svg {
+        display: block;
+        width: 100% !important;
+        max-width: 100%;
+        height: 52px !important;
+    }
+    .p28-label-payload {
+        font-family: Consolas, 'Courier New', monospace;
+        font-size: 13.5px; font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 5px; line-height: 1.2;
+        width: 100%;
+        text-align: center;
+        color: #111;
+    }
 </style>
 {% endblock %}
 
@@ -243,7 +316,7 @@
     <div class="p28-card p28-no-print">
         <h2>Mise en place – inventaire initial des stocks MP</h2>
         <div class="p28-alert info">
-            Liste des stocks MP avec <code>QteStock &gt; 0</code>. Dernière entrée <code>TypePiece = C</code> :
+            Liste des stocks MP avec <code>QteStock &gt;= 1</code>. Dernière entrée <code>TypePiece = C</code> :
             <strong>ID MVT</strong> = <code>GS_MVT_STOCKS.ID</code>.
             Génération contrôlée sur la <strong>qté inventoriée</strong> (pas la Qté mvt).
             Si « - » : génération sans ID_MVT ERP (<code>MPS…</code>).
@@ -260,13 +333,19 @@
                 <input type="text" id="inv-q" placeholder="ex. COUCHE, 9354…">
             </div>
             <button class="p28-btn" type="button" id="btn-search-inv"><i class="fas fa-search"></i> Rechercher</button>
+            <button class="p28-btn secondary" type="button" id="btn-export-inv-excel" title="Exporter le tableau affiché (filtres inclus)">
+                <i class="fas fa-file-excel"></i> Excel
+            </button>
+            <button class="p28-btn outline" type="button" id="btn-export-inv-pdf" title="Exporter le tableau affiché en PDF">
+                <i class="fas fa-file-pdf"></i> PDF
+            </button>
         </div>
         <div class="p28-scroll" style="max-height:380px;">
             <table class="p28-table" id="tbl-inv">
                 <thead>
                     <tr>
                         <th>Stock</th><th>Type</th><th>Famille</th><th>Article</th>
-                        <th>Qté stock</th><th>Unité</th><th>Qté inventoriée</th>
+                        <th>Qté stock</th><th>Unité</th><th>Qté inventoriée</th><th>Écart</th>
                         <th>ID MVT</th><th>N° entrée</th><th>Qté mvt</th><th>Déjà gén.</th><th>Info</th>
                     </tr>
                     <tr class="p28-filter-row">
@@ -282,6 +361,7 @@
                         <th><input type="text" class="p28-col-filter" data-col="9" placeholder="Filtrer…"></th>
                         <th><input type="text" class="p28-col-filter" data-col="10" placeholder="Filtrer…"></th>
                         <th><input type="text" class="p28-col-filter" data-col="11" placeholder="Filtrer…"></th>
+                        <th><input type="text" class="p28-col-filter" data-col="12" placeholder="Filtrer…"></th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -307,6 +387,10 @@
             <div class="p28-field">
                 <label>Qté inventoriée (cible)</label>
                 <input type="number" id="inv-qte-cible" min="0.001" step="any">
+            </div>
+            <div class="p28-field">
+                <label>Somme qté saisies (palettes/bobines)</label>
+                <input type="text" id="inv-somme-lignes" readonly value="—" style="background:#f5f5f5;font-weight:700;">
             </div>
         </div>
         <div class="p28-scroll" style="max-height:360px; margin-bottom:12px;">
@@ -353,6 +437,12 @@
                 <input type="text" id="gen-q" placeholder="ex. COUCHE, 9354, 230737…">
             </div>
             <button class="p28-btn" type="button" id="btn-search-mvt"><i class="fas fa-search"></i> Rechercher</button>
+            <button class="p28-btn secondary" type="button" id="btn-export-mvt-excel" title="Exporter le tableau affiché (filtres inclus)">
+                <i class="fas fa-file-excel"></i> Excel
+            </button>
+            <button class="p28-btn outline" type="button" id="btn-export-mvt-pdf" title="Exporter le tableau affiché en PDF">
+                <i class="fas fa-file-pdf"></i> PDF
+            </button>
         </div>
         <div class="p28-scroll">
             <table class="p28-table" id="tbl-mvt">
@@ -436,6 +526,13 @@
     {% if section == 'unites' %}
     <div class="p28-card p28-no-print">
         <h2>Unités générées</h2>
+        <div class="p28-alert info">
+            Correction de quantité (super-utilisateur) : le <strong>payload / CodeId restent inchangés</strong>.
+            La <strong>qté inventoriée</strong> est recalculée sur la <strong>campagne active</strong>
+            (affichée clairement avant validation).
+            Après correction, <strong>réimprimez</strong> l’étiquette et détruisez l’ancienne.
+            Impossible s’il existe déjà des sorties / retours sur le code.
+        </div>
         <div class="p28-form-row">
             <div class="p28-field grow">
                 <label>Recherche</label>
@@ -459,12 +556,38 @@
                     <tr>
                         <th></th><th>CodeId</th><th>Payload</th><th>Article</th>
                         <th>Mode</th><th>Reste</th><th>Origine</th><th>Statut</th><th>N° entrée</th>
+                        {% if is_super %}<th>Actions</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </div>
     </div>
+
+    {% if is_super %}
+    <div id="p28-modal-corriger-qte" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:10px; padding:20px; width:min(480px,94vw); box-shadow:0 8px 28px rgba(0,0,0,.25);">
+            <h3 style="margin:0 0 10px; color:#2e7d32;">Corriger la quantité</h3>
+            <div id="corr-qte-campagne" class="p28-alert info" style="margin-bottom:12px;">
+                Chargement de la campagne active…
+            </div>
+            <p id="corr-qte-info" style="font-size:0.9rem; color:#555; margin-bottom:12px;"></p>
+            <div class="p28-field" style="margin-bottom:12px;">
+                <label>Nouvelle quantité</label>
+                <input type="number" id="corr-qte-input" min="0.001" step="any">
+            </div>
+            <p style="font-size:0.8rem; color:#666; margin-bottom:14px;">
+                Le code-barres (payload) ne change pas. La qté inventoriée sera recalculée
+                <strong>uniquement sur la campagne indiquée ci-dessus</strong>.
+                Réimprimez puis détruisez l’ancienne étiquette.
+            </p>
+            <div class="p28-form-row" style="margin:0; justify-content:flex-end;">
+                <button type="button" class="p28-btn outline" id="btn-corr-qte-cancel">Annuler</button>
+                <button type="button" class="p28-btn" id="btn-corr-qte-ok">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
 
     {% if section == 'scan' %}
@@ -534,10 +657,11 @@
 
     {% if section == 'etiquettes' %}
     <div class="p28-card p28-no-print">
-        <h2>Impression étiquettes A4</h2>
+        <h2>Impression étiquettes A5</h2>
         <div class="p28-alert info">
-            Template V1 : champs métier prêts ; certaines sources (BR, fournisseur, origine…) seront branchées après validation.
-            Utilisez Ctrl+P / Imprimer.
+            Format <strong>A5 paysage</strong> (210×148&nbsp;mm). L’impression ouvre une fenêtre dédiée
+            pour un rendu plein page fiable. Autorisez les pop-ups si demandé.
+            Dans la boîte d’impression : laissez le format proposé / A5 paysage.
         </div>
         <div class="p28-form-row">
             <div class="p28-field grow">
@@ -545,14 +669,13 @@
                 <input type="text" id="etiq-ids" value="{{ etiquette_ids or '' }}" placeholder="12,13,14">
             </div>
             <button class="p28-btn" type="button" id="btn-load-etiq">Charger</button>
-            <button class="p28-btn secondary" type="button" id="btn-print-etiq">Imprimer (A4)</button>
+            <button class="p28-btn secondary" type="button" id="btn-print-etiq">Imprimer (A5 paysage)</button>
         </div>
         <div class="p28-label-preview-wrap" id="etiq-preview"></div>
     </div>
     {% endif %}
 
-    <!-- Zone impression commune -->
-    <div class="p28-label-sheet" id="p28-print-sheet"></div>
+    <!-- Zone impression gérée via fenêtre dédiée (printLabelsA5) -->
 </div>
 
 <script>
@@ -586,9 +709,9 @@
             JsBarcode(svgEl, payload, {
                 format: 'CODE128',
                 displayValue: false,
-                margin: 4,
-                height: 48,
-                width: 1.4
+                margin: 0,
+                height: 56,
+                width: 2.4
             });
         } catch (e) {
             console.warn('JsBarcode', e);
@@ -702,47 +825,339 @@
         });
     }
 
-    function buildLabelHtml(u) {
+    function p28TableExportData(table) {
+        if (!table) return null;
+        const headers = [];
+        const headerRow = table.querySelector('thead tr:not(.p28-filter-row)');
+        if (headerRow) {
+            headerRow.querySelectorAll('th').forEach(th => {
+                headers.push((th.textContent || '').replace(/\s+/g, ' ').trim());
+            });
+        }
+        const rows = [];
+        table.querySelectorAll('tbody tr').forEach(tr => {
+            if (tr.style.display === 'none') return;
+            if (tr.querySelector('td[colspan]')) return;
+            const cells = Array.from(tr.children).map(td => cellFilterText(td));
+            if (!cells.length) return;
+            rows.push(cells);
+        });
+        return { headers: headers, rows: rows };
+    }
+
+    function p28DownloadBlob(blob, filename) {
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function exportP28TableExcel(tableId, basename) {
+        const table = document.getElementById(tableId);
+        const data = p28TableExportData(table);
+        if (!data || !data.headers.length) {
+            msg('Tableau introuvable.', 'err');
+            return;
+        }
+        if (!data.rows.length) {
+            msg('Aucune ligne à exporter (vérifiez les filtres).', 'err');
+            return;
+        }
+        const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const lines = [data.headers.map(esc).join(';')];
+        data.rows.forEach(row => {
+            const padded = data.headers.map((_, i) => esc(row[i] != null ? row[i] : ''));
+            lines.push(padded.join(';'));
+        });
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const stamp = new Date().toISOString().slice(0, 10);
+        p28DownloadBlob(blob, (basename || 'export') + '_' + stamp + '.csv');
+        msg(data.rows.length + ' ligne(s) exportée(s) en Excel (CSV).', 'ok');
+    }
+
+    function exportP28TablePdf(tableId, title) {
+        const table = document.getElementById(tableId);
+        const data = p28TableExportData(table);
+        if (!data || !data.headers.length) {
+            msg('Tableau introuvable.', 'err');
+            return;
+        }
+        if (!data.rows.length) {
+            msg('Aucune ligne à exporter (vérifiez les filtres).', 'err');
+            return;
+        }
+        const escHtml = (s) => String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const thead = '<tr>' + data.headers.map(h => '<th>' + escHtml(h) + '</th>').join('') + '</tr>';
+        const tbody = data.rows.map(row =>
+            '<tr>' + data.headers.map((_, i) => '<td>' + escHtml(row[i] != null ? row[i] : '') + '</td>').join('') + '</tr>'
+        ).join('');
+        const w = window.open('', '_blank');
+        if (!w) {
+            msg('Autorisez les pop-ups pour l’export PDF.', 'err');
+            return;
+        }
+        const now = new Date();
+        w.document.write(`<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>${escHtml(title || 'Export')} – ${now.toLocaleDateString('fr-FR')}</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; padding: 16px; color: #111; }
+  h1 { font-size: 16pt; margin: 0 0 6px; color: #2e7d32; }
+  .meta { font-size: 9pt; color: #666; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  th, td { border: 1px solid #ccc; padding: 5px 6px; text-align: left; vertical-align: top; }
+  th { background: #e8f5e9; color: #1b5e20; font-weight: 700; }
+  tr:nth-child(even) td { background: #fafafa; }
+  @page { size: A4 landscape; margin: 10mm; }
+  @media print {
+    body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+  <h1>${escHtml(title || 'Export Projet 28')}</h1>
+  <p class="meta">Généré le ${escHtml(now.toLocaleDateString('fr-FR'))} à ${escHtml(now.toLocaleTimeString('fr-FR'))}
+ · ${data.rows.length} ligne(s)</p>
+  <table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+</body>
+</html>`);
+        w.document.close();
+        setTimeout(() => { w.focus(); w.print(); }, 350);
+    }
+
+    function buildLabelHtml(u, opts) {
+        opts = opts || {};
+        const forPrint = !!opts.forPrint;
         const entree = (u.NumOrdrePieceAffiche != null) ? u.NumOrdrePieceAffiche : (u.NumOrdrePiece != null ? u.NumOrdrePiece : '-');
         const ref = [u.DesignationType || u.CodeType, u.CodeFamille, u.CodeArticle].filter(Boolean).join(' · ');
-        const svgId = 'bc_' + u.ID;
+        const svgId = (forPrint ? 'pbc_' : 'bc_') + u.ID;
+        const logoUrl = {{ url_for('static', filename='logo-novaprint.png')|tojson }};
+        const dateRec = formatDateYMD(u.DateReception);
+        const pieces = u.ModeLabel || (u.Mode === 'P' ? 'Palette' : u.Mode === 'B' ? 'Bobine' : dash(u.Mode));
+        const qteSortie = (u.QteInitiale != null && u.QteRestante != null)
+            ? (Number(u.QteInitiale) - Number(u.QteRestante))
+            : '—';
+        const field = (label, value, cls) =>
+            `<div class="p28-label-field${cls ? ' ' + cls : ''}"><span class="k">${label} :</span><span class="v">${value}</span></div>`;
         return `
         <div class="p28-label" data-id="${u.ID}">
-            <div class="p28-label-title">NOVAPRINT – Matière première</div>
-            <div class="p28-label-grid">
-                <div><span class="k">Entrée n°</span> <span class="v">${dash(entree)}</span></div>
-                <div><span class="k">BR n°</span> <span class="v">—</span></div>
-                <div><span class="k">Date réception</span> <span class="v">${dash(u.DateReception)}</span></div>
-                <div><span class="k">Fournisseur</span> <span class="v">—</span></div>
-                <div class="full"><span class="k">Origine (ville / pays)</span> <span class="v">—</span></div>
-                <div class="full"><span class="k">Référence</span> <span class="v">${dash(ref)}</span></div>
-                <div><span class="k">Pièces</span> <span class="v">${dash(u.ModeLabel)}</span></div>
-                <div><span class="k">Unité</span> <span class="v">${dash(u.Unite)}</span></div>
-                <div><span class="k">Poids palette vide</span> <span class="v">—</span></div>
-                <div><span class="k">Dimension après coupe</span> <span class="v">${dash(u.Dimensions)}</span></div>
-                <div><span class="k">Quantité sortie</span> <span class="v">${(u.QteInitiale != null && u.QteRestante != null) ? (Number(u.QteInitiale) - Number(u.QteRestante)) : '—'}</span></div>
-                <div><span class="k">Quantité restante</span> <span class="v">${dash(u.QteRestante)} ${dash(u.Unite)}</span></div>
-                <div class="full"><span class="k">CodeId</span> <span class="v p28-mono">${dash(u.CodeId)}</span></div>
+            <div class="p28-label-header">
+                <img class="p28-label-logo" src="${logoUrl}" alt="Novaprint">
+                <div class="p28-label-title-wrap">
+                    <div class="p28-label-title">NOVAPRINT – Matière première</div>
+                    <div class="p28-label-subtitle">Étiquette palette / bobine · Code 128</div>
+                </div>
             </div>
-            <div class="p28-label-bc">
-                <svg id="${svgId}"></svg>
-                <div class="p28-label-payload">${dash(u.Payload)}</div>
+            <div class="p28-label-body">
+                <div class="p28-label-grid">
+                    ${field('Entrée n°', dash(entree))}
+                    ${field('BR n°', '—')}
+                    ${field('Date réception', dateRec)}
+                    ${field('Fournisseur', '—')}
+                    ${field('Origine (ville / pays)', '—')}
+                    ${field('Unité', dash(u.Unite))}
+                    ${field('Référence', dash(ref))}
+                    ${field('Dimension après coupe', dash(u.Dimensions))}
+                    ${field('Pièces', dash(pieces))}
+                    ${field('Quantité restante', dash(u.QteRestante) + ' ' + dash(u.Unite))}
+                    ${field('Poids palette vide', '—')}
+                    ${field('Quantité sortie', qteSortie)}
+                    ${field('CodeId', dash(u.CodeId), 'span2')}
+                </div>
+                <div class="p28-label-bc">
+                    <svg id="${svgId}"></svg>
+                    <div class="p28-label-payload">${dash(u.Payload)}</div>
+                </div>
             </div>
         </div>`;
     }
 
-    function mountLabels(unites, previewEl, printEl) {
-        const html = unites.map(buildLabelHtml).join('');
-        if (previewEl) previewEl.innerHTML = html;
-        if (printEl) printEl.innerHTML = html;
-        unites.forEach(u => {
-            const nodes = document.querySelectorAll(`svg#bc_${u.ID}`);
-            nodes.forEach(svg => renderBarcode(svg, u.Payload));
+    function mountLabels(unites, previewEl) {
+        if (previewEl) {
+            previewEl.innerHTML = unites.map(u => buildLabelHtml(u, { forPrint: false })).join('');
+            unites.forEach(u => {
+                const svg = previewEl.querySelector('svg#bc_' + u.ID);
+                if (svg) renderBarcode(svg, u.Payload);
+            });
+        }
+    }
+
+    function printLabelsA5(unites) {
+        if (!unites || !unites.length) {
+            msg('Aucune étiquette à imprimer.', 'err');
+            return;
+        }
+        const labelsHtml = unites.map(u => buildLabelHtml(u, { forPrint: true })).join('\n');
+        const barcodeCdn = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+        const payloads = unites.map(u => ({ id: u.ID, payload: u.Payload }));
+        const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Étiquettes MP – plein page</title>
+<style>
+  @page { size: A4 landscape; margin: 6mm; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: #fff;
+  }
+  .p28-label {
+    /* Zone utile A4 paysage − marges 6 mm : 285 × 198 mm */
+    width: 285mm;
+    height: 198mm;
+    padding: 4.2cqh 3.9cqw 3.5cqh;
+    margin: 0;
+    border: 0;
+    outline: 1px solid #000;
+    outline-offset: -1px;
+    display: flex;
+    flex-direction: column;
+    page-break-after: always;
+    break-after: page;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    container-type: size;
+  }
+  .p28-label:last-child { page-break-after: auto; break-after: auto; }
+  .p28-label-header {
+    display: flex;
+    align-items: center;
+    gap: 2.4cqw;
+    flex-shrink: 0;
+    padding-bottom: 2.1cqh;
+    border-bottom: 0.2cqh solid #111;
+  }
+  .p28-label-logo {
+    height: 9cqh; width: auto; max-width: 19cqw; object-fit: contain;
+  }
+  .p28-label-title-wrap { flex: 1; min-width: 0; }
+  .p28-label-title {
+    font-size: 4.3cqh; font-weight: 700; margin: 0; line-height: 1.1;
+  }
+  .p28-label-subtitle {
+    margin: 0.7cqh 0 0; font-size: 2.2cqh; color: #555; font-weight: 500;
+  }
+  .p28-label-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    flex: 1;
+    min-height: 0;
+    gap: 5.5cqh;
+    padding-top: 2.8cqh;
+  }
+  .p28-label-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 4.8cqw;
+    row-gap: 4.2cqh;
+    align-content: start;
+    flex: 0 0 auto;
+  }
+  .p28-label-field {
+    display: flex;
+    align-items: baseline;
+    gap: 1cqw;
+    min-width: 0;
+    line-height: 1.25;
+  }
+  .p28-label-field.span2 { grid-column: 1 / -1; }
+  .p28-label-field .k {
+    flex-shrink: 0;
+    font-size: 2.55cqh;
+    color: #555;
+    font-weight: 400;
+  }
+  .p28-label-field .v {
+    font-size: 2.8cqh;
+    font-weight: 700;
+    color: #000;
+    min-width: 0;
+    word-break: break-word;
+  }
+  .p28-label-bc {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    width: 100%;
+    flex: 0 0 auto;
+    margin-top: 0.7cqh;
+    padding-top: 2.1cqh;
+    border-top: 0.15cqh solid #111;
+  }
+  .p28-label-bc svg {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+    height: 12.2cqh !important;
+  }
+  .p28-label-payload {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 2.8cqh; font-weight: 700;
+    margin-top: 1.4cqh; line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+${labelsHtml}
+<script src="${barcodeCdn}"><\/script>
+<script>
+(function () {
+  var items = ${JSON.stringify(payloads)};
+  function draw() {
+    items.forEach(function (it) {
+      var svg = document.getElementById('pbc_' + it.id);
+      if (!svg || !it.payload || typeof JsBarcode === 'undefined') return;
+      try {
+        JsBarcode(svg, it.payload, {
+          format: 'CODE128',
+          displayValue: false,
+          margin: 0,
+          height: 110,
+          width: 3.2
         });
+      } catch (e) {}
+    });
+    setTimeout(function () {
+      window.focus();
+      window.print();
+    }, 250);
+  }
+  if (document.readyState === 'complete') draw();
+  else window.addEventListener('load', draw);
+})();
+<\/script>
+</body>
+</html>`;
+        const w = window.open('', '_blank');
+        if (!w) {
+            msg('Autorisez les pop-ups pour imprimer les étiquettes.', 'err');
+            return;
+        }
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
     }
 
     function printSheet() {
-        window.print();
+        /* compat : plus utilisé — l’impression passe par printLabelsA5 */
     }
 
     // ----- Mise en place / inventaire -----
@@ -869,6 +1284,66 @@
             return cls;
         }
 
+        function formatInvEcart(qStock, qInv) {
+            const s = parseFloat(qStock);
+            const i = parseFloat(qInv);
+            if (!Number.isFinite(s) || !Number.isFinite(i)) {
+                return { text: '—', title: '' };
+            }
+            const e = i - s;
+            const rounded = Math.round(e * 1000) / 1000;
+            const text = (rounded > 0 ? '+' : '') + String(rounded);
+            return { text: text, title: 'Écart = Qté inventoriée − Qté stock' };
+        }
+
+        function updateInvRowEcart(tr) {
+            if (!tr) return;
+            const s = tr._stock;
+            const cell = tr.querySelector('.inv-ecart');
+            if (!s || !cell) return;
+            const inp = tr.querySelector('.inv-qte-edit');
+            const qInv = inp ? parseFloat(String(inp.value).replace(',', '.')) : s.QteInventorieeDefaut;
+            const fmt = formatInvEcart(s.QteStock, qInv);
+            cell.textContent = fmt.text;
+            cell.title = fmt.title;
+            cell.style.fontWeight = '700';
+            const e = parseFloat(String(fmt.text).replace('+', ''));
+            if (!Number.isFinite(e) || Math.abs(e) < 0.001) {
+                cell.style.color = '#2e7d32';
+            } else if (e > 0) {
+                cell.style.color = '#1565c0';
+            } else {
+                cell.style.color = '#c62828';
+            }
+        }
+
+        function updateInvSommeLignes() {
+            const el = document.getElementById('inv-somme-lignes');
+            if (!el) return;
+            let total = 0;
+            let n = 0;
+            document.querySelectorAll('#tbl-inv-lignes tbody .inv-ligne-qte').forEach(inp => {
+                const q = parseFloat(String(inp.value || '').replace(',', '.'));
+                if (Number.isFinite(q) && q > 0) {
+                    total += q;
+                    n += 1;
+                }
+            });
+            if (!n) {
+                el.value = '—';
+                el.style.color = '#666';
+                return;
+            }
+            const rounded = Math.round(total * 1000) / 1000;
+            el.value = String(rounded);
+            const cible = parseFloat(String(document.getElementById('inv-qte-cible').value || '').replace(',', '.'));
+            if (Number.isFinite(cible) && Math.abs(rounded - cible) > 0.001) {
+                el.style.color = '#c62828';
+            } else {
+                el.style.color = '#2e7d32';
+            }
+        }
+
         function rebuildInvLignes(opts) {
             opts = opts || {};
             const raw = (document.getElementById('inv-nb').value || '').trim();
@@ -880,6 +1355,7 @@
                 } else {
                     document.querySelector('#tbl-inv-lignes tbody').innerHTML =
                         '<tr><td colspan="3" style="color:#666;">Indiquez un nombre d’unités (1–999).</td></tr>';
+                    updateInvSommeLignes();
                     return;
                 }
             }
@@ -902,8 +1378,12 @@
                     <td>${baseSeq + i}</td>
                     <td><input type="number" class="inv-ligne-qte" min="0.001" step="any" value="${old.qte || ''}" style="width:110px;"></td>
                     <td><input type="text" class="inv-ligne-dim" value="${old.dim || ''}" style="width:100%;"></td>`;
+                const qInp = tr.querySelector('.inv-ligne-qte');
+                qInp.addEventListener('input', updateInvSommeLignes);
+                qInp.addEventListener('change', updateInvSommeLignes);
                 tb.appendChild(tr);
             }
+            updateInvSommeLignes();
         }
 
         function collectInvLignes() {
@@ -992,10 +1472,12 @@
                 inp.value = s.QteInventorieeSaisie;
                 flashInvInput(inp, true);
                 refreshInvBlueRows();
+                updateInvRowEcart(tr);
                 if (selectedInv && selectedInv.ID_STOCK === s.ID_STOCK) {
                     document.getElementById('inv-qte-cible').value = s.QteInventorieeSaisie;
                     selectedInv.QteInventorieeSaisie = s.QteInventorieeSaisie;
                     selectedInv.QteInventorieeDefaut = s.QteInventorieeSaisie;
+                    updateInvSommeLignes();
                 }
                 if (!opts.silent) {
                     msg('Qté inventoriée enregistrée (stock ' + s.ID_STOCK + ').', 'ok');
@@ -1008,7 +1490,7 @@
 
         function loadStocks() {
             const q = document.getElementById('inv-q').value.trim();
-            const url = '/projet28/api/stocks-inventaire?limit=150' + (q ? '&q=' + encodeURIComponent(q) : '');
+            const url = '/projet28/api/stocks-inventaire?limit=5000' + (q ? '&q=' + encodeURIComponent(q) : '');
             api(url).then(data => {
                 const rows = Array.isArray(data) ? data : (data.stocks || []);
                 const camp = (!Array.isArray(data) && data.campagne) ? data.campagne : null;
@@ -1023,6 +1505,7 @@
                     const qDef = s.QteInventorieeDefaut != null ? s.QteInventorieeDefaut : s.QteStock;
                     const cls = rowClassFor(s, qDef);
                     if (cls) tr.classList.add(cls);
+                    const ec0 = formatInvEcart(s.QteStock, qDef);
                     tr.innerHTML = `
                         <td>${s.ID_STOCK}</td>
                         <td>${dash(s.CodeType)}</td>
@@ -1031,26 +1514,31 @@
                         <td>${dash(s.QteStock)}</td>
                         <td>${dash(s.Unite)}</td>
                         <td><input type="number" class="inv-qte-edit" min="0.001" step="any" value="${qDef}" style="width:100px;"></td>
+                        <td class="inv-ecart" title="${ec0.title}">${ec0.text}</td>
                         <td class="p28-mono">${dash(s.ID_MVT_Affiche)}</td>
                         <td>${dash(s.NumOrdrePieceAffiche)}</td>
                         <td>${s.QteMvt != null ? s.QteMvt : '—'}</td>
                         <td>${s.SumQteDejaControl != null ? s.SumQteDejaControl : (s.SumQteInvGeneree || 0)}</td>
                         <td style="font-size:0.75rem;max-width:220px;">${dash(s.InfoAlerte)}</td>`;
+                    updateInvRowEcart(tr);
                     tr.addEventListener('click', (ev) => {
                         if (ev.target && ev.target.classList.contains('inv-qte-edit')) return;
                         applyInvSelection(s);
                         tr.classList.add('selected');
                         const qEl = tr.querySelector('.inv-qte-edit');
                         if (qEl) document.getElementById('inv-qte-cible').value = qEl.value;
+                        updateInvSommeLignes();
                     });
                     const qInp = tr.querySelector('.inv-qte-edit');
                     qInp._dirty = false;
                     qInp.addEventListener('input', () => {
                         qInp._dirty = true;
+                        updateInvRowEcart(tr);
                         refreshInvBlueRows();
                         applyColumnFilters(document.getElementById('tbl-inv'));
                         if (selectedInv && selectedInv.ID_STOCK === s.ID_STOCK) {
                             document.getElementById('inv-qte-cible').value = qInp.value;
+                            updateInvSommeLignes();
                         }
                     });
                     qInp.addEventListener('keydown', (e) => {
@@ -1077,17 +1565,24 @@
                     tbodyInv.appendChild(tr);
                 });
                 applyColumnFilters(document.getElementById('tbl-inv'));
-                if (!(rows || []).length) msg('Aucun stock MP avec QteStock > 0.', 'info');
+                if (!(rows || []).length) msg('Aucun stock MP avec QteStock >= 1.', 'info');
             }).catch(e => msg(e.message, 'err'));
         }
 
         document.getElementById('btn-search-inv').addEventListener('click', loadStocks);
+        document.getElementById('btn-export-inv-excel').addEventListener('click', () => {
+            exportP28TableExcel('tbl-inv', 'projet28_mise_en_place');
+        });
+        document.getElementById('btn-export-inv-pdf').addEventListener('click', () => {
+            exportP28TablePdf('tbl-inv', 'Projet 28 – Mise en place (inventaire stocks MP)');
+        });
         document.getElementById('inv-q').addEventListener('keydown', e => {
             if (e.key === 'Enter') loadStocks();
         });
         document.getElementById('inv-nb').addEventListener('input', () => rebuildInvLignes());
         document.getElementById('inv-nb').addEventListener('blur', () => rebuildInvLignes({ normalize: true }));
         document.getElementById('inv-mode').addEventListener('change', () => rebuildInvLignes());
+        document.getElementById('inv-qte-cible').addEventListener('input', updateInvSommeLignes);
 
         document.getElementById('btn-generer-inv').addEventListener('click', () => {
             if (!selectedInv) return msg('Sélectionnez un stock.', 'err');
@@ -1391,6 +1886,12 @@
             this.select();
         });
         document.getElementById('btn-search-mvt').addEventListener('click', loadMvt);
+        document.getElementById('btn-export-mvt-excel').addEventListener('click', () => {
+            exportP28TableExcel('tbl-mvt', 'projet28_generation_mouvements');
+        });
+        document.getElementById('btn-export-mvt-pdf').addEventListener('click', () => {
+            exportP28TablePdf('tbl-mvt', 'Projet 28 – Génération (mouvements d’entrée)');
+        });
         document.getElementById('gen-q').addEventListener('keydown', e => {
             if (e.key === 'Enter') loadMvt();
         });
@@ -1449,6 +1950,77 @@
     // ----- Unités -----
     if (section === 'unites') {
         const tbody = document.querySelector('#tbl-unites tbody');
+        const isSuper = {{ 'true' if is_super else 'false' }};
+        let corrigerUniteId = null;
+        let corrigerCampagne = null;
+
+        function formatCampagneCorr(c) {
+            if (!c) return '—';
+            const typ = c.TypeCampagneLabel || c.TypeCampagne || '';
+            const base = c.Libelle || c.CodeCampagne || '';
+            return base + (typ || c.CodeCampagne
+                ? ' [' + typ + (c.CodeCampagne ? ' · ' + c.CodeCampagne : '') + ']'
+                : '');
+        }
+
+        function renderCorrCampagneBox(camp, errMsg) {
+            const box = document.getElementById('corr-qte-campagne');
+            if (!box) return;
+            if (errMsg) {
+                box.className = 'p28-alert err';
+                box.innerHTML = errMsg;
+                return;
+            }
+            if (!camp) {
+                box.className = 'p28-alert err';
+                box.innerHTML = '<strong>Aucune campagne active.</strong> '
+                    + 'Activez d’abord la bonne campagne (Mise en place) avant de corriger.';
+                return;
+            }
+            box.className = 'p28-alert info';
+            box.innerHTML =
+                '<strong>Campagne impactée :</strong><br>'
+                + '<span style="font-size:1.05rem;color:#1b5e20;font-weight:700;">'
+                + formatCampagneCorr(camp) + '</span>'
+                + '<br><span style="font-size:0.85rem;">La quantité inventoriée de cette campagne '
+                + '(stock lié à l’unité) sera recalculée = somme des bobines/palettes.</span>';
+        }
+
+        function openCorrigerQte(u) {
+            corrigerUniteId = u.ID;
+            corrigerCampagne = null;
+            const modal = document.getElementById('p28-modal-corriger-qte');
+            const btnOk = document.getElementById('btn-corr-qte-ok');
+            btnOk.disabled = true;
+            renderCorrCampagneBox(null);
+            document.getElementById('corr-qte-campagne').className = 'p28-alert info';
+            document.getElementById('corr-qte-campagne').textContent = 'Chargement de la campagne active…';
+            document.getElementById('corr-qte-info').innerHTML =
+                '<strong>' + dash(u.CodeId) + '</strong> · ' + dash(u.CodeArticle)
+                + (u.ID_STOCK != null ? ' · Stock <strong>' + u.ID_STOCK + '</strong>' : '')
+                + '<br>Payload : <span class="p28-mono">' + dash(u.Payload) + '</span>'
+                + '<br>Qté actuelle : <strong>' + u.QteInitiale + '</strong> ' + dash(u.Unite);
+            document.getElementById('corr-qte-input').value = u.QteInitiale;
+            modal.style.display = 'flex';
+            api('/projet28/api/campagnes-inventaire').then(data => {
+                corrigerCampagne = data.campagne || null;
+                renderCorrCampagneBox(corrigerCampagne);
+                btnOk.disabled = !corrigerCampagne;
+                document.getElementById('corr-qte-input').focus();
+                document.getElementById('corr-qte-input').select();
+            }).catch(e => {
+                renderCorrCampagneBox(null, 'Impossible de charger la campagne : ' + e.message);
+                btnOk.disabled = true;
+            });
+        }
+
+        function closeCorrigerQte() {
+            corrigerUniteId = null;
+            corrigerCampagne = null;
+            const modal = document.getElementById('p28-modal-corriger-qte');
+            if (modal) modal.style.display = 'none';
+        }
+
         function load() {
             const q = document.getElementById('unites-q').value.trim();
             const st = document.getElementById('unites-statut').value;
@@ -1461,6 +2033,15 @@
                 document.getElementById('btn-print-selected').disabled = true;
                 rows.forEach(u => {
                     const tr = document.createElement('tr');
+                    tr._unite = u;
+                    let actions = '';
+                    if (isSuper) {
+                        const canEdit = u.Statut !== 'ANNULE' && u.Statut !== 'CONSOMME'
+                            && Math.abs(Number(u.QteRestante) - Number(u.QteInitiale)) <= 0.001;
+                        actions = canEdit
+                            ? '<button type="button" class="p28-btn outline btn-corriger-qte" style="padding:4px 10px;font-size:0.8rem;">Corriger qté</button>'
+                            : '<span style="color:#999;font-size:0.8rem;">—</span>';
+                    }
                     tr.innerHTML = `
                         <td><input type="checkbox" data-id="${u.ID}"></td>
                         <td class="p28-mono">${u.CodeId}</td>
@@ -1470,12 +2051,20 @@
                         <td>${u.QteRestante} / ${u.QteInitiale} ${u.Unite}</td>
                         <td>${u.OrigineLabel || u.Origine || 'Réception'}</td>
                         <td><span class="p28-badge ${u.Statut}">${u.StatutLabel}</span></td>
-                        <td>${u.NumOrdrePieceAffiche}</td>`;
+                        <td>${u.NumOrdrePieceAffiche}</td>
+                        ${isSuper ? '<td>' + actions + '</td>' : ''}`;
                     tr.querySelector('input').addEventListener('change', (e) => {
                         if (e.target.checked) selectedUniteIds.add(u.ID);
                         else selectedUniteIds.delete(u.ID);
                         document.getElementById('btn-print-selected').disabled = selectedUniteIds.size === 0;
                     });
+                    const btnCorr = tr.querySelector('.btn-corriger-qte');
+                    if (btnCorr) {
+                        btnCorr.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openCorrigerQte(u);
+                        });
+                    }
                     tbody.appendChild(tr);
                 });
                 msg(`${rows.length} unité(s).`, 'ok');
@@ -1485,6 +2074,58 @@
         document.getElementById('btn-print-selected').addEventListener('click', () => {
             window.location.href = '/projet28/etiquettes?ids=' + Array.from(selectedUniteIds).join(',');
         });
+        if (isSuper) {
+            document.getElementById('btn-corr-qte-cancel').addEventListener('click', closeCorrigerQte);
+            document.getElementById('p28-modal-corriger-qte').addEventListener('click', (e) => {
+                if (e.target.id === 'p28-modal-corriger-qte') closeCorrigerQte();
+            });
+            document.getElementById('btn-corr-qte-ok').addEventListener('click', () => {
+                if (!corrigerUniteId) return;
+                if (!corrigerCampagne) {
+                    return msg('Aucune campagne active : correction impossible.', 'err');
+                }
+                const qte = parseFloat(String(document.getElementById('corr-qte-input').value || '').replace(',', '.'));
+                if (!Number.isFinite(qte) || qte <= 0) return msg('Quantité invalide.', 'err');
+                const campLabel = formatCampagneCorr(corrigerCampagne);
+                if (!confirm(
+                    'Enregistrer la nouvelle quantité ' + qte + ' ?\n\n'
+                    + 'Campagne inventaire qui sera MODIFIÉE :\n'
+                    + campLabel + '\n\n'
+                    + 'Le payload ne change pas.\n'
+                    + 'Réimprimez l’étiquette et détruisez l’ancienne.'
+                )) return;
+                api('/projet28/api/unites/' + corrigerUniteId + '/corriger-qte', {
+                    method: 'POST',
+                    body: JSON.stringify({ qte: qte })
+                }).then(data => {
+                    const id = corrigerUniteId;
+                    closeCorrigerQte();
+                    let m = 'Quantité corrigée : ' + data.qte_avant + ' → ' + data.qte_apres
+                        + ' (payload inchangé).';
+                    if (data.inventaire) {
+                        m += ' Inventaire campagne <strong>'
+                            + (data.inventaire.code_campagne || '')
+                            + '</strong> (stock ' + data.inventaire.id_stock + ') : '
+                            + (data.inventaire.qte_avant != null ? data.inventaire.qte_avant : '—')
+                            + ' → ' + data.inventaire.qte_apres + '.';
+                    }
+                    m += ' Réimprimez l’étiquette.';
+                    msg(m, 'ok');
+                    load();
+                    if (confirm('Réimprimer maintenant l’étiquette corrigée ?')) {
+                        window.location.href = '/projet28/etiquettes?ids=' + id;
+                    }
+                }).catch(e => msg(e.message, 'err'));
+            });
+            document.getElementById('corr-qte-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('btn-corr-qte-ok').click();
+                } else if (e.key === 'Escape') {
+                    closeCorrigerQte();
+                }
+            });
+        }
         load();
     }
 
@@ -1685,22 +2326,35 @@
     // ----- Étiquettes -----
     if (section === 'etiquettes') {
         const preview = document.getElementById('etiq-preview');
-        const sheet = document.getElementById('p28-print-sheet');
+        let loadedUnites = [];
         function load() {
             const ids = document.getElementById('etiq-ids').value.trim();
             if (!ids) return msg('Indiquez des IDs.', 'err');
             api('/projet28/api/unites/by-ids?ids=' + encodeURIComponent(ids))
                 .then(rows => {
                     if (!rows.length) return msg('Aucune unité.', 'err');
-                    mountLabels(rows, preview, sheet);
-                    msg(`${rows.length} étiquette(s) prête(s).`, 'ok');
+                    loadedUnites = rows;
+                    mountLabels(rows, preview);
+                    msg(`${rows.length} étiquette(s) prête(s). Cliquez sur Imprimer.`, 'ok');
                 })
                 .catch(e => msg(e.message, 'err'));
         }
         document.getElementById('btn-load-etiq').addEventListener('click', load);
         document.getElementById('btn-print-etiq').addEventListener('click', () => {
-            if (!sheet.innerHTML.trim()) load();
-            setTimeout(printSheet, 300);
+            if (!loadedUnites.length) {
+                const ids = document.getElementById('etiq-ids').value.trim();
+                if (!ids) return msg('Indiquez des IDs.', 'err');
+                api('/projet28/api/unites/by-ids?ids=' + encodeURIComponent(ids))
+                    .then(rows => {
+                        if (!rows.length) return msg('Aucune unité.', 'err');
+                        loadedUnites = rows;
+                        mountLabels(rows, preview);
+                        printLabelsA5(rows);
+                    })
+                    .catch(e => msg(e.message, 'err'));
+                return;
+            }
+            printLabelsA5(loadedUnites);
         });
         if (document.getElementById('etiq-ids').value.trim()) load();
     }

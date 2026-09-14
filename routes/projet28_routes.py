@@ -318,6 +318,24 @@ def api_generer():
     })
 
 
+@projet28_bp.route('/api/unites/<int:unite_id>/corriger-qte', methods=['POST'])
+@login_required
+@projet28_access_required
+def api_corriger_qte_unite(unite_id):
+    """Correction quantité (payload inchangé) — super-utilisateurs uniquement."""
+    if not is_super_user():
+        return jsonify({'success': False, 'error': 'Réservé aux super-utilisateurs.'}), 403
+    data = request.get_json(silent=True) or {}
+    result, err = p28.corriger_qte_unite(
+        unite_id,
+        data.get('qte'),
+        utilisateur=_current_user_label(),
+    )
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    return jsonify({'success': True, **result})
+
+
 @projet28_bp.route('/api/unites')
 @login_required
 @projet28_access_required

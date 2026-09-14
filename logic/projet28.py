@@ -5,7 +5,7 @@ Payload Code 128 :
   MP{ID_MVT}{SEQ3};{TYPE_MP};{CODE_FAM};{CODE_ART};{P|B}
 """
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
 import unicodedata
 
@@ -79,6 +79,25 @@ def infer_mode_from_unite(unite):
     if 'palette' in u or u in ('pal', 'pals'):
         return 'P'
     return None
+
+
+def is_unite_feuille(unite):
+    """True si l'unité ERP correspond à des feuilles (arrondi stock à l'unité)."""
+    u = _strip_accents(unite or '').strip().lower()
+    return ('feuille' in u) or u in ('fl', 'flles', 'sheet', 'sheets')
+
+
+def arrondir_qte_si_feuille(qte, unite):
+    """
+    Pour les articles en feuilles, aligne la qté stock sur Graphisoft
+    (arrondi à l'unité, ex. 5299.957 → 5300). Autres unités : inchangé.
+    """
+    if qte is None or qte == '':
+        return None
+    q = _dec(qte)
+    if is_unite_feuille(unite):
+        return float(int(q.quantize(Decimal('1'), rounding=ROUND_HALF_UP)))
+    return float(q)
 
 
 def unite_stockage_from_mode(mode):
@@ -1099,16 +1118,16 @@ def get_article_contexte_stock(id_stock):
 
 def search_stocks_inventaire(q=None, limit=100, for_json=True):
     """
-    Stocks MP avec QteStock > 0 + dernière entrée TypePiece=C.
+    Stocks MP avec QteStock >= 1 + dernière entrée TypePiece=C.
     Couleurs / affichage ID MVT selon QteStockApres vs Quantite.
     Inclut la qté inventoriée saisie pour la campagne active.
     """
-    limit = max(1, min(int(limit or 100), 300))
+    limit = max(1, min(int(limit or 100), 5000))
     camp = get_campagne_active()
     code_camp = (camp or {}).get('CodeCampagne') or code_campagne_trimestre()
     clauses = [
         "T.CpteVarStk = ?",
-        "S.QteStock > 0",
+        "S.QteStock >= 1",
         "MAP.ID IS NOT NULL",
     ]
     params = [CPTE_VAR_STK_MP]
@@ -1196,13 +1215,19 @@ def _serialize_stock_inventaire(r, for_json=True):
         if isinstance(out.get(k), str):
             out[k] = out[k].strip()
 
+    unite = out.get('UniteMvt')
+    # Feuilles : arrondi à l'unité pour coller à l'état Graphisoft (ex. 5299.957 → 5300)
+    if out.get('QteStock') is not None:
+        out['QteStockBrute'] = float(out['QteStock'])
+        out['QteStock'] = arrondir_qte_si_feuille(out['QteStock'], unite)
+
     qte_stock = _dec(out.get('QteStock'))
     qte_mvt = out.get('QteMvt')
     qte_apres = out.get('QteStockApres')
     has_entree = out.get('ID_MVT') is not None
 
     out['HasEntreeC'] = has_entree
-    # Affichage : qté déjà saisie pour la campagne, sinon défaut = QteStock
+    # Affichage : qté déjà saisie pour la campagne, sinon défaut = QteStock (déjà arrondi si feuilles)
     if out.get('QteInventorieeSaisie') is not None:
         out['QteInventorieeDefaut'] = float(out['QteInventorieeSaisie'])
         out['InventaireSaisi'] = True
@@ -1268,7 +1293,6 @@ def _serialize_stock_inventaire(r, for_json=True):
         out['SumQteDejaControl'] = float(out.get('SumQteInvGeneree') or 0)
         out['MaxSequence'] = int(out.get('MaxSequenceInv') or 0)
 
-    unite = out.get('UniteMvt')
     mode_suggere = infer_mode_from_unite(unite)
     out['ModeSuggere'] = mode_suggere
     out['ModeSuggereLabel'] = (
@@ -1775,6 +1799,7 @@ ACTION_LABELS = {
     'ANNULATION_SORTIE': 'Annulation de sortie',
     'RETOUR_STOCK': 'Retour en stock',
     'INVENTAIRE_INITIAL': 'Inventaire initial',
+    'CORRECTION_QTE': 'Correction quantité',
 }
 
 
@@ -2056,6 +2081,163 @@ def retour_en_stock(unite_id, qte, utilisateur=None, lieu=None):
         'reste': float(new_reste),
     }
     return unite, info, None
+
+
+def unite_a_des_mouvements_stock(unite_id, cursor=None):
+    """True s'il existe des sorties / retours / annulations (hors consultation & inventaire initial)."""
+    sql = """
+        SELECT COUNT(*) FROM WEB_COD_BAR_MP_SCANS
+        WHERE ID_UNITE = ?
+          AND ActionScan IN (N'CONSOMMATION', N'RETOUR_STOCK', N'ANNULATION_SORTIE')
+    """
+    if cursor is not None:
+        cursor.execute(sql, (int(unite_id),))
+        return int(cursor.fetchone()[0] or 0) > 0
+    with get_db_cursor() as c:
+        c.execute(sql, (int(unite_id),))
+        return int(c.fetchone()[0] or 0) > 0
+
+
+def corriger_qte_unite(unite_id, nouvelle_qte, utilisateur=None):
+    """
+    Corrige QteInitiale / QteRestante d'une unité sans changer CodeId ni Payload.
+    Autorisé uniquement si aucune sortie/retour et reste = initiale (unité intacte).
+    Si l'unité est liée à un ID_STOCK, met à jour la qté inventoriée de la campagne
+    active = somme des QteInitiale des unités non annulées de ce stock.
+    """
+    qte = _dec(nouvelle_qte)
+    if qte <= 0:
+        return None, 'Quantité invalide (doit être > 0).'
+
+    camp = get_campagne_active()
+    code_camp = ((camp or {}).get('CodeCampagne') or '').strip() or None
+
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT ID, QteInitiale, QteRestante, Statut, Payload, CodeId, Mode, Unite,
+                   ID_STOCK, Origine
+            FROM WEB_COD_BAR_MP_UNITES WHERE ID = ?
+            """,
+            (int(unite_id),),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None, 'Unité introuvable.'
+        ancienne_init = _dec(row[1])
+        ancienne_reste = _dec(row[2])
+        statut = (row[3] or '').strip()
+        id_stock = row[8]
+        if statut == 'ANNULE':
+            return None, 'Unité annulée : correction impossible.'
+        if statut == 'CONSOMME':
+            return None, 'Unité consommée : correction impossible.'
+        if unite_a_des_mouvements_stock(unite_id, cursor=cursor):
+            return None, (
+                'Correction refusée : des mouvements de stock (sortie / retour) existent '
+                'sur ce code-barres. Annulez-les ou générez une nouvelle unité.'
+            )
+        if not _qte_eq(ancienne_reste, ancienne_init):
+            return None, (
+                'Correction refusée : la quantité restante diffère de la quantité initiale '
+                f'({float(ancienne_reste)} / {float(ancienne_init)}).'
+            )
+        new_statut = _statut_selon_reste(qte, qte)
+        cursor.execute(
+            """
+            UPDATE WEB_COD_BAR_MP_UNITES
+            SET QteInitiale = ?, QteRestante = ?, Statut = ?,
+                DateModification = GETDATE(), UtilisateurModification = ?
+            WHERE ID = ?
+            """,
+            (float(qte), float(qte), new_statut, utilisateur, int(unite_id)),
+        )
+
+        inventaire_info = None
+        if id_stock is not None:
+            if not code_camp:
+                cursor.connection.rollback()
+                return None, (
+                    'Correction impossible : aucune campagne d’inventaire active pour '
+                    'recalculer la quantité inventoriée.'
+                )
+            cursor.execute(
+                """
+                SELECT ISNULL(SUM(QteInitiale), 0)
+                FROM WEB_COD_BAR_MP_UNITES
+                WHERE ID_STOCK = ? AND Statut <> N'ANNULE'
+                """,
+                (int(id_stock),),
+            )
+            somme = _dec(cursor.fetchone()[0])
+            if somme <= 0:
+                cursor.connection.rollback()
+                return None, 'Somme des quantités unités invalide pour l’inventaire.'
+
+            cursor.execute(
+                """
+                SELECT ID, QteInventoriee FROM dbo.WEB_COD_BAR_MP_INVENTAIRE
+                WHERE CodeCampagne = ? AND ID_STOCK = ?
+                """,
+                (code_camp, int(id_stock)),
+            )
+            inv_row = cursor.fetchone()
+            qte_avant_inv = _dec(inv_row[1]) if inv_row else None
+            if inv_row:
+                cursor.execute(
+                    """
+                    UPDATE dbo.WEB_COD_BAR_MP_INVENTAIRE
+                    SET QteInventoriee = ?,
+                        Utilisateur = ?,
+                        DateModification = GETDATE()
+                    WHERE CodeCampagne = ? AND ID_STOCK = ?
+                    """,
+                    (float(somme), utilisateur, code_camp, int(id_stock)),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO dbo.WEB_COD_BAR_MP_INVENTAIRE
+                        (CodeCampagne, ID_STOCK, QteInventoriee, Utilisateur)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (code_camp, int(id_stock), float(somme), utilisateur),
+                )
+            inventaire_info = {
+                'code_campagne': code_camp,
+                'id_stock': int(id_stock),
+                'qte_avant': float(qte_avant_inv) if qte_avant_inv is not None else None,
+                'qte_apres': float(somme),
+            }
+
+        # Trace légère dans les scans (pas de motif métier demandé)
+        detail = (
+            f'qte_avant={float(ancienne_init)}; qte_apres={float(qte)}; payload_inchange=1'
+        )
+        if inventaire_info:
+            detail += (
+                f'; inventaire_stock={inventaire_info["id_stock"]}'
+                f'; inventaire_avant={inventaire_info["qte_avant"]}'
+                f'; inventaire_apres={inventaire_info["qte_apres"]}'
+            )
+        cursor.execute(
+            """
+            INSERT INTO WEB_COD_BAR_MP_SCANS
+                (ID_UNITE, PayloadScanne, ActionScan, Utilisateur, Detail)
+            VALUES (?, ?, N'CORRECTION_QTE', ?, ?)
+            """,
+            (int(unite_id), row[4], utilisateur, detail),
+        )
+        cursor.connection.commit()
+    unite = get_unite(unite_id=unite_id)
+    return {
+        'unite': unite,
+        'qte_avant': float(ancienne_init),
+        'qte_apres': float(qte),
+        'payload_inchange': True,
+        'code_id_inchange': True,
+        'inventaire': inventaire_info,
+    }, None
 
 
 def apercu_payload(id_mvt, sequence, mode):

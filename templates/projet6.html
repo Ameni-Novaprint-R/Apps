@@ -1619,6 +1619,7 @@ async function autocompleteCommande(input, index) {
         const meta = document.createElement('span');
         meta.className = 'p6-cmd-meta';
         const parts = [cmd.Client, cmd.Reference].filter(Boolean);
+        if (cmd.Termine) parts.push('clôturé');
         meta.textContent = parts.length ? (' — ' + parts.join(' — ')) : '';
         item.appendChild(num);
         item.appendChild(meta);

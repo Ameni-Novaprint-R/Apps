@@ -378,14 +378,29 @@ def api_ferie_delete(fid):
     return jsonify({'ok': True})
 
 
-@projet25_bp.route('/api/solde-fiches', methods=['GET'])
+@projet25_bp.route('/api/solde-fiches', methods=['GET', 'POST'])
 @login_required
 def api_solde_fiches():
     if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
         return jsonify({'error': 'Accès refusé'}), 403
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        fiche, err = p25_solde.creer_fiche_solde(data)
+        if err:
+            return jsonify({'error': err}), 400
+        return jsonify({'ok': True, 'fiche': fiche})
     annee = request.args.get('annee', type=int)
     q = request.args.get('q', '')
     return jsonify(p25_solde.list_fiches_solde(annee, q))
+
+
+@projet25_bp.route('/api/solde-fiches-sans-fiche')
+@login_required
+def api_solde_fiches_sans_fiche():
+    if not (p25.is_rh(session.get('matricule'), is_super_user()) or is_super_user()):
+        return jsonify({'error': 'Accès refusé'}), 403
+    annee = request.args.get('annee', type=int) or __import__('datetime').date.today().year
+    return jsonify(p25_solde.list_personel_sans_fiche(annee))
 
 
 @projet25_bp.route('/api/solde-fiches/<int:matricule>', methods=['GET', 'PATCH'])

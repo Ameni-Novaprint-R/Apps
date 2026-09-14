@@ -83,6 +83,11 @@ def init_solde_fiche_tables():
     with get_db_cursor() as cursor:
         for block in sql_blocks:
             cursor.execute(block)
+        # Migration : date d'embauche sur fiche solde
+        cursor.execute("""
+            IF COL_LENGTH('dbo.WEB_CONGE_SOLDE_FICHE', 'DateEmbauche') IS NULL
+            ALTER TABLE dbo.WEB_CONGE_SOLDE_FICHE ADD DateEmbauche DATE NULL
+        """)
         cursor.connection.commit()
 
 
@@ -106,6 +111,56 @@ def _parse_embauche_from_cell(val):
         except ValueError:
             return None
     return None
+
+
+def _parse_date_val(val):
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    if hasattr(val, 'date'):
+        try:
+            return val.date()
+        except Exception:
+            pass
+    if isinstance(val, str):
+        try:
+            return datetime.strptime(val[:10], '%Y-%m-%d').date()
+        except ValueError:
+            return _parse_embauche_from_cell(val)
+    return None
+
+
+def mois_acquis_pour_fiche(fiche, ref=None):
+    """
+    Nombre de mois acquis et 1er mois d'acquisition.
+    Si date d'embauche dans l'année de la fiche : départ = mois d'embauche.
+    Sinon (embauche antérieure / absente) : depuis janvier.
+    """
+    if ref is None:
+        ref = date.today()
+    annee = int(fiche.get('annee') or ref.year)
+    emb = _parse_date_val(fiche.get('date_embauche') or fiche.get('embauche'))
+
+    if emb is None or emb.year < annee:
+        premier = 1
+    elif emb.year > annee:
+        return 0, 13
+    else:
+        premier = emb.month
+
+    if ref.year < annee:
+        return 0, premier
+    if ref.year > annee:
+        dernier = 12
+    else:
+        dernier = ref.month
+
+    if dernier < premier:
+        return 0, premier
+    return dernier - premier + 1, premier
 
 
 def _parse_matricule_cell(val):
@@ -280,8 +335,9 @@ def calculer_fiche(fiche, ref=None):
     taux = _d(fiche.get('taux_mensuel') or Q15)
     reliquat = _d(fiche.get('reliquat_annee_precedente') or 0)
     fixe = _d(fiche.get('droit_fixe') or 0) if taux == Q15 else Decimal('0')
-    mois_ec = mois_complets_ecoules(ref)
+    mois_ec, premier_mois = mois_acquis_pour_fiche(fiche, ref)
     acquis_mois = taux * Decimal(mois_ec)
+    dernier_mois = (premier_mois + mois_ec - 1) if mois_ec > 0 else 0
 
     mensuel = fiche.get('mensuel') or {}
     pris_total = Decimal('0')
@@ -290,11 +346,12 @@ def calculer_fiche(fiche, ref=None):
         row = mensuel.get(m) or {}
         pris = _d(row.get('conge_accorde') or 0)
         pris_total += pris
+        acquis_ce_mois = _f2(taux) if (mois_ec > 0 and premier_mois <= m <= dernier_mois) else 0.0
         mois_data.append({
             'mois': m,
             'label': MOIS_LABELS[m - 1],
             'conge_accorde': _f2(pris),
-            'acquis': _f2(taux) if m <= mois_ec else 0.0,
+            'acquis': acquis_ce_mois,
             'source_import': _f2(row.get('source_import') or 0),
             'source_p25': _f2(row.get('source_p25') or 0),
         })
@@ -316,6 +373,7 @@ def calculer_fiche(fiche, ref=None):
         'droit_fixe': _f2(fixe) if taux == Q15 else None,
         'reliquat_annee_precedente': _f2(reliquat),
         'mois_ecoules': mois_ec,
+        'premier_mois_acquis': premier_mois if mois_ec > 0 else None,
         'acquis_periode': _f2(acquis_mois),
         'conges_accordes_total': _f2(pris_total),
         'solde_restant': _f2(solde),
@@ -351,7 +409,8 @@ def get_fiche_solde(matricule, annee=None, apply_p25=True):
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT Matricule, Annee, TauxMensuel, DroitFixe, DroitFixeManuel,
-                   DateProchaineAdditionFixe, ReliquatAnneePrecedente, Departement
+                   DateProchaineAdditionFixe, ReliquatAnneePrecedente, Departement,
+                   DateEmbauche
             FROM WEB_CONGE_SOLDE_FICHE WHERE Matricule = ? AND Annee = ?
         """, (m, annee))
         row = cursor.fetchone()
@@ -367,6 +426,7 @@ def get_fiche_solde(matricule, annee=None, apply_p25=True):
             if row.DateProchaineAdditionFixe else None,
             'reliquat_annee_precedente': _f2(row.ReliquatAnneePrecedente),
             'departement': row.Departement,
+            'date_embauche': row.DateEmbauche.isoformat() if getattr(row, 'DateEmbauche', None) else None,
             'mensuel': _load_mensuel(cursor, m, annee),
         }
     if apply_p25:
@@ -417,6 +477,7 @@ def list_fiches_solde(annee=None, q=''):
         cursor.execute("""
             SELECT F.Matricule, F.TauxMensuel, F.DroitFixe, F.DroitFixeManuel,
                    F.DateProchaineAdditionFixe, F.ReliquatAnneePrecedente, F.Departement,
+                   F.DateEmbauche,
                    P.Nom, P.Prenom
             FROM WEB_CONGE_SOLDE_FICHE F
             LEFT JOIN personel P ON P.Matricule = F.Matricule
@@ -442,6 +503,7 @@ def list_fiches_solde(annee=None, q=''):
             if r.DateProchaineAdditionFixe else None,
             'reliquat_annee_precedente': _f2(r.ReliquatAnneePrecedente),
             'departement': r.Departement,
+            'date_embauche': r.DateEmbauche.isoformat() if getattr(r, 'DateEmbauche', None) else None,
             'mensuel': mensuel,
         }
         fiche = apply_fixe_anniversary(fiche)
@@ -594,6 +656,12 @@ def update_fiche_rh(matricule, annee, data):
         if 'reliquat_annee_precedente' in data:
             sets.append('ReliquatAnneePrecedente=?')
             params.append(data['reliquat_annee_precedente'])
+        if 'date_embauche' in data:
+            sets.append('DateEmbauche=?')
+            params.append(data['date_embauche'] or None)
+        if 'departement' in data:
+            sets.append('Departement=?')
+            params.append(data['departement'] or None)
         if not sets:
             return True, None
         params.extend([m, annee])
@@ -603,6 +671,135 @@ def update_fiche_rh(matricule, annee, data):
         )
         cursor.connection.commit()
     return True, None
+
+
+def list_personel_sans_fiche(annee=None):
+    """Collaborateurs actifs sans fiche solde pour l'année."""
+    if annee is None:
+        annee = date.today().year
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT P.Matricule, P.Nom, P.Prenom
+            FROM personel P
+            WHERE (P.archive = 0 OR P.archive IS NULL)
+              AND NOT EXISTS (
+                SELECT 1 FROM WEB_CONGE_SOLDE_FICHE F
+                WHERE F.Matricule = P.Matricule AND F.Annee = ?
+              )
+            ORDER BY P.Nom, P.Prenom
+        """, (annee,))
+        return [
+            {
+                'matricule': r.Matricule,
+                'label': f"{(r.Nom or '').strip()} {(r.Prenom or '').strip()}".strip(),
+            }
+            for r in cursor.fetchall()
+        ]
+
+
+def creer_fiche_solde(data):
+    """
+    Crée une fiche solde sans Excel.
+    Obligatoire : matricule, annee, taux_mensuel (1.5 ou 2.17), date_embauche.
+    """
+    mat = _int_mat(data.get('matricule'))
+    if mat is None:
+        return None, "Collaborateur obligatoire."
+    try:
+        annee = int(data.get('annee') or date.today().year)
+    except (TypeError, ValueError):
+        return None, "Année invalide."
+
+    taux_raw = data.get('taux_mensuel')
+    if taux_raw is None or taux_raw == '':
+        return None, "Sélectionnez le régime (1,5 ou 2,17 j/mois)."
+    try:
+        taux = _f2(taux_raw)
+    except Exception:
+        return None, "Régime invalide."
+    if abs(taux - 1.5) > 0.01 and abs(taux - 2.17) > 0.01:
+        return None, "Le régime doit être 1,5 ou 2,17 j/mois."
+    regime_15 = abs(taux - 1.5) <= 0.01
+    taux = 1.5 if regime_15 else 2.17
+
+    emb_raw = data.get('date_embauche')
+    if not emb_raw:
+        return None, "La date d'embauche est obligatoire."
+    if isinstance(emb_raw, str):
+        try:
+            embauche = datetime.strptime(emb_raw[:10], '%Y-%m-%d').date()
+        except ValueError:
+            return None, "Date d'embauche invalide (AAAA-MM-JJ)."
+    else:
+        embauche = emb_raw
+
+    statut = _personel_statut(mat)
+    if statut == 'absent':
+        return None, f"Matricule {mat} introuvable dans personel."
+    if statut == 'archive':
+        return None, f"Matricule {mat} est archivé."
+
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            "SELECT ID FROM WEB_CONGE_SOLDE_FICHE WHERE Matricule=? AND Annee=?",
+            (mat, annee),
+        )
+        if cursor.fetchone():
+            return None, f"Une fiche existe déjà pour le matricule {mat} en {annee}."
+
+    reliquat = _f2(data.get('reliquat_annee_precedente') or 0)
+    dept = (data.get('departement') or '').strip() or None
+
+    fixe = None
+    next_add = None
+    fixe_manuel = False
+    if regime_15:
+        if data.get('droit_fixe') is not None and data.get('droit_fixe') != '':
+            try:
+                fixe = _f2(data.get('droit_fixe'))
+            except Exception:
+                return None, "Droit fixe invalide."
+            if fixe not in (0.0, 2.0, 4.0, 6.0, 8.0):
+                return None, "Droit fixe autorisé : 0, 2, 4, 6 ou 8."
+            fixe_manuel = True
+            next_raw = data.get('date_prochaine_addition_fixe')
+            if next_raw:
+                try:
+                    next_add = datetime.strptime(str(next_raw)[:10], '%Y-%m-%d').date()
+                except ValueError:
+                    return None, "Date prochaine addition invalide."
+            else:
+                _, next_add = _calc_fixe_nouvelle_embauche(embauche)
+        else:
+            fixe_dec, next_add = _calc_fixe_nouvelle_embauche(embauche)
+            fixe = _f2(fixe_dec)
+            next_raw = data.get('date_prochaine_addition_fixe')
+            if next_raw:
+                try:
+                    next_add = datetime.strptime(str(next_raw)[:10], '%Y-%m-%d').date()
+                except ValueError:
+                    return None, "Date prochaine addition invalide."
+
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO WEB_CONGE_SOLDE_FICHE (
+                Matricule, Annee, TauxMensuel, DroitFixe, DroitFixeManuel,
+                DateProchaineAdditionFixe, ReliquatAnneePrecedente, Departement,
+                DateEmbauche, DateDernierImport
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+        """, (
+            mat, annee, taux, fixe, 1 if fixe_manuel else 0,
+            next_add, reliquat, dept, embauche,
+        ))
+        for m in range(1, 13):
+            cursor.execute("""
+                INSERT INTO WEB_CONGE_SOLDE_MENSUEL
+                    (Matricule, Annee, Mois, CongeAccorde, SourceImport, SourceP25)
+                VALUES (?, ?, ?, 0, 0, 0)
+            """, (mat, annee, m))
+        cursor.connection.commit()
+
+    return get_fiche_solde(mat, annee, apply_p25=True), None
 
 
 def sync_p25_conges_to_mensuel(matricule, annee):

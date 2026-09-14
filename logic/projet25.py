@@ -18,7 +18,8 @@ EMAILS_RH_NOTIF = [
     if a.strip()
 ]
 NUM_PROJ = 25
-DELAI_MIN_HEURES = 24
+# Délai demande de congé : au plus tard la veille avant 16h30 (exception RH / super)
+HEURE_LIMITE_DEMANDE_CONGE = time(16, 30)
 UPLOAD_SUBDIR = 'uploads_projet25'
 
 STATUTS = ('EN_ATTENTE', 'VALIDE', 'REFUSE', 'ANNULE')
@@ -699,10 +700,14 @@ def creer_demande_conge(data, matricule_connecte, is_rh_user=False, is_super=Fal
     if d1o < now.date() and not (is_rh_user or is_super):
         return None, "Date de début dans le passé : réservé à la RH."
 
-    debut_dt = datetime.combine(d1o, time.min)
-    if debut_dt > now and (debut_dt - now).total_seconds() < DELAI_MIN_HEURES * 3600:
-        if not (is_rh_user or is_super):
-            return None, f"Délai minimum de {DELAI_MIN_HEURES} h avant le début non respecté."
+    # Au plus tard la veille avant 16h30 (sauf RH / super)
+    if not (is_rh_user or is_super):
+        limite = datetime.combine(d1o - timedelta(days=1), HEURE_LIMITE_DEMANDE_CONGE)
+        if now > limite:
+            return None, (
+                "La demande de congé doit être renseignée au plus tard "
+                "la veille avant 16h30. Contactez la RH pour une exception."
+            )
 
     if _chevauchement_conge(dem, d1o, d2o):
         return None, "Chevauchement avec une autre demande de congé."

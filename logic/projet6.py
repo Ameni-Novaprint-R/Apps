@@ -622,23 +622,15 @@ def api_commandes():
             return jsonify([])
         with get_db_cursor() as cur:
             like = f"%{q}%"
-            # Exclure si COMMANDES.Termine=1 OU une ligne voyage Termine=1 (comparaison normalisée)
             cur.execute("""
-                SELECT c.Numero, s.RaiSocTri as Client, c.QteComm, c.Reference
+                SELECT c.Numero, s.RaiSocTri as Client, c.QteComm, c.Reference,
+                       ISNULL(c.Termine, 0) AS Termine
                 FROM COMMANDES c
                 LEFT JOIN SOCIETES s ON c.ID_SOCIETE = s.ID
                 WHERE (
                     LTRIM(RTRIM(CAST(c.Numero AS NVARCHAR(100)))) COLLATE Latin1_General_CI_AI LIKE ?
                     OR ISNULL(s.RaiSocTri, '') COLLATE Latin1_General_CI_AI LIKE ?
                     OR ISNULL(c.Reference, '') COLLATE Latin1_General_CI_AI LIKE ?
-                )
-                AND ISNULL(c.Termine, 0) = 0
-                AND NOT EXISTS (
-                    SELECT 1
-                    FROM WEB_VOYAGE_LIGNES vl
-                    WHERE ISNULL(vl.Termine, 0) = 1
-                      AND LTRIM(RTRIM(ISNULL(vl.NumDossier, '')))
-                          = LTRIM(RTRIM(CAST(c.Numero AS NVARCHAR(100))))
                 )
                 ORDER BY c.Numero DESC
                 OFFSET 0 ROWS FETCH NEXT 25 ROWS ONLY
@@ -651,6 +643,7 @@ def api_commandes():
                     "Client": row[1],
                     "QteComm": row[2],
                     "Reference": row[3],
+                    "Termine": bool(row[4]),
                 }
                 for row in rows
             ]
